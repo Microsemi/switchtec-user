@@ -34,6 +34,8 @@ int switchtec_read_resp(int fd, void *resp, size_t resp_len);
 int switchtec_cmd(int fd,  uint32_t cmd, const void *payload,
 		  size_t payload_len, void *resp, size_t resp_len);
 
+int switchtec_echo(int fd, uint32_t input, uint32_t *output);
+
 #ifdef __cplusplus
 }
 #endif

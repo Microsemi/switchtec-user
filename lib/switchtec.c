@@ -14,6 +14,7 @@
  */
 
 #include "switchtec/switchtec.h"
+#include "switchtec/mrpc.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -82,3 +83,8 @@ int switchtec_cmd(int fd,  uint32_t cmd, const void *payload,
 	return switchtec_read_resp(fd, resp, resp_len);
 }
 
+int switchtec_echo(int fd, uint32_t input, uint32_t *output)
+{
+	return switchtec_cmd(fd, MRPC_ECHO, &input, sizeof(input),
+			     output, sizeof(output));
+}
