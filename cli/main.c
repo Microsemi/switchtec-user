@@ -47,6 +47,9 @@ static struct program switchtec = {
 	.extensions = &builtin,
 };
 
+static struct {} empty_cfg;
+const struct argconfig_commandline_options empty_opts[] = {{NULL}};
+
 static void check_arg_dev(int argc, char **argv)
 {
 	if (optind >= argc) {
@@ -79,14 +82,9 @@ static int list(int argc, char **argv, struct command *cmd,
 	const char *desc = "List all the switchtec devices on this machine";
 	struct dirent **devices;
 	unsigned int i, n;
-	struct config {
-	} cfg;
 
-	const struct argconfig_commandline_options opts[] = {
-		{NULL}
-	};
-
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, desc, empty_opts, &empty_cfg,
+			sizeof(empty_cfg));
 
 	n = scandir(sys_path, &devices, scan_dev_filter, alphasort);
 	if (n <= 0)
@@ -106,14 +104,8 @@ static int test(int argc, char **argv, struct command *cmd,
 	uint32_t in, out;
 	const char *desc = "Test if switchtec interface is working";
 
-	struct config {
-	} cfg;
-
-	const struct argconfig_commandline_options opts[] = {
-		{NULL}
-	};
-
-	fd = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	fd = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
+			    sizeof(empty_cfg));
 
 	in = time(NULL);
 
