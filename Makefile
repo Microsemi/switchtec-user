@@ -21,6 +21,7 @@ PREFIX ?= /usr/local
 
 BINDIR ?= $(DESTDIR)$(PREFIX)/bin
 LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
+SYSCONFDIR ?= $(DESTDIR)/etc
 
 CPPFLAGS=-Iinc -I.
 CFLAGS=-g -O2 -fPIC -Wall
@@ -68,7 +69,14 @@ switchtec: $(CLI_OBJS) libswitchtec.a
 clean:
 	$(Q)rm -rf libswitchtec.a libswitchtec.so switchtec build version.h
 
-install: compile
+install-bash-completion:
+	@$(NQ) echo "  INSTALL  $(SYSCONFDIR)/bash_completion.d/"\
+		"bash-switchtec-completion.sh"
+	$(Q)install -d $(SYSCONFDIR)/bash_completion.d
+	$(Q)install -m 644 -T ./completions/bash-switchtec-completion.sh \
+		$(SYSCONFDIR)/bash_completion.d/switchtec
+
+install-bin: compile
 	$(Q)install -d $(BINDIR) $(LIBDIR)
 
 	@$(NQ) echo "  INSTALL  $(BINDIR)/switchtec"
@@ -83,6 +91,8 @@ install: compile
 
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)ldconfig
+
+install: install-bin install-bash-completion
 
 uninstall:
 	@$(NQ) echo "  UNINSTALL  $(BINDIR)/switchtec"
@@ -102,7 +112,8 @@ dist:
 	xz -f $(PKG)
 	rm -f version
 
-.PHONY: clean compile install unintsall FORCE
+.PHONY: clean compile install unintsall install-bin install-bash-completion
+.PHONY: FORCE
 
 
 -include $(patsubst %.o,%.d,$(LIB_OBJS))
