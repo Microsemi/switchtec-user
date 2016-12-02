@@ -16,12 +16,23 @@
 #ifndef LIBSWITCHTEC_SWITCHTEC_H
 #define LIBSWITCHTEC_SWITCHTEC_H
 
+#include <stdlib.h>
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 int switchtec_open(const char * path);
 void switchtec_close(int fd);
+
+int switchtec_submit_cmd(int fd, uint32_t cmd, const void *payload,
+			 size_t payload_len);
+
+int switchtec_read_resp(int fd, void *resp, size_t resp_len);
+
+int switchtec_cmd(int fd,  uint32_t cmd, const void *payload,
+		  size_t payload_len, void *resp, size_t resp_len);
 
 #ifdef __cplusplus
 }
