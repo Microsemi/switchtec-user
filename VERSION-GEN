@@ -23,6 +23,7 @@
 ########################################################################
 
 GVF=version.h
+MVF=version.mk
 DEF_VER=v1.0
 
 LF='
@@ -43,6 +44,7 @@ else
 fi
 
 VN=$(expr "$VN" : v*'\(.*\)')
+MVN=$(expr "$VN" : v*'\([0-9.]*\)')
 
 if test -r $GVF
 then
@@ -56,4 +58,5 @@ fi
 test "$VN" = "$VC" || {
 	echo "  VER   $VN"
 	echo "#define VERSION \"$VN\"" >$GVF
+	echo "VERSION=$MVN" >$MVF
 }

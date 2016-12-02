@@ -3,3 +3,4 @@ build
 *.so
 /switchtec
 version.h
+version.mk
