@@ -16,6 +16,8 @@
 #ifndef LIBSWITCHTEC_SWITCHTEC_H
 #define LIBSWITCHTEC_SWITCHTEC_H
 
+#include <linux/limits.h>
+
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -23,8 +25,15 @@
 extern "C" {
 #endif
 
+struct switchtec_device {
+	char name[256];
+	char pci_dev[256];
+	char path[PATH_MAX];
+};
+
 int switchtec_open(const char * path);
 void switchtec_close(int fd);
+int switchtec_list(struct switchtec_device **devlist);
 
 int switchtec_submit_cmd(int fd, uint32_t cmd, const void *payload,
 			 size_t payload_len);

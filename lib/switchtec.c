@@ -19,9 +19,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <endian.h>
+#include <dirent.h>
+#include <libgen.h>
 
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
+
+static const char *sys_path = "/sys/class/switchtec";
 
 int switchtec_open(const char * path)
 {
@@ -31,6 +36,56 @@ int switchtec_open(const char * path)
 void switchtec_close(int fd)
 {
 	close(fd);
+}
+
+static int scan_dev_filter(const struct dirent *d)
+{
+	if (d->d_name[0] == '.')
+		return 0;
+
+	return 1;
+}
+
+int switchtec_list(struct switchtec_device **devlist)
+{
+	struct dirent **devices;
+	int i, n;
+	char link_path[PATH_MAX];
+	char pci_path[PATH_MAX];
+	struct switchtec_device *dl;
+
+	n = scandir(sys_path, &devices, scan_dev_filter, alphasort);
+	if (n <= 0)
+		return n;
+
+	dl = *devlist = calloc(n, sizeof(struct switchtec_device));
+
+	if (dl == NULL) {
+		for (i = 0; i < n; i++)
+			free(devices[n]);
+		free(devices);
+		errno=ENOMEM;
+		return -errno;
+	}
+
+	for (i = 0; i < n; i++) {
+		snprintf(dl[i].name, sizeof(dl[i].name),
+			 "%s", devices[i]->d_name);
+		snprintf(dl[i].path, sizeof(dl[i].path),
+			 "/dev/%s", devices[i]->d_name);
+
+
+		snprintf(link_path, sizeof(link_path), "%s/%s/device",
+			 sys_path, devices[i]->d_name);
+		readlink(link_path, pci_path, sizeof(pci_path));
+		snprintf(dl[i].pci_dev, sizeof(dl[i].pci_dev),
+			 "%s", basename(pci_path));
+
+		free(devices[n]);
+	}
+
+	free(devices);
+	return n;
 }
 
 int switchtec_submit_cmd(int fd, uint32_t cmd, const void *payload,

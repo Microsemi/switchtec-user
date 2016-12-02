@@ -19,7 +19,6 @@
 
 #include <switchtec/switchtec.h>
 
-#include <dirent.h>
 #include <locale.h>
 #include <time.h>
 
@@ -28,8 +27,6 @@
 
 #define CREATE_CMD
 #include "builtin.h"
-
-static const char *sys_path = "/sys/class/switchtec";
 
 static const char version_string[] = VERSION;
 
@@ -68,31 +65,25 @@ int parse_and_open(int argc, char **argv, const char *desc,
 	return switchtec_open(argv[optind]);
 }
 
-static int scan_dev_filter(const struct dirent *d)
-{
-	if (d->d_name[0] == '.')
-		return 0;
-
-	return 1;
-}
 
 static int list(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {
+	struct switchtec_device *devices;
+	int i, n;
 	const char *desc = "List all the switchtec devices on this machine";
-	struct dirent **devices;
-	unsigned int i, n;
 
 	argconfig_parse(argc, argv, desc, empty_opts, &empty_cfg,
 			sizeof(empty_cfg));
 
-	n = scandir(sys_path, &devices, scan_dev_filter, alphasort);
-	if (n <= 0)
+	n = switchtec_list(&devices);
+	if (n < 0)
 		return n;
 
 	for (i = 0; i < n; i++)
-		printf("/dev/%s\n", devices[i]->d_name);
+		printf("%-20s %s\n", devices[i].path, devices[i].pci_dev);
 
+	free(devices);
 	return 0;
 }
 
