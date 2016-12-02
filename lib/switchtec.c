@@ -18,6 +18,7 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <endian.h>
 
 #include <errno.h>
 #include <string.h>
@@ -38,6 +39,7 @@ int switchtec_submit_cmd(int fd, uint32_t cmd, const void *payload,
 	int ret;
 	char buf[payload_len + sizeof(cmd)];
 
+	cmd = htole32(cmd);
 	memcpy(buf, &cmd, sizeof(cmd));
 	memcpy(&buf[sizeof(cmd)], payload, payload_len);
 
