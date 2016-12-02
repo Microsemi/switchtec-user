@@ -16,8 +16,14 @@
 #include "switchtec/switchtec.h"
 
 #include <fcntl.h>
+#include <unistd.h>
 
 int switchtec_open(const char * path)
 {
 	return open(path, O_RDWR | O_CLOEXEC);
+}
+
+void switchtec_close(int fd)
+{
+	close(fd);
 }

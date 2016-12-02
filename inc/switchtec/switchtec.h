@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 int switchtec_open(const char * path);
-
+void switchtec_close(int fd);
 
 #ifdef __cplusplus
 }
