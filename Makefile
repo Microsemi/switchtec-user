@@ -94,6 +94,14 @@ uninstall:
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)ldconfig
 
+PKG=switchtec-$(FULL_VERSION)
+dist:
+	git archive --format=tar --prefix=$(PKG)/ HEAD > $(PKG).tar
+	@echo $(FULL_VERSION) > version
+	tar -rf $(PKG) version
+	xz -f $(PKG)
+	rm -f version
+
 .PHONY: clean compile install unintsall FORCE
 
 
