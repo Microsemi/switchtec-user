@@ -16,7 +16,7 @@
 
 OBJDIR=build
 
-CPPFLAGS=-Iinc
+CPPFLAGS=-Iinc -I.
 CFLAGS=-g -O2 -fPIC -Wall
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 
@@ -33,6 +33,10 @@ NQ=:
 endif
 
 compile: libswitchtec.a libswitchtec.so switchtec
+
+version.h: FORCE
+	@$(SHELL_PATH) ./VERSION-GEN
+$(OBJDIR)/cli/main.o: version.h
 
 $(OBJDIR):
 	$(Q)mkdir -p $(OBJDIR)/cli $(OBJDIR)/lib
@@ -54,8 +58,9 @@ switchtec: $(CLI_OBJS) libswitchtec.a
 	$(Q)$(LINK.o) $^ -o $@
 
 clean:
-	$(Q)rm -rf libswitchtec.a libswitchtec.so switchtec build
-.PHONY: clean compile
+	$(Q)rm -rf libswitchtec.a libswitchtec.so switchtec build version.h
+
+.PHONY: clean compile FORCE
 
 
 -include $(patsubst %.o,%.d,$(LIB_OBJS))

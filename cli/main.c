@@ -15,6 +15,7 @@
 
 #include "plugin.h"
 #include "argconfig.h"
+#include "version.h"
 
 #include <switchtec/switchtec.h>
 
@@ -29,7 +30,7 @@
 
 static const char *sys_path = "/sys/class/switchtec";
 
-static const char version_string[] = "TODO-VERESION";
+static const char version_string[] = VERSION;
 
 static struct plugin builtin = {
 	.commands = commands,

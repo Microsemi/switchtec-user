@@ -1,0 +1,59 @@
+#!/bin/sh
+########################################################################
+#
+# Copyright 2016 Keith Busch
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+#
+# Forked off of nvme-cli:
+#   https://github.com/linux-nvme/nvme-cli/
+#
+########################################################################
+
+GVF=version.h
+DEF_VER=v1.0
+
+LF='
+'
+
+# First see if there is a version file (included in release tarballs),
+# then try git-describe, then default.
+if test -f version; then
+	VN=$(cat version) || VN="$DEF_VER"
+elif test -d .git -o -f .git; then
+    VN=$(git describe --always --tags --match "v[0-9]*" HEAD 2>/dev/null)
+
+    git update-index -q --refresh
+    test -z "$(git diff-index --name-only HEAD --)" ||
+        VN="$VN-dirty"
+else
+	VN="$DEF_VER"
+fi
+
+VN=$(expr "$VN" : v*'\(.*\)')
+
+if test -r $GVF
+then
+	VC=$(sed -e 's/^#define VERSION //' <$GVF)
+	VC="${VC%\"}"
+	VC="${VC#\"}"
+else
+	VC=unset
+fi
+
+test "$VN" = "$VC" || {
+	echo "  VER   $VN"
+	echo "#define VERSION \"$VN\"" >$GVF
+}
