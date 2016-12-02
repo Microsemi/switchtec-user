@@ -21,6 +21,7 @@
 
 #include <dirent.h>
 #include <locale.h>
+#include <time.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -45,6 +46,24 @@ static struct program switchtec = {
                 "(ex: /dev/switchtec0)",
 	.extensions = &builtin,
 };
+
+static void check_arg_dev(int argc, char **argv)
+{
+	if (optind >= argc) {
+		errno = EINVAL;
+		perror(argv[0]);
+		exit(errno);
+	}
+}
+
+int parse_and_open(int argc, char **argv, const char *desc,
+		   const struct argconfig_commandline_options *clo,
+		   void *cfg, size_t size)
+{
+	argconfig_parse(argc, argv, desc, clo, cfg, size);
+	check_arg_dev(argc, argv);
+	return switchtec_open(argv[optind]);
+}
 
 static int scan_dev_filter(const struct dirent *d)
 {
@@ -78,6 +97,45 @@ static int list(int argc, char **argv, struct command *cmd,
 
 	return 0;
 }
+
+static int test(int argc, char **argv, struct command *cmd,
+		struct plugin *plugin)
+{
+	int fd;
+	int ret;
+	uint32_t in, out;
+	const char *desc = "Test if switchtec interface is working";
+
+	struct config {
+	} cfg;
+
+	const struct argconfig_commandline_options opts[] = {
+		{NULL}
+	};
+
+	fd = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	in = time(NULL);
+
+	ret = switchtec_echo(fd, in, &out);
+
+	if (ret) {
+		perror(argv[optind]);
+		return ret;
+	}
+
+	if (in != ~out) {
+		fprintf(stderr, "argv[optind]: echo command returned the "
+			"wrong result; got %x, expected %x\n",
+			out, ~in);
+		return 1;
+	}
+
+	fprintf(stderr, "%s: success\n", argv[optind]);
+
+	return 0;
+}
+
 
 int main(int argc, char **argv)
 {
