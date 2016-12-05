@@ -123,6 +123,10 @@ int switchtec_read_resp(int fd, void *resp, size_t resp_len)
 		return -EIO;
 
 	memcpy(&ret, buf, sizeof(ret));
+
+	if (!resp)
+		return ret;
+
 	memcpy(resp, &buf[sizeof(ret)], resp_len);
 
 	return ret;
@@ -144,4 +148,12 @@ int switchtec_echo(int fd, uint32_t input, uint32_t *output)
 {
 	return switchtec_cmd(fd, MRPC_ECHO, &input, sizeof(input),
 			     output, sizeof(output));
+}
+
+int switchtec_hard_reset(int fd)
+{
+	uint32_t subcmd = 0;
+
+	return switchtec_cmd(fd, MRPC_RESET, &subcmd, sizeof(subcmd),
+			     NULL, 0);
 }

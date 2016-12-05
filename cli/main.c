@@ -119,6 +119,25 @@ static int test(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int hard_reset(int argc, char **argv, struct command *cmd,
+		struct plugin *plugin)
+{
+	int fd;
+	int ret;
+	const char *desc = "Perform a hard reset on the switch";
+
+	fd = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
+			    sizeof(empty_cfg));
+
+	ret = switchtec_hard_reset(fd);
+	if (ret) {
+		perror(argv[optind]);
+		return ret;
+	}
+
+	fprintf(stderr, "%s: hard reset\n", argv[optind]);
+	return 0;
+}
 
 int main(int argc, char **argv)
 {

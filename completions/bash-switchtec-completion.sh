@@ -2,7 +2,7 @@
 # Based on file from nvme-cli:
 #   Kelly Kaoudis kelly.n.kaoudis at intel.com, Aug. 2015
 
-_cmds="list test help"
+_cmds="list test hard-reset help"
 
 _switchtec_list_opts () {
 	local opts=""
@@ -21,9 +21,6 @@ _switchtec_list_opts () {
 	case "$1" in
 		"list")
 		opts=" "
-			;;
-		"test")
-		opts+=" "
 			;;
 		"help")
 		opts=$_cmds
@@ -49,3 +46,4 @@ _switchtec_subcmds () {
 }
 
 complete -F _switchtec_subcmds switchtec
+complete -F _switchtec_subcmds ./switchtec
