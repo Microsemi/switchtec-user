@@ -108,8 +108,8 @@ PKG=switchtec-$(FULL_VERSION)
 dist:
 	git archive --format=tar --prefix=$(PKG)/ HEAD > $(PKG).tar
 	@echo $(FULL_VERSION) > version
-	tar -rf $(PKG) version
-	xz -f $(PKG)
+	tar -rf $(PKG).tar --xform="s%^%$(PKG)/%" version
+	xz -f $(PKG).tar
 	rm -f version
 
 .PHONY: clean compile install unintsall install-bin install-bash-completion
