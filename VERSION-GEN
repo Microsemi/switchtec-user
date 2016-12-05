@@ -22,9 +22,9 @@
 #
 ########################################################################
 
-GVF=version.h
-MVF=version.mk
-DEF_VER=v1.0
+GVF=build/version.h
+MVF=build/version.mk
+DEF_VER=v0.1
 
 LF='
 '

@@ -23,7 +23,7 @@ BINDIR ?= $(DESTDIR)$(PREFIX)/bin
 LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
 SYSCONFDIR ?= $(DESTDIR)/etc
 
-CPPFLAGS=-Iinc -I.
+CPPFLAGS=-Iinc -Ibuild
 CFLAGS=-g -O2 -fPIC -Wall
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 
@@ -42,10 +42,13 @@ endif
 
 compile: libswitchtec.a libswitchtec.so switchtec
 
-version.h version.mk: FORCE
+clean:
+	$(Q)rm -rf libswitchtec.a libswitchtec.so switchtec build
+
+$(OBJDIR)/version.h $(OBJDIR)/version.mk: FORCE $(OBJDIR)
 	@$(SHELL_PATH) ./VERSION-GEN
-$(OBJDIR)/cli/main.o: version.h
--include version.mk
+$(OBJDIR)/cli/main.o: $(OBJDIR)/version.h
+-include $(OBJDIR)/version.mk
 
 $(OBJDIR):
 	$(Q)mkdir -p $(OBJDIR)/cli $(OBJDIR)/lib
@@ -65,9 +68,6 @@ libswitchtec.so: $(LIB_OBJS)
 switchtec: $(CLI_OBJS) libswitchtec.a
 	@$(NQ) echo "  LD    $@"
 	$(Q)$(LINK.o) $^ -o $@
-
-clean:
-	$(Q)rm -rf libswitchtec.a libswitchtec.so switchtec build version.h
 
 install-bash-completion:
 	@$(NQ) echo "  INSTALL  $(SYSCONFDIR)/bash_completion.d/"\
