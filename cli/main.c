@@ -126,8 +126,26 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 	int ret;
 	const char *desc = "Perform a hard reset on the switch";
 
-	fd = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
-			    sizeof(empty_cfg));
+	static struct {
+		int confirm;
+	} cfg;
+	const struct argconfig_commandline_options opts[] = {
+		{"confirm", 'c', "", CFG_NONE, &cfg.confirm, no_argument,
+		 "confirm you really want to perform a hard-reset command"},
+		{NULL}};
+
+	fd = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!cfg.confirm) {
+		fprintf(stderr,
+			"WARNING: a hard reset can leave the system in a\n"
+			"broken state. Make sure you reboot after issuing\n"
+			"this command.\n\n"
+			"To bypass this warning and actually perform the \n"
+			"command add a --confirm option to the command line.\n");
+
+		return 1;
+	}
 
 	ret = switchtec_hard_reset(fd);
 	if (ret) {
