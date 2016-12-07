@@ -74,12 +74,15 @@ int switchtec_list(struct switchtec_device **devlist)
 		snprintf(dl[i].path, sizeof(dl[i].path),
 			 "/dev/%s", devices[i]->d_name);
 
-
 		snprintf(link_path, sizeof(link_path), "%s/%s/device",
 			 sys_path, devices[i]->d_name);
-		readlink(link_path, pci_path, sizeof(pci_path));
-		snprintf(dl[i].pci_dev, sizeof(dl[i].pci_dev),
-			 "%s", basename(pci_path));
+
+		if (readlink(link_path, pci_path, sizeof(pci_path)) > 0)
+			snprintf(dl[i].pci_dev, sizeof(dl[i].pci_dev),
+				 "%s", basename(pci_path));
+		else
+			snprintf(dl[i].pci_dev, sizeof(dl[i].pci_dev),
+				 "unknown pci device");
 
 		free(devices[n]);
 	}
