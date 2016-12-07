@@ -60,9 +60,17 @@ int parse_and_open(int argc, char **argv, const char *desc,
 		   const struct argconfig_commandline_options *clo,
 		   void *cfg, size_t size)
 {
+	int ret;
+
 	argconfig_parse(argc, argv, desc, clo, cfg, size);
 	check_arg_dev(argc, argv);
-	return switchtec_open(argv[optind]);
+
+	ret = switchtec_open(argv[optind]);
+
+	if (ret < 0)
+		perror(argv[optind]);
+
+	return ret;
 }
 
 
@@ -97,6 +105,9 @@ static int test(int argc, char **argv, struct command *cmd,
 
 	fd = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
 			    sizeof(empty_cfg));
+
+	if (fd < 0)
+		return fd;
 
 	in = time(NULL);
 
@@ -135,6 +146,9 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 		{NULL}};
 
 	fd = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (fd < 0)
+		return fd;
 
 	if (!cfg.confirm) {
 		fprintf(stderr,
