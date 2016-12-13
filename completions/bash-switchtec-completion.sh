@@ -2,7 +2,7 @@
 # Based on file from nvme-cli:
 #   Kelly Kaoudis kelly.n.kaoudis at intel.com, Aug. 2015
 
-_cmds="list test hard-reset help"
+_cmds="list test hard-reset version help"
 
 _switchtec_list_opts () {
 	local opts=""
@@ -19,7 +19,7 @@ _switchtec_list_opts () {
 	fi
 
 	case "$1" in
-		"list")
+		"list"|"version")
 		opts=" "
 			;;
 		"help")
