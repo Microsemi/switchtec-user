@@ -40,6 +40,10 @@ else
 NQ=:
 endif
 
+ifeq ($(W), 1)
+CFLAGS += -Werror
+endif
+
 compile: libswitchtec.a libswitchtec.so switchtec
 
 clean:
