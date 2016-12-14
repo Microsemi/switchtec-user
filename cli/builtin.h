@@ -26,6 +26,7 @@ COMMAND_LIST(
 	ENTRY("test", "Test if switchtec interface is working", test)
 	ENTRY("hard-reset", "Perform a hard reset of the switch", hard_reset)
 	ENTRY("fw-update", "Upload a new firmware image", fw_update)
+	ENTRY("fw-img-info", "Display information for a firmware image", fw_image_info)
 );
 
 #endif

@@ -175,6 +175,57 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int open_and_print_fw_image(const char *path)
+{
+	int img_fd, ret;
+	struct switchtec_fw_image_info info;
+
+	img_fd = open(path, O_RDONLY);
+	if (img_fd < 0) {
+		perror(path);
+		return img_fd;
+	}
+
+	ret = switchtec_fw_image_info(img_fd, &info);
+
+	if (ret < 0) {
+		fprintf(stderr, "%s: Invalid image file format\n",
+			path);
+		return ret;
+	}
+
+	printf("File:     %s\n", strrchr(path, '/')+1);
+	printf("Type:     %s\n", switchtec_fw_image_type(&info));
+	printf("Version:  %s\n", info.version);
+	printf("Img Len:  0x%zx\n", info.image_len);
+	printf("CRC:      0x%lx\n", info.crc);
+
+	return img_fd;
+}
+
+static int fw_image_info(int argc, char **argv, struct command *cmd,
+		       struct plugin *plugin)
+{
+	int img_fd;
+	const char *desc = "Display information for a firmware image";
+
+	argconfig_parse(argc, argv, desc, empty_opts, &empty_cfg,
+			sizeof(empty_cfg));
+
+	if (optind >= argc) {
+		fprintf(stderr, "usage: %s [<img_file>]\n",
+			argv[0]);
+		exit(-EINVAL);
+	}
+
+	img_fd = open_and_print_fw_image(argv[optind]);
+	if (img_fd < 0)
+		return img_fd;
+
+	close(img_fd);
+	return 0;
+}
+
 static void fw_update_callback(int cur, int total)
 {
 	printf("\r%d / %d", cur, total);
@@ -196,16 +247,14 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		return -errno;
 
 	if (optind >= argc) {
-		fprintf(stderr, "usage: %s %s [<device>] [<img_file>]\n",
-			argv[0], argv[1]);
+		fprintf(stderr, "usage: %s [<device>] [<img_file>]\n",
+			argv[0]);
 		exit(-EINVAL);
 	}
 
-	img_fd = open(argv[optind], O_RDONLY);
-	if (img_fd < 0) {
-		perror(argv[optind]);
+	img_fd = open_and_print_fw_image(argv[optind]);
+	if (img_fd < 0)
 		return img_fd;
-	}
 
 	ret = switchtec_fw_update(dev, img_fd, fw_update_callback);
 	close(img_fd);

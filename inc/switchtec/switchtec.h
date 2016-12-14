@@ -49,6 +49,18 @@ enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
 };
 
+struct switchtec_fw_image_info {
+	enum {
+		SWITCHTEC_FW_TYPE_BOOT = 0x0,
+		SWITCHTEC_FW_TYPE_MAP = 0x2,
+		SWITCHTEC_FW_TYPE_IMG = 0x6,
+		SWITCHTEC_FW_TYPE_CFG = 0x21,
+	} type;
+
+	char version[32];
+	size_t image_len;
+	unsigned long crc;
+};
 
 struct switchtec_dev *switchtec_open(const char * path);
 void switchtec_close(struct switchtec_dev *dev);
@@ -76,6 +88,8 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 int switchtec_fw_update(struct switchtec_dev *dev, int img_fd,
 			void (*progress_callback)(int cur, int tot));
 void switchtec_fw_perror(const char *s, int ret);
+int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info);
+const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 
 
 #ifdef __cplusplus

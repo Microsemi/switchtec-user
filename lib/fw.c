@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 int switchtec_fw_dlstatus(struct switchtec_dev * dev,
 			  enum switchtec_fw_dlstatus *status,
@@ -175,4 +176,58 @@ void switchtec_fw_perror(const char *s, int ret)
 	}
 
 	fprintf(stderr, "%s: %s\n", s, msg);
+}
+
+int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info)
+{
+	int ret;
+	struct {
+		char magic[4];
+		uint32_t image_len;
+		uint32_t rsvd1;
+		uint16_t rsvd2;
+		uint8_t  type;
+		uint8_t  rsvd3;
+		uint16_t ver_build;
+		uint8_t  ver_minor;
+		uint8_t  ver_major;
+		uint32_t rsvd4[10];
+		uint32_t crc;
+	} hdr;
+
+	ret = read(fd, &hdr, sizeof(hdr));
+	lseek(fd, 0, SEEK_SET);
+
+	if (ret != sizeof(hdr))
+		goto invalid_file;
+
+	if (strcmp(hdr.magic, "PMC") != 0)
+		goto invalid_file;
+
+	if (info == NULL)
+		return 0;
+
+	info->type = hdr.type;
+	snprintf(info->version, sizeof(info->version),
+		 "%x.%02x B%03X", hdr.ver_major,
+		 hdr.ver_minor, le16toh(hdr.ver_build));
+	info->crc = le32toh(hdr.crc);
+	info->image_len = le32toh(hdr.image_len);
+
+	return 0;
+
+invalid_file:
+	errno = ENOEXEC;
+	return -errno;
+}
+
+const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
+{
+	switch(info->type) {
+	case SWITCHTEC_FW_TYPE_BOOT: return "BOOT";
+	case SWITCHTEC_FW_TYPE_MAP: return "MAP";
+	case SWITCHTEC_FW_TYPE_IMG: return "IMG";
+	case SWITCHTEC_FW_TYPE_CFG: return "CFG";
+	default: return "UNKNOWN";
+	}
 }
