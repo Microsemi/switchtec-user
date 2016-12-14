@@ -228,7 +228,19 @@ static int fw_image_info(int argc, char **argv, struct command *cmd,
 
 static void fw_update_callback(int cur, int total)
 {
-	printf("\r%d / %d", cur, total);
+	const int bar_width = 60;
+
+	int i;
+	float progress = cur * 100.0 / total;
+	int pos = bar_width * cur / total;
+
+	printf(" [");
+	for (i = 0; i < bar_width; i++) {
+		if (i < pos) putchar('=');
+		else if (i == pos) putchar('>');
+		else putchar(' ');
+	}
+	printf("] %2.0f %%\r", progress);
 	fflush(stdout);
 }
 
