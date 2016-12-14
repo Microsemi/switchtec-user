@@ -134,6 +134,24 @@ static int test(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int ask_if_sure(int always_yes)
+{
+	char buf[10];
+
+	if (always_yes)
+		return 0;
+
+	fprintf(stderr, "Do you want to continue? [y/N] ");
+	fgets(buf, sizeof(buf), stdin);
+
+	if (strcmp(buf, "y\n") == 0 || strcmp(buf, "Y\n") == 0)
+		return 0;
+
+	fprintf(stderr, "Abort.\n");
+	errno = EINTR;
+	return -errno;
+}
+
 static int hard_reset(int argc, char **argv, struct command *cmd,
 		      struct plugin *plugin)
 {
@@ -142,11 +160,11 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 	const char *desc = "Perform a hard reset on the switch";
 
 	static struct {
-		int confirm;
+		int assume_yes;
 	} cfg;
 	const struct argconfig_commandline_options opts[] = {
-		{"confirm", 'c', "", CFG_NONE, &cfg.confirm, no_argument,
-		 "confirm you really want to perform a hard-reset command"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
 		{NULL}};
 
 	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -154,16 +172,15 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 	if (dev == NULL)
 		return -errno;
 
-	if (!cfg.confirm) {
+	if (!cfg.assume_yes)
 		fprintf(stderr,
-			"WARNING: a hard reset can leave the system in a\n"
-			"broken state. Make sure you reboot after issuing\n"
-			"this command.\n\n"
-			"To bypass this warning and actually perform the \n"
-			"command add a --confirm option to the command line.\n");
+			"WARNING: if your system does not support hotplug,\n"
+			"a hard reset can leave the system in a broken state.\n"
+			"Make sure you reboot after issuing this command.\n\n");
 
-		return 1;
-	}
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return ret;
 
 	ret = switchtec_hard_reset(dev);
 	if (ret) {
@@ -252,8 +269,15 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 	int ret;
 	const char *desc = "Flash the firmware with a new image";
 
-	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
-			    sizeof(empty_cfg));
+	static struct {
+		int assume_yes;
+	} cfg;
+	const struct argconfig_commandline_options opts[] = {
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
+		{NULL}};
+
+	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (dev == NULL)
 		return -errno;
@@ -264,9 +288,18 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		exit(-EINVAL);
 	}
 
+	printf("Writing the following firmware image to %s:\n",
+	       argv[optind-1]);
+
 	img_fd = open_and_print_fw_image(argv[optind]);
 	if (img_fd < 0)
 		return img_fd;
+
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret) {
+		close(img_fd);
+		return ret;
+	}
 
 	ret = switchtec_fw_update(dev, img_fd, fw_update_callback);
 	close(img_fd);
