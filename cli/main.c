@@ -58,30 +58,29 @@ static void check_arg_dev(int argc, char **argv)
 	}
 }
 
-int parse_and_open(int argc, char **argv, const char *desc,
-		   const struct argconfig_commandline_options *clo,
-		   void *cfg, size_t size)
+struct switchtec_dev *parse_and_open(int argc, char **argv, const char *desc,
+	const struct argconfig_commandline_options *clo,
+	void *cfg, size_t size)
 {
-	int ret;
+	struct switchtec_dev *dev;
 
 	argconfig_parse(argc, argv, desc, clo, cfg, size);
 	check_arg_dev(argc, argv);
 
-	ret = switchtec_open(argv[optind]);
+	dev = switchtec_open(argv[optind]);
 
-	if (ret < 0)
+	if (dev == NULL)
 		perror(argv[optind]);
 
 	optind++;
 
-	return ret;
+	return dev;
 }
-
 
 static int list(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {
-	struct switchtec_device *devices;
+	struct switchtec_device_info *devices;
 	int i, n;
 	const char *desc = "List all the switchtec devices on this machine";
 
@@ -102,20 +101,20 @@ static int list(int argc, char **argv, struct command *cmd,
 static int test(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {
-	int fd;
+	struct switchtec_dev *dev;
 	int ret;
 	uint32_t in, out;
 	const char *desc = "Test if switchtec interface is working";
 
-	fd = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
+	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
 			    sizeof(empty_cfg));
 
-	if (fd < 0)
-		return fd;
+	if (dev == NULL)
+		return -errno;
 
 	in = time(NULL);
 
-	ret = switchtec_echo(fd, in, &out);
+	ret = switchtec_echo(dev, in, &out);
 
 	if (ret) {
 		perror(argv[optind]);
@@ -135,9 +134,9 @@ static int test(int argc, char **argv, struct command *cmd,
 }
 
 static int hard_reset(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+		      struct plugin *plugin)
 {
-	int fd;
+        struct switchtec_dev *dev;
 	int ret;
 	const char *desc = "Perform a hard reset on the switch";
 
@@ -149,10 +148,10 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 		 "confirm you really want to perform a hard-reset command"},
 		{NULL}};
 
-	fd = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (fd < 0)
-		return fd;
+	if (dev == NULL)
+		return -errno;
 
 	if (!cfg.confirm) {
 		fprintf(stderr,
@@ -165,7 +164,7 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 		return 1;
 	}
 
-	ret = switchtec_hard_reset(fd);
+	ret = switchtec_hard_reset(dev);
 	if (ret) {
 		perror(argv[optind]);
 		return ret;
@@ -184,15 +183,16 @@ static void fw_update_callback(int cur, int total)
 static int fw_update(int argc, char **argv, struct command *cmd,
 		     struct plugin *plugin)
 {
-	int fd, img_fd;
+	struct switchtec_dev *dev;
+	int img_fd;
 	int ret;
 	const char *desc = "Flash the firmware with a new image";
 
-	fd = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
+	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
 			    sizeof(empty_cfg));
 
-	if (fd < 0)
-		return fd;
+	if (dev == NULL)
+		return -errno;
 
 	if (optind >= argc) {
 		fprintf(stderr, "usage: %s %s [<device>] [<img_file>]\n",
@@ -206,7 +206,7 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		return img_fd;
 	}
 
-	ret = switchtec_fw_update(fd, img_fd, fw_update_callback);
+	ret = switchtec_fw_update(dev, img_fd, fw_update_callback);
 	close(img_fd);
 	printf("\n");
 

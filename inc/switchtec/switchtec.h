@@ -27,7 +27,9 @@
 extern "C" {
 #endif
 
-struct switchtec_device {
+struct switchtec_dev;
+
+struct switchtec_device_info {
 	char name[256];
 	char pci_dev[256];
 	char path[PATH_MAX];
@@ -47,25 +49,30 @@ enum switchtec_fw_dlstatus {
 };
 
 
-int switchtec_open(const char * path);
-void switchtec_close(int fd);
-int switchtec_list(struct switchtec_device **devlist);
+struct switchtec_dev *switchtec_open(const char * path);
+void switchtec_close(struct switchtec_dev *dev);
+int switchtec_list(struct switchtec_device_info **devlist);
 
-int switchtec_submit_cmd(int fd, uint32_t cmd, const void *payload,
-			 size_t payload_len);
+int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
+			 const void *payload, size_t payload_len);
 
-int switchtec_read_resp(int fd, void *resp, size_t resp_len);
+int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
+			size_t resp_len);
 
-int switchtec_cmd(int fd,  uint32_t cmd, const void *payload,
-		  size_t payload_len, void *resp, size_t resp_len);
+int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
+		  const void *payload, size_t payload_len, void *resp,
+		  size_t resp_len);
 
-int switchtec_echo(int fd, uint32_t input, uint32_t *output);
-int switchtec_hard_reset(int fd);
+int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
+int switchtec_hard_reset(struct switchtec_dev *dev);
 
-int switchtec_fw_dlstatus(int fd, enum switchtec_fw_dlstatus *status,
+
+int switchtec_fw_dlstatus(struct switchtec_dev *dev,
+			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus);
-int switchtec_fw_wait(int fd, enum switchtec_fw_dlstatus *status);
-int switchtec_fw_update(int fd, int img_fd,
+int switchtec_fw_wait(struct switchtec_dev *dev,
+		      enum switchtec_fw_dlstatus *status);
+int switchtec_fw_update(struct switchtec_dev *dev, int img_fd,
 			void (*progress_callback)(int cur, int tot));
 void switchtec_fw_perror(const char *s, int ret);
 

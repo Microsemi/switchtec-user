@@ -13,6 +13,8 @@
  *
  */
 
+#include "switchtec_priv.h"
+
 #include "switchtec/switchtec.h"
 #include "switchtec/mrpc.h"
 
@@ -28,14 +30,29 @@
 
 static const char *sys_path = "/sys/class/switchtec";
 
-int switchtec_open(const char * path)
+struct switchtec_dev *switchtec_open(const char * path)
 {
-	return open(path, O_RDWR | O_CLOEXEC);
+	struct switchtec_dev * dev;
+
+	dev = malloc(sizeof(*dev));
+	if (dev == NULL)
+		return dev;
+
+	dev->fd = open(path, O_RDWR | O_CLOEXEC);
+	if (dev->fd < 0)
+		goto err_free;
+
+	return dev;
+
+err_free:
+	free(dev);
+	return NULL;
 }
 
-void switchtec_close(int fd)
+void switchtec_close(struct switchtec_dev *dev)
 {
-	close(fd);
+	close(dev->fd);
+	free(dev);
 }
 
 static int scan_dev_filter(const struct dirent *d)
@@ -46,19 +63,19 @@ static int scan_dev_filter(const struct dirent *d)
 	return 1;
 }
 
-int switchtec_list(struct switchtec_device **devlist)
+int switchtec_list(struct switchtec_device_info **devlist)
 {
 	struct dirent **devices;
 	int i, n;
 	char link_path[PATH_MAX];
 	char pci_path[PATH_MAX];
-	struct switchtec_device *dl;
+	struct switchtec_device_info *dl;
 
 	n = scandir(sys_path, &devices, scan_dev_filter, alphasort);
 	if (n <= 0)
 		return n;
 
-	dl = *devlist = calloc(n, sizeof(struct switchtec_device));
+	dl = *devlist = calloc(n, sizeof(struct switchtec_device_info));
 
 	if (dl == NULL) {
 		for (i = 0; i < n; i++)
@@ -91,8 +108,8 @@ int switchtec_list(struct switchtec_device **devlist)
 	return n;
 }
 
-int switchtec_submit_cmd(int fd, uint32_t cmd, const void *payload,
-			 size_t payload_len)
+int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
+			 const void *payload, size_t payload_len)
 {
 	int ret;
 	char buf[payload_len + sizeof(cmd)];
@@ -101,7 +118,7 @@ int switchtec_submit_cmd(int fd, uint32_t cmd, const void *payload,
 	memcpy(buf, &cmd, sizeof(cmd));
 	memcpy(&buf[sizeof(cmd)], payload, payload_len);
 
-	ret = write(fd, buf, sizeof(buf));
+	ret = write(dev->fd, buf, sizeof(buf));
 
 	if (ret < 0)
 		return ret;
@@ -112,12 +129,13 @@ int switchtec_submit_cmd(int fd, uint32_t cmd, const void *payload,
 	return 0;
 }
 
-int switchtec_read_resp(int fd, void *resp, size_t resp_len)
+int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
+			size_t resp_len)
 {
 	int32_t ret;
 	char buf[sizeof(uint32_t) + resp_len];
 
-	ret = read(fd, buf, sizeof(buf));
+	ret = read(dev->fd, buf, sizeof(buf));
 
 	if (ret < 0)
 		return ret;
@@ -135,28 +153,30 @@ int switchtec_read_resp(int fd, void *resp, size_t resp_len)
 	return ret;
 }
 
-int switchtec_cmd(int fd,  uint32_t cmd, const void *payload,
-		  size_t payload_len, void *resp, size_t resp_len)
+int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
+		  const void *payload, size_t payload_len, void *resp,
+		  size_t resp_len)
 {
 	int ret;
 
-	ret = switchtec_submit_cmd(fd, cmd, payload, payload_len);
+	ret = switchtec_submit_cmd(dev, cmd, payload, payload_len);
 	if (ret < 0)
 		return ret;
 
-	return switchtec_read_resp(fd, resp, resp_len);
+	return switchtec_read_resp(dev, resp, resp_len);
 }
 
-int switchtec_echo(int fd, uint32_t input, uint32_t *output)
+int switchtec_echo(struct switchtec_dev *dev, uint32_t input,
+		   uint32_t *output)
 {
-	return switchtec_cmd(fd, MRPC_ECHO, &input, sizeof(input),
+	return switchtec_cmd(dev, MRPC_ECHO, &input, sizeof(input),
 			     output, sizeof(output));
 }
 
-int switchtec_hard_reset(int fd)
+int switchtec_hard_reset(struct switchtec_dev *dev)
 {
 	uint32_t subcmd = 0;
 
-	return switchtec_cmd(fd, MRPC_RESET, &subcmd, sizeof(subcmd),
+	return switchtec_cmd(dev, MRPC_RESET, &subcmd, sizeof(subcmd),
 			     NULL, 0);
 }

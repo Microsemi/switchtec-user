@@ -13,6 +13,7 @@
  *
  */
 
+#include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 
 #include <unistd.h>
@@ -20,7 +21,8 @@
 #include <errno.h>
 #include <stdio.h>
 
-int switchtec_fw_dlstatus(int fd, enum switchtec_fw_dlstatus *status,
+int switchtec_fw_dlstatus(struct switchtec_dev * dev,
+			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus)
 {
 	uint32_t subcmd = MRPC_FWDNLD_GET_STATUS;
@@ -31,7 +33,7 @@ int switchtec_fw_dlstatus(int fd, enum switchtec_fw_dlstatus *status,
 	} result;
 	int ret;
 
-	ret = switchtec_cmd(fd, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
+	ret = switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
 			    &result, sizeof(result));
 
 	if (ret < 0)
@@ -46,13 +48,14 @@ int switchtec_fw_dlstatus(int fd, enum switchtec_fw_dlstatus *status,
 	return 0;
 }
 
-int switchtec_fw_wait(int fd, enum switchtec_fw_dlstatus *status)
+int switchtec_fw_wait(struct switchtec_dev * dev,
+		      enum switchtec_fw_dlstatus *status)
 {
 	enum mrpc_bg_status bgstatus;
 	int ret;
 
 	do {
-		ret = switchtec_fw_dlstatus(fd, status, &bgstatus);
+		ret = switchtec_fw_dlstatus(dev, status, &bgstatus);
 		if (ret < 0)
 			return ret;
 		if (bgstatus == MRPC_BG_STAT_ERROR)
@@ -63,7 +66,7 @@ int switchtec_fw_wait(int fd, enum switchtec_fw_dlstatus *status)
 	return 0;
 }
 
-int switchtec_fw_update(int fd, int img_fd,
+int switchtec_fw_update(struct switchtec_dev * dev, int img_fd,
 			void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
@@ -87,7 +90,7 @@ int switchtec_fw_update(int fd, int img_fd,
 		return -errno;
 	lseek(img_fd, 0, SEEK_SET);
 
-	switchtec_fw_dlstatus(fd, &status, &bgstatus);
+	switchtec_fw_dlstatus(dev, &status, &bgstatus);
 
 	if (status == SWITCHTEC_DLSTAT_INPROGRESS)
 		return -EBUSY;
@@ -114,13 +117,13 @@ int switchtec_fw_update(int fd, int img_fd,
 		cmd.hdr.offset = htole32(offset);
 		cmd.hdr.blk_length = htole32(blklen);
 
-		ret = switchtec_cmd(fd, MRPC_FWDNLD, &cmd, sizeof(cmd),
+		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
 				    NULL, 0);
 
 		if (ret < 0)
 			return ret;
 
-		ret = switchtec_fw_wait(fd, &status);
+		ret = switchtec_fw_wait(dev, &status);
 		if (ret < 0)
 		    return ret;
 
