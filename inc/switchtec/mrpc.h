@@ -19,6 +19,8 @@
 #ifndef LIBSWITCHTEC_MRPC_H
 #define LIBSWITCHTEC_MRPC_H
 
+#define MRPC_MAX_DATA_LEN   1024
+
 enum mrpc_cmd {
 	MRPC_DIAG_PMC_START = 0,
 	MRPC_TWI = 1,
@@ -49,6 +51,19 @@ enum mrpc_cmd {
 	MRPC_SMBUS = 26,
 	MRPC_RESET = 27,
 	MRPC_ECHO = 65,
+};
+
+enum mrpc_bg_status {
+	MRPC_BG_STAT_IDLE = 0,
+	MRPC_BG_STAT_INPROGRESS = 1,
+	MRPC_BG_STAT_DONE = 2,
+	MRPC_BG_STAT_ERROR = 0xFF,
+};
+
+enum mrpc_sub_cmd {
+	MRPC_FWDNLD_GET_STATUS = 0,
+	MRPC_FWDNLD_DOWNLOAD = 1,
+	MRPC_FWDNLD_TOGGLE = 2,
 };
 
 #endif

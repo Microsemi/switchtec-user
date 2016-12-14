@@ -16,6 +16,8 @@
 #ifndef LIBSWITCHTEC_SWITCHTEC_H
 #define LIBSWITCHTEC_SWITCHTEC_H
 
+#include "mrpc.h"
+
 #include <linux/limits.h>
 
 #include <stdlib.h>
@@ -31,6 +33,20 @@ struct switchtec_device {
 	char path[PATH_MAX];
 };
 
+enum switchtec_fw_dlstatus {
+	SWITCHTEC_DLSTAT_READY = 0,
+	SWITCHTEC_DLSTAT_INPROGRESS = 1,
+	SWITCHTEC_DLSTAT_HEADER_INCORRECT = 2,
+	SWITCHTEC_DLSTAT_OFFSET_INCORRECT = 3,
+	SWITCHTEC_DLSTAT_CRC_INCORRECT = 4,
+	SWITCHTEC_DLSTAT_LENGTH_INCORRECT = 5,
+	SWITCHTEC_DLSTAT_HARDWARE_ERR = 6,
+	SWITCHTEC_DLSTAT_COMPLETES = 7,
+	SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT = 8,
+	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
+};
+
+
 int switchtec_open(const char * path);
 void switchtec_close(int fd);
 int switchtec_list(struct switchtec_device **devlist);
@@ -45,6 +61,14 @@ int switchtec_cmd(int fd,  uint32_t cmd, const void *payload,
 
 int switchtec_echo(int fd, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(int fd);
+
+int switchtec_fw_dlstatus(int fd, enum switchtec_fw_dlstatus *status,
+			  enum mrpc_bg_status *bgstatus);
+int switchtec_fw_wait(int fd, enum switchtec_fw_dlstatus *status);
+int switchtec_fw_update(int fd, int img_fd,
+			void (*progress_callback)(int cur, int tot));
+void switchtec_fw_perror(const char *s, int ret);
+
 
 #ifdef __cplusplus
 }

@@ -21,6 +21,8 @@
 
 #include <locale.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -69,6 +71,8 @@ int parse_and_open(int argc, char **argv, const char *desc,
 
 	if (ret < 0)
 		perror(argv[optind]);
+
+	optind++;
 
 	return ret;
 }
@@ -125,7 +129,7 @@ static int test(int argc, char **argv, struct command *cmd,
 		return 1;
 	}
 
-	fprintf(stderr, "%s: success\n", argv[optind]);
+	fprintf(stderr, "%s: success\n", argv[optind-1]);
 
 	return 0;
 }
@@ -169,6 +173,46 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 
 	fprintf(stderr, "%s: hard reset\n", argv[optind]);
 	return 0;
+}
+
+static void fw_update_callback(int cur, int total)
+{
+	printf("\r%d / %d", cur, total);
+	fflush(stdout);
+}
+
+static int fw_update(int argc, char **argv, struct command *cmd,
+		     struct plugin *plugin)
+{
+	int fd, img_fd;
+	int ret;
+	const char *desc = "Flash the firmware with a new image";
+
+	fd = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
+			    sizeof(empty_cfg));
+
+	if (fd < 0)
+		return fd;
+
+	if (optind >= argc) {
+		fprintf(stderr, "usage: %s %s [<device>] [<img_file>]\n",
+			argv[0], argv[1]);
+		exit(-EINVAL);
+	}
+
+	img_fd = open(argv[optind], O_RDONLY);
+	if (img_fd < 0) {
+		perror(argv[optind]);
+		return img_fd;
+	}
+
+	ret = switchtec_fw_update(fd, img_fd, fw_update_callback);
+	close(img_fd);
+	printf("\n");
+
+	switchtec_fw_perror("firmware update", ret);
+
+	return ret;
 }
 
 int main(int argc, char **argv)
