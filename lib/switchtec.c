@@ -23,12 +23,34 @@
 #include <endian.h>
 #include <dirent.h>
 #include <libgen.h>
+#include <sys/stat.h>
 
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
 
 static const char *sys_path = "/sys/class/switchtec";
+
+static int check_device(int fd)
+{
+	int ret;
+	struct stat stat;
+	char syspath[PATH_MAX];
+
+	ret = fstat(fd, &stat);
+	if (ret < 0)
+		return ret;
+
+	snprintf(syspath, sizeof(syspath),
+		 "/sys/dev/char/%d:%d/device/switchtec",
+		 major(stat.st_rdev), minor(stat.st_rdev));
+
+	ret = access(syspath, F_OK);
+	if (ret)
+		errno = ENOTTY;
+
+	return ret;
+}
 
 struct switchtec_dev *switchtec_open(const char * path)
 {
@@ -42,8 +64,13 @@ struct switchtec_dev *switchtec_open(const char * path)
 	if (dev->fd < 0)
 		goto err_free;
 
+	if (check_device(dev->fd))
+		goto err_close_free;
+
 	return dev;
 
+err_close_free:
+	close(dev->fd);
 err_free:
 	free(dev);
 	return NULL;

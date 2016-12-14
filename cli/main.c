@@ -228,7 +228,7 @@ int main(int argc, char **argv)
 	setlocale(LC_ALL, "");
 
 	ret = handle_plugin(argc - 1, &argv[1], switchtec.extensions);
-	if (ret == -ENOTTY)
+	if (ret == -ENOTSUP)
 		general_help(&builtin);
 
 	return ret;
