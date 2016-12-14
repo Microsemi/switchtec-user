@@ -2,32 +2,50 @@
 # Based on file from nvme-cli:
 #   Kelly Kaoudis kelly.n.kaoudis at intel.com, Aug. 2015
 
-_cmds="list test hard-reset version help"
+_cmds="list test hard-reset fw-update fw-img-info version help"
 
 _switchtec_list_opts () {
 	local opts=""
+	local compargs=""
 
-	local device
+	local nonopt_args=0
 	for (( i=0; i < ${#words[@]}-1; i++ )); do
-		if [[ ${words[i]} == /dev/switchtec* ]]; then
-		    device=${words[i]}
+		if [[ ${words[i]} != -* ]]; then
+			let nonopt_args+=1
 		fi
 	done
 
-	if [[ -z $device ]]; then
-	    opts="/dev/switchtec*"
+	if [ $nonopt_args -eq 2 ]; then
+		opts="/dev/switchtec* "
 	fi
 
 	case "$1" in
+		"hard-reset")
+			opts+=" -y"
+			;;
+		"fw-update")
+			if [ $nonopt_args -eq 3 ]; then
+				compargs="-o filenames -A file"
+			fi
+			opts+=" -y"
+			;;
+		"fw-img-info")
+			opts=""
+			if [ $nonopt_args -eq 2 ]; then
+				compargs="-o filenames -A file"
+			fi
+			;;
 		"list"|"version")
-		opts=" "
+			opts=""
 			;;
 		"help")
-		opts=$_cmds
+			opts=$_cmds
 			;;
 	esac
 
-	COMPREPLY+=( $( compgen -W "$opts" -- $cur ) )
+	opts+=" -h --help"
+
+	COMPREPLY+=( $( compgen $compargs -W "$opts" -- $cur ) )
 
 	return 0
 }
@@ -39,7 +57,7 @@ _switchtec_subcmds () {
 	if [[ ${#words[*]} -lt 3 ]]; then
 		COMPREPLY+=( $(compgen -W "$_cmds" -- $cur ) )
 	else
-		_switchtec_list_opts $prev
+		_switchtec_list_opts ${words[1]}
 	fi
 
 	return 0
