@@ -90,10 +90,39 @@ static int scan_dev_filter(const struct dirent *d)
 	return 1;
 }
 
+static int sysfs_read_str(const char *path, char *buf, size_t buflen)
+{
+	int ret;
+	int fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	ret = read(fd, buf, buflen);
+
+	close(fd);
+
+	return ret;
+}
+
+static int sysfs_read_int(const char *path)
+{
+	int ret;
+	char buf[64];
+
+	ret = sysfs_read_str(path, buf, sizeof(buf));
+	if (ret < 0)
+		return ret;
+
+	return strtol(buf, NULL, 0);
+}
+
 int switchtec_list(struct switchtec_device_info **devlist)
 {
 	struct dirent **devices;
 	int i, n;
+	int model;
 	char link_path[PATH_MAX];
 	char pci_path[PATH_MAX];
 	struct switchtec_device_info *dl;
@@ -127,6 +156,17 @@ int switchtec_list(struct switchtec_device_info **devlist)
 		else
 			snprintf(dl[i].pci_dev, sizeof(dl[i].pci_dev),
 				 "unknown pci device");
+
+		snprintf(link_path, sizeof(link_path), "%s/%s/device/device",
+			 sys_path, devices[i]->d_name);
+
+		model = sysfs_read_int(link_path);
+		if (model > 0)
+			snprintf(dl[i].model, sizeof(dl[i].model),
+				 "PM%X", model);
+		else
+			snprintf(dl[i].model, sizeof(dl[i].model),
+				 "unknown");
 
 		free(devices[n]);
 	}

@@ -32,6 +32,7 @@ struct switchtec_dev;
 struct switchtec_device_info {
 	char name[256];
 	char pci_dev[256];
+	char model[256];
 	char path[PATH_MAX];
 };
 
