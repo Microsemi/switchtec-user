@@ -44,11 +44,12 @@ static argconfig_help_func *help_funcs[MAX_HELP_FUNC] = { NULL };
 
 static char END_DEFAULT[] = "__end_default__";
 
-static const char *append_usage_str = "";
+static char append_usage_str[100] = "";
 
 void argconfig_append_usage(const char *str)
 {
-	append_usage_str = str;
+	strncat(append_usage_str, str, sizeof(append_usage_str) -
+		strlen(append_usage_str) - 1);
 }
 
 void print_word_wrapped(const char *s, int indent, int start)
@@ -119,15 +120,30 @@ static void show_option(const struct argconfig_commandline_options *option)
 	fprintf(stderr, "\n");
 }
 
-static void argconfig_print_help(const char *program_desc,
+void argconfig_print_usage(void)
+{
+	printf("Usage: %s\n", append_usage_str);
+}
+
+void argconfig_print_help(const char *program_desc,
 			  const struct argconfig_commandline_options *options)
 {
 	const struct argconfig_commandline_options *s;
+	const char *optstring = "";
 
-	printf("\033[1mUsage: %s\033[0m\n\n",
-	       append_usage_str);
+	if (options->option != NULL)
+		optstring = " [OPTIONS]";
+
+	printf("\033[1mUsage: %s%s\033[0m\n\n",
+	       append_usage_str, optstring);
 
 	print_word_wrapped(program_desc, 0, 0);
+
+	if (options->option == NULL) {
+		printf("\n\n");
+		return;
+	}
+
 	printf("\n\n\033[1mOptions:\033[0m\n");
 
 	for (s = options; (s->option != NULL) && (s != NULL); s++)

@@ -41,7 +41,7 @@ static struct program switchtec = {
 	.name = "switchtec",
 	.version = version_string,
 	.usage = "<command> [<device>] [<args>]",
-	.desc = "The '<device> must be a switchtec device "\
+	.desc = "The <device> must be a switchtec device "\
                 "(ex: /dev/switchtec0)",
 	.extensions = &builtin,
 };
@@ -53,7 +53,7 @@ static void check_arg_dev(int argc, char **argv)
 {
 	if (optind >= argc) {
 		errno = EINVAL;
-		perror(argv[0]);
+		argconfig_print_usage();
 		exit(errno);
 	}
 }
@@ -107,6 +107,7 @@ static int test(int argc, char **argv, struct command *cmd,
 	uint32_t in, out;
 	const char *desc = "Test if switchtec interface is working";
 
+	argconfig_append_usage(" <device>");
 	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
 			    sizeof(empty_cfg));
 
@@ -167,6 +168,7 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 		 "assume yes when prompted"},
 		{NULL}};
 
+	argconfig_append_usage(" <device>");
 	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (dev == NULL)
@@ -192,14 +194,19 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int open_and_print_fw_image(const char *path)
+static int open_and_print_fw_image(int argc, char **argv)
 {
 	int img_fd, ret;
 	struct switchtec_fw_image_info info;
 
-	img_fd = open(path, O_RDONLY);
+	if (optind >= argc) {
+		argconfig_print_usage();
+		exit(-EINVAL);
+	}
+
+	img_fd = open(argv[optind], O_RDONLY);
 	if (img_fd < 0) {
-		perror(path);
+		perror(argv[optind]);
 		return img_fd;
 	}
 
@@ -207,11 +214,11 @@ static int open_and_print_fw_image(const char *path)
 
 	if (ret < 0) {
 		fprintf(stderr, "%s: Invalid image file format\n",
-			path);
+			argv[optind]);
 		return ret;
 	}
 
-	printf("File:     %s\n", strrchr(path, '/')+1);
+	printf("File:     %s\n", strrchr(argv[optind], '/')+1);
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
 	printf("Img Len:  0x%zx\n", info.image_len);
@@ -226,16 +233,11 @@ static int fw_image_info(int argc, char **argv, struct command *cmd,
 	int img_fd;
 	const char *desc = "Display information for a firmware image";
 
+	argconfig_append_usage(" <img_file>");
 	argconfig_parse(argc, argv, desc, empty_opts, &empty_cfg,
 			sizeof(empty_cfg));
 
-	if (optind >= argc) {
-		fprintf(stderr, "usage: %s [<img_file>]\n",
-			argv[0]);
-		exit(-EINVAL);
-	}
-
-	img_fd = open_and_print_fw_image(argv[optind]);
+	img_fd = open_and_print_fw_image(argc, argv);
 	if (img_fd < 0)
 		return img_fd;
 
@@ -277,21 +279,16 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		 "assume yes when prompted"},
 		{NULL}};
 
+	argconfig_append_usage(" <device> <img_file>");
 	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (dev == NULL)
 		return -errno;
 
-	if (optind >= argc) {
-		fprintf(stderr, "usage: %s [<device>] [<img_file>]\n",
-			argv[0]);
-		exit(-EINVAL);
-	}
-
-	printf("Writing the following firmware image to %s:\n",
+	printf("Writing the following firmware image to %s.\n",
 	       argv[optind-1]);
 
-	img_fd = open_and_print_fw_image(argv[optind]);
+	img_fd = open_and_print_fw_image(argc, argv);
 	if (img_fd < 0)
 		return img_fd;
 

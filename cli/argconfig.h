@@ -97,6 +97,10 @@ unsigned argconfig_parse_comma_sep_array(char *string, int *ret,
 unsigned argconfig_parse_comma_sep_array_long(char *string,
 					      unsigned long long *ret,
 					      unsigned max_length);
+
+void argconfig_print_usage(void);
+void argconfig_print_help(const char *program_desc,
+			  const struct argconfig_commandline_options *options);
 void argconfig_register_help_func(argconfig_help_func * f);
 
 void argconfig_print_subopt_help(const struct argconfig_sub_options

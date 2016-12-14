@@ -141,9 +141,9 @@ int handle_plugin(int argc, char **argv, struct plugin *plugin)
 	}
 
 	if (!plugin->name)
-		sprintf(use, "%s %s <device> [OPTIONS]", prog->name, str);
+		sprintf(use, "%s %s", prog->name, str);
 	else
-		sprintf(use, "%s %s %s <device> [OPTIONS]", prog->name, plugin->name, str);
+		sprintf(use, "%s %s %s", prog->name, plugin->name, str);
 	argconfig_append_usage(use);
 
 	/* translate --help and --version into commands */
