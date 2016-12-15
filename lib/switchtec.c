@@ -31,19 +31,32 @@
 
 static const char *sys_path = "/sys/class/switchtec";
 
-static int check_device(int fd)
+static int dev_to_sysfs_path(struct switchtec_dev *dev, const char *suffix,
+			     char *buf, size_t buflen)
 {
 	int ret;
 	struct stat stat;
-	char syspath[PATH_MAX];
 
-	ret = fstat(fd, &stat);
+	ret = fstat(dev->fd, &stat);
 	if (ret < 0)
 		return ret;
 
-	snprintf(syspath, sizeof(syspath),
-		 "/sys/dev/char/%d:%d/device/switchtec",
-		 major(stat.st_rdev), minor(stat.st_rdev));
+	snprintf(buf, buflen,
+		 "/sys/dev/char/%d:%d/%s",
+		 major(stat.st_rdev), minor(stat.st_rdev), suffix);
+
+	return 0;
+}
+
+static int check_switchtec_device(struct switchtec_dev *dev)
+{
+	int ret;
+	char syspath[PATH_MAX];
+
+	ret = dev_to_sysfs_path(dev, "device/switchtec", syspath,
+				sizeof(syspath));
+	if (ret)
+		return ret;
 
 	ret = access(syspath, F_OK);
 	if (ret)
@@ -64,7 +77,7 @@ struct switchtec_dev *switchtec_open(const char * path)
 	if (dev->fd < 0)
 		goto err_free;
 
-	if (check_device(dev->fd))
+	if (check_switchtec_device(dev))
 		goto err_close_free;
 
 	return dev;
