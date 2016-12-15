@@ -245,6 +245,33 @@ static int fw_image_info(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int fw_info(int argc, char **argv, struct command *cmd,
+		struct plugin *plugin)
+{
+	struct switchtec_dev *dev;
+	int ret;
+	char version[64];
+	const char *desc = "Test if switchtec interface is working";
+
+	argconfig_append_usage(" <device>");
+	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
+			    sizeof(empty_cfg));
+
+	if (dev == NULL)
+		return -errno;
+
+	ret = switchtec_get_fw_version(dev, version, sizeof(version));
+	if (ret < 0) {
+		perror("fw info");
+		return ret;
+	}
+
+	printf("Current Running:\n");
+	printf("  Version: %s\n", version);
+
+	return 0;
+}
+
 static void fw_update_callback(int cur, int total)
 {
 	const int bar_width = 60;
