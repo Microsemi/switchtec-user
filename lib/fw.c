@@ -122,8 +122,8 @@ int switchtec_fw_update(struct switchtec_dev *dev, int img_fd,
 	cmd.hdr.img_length = htole32(image_size);
 
 	while (offset < image_size) {
-		ssize_t blklen =read(img_fd, &cmd.data,
-				     sizeof(cmd.data));
+		ssize_t blklen = read(img_fd, &cmd.data,
+				      sizeof(cmd.data));
 
 		if (blklen == -EAGAIN || blklen == -EWOULDBLOCK)
 			continue;
