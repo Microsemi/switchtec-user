@@ -69,6 +69,23 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 	return 0;
 }
 
+int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
+					 int toggle_fw, int toggle_cfg)
+{
+	struct {
+		uint8_t subcmd;
+		uint8_t toggle_fw;
+		uint8_t toggle_cfg;
+	} cmd;
+
+	cmd.subcmd = MRPC_FWDNLD_TOGGLE;
+	cmd.toggle_fw = !!toggle_fw;
+	cmd.toggle_cfg = !!toggle_cfg;
+
+	return switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
+			     NULL, 0);
+}
+
 int switchtec_fw_update(struct switchtec_dev *dev, int img_fd,
 			void (*progress_callback)(int cur, int tot))
 {

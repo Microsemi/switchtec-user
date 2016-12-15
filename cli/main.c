@@ -355,6 +355,43 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
+static int fw_toggle(int argc, char **argv, struct command *cmd,
+		     struct plugin *plugin)
+{
+	struct switchtec_dev *dev;
+	int ret = 0;
+	const char *desc = "Flash the firmware with a new image";
+
+	static struct {
+		int firmware;
+		int config;
+	} cfg;
+	const struct argconfig_commandline_options opts[] = {
+		{"firmware", 'f', "", CFG_NONE, &cfg.firmware, no_argument,
+		 "toggle IMG firmware"},
+		{"config", 'c', "", CFG_NONE, &cfg.config, no_argument,
+		 "toggle CFG data"},
+		{NULL}};
+
+	argconfig_append_usage(" <device>");
+	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!cfg.firmware && !cfg.config) {
+		fprintf(stderr, "NOTE: Not toggling images seeing neither "
+			"--firmware nor --config were specified\n\n");
+	} else {
+		ret = switchtec_fw_toggle_active_partition(dev, cfg.firmware,
+							   cfg.config);
+	}
+
+	print_fw_part_info(dev);
+	printf("\n");
+
+	perror("firmware toggle");
+
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	int ret;

@@ -27,6 +27,7 @@ COMMAND_LIST(
 	ENTRY("hard-reset", "Perform a hard reset of the switch", hard_reset)
 	ENTRY("fw-update", "Upload a new firmware image", fw_update)
 	ENTRY("fw-info", "Return information on currently flashed firmware", fw_info)
+	ENTRY("fw-toggle", "Toggle the active and inactive firmware partition", fw_toggle)
 	ENTRY("fw-img-info", "Display information for a firmware image", fw_image_info)
 );
 
