@@ -348,6 +348,9 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 
 	ret = switchtec_fw_update(dev, img_fd, fw_update_callback);
 	close(img_fd);
+	printf("\n\n");
+
+	print_fw_part_info(dev);
 	printf("\n");
 
 	switchtec_fw_perror("firmware update", ret);
