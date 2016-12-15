@@ -16,9 +16,21 @@
 #ifndef LIBSWITCHTEC_SWITCHTEC_PRIV_H
 #define LIBSWITCHTEC_SWITCHTEC_PRIV_H
 
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 struct switchtec_dev {
 	int fd;
 };
+
+static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
+{
+	int major = version >> 24;
+	int minor = (version >> 16) & 0xFF;
+	int build = version & 0xFFFF;
+
+	snprintf(buf, buflen, "%x.%02x B%03X", major, minor, build);
+}
 
 #endif

@@ -208,6 +208,26 @@ int switchtec_list(struct switchtec_device_info **devlist)
 	return n;
 }
 
+int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
+			     size_t buflen)
+{
+	int ret;
+	uint32_t version;
+	char syspath[PATH_MAX];
+
+	ret = dev_to_sysfs_path(dev, "fw_version", syspath, sizeof(syspath));
+	if (ret)
+		return ret;
+
+	version = sysfs_read_int(syspath, 16);
+	if (version < 0)
+		return version;
+
+	version_to_string(version, buf, buflen);
+
+	return 0;
+}
+
 int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
 			 const void *payload, size_t payload_len)
 {

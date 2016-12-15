@@ -188,9 +188,7 @@ int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info)
 		uint16_t rsvd2;
 		uint8_t  type;
 		uint8_t  rsvd3;
-		uint16_t ver_build;
-		uint8_t  ver_minor;
-		uint8_t  ver_major;
+		uint32_t version;
 		uint32_t rsvd4[10];
 		uint32_t crc;
 	} hdr;
@@ -208,10 +206,8 @@ int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info)
 		return 0;
 
 	info->type = hdr.type;
-	snprintf(info->version, sizeof(info->version),
-		 "%x.%02x B%03X", hdr.ver_major,
-		 hdr.ver_minor, le16toh(hdr.ver_build));
 	info->crc = le32toh(hdr.crc);
+	version_to_string(hdr.version, info->version, sizeof(info->version));
 	info->image_len = le32toh(hdr.image_len);
 
 	return 0;
