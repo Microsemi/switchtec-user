@@ -24,7 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int switchtec_fw_dlstatus(struct switchtec_dev * dev,
+int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus)
 {
@@ -51,7 +51,7 @@ int switchtec_fw_dlstatus(struct switchtec_dev * dev,
 	return 0;
 }
 
-int switchtec_fw_wait(struct switchtec_dev * dev,
+int switchtec_fw_wait(struct switchtec_dev *dev,
 		      enum switchtec_fw_dlstatus *status)
 {
 	enum mrpc_bg_status bgstatus;
@@ -69,7 +69,7 @@ int switchtec_fw_wait(struct switchtec_dev * dev,
 	return 0;
 }
 
-int switchtec_fw_update(struct switchtec_dev * dev, int img_fd,
+int switchtec_fw_update(struct switchtec_dev *dev, int img_fd,
 			void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
