@@ -106,7 +106,7 @@ static int sysfs_read_str(const char *path, char *buf, size_t buflen)
 	return ret;
 }
 
-static int sysfs_read_int(const char *path)
+static int sysfs_read_int(const char *path, int base)
 {
 	int ret;
 	char buf[64];
@@ -115,14 +115,39 @@ static int sysfs_read_int(const char *path)
 	if (ret < 0)
 		return ret;
 
-	return strtol(buf, NULL, 0);
+	return strtol(buf, NULL, base);
+}
+
+static int get_model_string(const char *path, char *buf, size_t buflen)
+{
+	int model, rev;
+	char sysfs_path[PATH_MAX];
+
+	snprintf(sysfs_path, sizeof(sysfs_path), "%s/device/device",
+		 path);
+
+	model = sysfs_read_int(sysfs_path, 16);
+
+	snprintf(sysfs_path, sizeof(sysfs_path), "%s/device_version",
+		 path);
+
+	rev = sysfs_read_int(sysfs_path, 16);
+
+	if (rev < 0)
+		rev = '?' - 'A';
+
+	if (model > 0)
+		snprintf(buf, buflen, "PM%X Rev %c", model, 'A' + rev);
+	else
+		snprintf(buf, buflen, "unknown");
+
+	return model;
 }
 
 int switchtec_list(struct switchtec_device_info **devlist)
 {
 	struct dirent **devices;
 	int i, n;
-	int model;
 	char link_path[PATH_MAX];
 	char pci_path[PATH_MAX];
 	struct switchtec_device_info *dl;
@@ -157,16 +182,11 @@ int switchtec_list(struct switchtec_device_info **devlist)
 			snprintf(dl[i].pci_dev, sizeof(dl[i].pci_dev),
 				 "unknown pci device");
 
-		snprintf(link_path, sizeof(link_path), "%s/%s/device/device",
+
+		snprintf(link_path, sizeof(link_path), "%s/%s",
 			 sys_path, devices[i]->d_name);
 
-		model = sysfs_read_int(link_path);
-		if (model > 0)
-			snprintf(dl[i].model, sizeof(dl[i].model),
-				 "PM%X", model);
-		else
-			snprintf(dl[i].model, sizeof(dl[i].model),
-				 "unknown");
+		get_model_string(link_path, dl[i].model, sizeof(dl[i].model));
 
 		free(devices[n]);
 	}
