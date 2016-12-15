@@ -25,14 +25,16 @@ _switchtec_list_opts () {
 			;;
 		"fw-update")
 			if [ $nonopt_args -eq 3 ]; then
-				compargs="-o filenames -A file"
+				compopt -o filenames
+				compargs="-f"
 			fi
 			opts+=" -y"
 			;;
 		"fw-img-info")
 			opts=""
 			if [ $nonopt_args -eq 2 ]; then
-				compargs="-o filenames -A file"
+				compopt -o filenames
+				compargs="-f"
 			fi
 			;;
 		"list"|"version")
