@@ -58,6 +58,7 @@ static void check_arg_dev(int argc, char **argv)
 	}
 }
 
+struct switchtec_dev *global_dev = NULL;
 struct switchtec_dev *parse_and_open(int argc, char **argv, const char *desc,
 	const struct argconfig_commandline_options *clo,
 	void *cfg, size_t size)
@@ -67,7 +68,7 @@ struct switchtec_dev *parse_and_open(int argc, char **argv, const char *desc,
 	argconfig_parse(argc, argv, desc, clo, cfg, size);
 	check_arg_dev(argc, argv);
 
-	dev = switchtec_open(argv[optind]);
+	global_dev = dev = switchtec_open(argv[optind]);
 
 	if (dev == NULL)
 		perror(argv[optind]);
@@ -410,6 +411,8 @@ int main(int argc, char **argv)
 	ret = handle_plugin(argc - 1, &argv[1], switchtec.extensions);
 	if (ret == -ENOTSUP)
 		general_help(&builtin);
+
+	switchtec_close(global_dev);
 
 	return ret;
 }

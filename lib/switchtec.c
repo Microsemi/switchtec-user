@@ -91,6 +91,9 @@ err_free:
 
 void switchtec_close(struct switchtec_dev *dev)
 {
+	if (dev == NULL)
+		return;
+
 	close(dev->fd);
 	free(dev);
 }
