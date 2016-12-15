@@ -74,8 +74,7 @@ switchtec: $(CLI_OBJS) libswitchtec.a
 	$(Q)$(LINK.o) $^ -o $@
 
 install-bash-completion:
-	@$(NQ) echo "  INSTALL  $(SYSCONFDIR)/bash_completion.d/"\
-		"bash-switchtec-completion.sh"
+	@$(NQ) echo "  INSTALL  $(SYSCONFDIR)/bash_completion.d/bash-switchtec-completion.sh"
 	$(Q)install -d $(SYSCONFDIR)/bash_completion.d
 	$(Q)install -m 644 -T ./completions/bash-switchtec-completion.sh \
 		$(SYSCONFDIR)/bash_completion.d/switchtec
