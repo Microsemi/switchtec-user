@@ -245,6 +245,25 @@ static int fw_image_info(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int print_fw_part_info(struct switchtec_dev *dev)
+{
+	int ret;
+	struct switchtec_fw_part_info info;
+
+	ret = switchtec_fw_part_info(dev, &info);
+	if (ret)
+		return ret;
+
+	printf("Active Partition:\n");
+	printf("  IMG Version: %s\n", info.active_main_fw.version);
+	printf("  CFG Version: %s\n", info.active_cfg.version);
+	printf("Inactive Partition:\n");
+	printf("  IMG Version: %s\n", info.inactive_main_fw.version);
+	printf("  CFG Version: %s\n", info.inactive_cfg.version);
+
+	return 0;
+}
+
 static int fw_info(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {
@@ -267,7 +286,9 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 	}
 
 	printf("Current Running:\n");
-	printf("  Version: %s\n", version);
+	printf("  IMG Version: %s\n", version);
+
+	print_fw_part_info(dev);
 
 	return 0;
 }

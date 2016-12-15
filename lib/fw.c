@@ -17,6 +17,8 @@
 #include "switchtec/switchtec.h"
 
 #include <unistd.h>
+#include <sys/ioctl.h>
+#include <linux/switchtec_ioctl.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -226,4 +228,36 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	case SWITCHTEC_FW_TYPE_CFG: return "CFG";
 	default: return "UNKNOWN";
 	}
+}
+
+int switchtec_fw_part_info(struct switchtec_dev *dev,
+			  struct switchtec_fw_part_info *info)
+{
+	int ret;
+	struct switchtec_ioctl_fw_info ioctl_info;
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FW_INFO, &ioctl_info);
+	if (ret)
+		return ret;
+
+	#define fw_info_set(field) \
+                info->field = ioctl_info.field
+
+	fw_info_set(flash_part_map_upd_idx);
+	fw_info_set(active_main_fw.address);
+	fw_info_set(active_cfg.address);
+	fw_info_set(inactive_main_fw.address);
+	fw_info_set(inactive_cfg.address);
+
+	#define fw_version_set(field)\
+		version_to_string(ioctl_info.field.build_version, \
+				  info->field.version, \
+				  sizeof(info->field.version));
+
+	fw_version_set(active_main_fw);
+	fw_version_set(active_cfg);
+	fw_version_set(inactive_main_fw);
+	fw_version_set(inactive_cfg);
+
+	return 0;
 }

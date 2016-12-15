@@ -62,6 +62,19 @@ struct switchtec_fw_image_info {
 	unsigned long crc;
 };
 
+struct switchtec_fw_part_info {
+	uint32_t flash_part_map_upd_idx;
+
+	struct switchtec_fw_part_info_sec {
+		uint32_t address;
+		char version[32];
+	} active_main_fw;
+
+	struct switchtec_fw_part_info_sec active_cfg;
+	struct switchtec_fw_part_info_sec inactive_main_fw;
+	struct switchtec_fw_part_info_sec inactive_cfg;
+};
+
 struct switchtec_dev *switchtec_open(const char * path);
 void switchtec_close(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
@@ -92,6 +105,8 @@ int switchtec_fw_update(struct switchtec_dev *dev, int img_fd,
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
+int switchtec_fw_part_info(struct switchtec_dev *dev,
+			   struct switchtec_fw_part_info *info);
 
 
 #ifdef __cplusplus
