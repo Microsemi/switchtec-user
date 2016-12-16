@@ -348,7 +348,7 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		return ret;
 	}
 
-	ret = switchtec_fw_update(dev, img_fd, fw_update_callback);
+	ret = switchtec_fw_write_file(dev, img_fd, fw_update_callback);
 	close(img_fd);
 	printf("\n\n");
 

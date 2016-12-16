@@ -86,8 +86,8 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 			     NULL, 0);
 }
 
-int switchtec_fw_update(struct switchtec_dev *dev, int img_fd,
-			void (*progress_callback)(int cur, int tot))
+int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
+			    void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
 	enum mrpc_bg_status bgstatus;
