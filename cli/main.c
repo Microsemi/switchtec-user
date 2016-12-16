@@ -93,9 +93,9 @@ static int list(int argc, char **argv, struct command *cmd,
 		return n;
 
 	for (i = 0; i < n; i++)
-		printf("%-20s\t%-15s\t%-10s\t%s\n", devices[i].path,
-		       devices[i].model, devices[i].fw_version,
-		       devices[i].pci_dev);
+		printf("%-20s\t%-15s\t%-5s\t%-10s\t%s\n", devices[i].path,
+		       devices[i].product_id, devices[i].product_rev,
+		       devices[i].fw_version, devices[i].pci_dev);
 
 	free(devices);
 	return 0;

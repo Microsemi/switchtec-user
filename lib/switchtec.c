@@ -134,30 +134,20 @@ static int sysfs_read_int(const char *path, int base)
 	return strtol(buf, NULL, base);
 }
 
-static int get_model_string(const char *path, char *buf, size_t buflen)
+static void get_device_str(const char *path, const char *file,
+			   char *buf, size_t buflen)
 {
-	int model, rev;
 	char sysfs_path[PATH_MAX];
+	int ret;
 
-	snprintf(sysfs_path, sizeof(sysfs_path), "%s/device/device",
-		 path);
+	snprintf(sysfs_path, sizeof(sysfs_path), "%s/%s",
+		 path, file);
 
-	model = sysfs_read_int(sysfs_path, 16);
-
-	snprintf(sysfs_path, sizeof(sysfs_path), "%s/device_version",
-		 path);
-
-	rev = sysfs_read_int(sysfs_path, 16);
-
-	if (rev < 0)
-		rev = '?' - 'A';
-
-	if (model > 0)
-		snprintf(buf, buflen, "PM%X Rev %c", model, 'A' + rev);
-	else
+	ret = sysfs_read_str(sysfs_path, buf, buflen);
+	if (ret < 0)
 		snprintf(buf, buflen, "unknown");
 
-	return model;
+	buf[strcspn(buf, "\n")] = 0;
 }
 
 static void get_fw_version(const char *path, char *buf, size_t buflen)
@@ -218,10 +208,12 @@ int switchtec_list(struct switchtec_device_info **devlist)
 		snprintf(link_path, sizeof(link_path), "%s/%s",
 			 sys_path, devices[i]->d_name);
 
-		get_model_string(link_path, dl[i].model, sizeof(dl[i].model));
+		get_device_str(link_path, "product_id", dl[i].product_id,
+			       sizeof(dl[i].product_id));
+		get_device_str(link_path, "product_revision",
+			       dl[i].product_rev, sizeof(dl[i].product_rev));
 		get_fw_version(link_path, dl[i].fw_version,
 			       sizeof(dl[i].fw_version));
-
 
 		free(devices[n]);
 	}
