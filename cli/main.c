@@ -93,7 +93,8 @@ static int list(int argc, char **argv, struct command *cmd,
 		return n;
 
 	for (i = 0; i < n; i++)
-		printf("%-20s %-15s %s\n", devices[i].path, devices[i].model,
+		printf("%-20s\t%-15s\t%-10s\t%s\n", devices[i].path,
+		       devices[i].model, devices[i].fw_version,
 		       devices[i].pci_dev);
 
 	free(devices);

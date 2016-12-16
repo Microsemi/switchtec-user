@@ -160,6 +160,22 @@ static int get_model_string(const char *path, char *buf, size_t buflen)
 	return model;
 }
 
+static void get_fw_version(const char *path, char *buf, size_t buflen)
+{
+	char sysfs_path[PATH_MAX];
+	int fw_ver;
+
+	snprintf(sysfs_path, sizeof(sysfs_path), "%s/fw_version",
+		 path);
+
+	fw_ver = sysfs_read_int(sysfs_path, 16);
+
+	if (fw_ver < 0)
+		snprintf(buf, buflen, "unknown");
+	else
+		version_to_string(fw_ver, buf, buflen);
+}
+
 int switchtec_list(struct switchtec_device_info **devlist)
 {
 	struct dirent **devices;
@@ -203,6 +219,9 @@ int switchtec_list(struct switchtec_device_info **devlist)
 			 sys_path, devices[i]->d_name);
 
 		get_model_string(link_path, dl[i].model, sizeof(dl[i].model));
+		get_fw_version(link_path, dl[i].fw_version,
+			       sizeof(dl[i].fw_version));
+
 
 		free(devices[n]);
 	}
