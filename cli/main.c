@@ -321,7 +321,7 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static void fw_update_callback(int cur, int total)
+static void fw_progress_callback(int cur, int total)
 {
 	const int bar_width = 60;
 
@@ -374,7 +374,7 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		return ret;
 	}
 
-	ret = switchtec_fw_write_file(dev, img_fd, fw_update_callback);
+	ret = switchtec_fw_write_file(dev, img_fd, fw_progress_callback);
 	close(img_fd);
 	printf("\n\n");
 
@@ -504,9 +504,12 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 		goto close_and_exit;
 	}
 
-	ret = switchtec_fw_read_file(dev, fd, img_addr, ftr.image_len);
+	ret = switchtec_fw_read_file(dev, fd, img_addr, ftr.image_len,
+				     fw_progress_callback);
 	if (ret < 0)
 		perror("fw_read");
+
+	printf("\n");
 
 	if (fd == STDOUT_FILENO)
 		fprintf(stderr, "Firmware read to stdout.\n");

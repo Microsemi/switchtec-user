@@ -318,11 +318,13 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 }
 
 int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
-			   unsigned long addr, size_t len)
+			   unsigned long addr, size_t len,
+			   void (*progress_callback)(int cur, int tot))
 {
 	int ret;
-	unsigned char buf[(MRPC_MAX_DATA_LEN-8)*8];
+	unsigned char buf[(MRPC_MAX_DATA_LEN-8)*4];
 	size_t read = 0;
+	size_t total_len = len;
 
 	while(len) {
 		size_t chunk_len = len;
@@ -338,6 +340,9 @@ int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
 		read += ret;
 		addr += ret;
 		len -= ret;
+
+		if (progress_callback)
+			progress_callback(read, total_len);
 	}
 
 	return read;

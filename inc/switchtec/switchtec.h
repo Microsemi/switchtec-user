@@ -129,7 +129,8 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
 			    void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
-			   unsigned long addr, size_t len);
+			   unsigned long addr, size_t len,
+			   void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 int switchtec_fw_read_footer(struct switchtec_dev *dev,
