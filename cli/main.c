@@ -247,6 +247,20 @@ static int fw_image_info(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static uint32_t get_part_crc(struct switchtec_dev *dev,
+			     unsigned long part_addr, size_t part_len)
+{
+	struct switchtec_fw_footer ftr;
+	int ret;
+
+        ret = switchtec_fw_read_footer(dev, part_addr, part_len, &ftr,
+				       NULL, 0);
+	if (ret < 0)
+		return -1;
+
+	return ftr.image_crc;
+}
+
 static int print_fw_part_info(struct switchtec_dev *dev)
 {
 	int ret;
@@ -257,11 +271,23 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 		return ret;
 
 	printf("Active Partition:\n");
-	printf("  IMG Version: %s\n", info.active_main_fw.version);
-	printf("  CFG Version: %s\n", info.active_cfg.version);
+	printf("  IMG \tVersion: %-8s\tCRC: %08x\n",
+	       info.active_main_fw.version,
+	       get_part_crc(dev, info.active_main_fw.address,
+			    SWITCHTEC_FW_PART_SIZE_IMG));
+	printf("  CFG  \tVersion: %-8s\tCRC: %08x\n",
+	       info.active_cfg.version,
+	       get_part_crc(dev, info.active_cfg.address,
+			    SWITCHTEC_FW_PART_SIZE_DAT));
 	printf("Inactive Partition:\n");
-	printf("  IMG Version: %s\n", info.inactive_main_fw.version);
-	printf("  CFG Version: %s\n", info.inactive_cfg.version);
+	printf("  IMG  \tVersion: %-8s\tCRC: %08x\n",
+	       info.inactive_main_fw.version,
+	       get_part_crc(dev, info.inactive_main_fw.address,
+			    SWITCHTEC_FW_PART_SIZE_IMG));
+	printf("  CFG  \tVersion: %-8s\tCRC: %08x\n",
+	       info.inactive_cfg.version,
+	       get_part_crc(dev, info.inactive_cfg.address,
+			    SWITCHTEC_FW_PART_SIZE_DAT));
 
 	return 0;
 }
@@ -287,7 +313,7 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 		return ret;
 	}
 
-	printf("Current Running:\n");
+	printf("Currently Running:\n");
 	printf("  IMG Version: %s\n", version);
 
 	print_fw_part_info(dev);
