@@ -25,6 +25,7 @@ struct switchtec_ioctl_fw_info {
 		__u32 address;
 		__u32 build_version;
 		__u32 build_string;
+		__u32 reserved1;
 	} active_main_fw;
 
 	struct switchtec_flash_partition_info active_cfg;
