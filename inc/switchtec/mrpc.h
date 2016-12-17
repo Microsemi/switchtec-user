@@ -50,6 +50,7 @@ enum mrpc_cmd {
 	MRPC_ARB = 25,
 	MRPC_SMBUS = 26,
 	MRPC_RESET = 27,
+	MRPC_FWREAD = 31,
 	MRPC_ECHO = 65,
 };
 

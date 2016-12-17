@@ -280,3 +280,63 @@ int switchtec_fw_part_info(struct switchtec_dev *dev,
 
 	return 0;
 }
+
+int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
+		      size_t len, void *buf)
+{
+	int ret;
+	struct {
+		uint32_t addr;
+		uint32_t length;
+	} cmd;
+	unsigned char *cbuf = buf;
+	size_t read = 0;
+
+	while(len) {
+		size_t chunk_len = len;
+		if (chunk_len > MRPC_MAX_DATA_LEN-8)
+			chunk_len = MRPC_MAX_DATA_LEN-8;
+
+		cmd.addr = htole32(addr);
+		cmd.length = htole32(chunk_len);
+
+		ret = switchtec_cmd(dev, MRPC_FWREAD, &cmd, sizeof(cmd),
+				    cbuf, chunk_len);
+
+		if (ret < 0)
+			return ret;
+
+		addr += chunk_len;
+		len -= chunk_len;
+		read += chunk_len;
+		cbuf += chunk_len;
+	}
+
+	return read;
+}
+
+int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
+			   unsigned long addr, size_t len)
+{
+	int ret;
+	unsigned char buf[(MRPC_MAX_DATA_LEN-8)*8];
+	size_t read = 0;
+
+	while(len) {
+		size_t chunk_len = len;
+		if (chunk_len > sizeof(buf))
+			chunk_len = sizeof(buf);
+
+		ret = switchtec_fw_read(dev, addr, chunk_len, buf);
+		if (ret < 0)
+			return ret;
+
+		write(fd, buf, ret);
+
+		read += ret;
+		addr += ret;
+		len -= ret;
+	}
+
+	return read;
+}
