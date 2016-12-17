@@ -238,7 +238,7 @@ invalid_file:
 
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 {
-	switch(info->type) {
+	switch((unsigned long)info->type) {
 	case SWITCHTEC_FW_TYPE_BOOT: return "BOOT";
 	case SWITCHTEC_FW_TYPE_MAP0: return "MAP";
 	case SWITCHTEC_FW_TYPE_MAP1: return "MAP";
@@ -247,6 +247,13 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	case SWITCHTEC_FW_TYPE_DAT0: return "DAT";
 	case SWITCHTEC_FW_TYPE_DAT1: return "DAT";
 	case SWITCHTEC_FW_TYPE_NVLOG: return "NVLOG";
+
+	//Legacy
+	case 0xa8000000: return "BOOT (LEGACY)";
+	case 0xa8020000: return "MAP (LEGACY)";
+	case 0xa8060000: return "IMG (LEGACY)";
+	case 0xa8210000: return "DAT (LEGACY)";
+
 	default: return "UNKNOWN";
 	}
 }
