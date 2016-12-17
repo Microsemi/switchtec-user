@@ -51,18 +51,26 @@ enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
 };
 
-struct switchtec_fw_image_info {
-	enum {
-		SWITCHTEC_FW_TYPE_BOOT = 0x0,
-		SWITCHTEC_FW_TYPE_MAP0 = 0x1,
-		SWITCHTEC_FW_TYPE_MAP1 = 0x2,
-		SWITCHTEC_FW_TYPE_IMG0 = 0x3,
-		SWITCHTEC_FW_TYPE_DAT0 = 0x4,
-		SWITCHTEC_FW_TYPE_DAT1 = 0x5,
-		SWITCHTEC_FW_TYPE_NVLOG = 0x6,
-		SWITCHTEC_FW_TYPE_IMG1 = 0x7,
-	} type;
+enum switchtec_fw_image_type {
+	SWITCHTEC_FW_TYPE_BOOT = 0x0,
+	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
+	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
+	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
+	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
+	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
+	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
+	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
+};
 
+/*
+ * These are terrible assumptions. It should be told to us
+ * by the hardware but for now I can't see a way to do that.
+ */
+#define SWITCHTEC_FW_PART_SIZE_IMG  0x1a0000
+#define SWITCHTEC_FW_PART_SIZE_DAT  0x10000
+
+struct switchtec_fw_image_info {
+	enum switchtec_fw_image_type type;
 	char version[32];
 	size_t image_len;
 	unsigned long crc;
@@ -79,6 +87,16 @@ struct switchtec_fw_part_info {
 	struct switchtec_fw_part_info_sec active_cfg;
 	struct switchtec_fw_part_info_sec inactive_main_fw;
 	struct switchtec_fw_part_info_sec inactive_cfg;
+};
+
+struct switchtec_fw_footer {
+	char magic[4];
+	uint32_t image_len;
+	uint32_t load_addr;
+	uint32_t version;
+	uint32_t rsvd;
+	uint32_t header_crc;
+	uint32_t image_crc;
 };
 
 struct switchtec_dev *switchtec_open(const char * path);
@@ -114,11 +132,18 @@ int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
 			   unsigned long addr, size_t len);
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
+int switchtec_fw_read_footer(struct switchtec_dev *dev,
+			     unsigned long partition_start,
+			     size_t partition_len,
+			     struct switchtec_fw_footer *ftr,
+			     char *version, size_t version_len);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 int switchtec_fw_part_info(struct switchtec_dev *dev,
 			   struct switchtec_fw_part_info *info);
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
+			       enum switchtec_fw_image_type type);
 
 
 #ifdef __cplusplus

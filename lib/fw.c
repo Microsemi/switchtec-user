@@ -197,18 +197,20 @@ void switchtec_fw_perror(const char *s, int ret)
 	fprintf(stderr, "%s: %s\n", s, msg);
 }
 
+struct fw_image_header {
+	char magic[4];
+	uint32_t image_len;
+	uint32_t type;
+	uint32_t load_addr;
+	uint32_t version;
+	uint32_t rsvd[9];
+	uint32_t header_crc;
+	uint32_t image_crc;
+} hdr;
+
 int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info)
 {
 	int ret;
-	struct {
-		char magic[4];
-		uint32_t image_len;
-		uint32_t type;
-		uint32_t rsvd1;
-		uint32_t version;
-		uint32_t rsvd2[10];
-		uint32_t crc;
-	} hdr;
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
@@ -223,7 +225,7 @@ int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info)
 		return 0;
 
 	info->type = hdr.type;
-	info->crc = le32toh(hdr.crc);
+	info->crc = le32toh(hdr.image_crc);
 	version_to_string(hdr.version, info->version, sizeof(info->version));
 	info->image_len = le32toh(hdr.image_len);
 
@@ -250,7 +252,7 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 }
 
 int switchtec_fw_part_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_part_info *info)
+			   struct switchtec_fw_part_info *info)
 {
 	int ret;
 	struct switchtec_ioctl_fw_info ioctl_info;
@@ -339,4 +341,48 @@ int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
 	}
 
 	return read;
+}
+
+int switchtec_fw_read_footer(struct switchtec_dev *dev,
+			     unsigned long partition_start,
+			     size_t partition_len,
+			     struct switchtec_fw_footer *ftr,
+			     char *version, size_t version_len)
+{
+	int ret;
+	unsigned long addr = partition_start + partition_len -
+		sizeof(struct switchtec_fw_footer);
+
+	if (!ftr)
+		return -EINVAL;
+
+	ret = switchtec_fw_read(dev, addr, sizeof(struct switchtec_fw_footer),
+				ftr);
+
+	if (ret < 0)
+		return ret;
+
+	if (strcmp(ftr->magic, "PMC") != 0)
+		return -ENOEXEC;
+
+	if (version)
+		version_to_string(ftr->version, version, version_len);
+
+	return 0;
+}
+
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
+			       enum switchtec_fw_image_type type)
+{
+	struct fw_image_header hdr = {};
+
+	memcpy(hdr.magic, ftr->magic, sizeof(hdr.magic));
+	hdr.image_len = ftr->image_len;
+	hdr.type = type;
+	hdr.load_addr = ftr->load_addr;
+	hdr.version = ftr->version;
+	hdr.header_crc = ftr->header_crc;
+	hdr.image_crc = ftr->image_crc;
+
+	return write(fd, &hdr, sizeof(hdr));
 }

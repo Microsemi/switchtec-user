@@ -397,6 +397,102 @@ static int fw_toggle(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
+static int fw_read(int argc, char **argv, struct command *cmd,
+		   struct plugin *plugin)
+{
+	struct switchtec_dev *dev;
+	struct switchtec_fw_footer ftr;
+	struct switchtec_fw_part_info part_info;
+	int fd;
+	int ret = 0;
+	const char *desc = "Flash the firmware with a new image";
+	char version[16];
+	const char *filename;
+	unsigned long img_addr;
+	size_t img_size;
+	enum switchtec_fw_image_type type;
+
+	static struct {
+		int inactive;
+		int data;
+	} cfg;
+	const struct argconfig_commandline_options opts[] = {
+		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
+		 "read the inactive partition"},
+		{"data", 'd', "", CFG_NONE, &cfg.data, no_argument,
+		 "read the data/config partiton instead of the main firmware"},
+		{"config", 'c', "", CFG_NONE, &cfg.data, no_argument,
+		 "read the data/config partiton instead of the main firmware"},
+		{NULL}};
+
+	argconfig_append_usage(" <device> [<file>]");
+	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (optind >= argc)
+		filename = "image.pmc";
+	else
+		filename = argv[optind];
+
+	if (strcmp(filename, "-") == 0) {
+		fd = STDOUT_FILENO;
+	} else {
+		fd = open(filename, O_CREAT | O_TRUNC | O_WRONLY, 0666);
+		if (fd < 0) {
+			perror(filename);
+			return -1;
+		}
+	}
+
+	ret = switchtec_fw_part_info(dev, &part_info);
+	if (ret < 0) {
+		perror("fw_part_info");
+		goto close_and_exit;
+	}
+
+	if (cfg.data) {
+		img_addr = cfg.inactive ? part_info.inactive_cfg.address :
+			part_info.active_cfg.address;
+		img_size = SWITCHTEC_FW_PART_SIZE_DAT;
+		type = SWITCHTEC_FW_TYPE_DAT0;
+	} else {
+		img_addr = cfg.inactive ? part_info.inactive_main_fw.address :
+			part_info.active_main_fw.address;
+		img_size = SWITCHTEC_FW_PART_SIZE_IMG;
+		type = SWITCHTEC_FW_TYPE_IMG0;
+	}
+
+	ret = switchtec_fw_read_footer(dev, img_addr, img_size, &ftr,
+				       version, sizeof(version));
+	if (ret < 0) {
+		perror("fw_read_footer");
+		goto close_and_exit;
+	}
+
+	fprintf(stderr, "Version:  %s\n", version);
+	fprintf(stderr, "Img Len:  0x%x\n", (int) ftr.image_len);
+	fprintf(stderr, "CRC:      0x%x\n", (int) ftr.image_crc);
+
+	ret = switchtec_fw_img_write_hdr(fd, &ftr, type);
+	if (ret < 0) {
+		perror(filename);
+		goto close_and_exit;
+	}
+
+	ret = switchtec_fw_read_file(dev, fd, img_addr, ftr.image_len);
+	if (ret < 0)
+		perror("fw_read");
+
+	if (fd == STDOUT_FILENO)
+		fprintf(stderr, "Firmware read to stdout.\n");
+	else
+		fprintf(stderr, "Firmware read to %s.\n", filename);
+
+close_and_exit:
+	close(fd);
+
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	int ret;

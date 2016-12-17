@@ -3,7 +3,7 @@
 #   Kelly Kaoudis kelly.n.kaoudis at intel.com, Aug. 2015
 
 _cmds="list test hard-reset fw-update fw-toggle fw-info \
-	fw-img-info version help"
+	fw-img-info fw-read version help"
 
 _switchtec_list_opts () {
 	local opts=""
@@ -30,6 +30,13 @@ _switchtec_list_opts () {
 				compargs="-f"
 			fi
 			opts+=" -y"
+			;;
+		"fw-read")
+			if [ $nonopt_args -eq 3 ]; then
+				compopt -o filenames
+				compargs="-f"
+			fi
+			opts+=" -c --config -d --data -i --inactive"
 			;;
 		"fw-toggle")
 			opts+=" -f --firmware -c --config"
