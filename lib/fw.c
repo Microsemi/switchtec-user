@@ -203,12 +203,10 @@ int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info)
 	struct {
 		char magic[4];
 		uint32_t image_len;
+		uint32_t type;
 		uint32_t rsvd1;
-		uint16_t rsvd2;
-		uint8_t  type;
-		uint8_t  rsvd3;
 		uint32_t version;
-		uint32_t rsvd4[10];
+		uint32_t rsvd2[10];
 		uint32_t crc;
 	} hdr;
 
@@ -240,9 +238,13 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 {
 	switch(info->type) {
 	case SWITCHTEC_FW_TYPE_BOOT: return "BOOT";
-	case SWITCHTEC_FW_TYPE_MAP: return "MAP";
-	case SWITCHTEC_FW_TYPE_IMG: return "IMG";
-	case SWITCHTEC_FW_TYPE_CFG: return "CFG";
+	case SWITCHTEC_FW_TYPE_MAP0: return "MAP";
+	case SWITCHTEC_FW_TYPE_MAP1: return "MAP";
+	case SWITCHTEC_FW_TYPE_IMG0: return "IMG";
+	case SWITCHTEC_FW_TYPE_IMG1: return "IMG";
+	case SWITCHTEC_FW_TYPE_DAT0: return "DAT";
+	case SWITCHTEC_FW_TYPE_DAT1: return "DAT";
+	case SWITCHTEC_FW_TYPE_NVLOG: return "NVLOG";
 	default: return "UNKNOWN";
 	}
 }

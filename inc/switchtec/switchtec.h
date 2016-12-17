@@ -54,9 +54,13 @@ enum switchtec_fw_dlstatus {
 struct switchtec_fw_image_info {
 	enum {
 		SWITCHTEC_FW_TYPE_BOOT = 0x0,
-		SWITCHTEC_FW_TYPE_MAP = 0x2,
-		SWITCHTEC_FW_TYPE_IMG = 0x6,
-		SWITCHTEC_FW_TYPE_CFG = 0x21,
+		SWITCHTEC_FW_TYPE_MAP0 = 0x1,
+		SWITCHTEC_FW_TYPE_MAP1 = 0x2,
+		SWITCHTEC_FW_TYPE_IMG0 = 0x3,
+		SWITCHTEC_FW_TYPE_DAT0 = 0x4,
+		SWITCHTEC_FW_TYPE_DAT1 = 0x5,
+		SWITCHTEC_FW_TYPE_NVLOG = 0x6,
+		SWITCHTEC_FW_TYPE_IMG1 = 0x7,
 	} type;
 
 	char version[32];
