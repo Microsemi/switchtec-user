@@ -234,7 +234,7 @@ static int open_and_print_fw_image(int argc, char **argv)
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
 	printf("Img Len:  0x%zx\n", info.image_len);
-	printf("CRC:      0x%lx\n", info.crc);
+	printf("CRC:      0x%08lx\n", info.crc);
 
 	return img_fd;
 }
