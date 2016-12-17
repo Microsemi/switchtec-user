@@ -196,6 +196,16 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static const char *get_basename(const char *buf)
+{
+	const char *slash = strrchr(buf, '/');
+
+	if (slash)
+		return slash+1;
+
+	return buf;
+}
+
 static int open_and_print_fw_image(int argc, char **argv)
 {
 	int img_fd, ret;
@@ -220,7 +230,7 @@ static int open_and_print_fw_image(int argc, char **argv)
 		return ret;
 	}
 
-	printf("File:     %s\n", strrchr(argv[optind], '/')+1);
+	printf("File:     %s\n", get_basename(argv[optind]));
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
 	printf("Img Len:  0x%zx\n", info.image_len);
