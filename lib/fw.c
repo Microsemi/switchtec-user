@@ -227,6 +227,7 @@ int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info)
 	info->type = hdr.type;
 	info->crc = le32toh(hdr.image_crc);
 	version_to_string(hdr.version, info->version, sizeof(info->version));
+	info->image_addr = le32toh(hdr.load_addr);
 	info->image_len = le32toh(hdr.image_len);
 
 	return 0;
@@ -258,34 +259,115 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
-int switchtec_fw_part_info(struct switchtec_dev *dev,
-			   struct switchtec_fw_part_info *info)
+static void copy_part_info(struct switchtec_fw_image_info *info,
+			   struct switchtec_ioctl_fw_info *ioctl_info,
+			   enum switchtec_ioctl_partition part)
+{
+	info->image_addr = ioctl_info->partition[part].address;
+	info->image_len = ioctl_info->partition[part].length;
+	info->active = ioctl_info->partition[part].active;
+}
+
+int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
+			   struct switchtec_fw_image_info *info)
 {
 	int ret;
+	int i;
 	struct switchtec_ioctl_fw_info ioctl_info;
+	struct switchtec_fw_footer ftr;
+
+	if (info == NULL || nr_info == 0)
+		return -EINVAL;
 
 	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FW_INFO, &ioctl_info);
 	if (ret)
 		return ret;
 
-	#define fw_info_set(field) \
-                info->field = ioctl_info.field
+	for (i = 0; i < nr_info; i++) {
+		switch(info[i].type) {
+		case SWITCHTEC_FW_TYPE_IMG0:
+			copy_part_info(&info[i], &ioctl_info,
+				       SWITCHTEC_IOCTL_PART_IMG0);
+			break;
+		case SWITCHTEC_FW_TYPE_IMG1:
+			copy_part_info(&info[i], &ioctl_info,
+				       SWITCHTEC_IOCTL_PART_IMG1);
+			break;
+		case SWITCHTEC_FW_TYPE_DAT0:
+			copy_part_info(&info[i], &ioctl_info,
+				       SWITCHTEC_IOCTL_PART_CFG0);
+			break;
+		case SWITCHTEC_FW_TYPE_DAT1:
+			copy_part_info(&info[i], &ioctl_info,
+				       SWITCHTEC_IOCTL_PART_CFG1);
+			break;
+		case SWITCHTEC_FW_TYPE_NVLOG:
+			copy_part_info(&info[i], &ioctl_info,
+				       SWITCHTEC_IOCTL_PART_NVLOG);
 
-	fw_info_set(flash_part_map_upd_idx);
-	fw_info_set(active_main_fw.address);
-	fw_info_set(active_cfg.address);
-	fw_info_set(inactive_main_fw.address);
-	fw_info_set(inactive_cfg.address);
+			info[i].version[0] = 0;
+			info[i].crc = 0;
 
-	#define fw_version_set(field)\
-		version_to_string(ioctl_info.field.build_version, \
-				  info->field.version, \
-				  sizeof(info->field.version));
+			continue;
+		default:
+			return -EINVAL;
+		}
 
-	fw_version_set(active_main_fw);
-	fw_version_set(active_cfg);
-	fw_version_set(inactive_main_fw);
-	fw_version_set(inactive_cfg);
+		ret = switchtec_fw_read_footer(dev, info[i].image_addr,
+					       info[i].image_len,
+					       &ftr, info[i].version,
+					       sizeof(info[i].version));
+		if (ret < 0)
+			return ret;
+
+		info[i].crc = ftr.image_crc;
+	}
+
+	return nr_info;
+}
+
+int switchtec_fw_part_act_info(struct switchtec_dev *dev,
+			       struct switchtec_fw_image_info *act_img,
+			       struct switchtec_fw_image_info *inact_img,
+			       struct switchtec_fw_image_info *act_cfg,
+			       struct switchtec_fw_image_info *inact_cfg)
+{
+	int ret;
+	struct switchtec_fw_image_info info[4];
+
+	info[0].type = SWITCHTEC_FW_TYPE_IMG0;
+	info[1].type = SWITCHTEC_FW_TYPE_IMG1;
+	info[2].type = SWITCHTEC_FW_TYPE_DAT0;
+	info[3].type = SWITCHTEC_FW_TYPE_DAT1;
+
+	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info),
+				     info);
+	if (ret < 0)
+		return ret;
+
+	if (info[0].active) {
+		if (act_img)
+			memcpy(act_img, &info[0], sizeof(*act_img));
+		if (inact_img)
+			memcpy(inact_img, &info[1], sizeof(*inact_img));
+	} else {
+		if (act_img)
+			memcpy(act_img, &info[1], sizeof(*act_img));
+		if (inact_img)
+			memcpy(inact_img, &info[0], sizeof(*inact_img));
+	}
+
+	if (info[2].active) {
+		if (act_cfg)
+			memcpy(act_cfg, &info[2], sizeof(*act_cfg));
+		if (inact_cfg)
+			memcpy(inact_cfg, &info[3], sizeof(*inact_cfg));
+	} else {
+		if (act_cfg)
+			memcpy(act_cfg, &info[3], sizeof(*act_cfg));
+		if (inact_cfg)
+			memcpy(inact_cfg, &info[2], sizeof(*inact_cfg));
+	}
 
 	return 0;
 }

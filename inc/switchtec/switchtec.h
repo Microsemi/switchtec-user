@@ -62,31 +62,14 @@ enum switchtec_fw_image_type {
 	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
 };
 
-/*
- * These are terrible assumptions. It should be told to us
- * by the hardware but for now I can't see a way to do that.
- */
-#define SWITCHTEC_FW_PART_SIZE_IMG  0x1a0000
-#define SWITCHTEC_FW_PART_SIZE_DAT  0x10000
-
 struct switchtec_fw_image_info {
 	enum switchtec_fw_image_type type;
 	char version[32];
+	size_t image_addr;
 	size_t image_len;
 	unsigned long crc;
-};
+	int active;
 
-struct switchtec_fw_part_info {
-	uint32_t flash_part_map_upd_idx;
-
-	struct switchtec_fw_part_info_sec {
-		uint32_t address;
-		char version[32];
-	} active_main_fw;
-
-	struct switchtec_fw_part_info_sec active_cfg;
-	struct switchtec_fw_part_info_sec inactive_main_fw;
-	struct switchtec_fw_part_info_sec inactive_cfg;
 };
 
 struct switchtec_fw_footer {
@@ -141,8 +124,13 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
-int switchtec_fw_part_info(struct switchtec_dev *dev,
-			   struct switchtec_fw_part_info *info);
+int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
+			   struct switchtec_fw_image_info *info);
+int switchtec_fw_part_act_info(struct switchtec_dev *dev,
+			       struct switchtec_fw_image_info *act_img,
+			       struct switchtec_fw_image_info *inact_img,
+			       struct switchtec_fw_image_info *act_cfg,
+			       struct switchtec_fw_image_info *inact_cfg);
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type);
 

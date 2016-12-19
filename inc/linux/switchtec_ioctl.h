@@ -18,19 +18,31 @@
 
 #include <linux/types.h>
 
+enum switchtec_ioctl_partition {
+	SWITCHTEC_IOCTL_PART_CFG0,
+	SWITCHTEC_IOCTL_PART_CFG1,
+	SWITCHTEC_IOCTL_PART_IMG0,
+	SWITCHTEC_IOCTL_PART_IMG1,
+	SWITCHTEC_IOCTL_PART_NVLOG,
+	SWITCHTEC_IOCTL_PART_VENDOR0,
+	SWITCHTEC_IOCTL_PART_VENDOR1,
+	SWITCHTEC_IOCTL_PART_VENDOR2,
+	SWITCHTEC_IOCTL_PART_VENDOR3,
+	SWITCHTEC_IOCTL_PART_VENDOR4,
+	SWITCHTEC_IOCTL_PART_VENDOR5,
+	SWITCHTEC_IOCTL_PART_VENDOR6,
+	SWITCHTEC_IOCTL_PART_VENDOR7,
+	SWITCHTEC_IOCTL_NUM_PARTITIONS,
+};
+
 struct switchtec_ioctl_fw_info {
-	__u32 flash_part_map_upd_idx;
+	__u32 flash_length;
 
-	struct switchtec_flash_partition_info {
+	struct {
 		__u32 address;
-		__u32 build_version;
-		__u32 build_string;
-		__u32 reserved1;
-	} active_main_fw;
-
-	struct switchtec_flash_partition_info active_cfg;
-	struct switchtec_flash_partition_info inactive_main_fw;
-	struct switchtec_flash_partition_info inactive_cfg;
+		__u32 length;
+		__u32 active;
+	} partition[SWITCHTEC_IOCTL_NUM_PARTITIONS];
 };
 
 #define SWITCHTEC_IOCTL_FW_INFO _IOR('W', 0x40, struct switchtec_ioctl_fw_info)
