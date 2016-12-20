@@ -2,7 +2,7 @@
 # Based on file from nvme-cli:
 #   Kelly Kaoudis kelly.n.kaoudis at intel.com, Aug. 2015
 
-_cmds="list test hard-reset fw-update fw-toggle fw-info \
+_cmds="list status test hard-reset fw-update fw-toggle fw-info \
 	fw-img-info fw-read version help"
 
 _switchtec_list_opts () {

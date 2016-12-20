@@ -101,6 +101,62 @@ static int list(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int status(int argc, char **argv, struct command *cmd,
+		  struct plugin *plugin)
+{
+	struct switchtec_dev *dev;
+	int ret;
+	struct switchtec_status *status;
+	int p;
+	int last_partition = -1;
+	const char *desc = "Display status of the ports on the switch";
+
+	const float gen_transfers[] = {0, 2.5, 5, 8, 16};
+	const float gen_datarate[] = {0, 250, 500, 985, 1969};
+
+	argconfig_append_usage(" <device>");
+	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
+			    sizeof(empty_cfg));
+
+	if (dev == NULL)
+		return -errno;
+
+	ret = switchtec_status(dev, &status);
+	if (ret < 0) {
+		perror("status");
+		return ret;
+	}
+
+	for (p = 0; p < ret; p++) {
+		struct switchtec_status *s = &status[p];
+
+		if (s->partition != last_partition)
+			printf("Partition %d:\n", s->partition);
+		last_partition = s->partition;
+
+		printf("      Stack %d, Port %d (%s): \n", s->stack,
+		       s->stk_port_id, s->upstream_port ? "USP" : "DSP");
+		printf("         Status:          \t%s\n",
+		       s->link_up ? "UP" : "DOWN");
+		printf("         LTSSM:           \t%s\n", s->ltssm_str);
+		printf("         Max-Width:       \tx%d\n", s->cfg_lnk_width);
+		printf("         Phys Port ID:    \t%d\n", s->phys_port_id);
+		printf("         Logical Port ID: \t%d\n", s->log_port_id);
+
+		if (!s->link_up) continue;
+
+		printf("         Width:           \tx%d\n", s->neg_lnk_width);
+		printf("         Rate:            \tGen%d - %g GT/s  %g GB/s\n",
+		       s->link_rate, gen_transfers[s->link_rate],
+		       gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
+	}
+
+	free(status);
+
+	return 0;
+
+}
+
 static int test(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {

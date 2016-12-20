@@ -29,6 +29,10 @@ extern "C" {
 
 struct switchtec_dev;
 
+#define SWITCHTEC_MAX_PARTS  48
+#define SWITCHTEC_MAX_PORTS  48
+#define SWITCHTEC_MAX_STACKS 16
+
 struct switchtec_device_info {
 	char name[256];
 	char pci_dev[256];
@@ -82,6 +86,22 @@ struct switchtec_fw_footer {
 	uint32_t image_crc;
 };
 
+struct switchtec_status {
+	unsigned char partition;
+	unsigned char stack;
+	unsigned char upstream_port;
+	unsigned char stk_port_id;
+	unsigned char phys_port_id;
+	unsigned char log_port_id;
+
+	unsigned char cfg_lnk_width;
+	unsigned char neg_lnk_width;
+	unsigned char link_up;
+	unsigned char link_rate;
+	unsigned char ltssm;
+	const char *ltssm_str;
+};
+
 struct switchtec_dev *switchtec_open(const char * path);
 void switchtec_close(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
@@ -100,6 +120,8 @@ int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
 
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
+int switchtec_status(struct switchtec_dev *dev,
+		     struct switchtec_status **status);
 
 
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
