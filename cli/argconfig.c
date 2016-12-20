@@ -511,6 +511,9 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 static int handle(const char *optarg, void *value_addr,
 		  const struct argconfig_options *s)
 {
+	if (!value_addr)
+		return 0;
+
 	if (s->cfg_type >= _CFG_MAX_TYPES ||
 	    cfg_type_handlers[s->cfg_type] == NULL) {
 		fprintf(stderr, "FATAL: unknown config type: %d\n",
