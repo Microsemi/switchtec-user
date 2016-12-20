@@ -347,15 +347,24 @@ static int cfg_file_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
+static void set_fd_path(void *value_addr, int fd, const char *path)
+{
+	*((int *) value_addr) = fd;
+	value_addr += sizeof(int *);
+	*((const char **) value_addr) = path;
+}
+
 static int cfg_fd_handler(const char *optarg, void *value_addr,
 			  const struct argconfig_options *opt)
 {
 	int fd;
 	int flags;
 
-	if (strcmp(optarg, "-")) {
-		*((int *) value_addr) = opt->config_type == CFG_FD_WR ?
-			STDOUT_FILENO : STDIN_FILENO;
+	if (strcmp(optarg, "-") == 0) {
+		if (opt->config_type == CFG_FD_WR)
+			set_fd_path(value_addr, STDOUT_FILENO, "stdout");
+		else
+			set_fd_path(value_addr, STDIN_FILENO, "stdin");
 
 		return 0;
 	}
@@ -372,7 +381,8 @@ static int cfg_fd_handler(const char *optarg, void *value_addr,
 		return 1;
 	}
 
-	*((int *) value_addr) = fd;
+	set_fd_path(value_addr, fd, optarg);
+
 	return 0;
 }
 
