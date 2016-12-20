@@ -61,6 +61,7 @@ enum argconfig_types {
 	CFG_FILE_AP,
 	CFG_FILE_WP,
 	CFG_FILE_RP,
+	CFG_CUSTOM,
 	_CFG_MAX_TYPES,
 };
 
@@ -72,6 +73,8 @@ struct argconfig_options {
 	void *default_value;
 	int argument_type;
 	const char *help;
+	int (*custom_handler)(char *optarg, void *value_addr,
+			      const struct argconfig_options *opt);
 };
 
 #define MAX_HELP_FUNC 20

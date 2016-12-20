@@ -345,6 +345,17 @@ static int cfg_file_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
+static int cfg_custom_handler(char *optarg, void *value_addr,
+			      const struct argconfig_options *opt)
+{
+	if (opt->custom_handler == NULL) {
+		fprintf(stderr, "FATAL: custom handler not specified "
+			"for CFG_CUSTOM!\n");
+		return 1;
+	}
+
+	return opt->custom_handler(optarg, value_addr, opt);
+}
 
 typedef int (*type_handler)(char *optarg, void *value_addr,
 			    const struct argconfig_options *opt);
@@ -369,6 +380,7 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_FILE_AP] = cfg_file_handler,
 	[CFG_FILE_WP] = cfg_file_handler,
 	[CFG_FILE_RP] = cfg_file_handler,
+	[CFG_CUSTOM] = cfg_custom_handler,
 };
 
 static const struct argconfig_options *
@@ -508,7 +520,8 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 			goto exit;
 		}
 
-		if (cfg_type_handlers[s->config_type](optarg, value_addr, s))
+		if (cfg_type_handlers[s->config_type](argv[optind],
+						      value_addr, s))
 			goto exit;
 
 		optind++;
