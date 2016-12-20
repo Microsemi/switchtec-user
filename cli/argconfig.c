@@ -88,10 +88,47 @@ new_line:
 	}
 }
 
+static int is_positional(const struct argconfig_options *s)
+{
+	return s->argument_type == optional_positional ||
+		s->argument_type == required_positional;
+}
+
+static int num_positional(const struct argconfig_options *options)
+{
+	int count = 0;
+	const struct argconfig_options *s;
+
+	for (s = options; s->option; s++) {
+		if (!is_positional(s))
+			continue;
+		count++;
+	}
+
+	return count;
+}
+
+static int num_options(const struct argconfig_options *options)
+{
+	int count = 0;
+	const struct argconfig_options *s;
+
+	for (s = options; s->option; s++) {
+		if (is_positional(s))
+			continue;
+		count++;
+	}
+
+	return count;
+}
+
 static void show_option(const struct argconfig_options *option)
 {
 	char buffer[0x1000];
 	char *b = buffer;
+
+	if (is_positional(option))
+	    return;
 
 	b += sprintf(b, "  [ ");
 	if (option->option) {
@@ -120,6 +157,27 @@ static void show_option(const struct argconfig_options *option)
 	fprintf(stderr, "\n");
 }
 
+static void show_positional(const struct argconfig_options *option)
+{
+	char buffer[0x1000];
+	char *b = buffer;
+
+	if (!is_positional(option))
+		return;
+
+	if (option->argument_type == optional_positional)
+		b += snprintf(buffer, sizeof(buffer), "  [<%s>] ", option->option);
+	else
+		b += snprintf(buffer, sizeof(buffer), "   <%s>  ", option->option);
+
+	fprintf(stderr, "%s", buffer);
+	if (option->help) {
+		print_word_wrapped("--- ", 40, b - buffer);
+		print_word_wrapped(option->help, 44, 44);
+	}
+	fprintf(stderr, "\n");
+}
+
 void argconfig_print_usage(void)
 {
 	printf("Usage: %s\n", append_usage_str);
@@ -130,24 +188,36 @@ void argconfig_print_help(const char *program_desc,
 {
 	const struct argconfig_options *s;
 	const char *optstring = "";
+	int num_opt = num_options(options);
+	int num_pos = num_positional(options);
 
-	if (options->option != NULL)
+	if (num_opt)
 		optstring = " [OPTIONS]";
 
 	printf("\033[1mUsage: %s%s\033[0m\n\n",
 	       append_usage_str, optstring);
 
 	print_word_wrapped(program_desc, 0, 0);
+	printf("\n");
 
-	if (options->option == NULL) {
-		printf("\n\n");
-		return;
+	if (num_pos) {
+		printf("\n\n\033[1mPositional Arguments:\033[0m\n");
+
+		for (s = options; (s->option != NULL) && (s != NULL); s++)
+			show_positional(s);
+
+		printf("\n");
 	}
 
-	printf("\n\n\033[1mOptions:\033[0m\n");
+	if (num_opt) {
+		printf("\033[1mOptions:\033[0m\n");
 
-	for (s = options; (s->option != NULL) && (s != NULL); s++)
-		show_option(s);
+		for (s = options; (s->option != NULL) && (s != NULL); s++)
+			show_option(s);
+
+		printf("\n");
+	}
+
 }
 
 static int cfg_none_handler(const char *optarg, void *value_addr,
@@ -446,8 +516,7 @@ get_option(const struct argconfig_options * options,
 	const struct argconfig_options *s;
 
 	for (s = options; s->option; s++) {
-		if (s->argument_type != optional_positional &&
-		    s->argument_type != required_positional)
+		if (is_positional(s))
 			continue;
 		if (!option_index--)
 			return s;
@@ -467,21 +536,14 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	void *value_addr;
 
 	errno = 0;
-	for (s = options; s->option != NULL; s++) {
-		if (s->argument_type == optional_positional ||
-		    s->argument_type == required_positional)
-			continue;
-		options_count++;
-	}
-
+	options_count = num_options(options);
 	long_opts = malloc(sizeof(struct option) * (options_count + 2));
 	short_opts = malloc(sizeof(*short_opts) * (options_count * 3 + 4));
 
 	for (s = options; (s->option != NULL) && (option_index < options_count);
 	     s++) {
 
-		if (s->argument_type == optional_positional ||
-		    s->argument_type == required_positional)
+		if (is_positional(s))
 			continue;
 
 		if (s->short_option != 0) {
@@ -546,8 +608,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	}
 
 	for (s = options; (s->option != NULL); s++) {
-		if (s->argument_type != optional_positional &&
-		    s->argument_type != required_positional)
+		if (!is_positional(s))
 			continue;
 
 		if (s->argument_type == required_positional &&
