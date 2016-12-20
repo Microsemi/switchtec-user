@@ -178,24 +178,36 @@ static void show_positional(const struct argconfig_options *option)
 	fprintf(stderr, "\n");
 }
 
-void argconfig_print_usage(void)
+void argconfig_print_usage(const struct argconfig_options *options)
 {
-	printf("Usage: %s\n", append_usage_str);
+	const struct argconfig_options *s;
+	printf("\033[1mUsage:\033[0m %s", append_usage_str);
+
+	for (s = options; (s->option != NULL) && (s != NULL); s++) {
+		if (!is_positional(s))
+			continue;
+
+		if (s->argument_type == optional_positional)
+			printf(" [<%s>]", s->option);
+		else
+			printf(" <%s>", s->option);
+	}
+
+	if (num_options(options))
+		printf(" [OPTIONS]");
+
+	printf("\n");
 }
 
 void argconfig_print_help(const char *program_desc,
 			  const struct argconfig_options *options)
 {
 	const struct argconfig_options *s;
-	const char *optstring = "";
 	int num_opt = num_options(options);
 	int num_pos = num_positional(options);
 
-	if (num_opt)
-		optstring = " [OPTIONS]";
-
-	printf("\033[1mUsage: %s%s\033[0m\n\n",
-	       append_usage_str, optstring);
+	argconfig_print_usage(options);
+	printf("\n");
 
 	print_word_wrapped(program_desc, 0, 0);
 	printf("\n");
@@ -614,7 +626,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		if (s->argument_type == required_positional &&
 		    optind >= argc)
 		{
-			argconfig_print_usage();
+			argconfig_print_usage(options);
 			goto exit;
 		}
 

@@ -40,7 +40,7 @@ static struct plugin builtin = {
 static struct program switchtec = {
 	.name = "switchtec",
 	.version = version_string,
-	.usage = "<command> [<device>] [<args>]",
+	.usage = "<command> [<device>] [OPTIONS]",
 	.desc = "The <device> must be a switchtec device "\
                 "(ex: /dev/switchtec0)",
 	.extensions = &builtin,
@@ -115,7 +115,6 @@ static int status(int argc, char **argv, struct command *cmd,
 		DEVICE_OPTION,
 		{NULL}};
 
-	argconfig_append_usage(" <device>");
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_status(cfg.dev, &status);
@@ -168,7 +167,6 @@ static int test(int argc, char **argv, struct command *cmd,
 		DEVICE_OPTION,
 		{NULL}};
 
-	argconfig_append_usage(" <device>");
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	in = time(NULL);
@@ -226,7 +224,6 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 		 "assume yes when prompted"},
 		{NULL}};
 
-	argconfig_append_usage(" <device>");
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (!cfg.assume_yes)
@@ -296,7 +293,6 @@ static int fw_image_info(int argc, char **argv, struct command *cmd,
 		  .help="image file to display information for"},
 		{NULL}};
 
-	argconfig_append_usage(" <img_file>");
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = check_and_print_fw_image(cfg.img_fd, cfg.img_filename);
@@ -345,7 +341,6 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 		DEVICE_OPTION,
 		{NULL}};
 
-	argconfig_append_usage(" <device>");
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_get_fw_version(cfg.dev, version, sizeof(version));
@@ -405,7 +400,6 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		 "when it is safe"},
 		{NULL}};
 
-	argconfig_append_usage(" <device> <img_file>");
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	printf("Writing the following firmware image to %s.\n",
@@ -453,7 +447,6 @@ static int fw_toggle(int argc, char **argv, struct command *cmd,
 		 "toggle CFG data"},
 		{NULL}};
 
-	argconfig_append_usage(" <device>");
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (!cfg.firmware && !cfg.config) {
@@ -506,7 +499,6 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 		 "read the data/config partiton instead of the main firmware"},
 		{NULL}};
 
-	argconfig_append_usage(" <device> [<file>]");
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_fw_part_act_info(cfg.dev, &act_img, &inact_img,

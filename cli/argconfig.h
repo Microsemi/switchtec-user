@@ -93,7 +93,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		    const struct argconfig_options *options,
 		    void *config_out, size_t config_size);
 
-void argconfig_print_usage(void);
+void argconfig_print_usage(const struct argconfig_options *options);
 void argconfig_print_help(const char *program_desc,
 			  const struct argconfig_options *options);
 void argconfig_register_help_func(argconfig_help_func * f);
