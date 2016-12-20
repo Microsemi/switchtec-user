@@ -70,7 +70,7 @@ struct argconfig_options {
 	const char short_option;
 	const char *meta;
 	enum argconfig_types config_type;
-	void *default_value;
+	void *value_addr;
 	int argument_type;
 	const char *help;
 	int (*custom_handler)(char *optarg, void *value_addr,

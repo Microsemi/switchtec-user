@@ -441,8 +441,8 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 			long_opts[option_index].has_arg = s->argument_type;
 
 			if (s->argument_type == no_argument
-			    && s->default_value != NULL) {
-				long_opts[option_index].flag = s->default_value;
+			    && s->value_addr != NULL) {
+				long_opts[option_index].flag = s->value_addr;
 				long_opts[option_index].val = 1;
 			} else {
 				long_opts[option_index].flag = NULL;
@@ -485,7 +485,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 			s = get_option(options, option_index);
 		}
 
-		value_addr = (void *)(char *)s->default_value;
+		value_addr = (void *)(char *)s->value_addr;
 		if (s->config_type >= _CFG_MAX_TYPES ||
 		    cfg_type_handlers[s->config_type] == NULL) {
 			fprintf(stderr, "FATAL: unknown config type: %d\n",
@@ -512,7 +512,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		if (optind >= argc)
 			continue;
 
-		value_addr = (void *)(char *)s->default_value;
+		value_addr = (void *)(char *)s->value_addr;
 		if (s->config_type >= _CFG_MAX_TYPES ||
 		    cfg_type_handlers[s->config_type] == NULL) {
 			fprintf(stderr, "FATAL: unknown config type: %d\n",
