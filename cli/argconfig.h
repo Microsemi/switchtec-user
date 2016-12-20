@@ -64,7 +64,7 @@ enum argconfig_types {
 	_CFG_MAX_TYPES,
 };
 
-struct argconfig_commandline_options {
+struct argconfig_options {
 	const char *option;
 	const char short_option;
 	const char *meta;
@@ -84,12 +84,12 @@ extern "C" {
 typedef void argconfig_help_func();
 void argconfig_append_usage(const char *str);
 int argconfig_parse(int argc, char *argv[], const char *program_desc,
-		    const struct argconfig_commandline_options *options,
+		    const struct argconfig_options *options,
 		    void *config_out, size_t config_size);
 
 void argconfig_print_usage(void);
 void argconfig_print_help(const char *program_desc,
-			  const struct argconfig_commandline_options *options);
+			  const struct argconfig_options *options);
 void argconfig_register_help_func(argconfig_help_func * f);
 
 void print_word_wrapped(const char *s, int indent, int start);

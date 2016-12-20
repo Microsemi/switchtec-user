@@ -47,7 +47,7 @@ static struct program switchtec = {
 };
 
 static struct {} empty_cfg;
-const struct argconfig_commandline_options empty_opts[] = {{NULL}};
+const struct argconfig_options empty_opts[] = {{NULL}};
 
 static void check_arg_dev(int argc, char **argv)
 {
@@ -60,7 +60,7 @@ static void check_arg_dev(int argc, char **argv)
 
 struct switchtec_dev *global_dev = NULL;
 struct switchtec_dev *parse_and_open(int argc, char **argv, const char *desc,
-	const struct argconfig_commandline_options *clo,
+	const struct argconfig_options *clo,
 	void *cfg, size_t size)
 {
 	struct switchtec_dev *dev;
@@ -221,7 +221,7 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 	static struct {
 		int assume_yes;
 	} cfg;
-	const struct argconfig_commandline_options opts[] = {
+	const struct argconfig_options opts[] = {
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{NULL}};
@@ -396,7 +396,7 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		int assume_yes;
 		int dont_activate;
 	} cfg;
-	const struct argconfig_commandline_options opts[] = {
+	const struct argconfig_options opts[] = {
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{"dont-activate", 'A', "", CFG_NONE, &cfg.dont_activate, no_argument,
@@ -447,7 +447,7 @@ static int fw_toggle(int argc, char **argv, struct command *cmd,
 		int firmware;
 		int config;
 	} cfg;
-	const struct argconfig_commandline_options opts[] = {
+	const struct argconfig_options opts[] = {
 		{"firmware", 'f', "", CFG_NONE, &cfg.firmware, no_argument,
 		 "toggle IMG firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.config, no_argument,
@@ -492,7 +492,7 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 		int inactive;
 		int data;
 	} cfg;
-	const struct argconfig_commandline_options opts[] = {
+	const struct argconfig_options opts[] = {
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
 		 "read the inactive partition"},
 		{"data", 'd', "", CFG_NONE, &cfg.data, no_argument,

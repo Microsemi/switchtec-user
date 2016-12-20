@@ -86,7 +86,7 @@ new_line:
 	}
 }
 
-static void show_option(const struct argconfig_commandline_options *option)
+static void show_option(const struct argconfig_options *option)
 {
 	char buffer[0x1000];
 	char *b = buffer;
@@ -124,9 +124,9 @@ void argconfig_print_usage(void)
 }
 
 void argconfig_print_help(const char *program_desc,
-			  const struct argconfig_commandline_options *options)
+			  const struct argconfig_options *options)
 {
-	const struct argconfig_commandline_options *s;
+	const struct argconfig_options *s;
 	const char *optstring = "";
 
 	if (options->option != NULL)
@@ -149,21 +149,21 @@ void argconfig_print_help(const char *program_desc,
 }
 
 static int cfg_none_handler(char *optarg, void *value_addr,
-			     const struct argconfig_commandline_options *opt)
+			     const struct argconfig_options *opt)
 {
 	*((int *)value_addr) = 1;
 	return 0;
 }
 
 static int cfg_string_handler(char *optarg, void *value_addr,
-			      const struct argconfig_commandline_options *opt)
+			      const struct argconfig_options *opt)
 {
 	*((char **)value_addr) = optarg;
 	return 0;
 }
 
 static int cfg_int_handler(char *optarg, void *value_addr,
-			   const struct argconfig_commandline_options *opt)
+			   const struct argconfig_options *opt)
 {
 	char *endptr;
 
@@ -181,7 +181,7 @@ static int cfg_int_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_size_handler(char *optarg, void *value_addr,
-			    const struct argconfig_commandline_options *opt)
+			    const struct argconfig_options *opt)
 {
 	char *endptr;
 
@@ -198,7 +198,7 @@ static int cfg_size_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_long_handler(char *optarg, void *value_addr,
-			    const struct argconfig_commandline_options *opt)
+			    const struct argconfig_options *opt)
 {
 	char *endptr;
 
@@ -215,7 +215,7 @@ static int cfg_long_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_long_suffix_handler(char *optarg, void *value_addr,
-				   const struct argconfig_commandline_options *opt)
+				   const struct argconfig_options *opt)
 {
 	*((long *)value_addr) = suffix_binary_parse(optarg);
 	if (errno) {
@@ -230,7 +230,7 @@ static int cfg_long_suffix_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_double_handler(char *optarg, void *value_addr,
-			      const struct argconfig_commandline_options *opt)
+			      const struct argconfig_options *opt)
 {
 	char *endptr;
 
@@ -246,7 +246,7 @@ static int cfg_double_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_bool_handler(char *optarg, void *value_addr,
-			    const struct argconfig_commandline_options *opt)
+			    const struct argconfig_options *opt)
 {
 	char *endptr;
 
@@ -264,7 +264,7 @@ static int cfg_bool_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_byte_handler(char *optarg, void *value_addr,
-			    const struct argconfig_commandline_options *opt)
+			    const struct argconfig_options *opt)
 {
 	char *endptr;
 
@@ -281,7 +281,7 @@ static int cfg_byte_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_short_handler(char *optarg, void *value_addr,
-			     const struct argconfig_commandline_options *opt)
+			     const struct argconfig_options *opt)
 {
 	char *endptr;
 
@@ -298,7 +298,7 @@ static int cfg_short_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_positive_handler(char *optarg, void *value_addr,
-				const struct argconfig_commandline_options *opt)
+				const struct argconfig_options *opt)
 {
 	char *endptr;
 
@@ -315,14 +315,14 @@ static int cfg_positive_handler(char *optarg, void *value_addr,
 }
 
 static int cfg_increment_handler(char *optarg, void *value_addr,
-				 const struct argconfig_commandline_options *opt)
+				 const struct argconfig_options *opt)
 {
 	(*((int *)value_addr))++;
 	return 0;
 }
 
 static int cfg_file_handler(char *optarg, void *value_addr,
-			    const struct argconfig_commandline_options *opt)
+			    const struct argconfig_options *opt)
 {
 	const char *fopts = "";
 	switch(opt->config_type) {
@@ -347,7 +347,7 @@ static int cfg_file_handler(char *optarg, void *value_addr,
 
 
 typedef int (*type_handler)(char *optarg, void *value_addr,
-			    const struct argconfig_commandline_options *opt);
+			    const struct argconfig_options *opt);
 
 static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_NONE] = cfg_none_handler,
@@ -371,11 +371,11 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_FILE_RP] = cfg_file_handler,
 };
 
-static const struct argconfig_commandline_options *
-get_option(const struct argconfig_commandline_options * options,
+static const struct argconfig_options *
+get_option(const struct argconfig_options * options,
 	   int option_index)
 {
-	const struct argconfig_commandline_options *s;
+	const struct argconfig_options *s;
 
 	for (s = options; s->option; s++) {
 		if (s->argument_type != optional_positional &&
@@ -389,12 +389,12 @@ get_option(const struct argconfig_commandline_options * options,
 }
 
 int argconfig_parse(int argc, char *argv[], const char *program_desc,
-		    const struct argconfig_commandline_options *options,
+		    const struct argconfig_options *options,
 		    void *config_out, size_t config_size)
 {
 	char *short_opts;
 	struct option *long_opts;
-	const struct argconfig_commandline_options *s;
+	const struct argconfig_options *s;
 	int c, option_index = 0, short_index = 0, options_count = 0;
 	void *value_addr;
 
