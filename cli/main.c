@@ -49,34 +49,29 @@ static struct program switchtec = {
 static struct {} empty_cfg;
 const struct argconfig_options empty_opts[] = {{NULL}};
 
-static void check_arg_dev(int argc, char **argv)
-{
-	if (optind >= argc) {
-		errno = EINVAL;
-		argconfig_print_usage();
-		exit(errno);
-	}
-}
-
 struct switchtec_dev *global_dev = NULL;
-struct switchtec_dev *parse_and_open(int argc, char **argv, const char *desc,
-	const struct argconfig_options *clo,
-	void *cfg, size_t size)
+
+int switchtec_handler(const char *optarg, void *value_addr,
+		      const struct argconfig_options *opt)
 {
 	struct switchtec_dev *dev;
 
-	argconfig_parse(argc, argv, desc, clo, cfg, size);
-	check_arg_dev(argc, argv);
+	global_dev = dev = switchtec_open(optarg);
 
-	global_dev = dev = switchtec_open(argv[optind]);
+	if (dev == NULL) {
+		perror(optarg);
+		return 1;
+	}
 
-	if (dev == NULL)
-		perror(argv[optind]);
-
-	optind++;
-
-	return dev;
+	*((struct switchtec_dev  **) value_addr) = dev;
+	return 0;
 }
+
+#define DEVICE_OPTION {"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
+		       .argument_type=required_positional, \
+		       .custom_handler=switchtec_handler, \
+		       .help="switchtec device to operate on"}
+
 
 static int list(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
@@ -104,24 +99,26 @@ static int list(int argc, char **argv, struct command *cmd,
 static int status(int argc, char **argv, struct command *cmd,
 		  struct plugin *plugin)
 {
-	struct switchtec_dev *dev;
+	const char *desc = "Display status of the ports on the switch";
 	int ret;
 	struct switchtec_status *status;
 	int p;
 	int last_partition = -1;
-	const char *desc = "Display status of the ports on the switch";
 
 	const float gen_transfers[] = {0, 2.5, 5, 8, 16};
 	const float gen_datarate[] = {0, 250, 500, 985, 1969};
 
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {0};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
+
 	argconfig_append_usage(" <device>");
-	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
-			    sizeof(empty_cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (dev == NULL)
-		return -errno;
-
-	ret = switchtec_status(dev, &status);
+	ret = switchtec_status(cfg.dev, &status);
 	if (ret < 0) {
 		perror("status");
 		return ret;
@@ -160,21 +157,23 @@ static int status(int argc, char **argv, struct command *cmd,
 static int test(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {
-	struct switchtec_dev *dev;
+	const char *desc = "Test if switchtec interface is working";
 	int ret;
 	uint32_t in, out;
-	const char *desc = "Test if switchtec interface is working";
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {0};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
 
 	argconfig_append_usage(" <device>");
-	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
-			    sizeof(empty_cfg));
-
-	if (dev == NULL)
-		return -errno;
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	in = time(NULL);
 
-	ret = switchtec_echo(dev, in, &out);
+	ret = switchtec_echo(cfg.dev, in, &out);
 
 	if (ret) {
 		perror(argv[optind]);
@@ -214,23 +213,21 @@ static int ask_if_sure(int always_yes)
 static int hard_reset(int argc, char **argv, struct command *cmd,
 		      struct plugin *plugin)
 {
-        struct switchtec_dev *dev;
-	int ret;
 	const char *desc = "Perform a hard reset on the switch";
+	int ret;
 
 	static struct {
+		struct switchtec_dev *dev;
 		int assume_yes;
-	} cfg;
+	} cfg = {0};
 	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{NULL}};
 
 	argconfig_append_usage(" <device>");
-	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
-
-	if (dev == NULL)
-		return -errno;
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (!cfg.assume_yes)
 		fprintf(stderr,
@@ -242,7 +239,7 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 	if (ret)
 		return ret;
 
-	ret = switchtec_hard_reset(dev);
+	ret = switchtec_hard_reset(cfg.dev);
 	if (ret) {
 		perror(argv[optind]);
 		return ret;
@@ -262,54 +259,51 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static int open_and_print_fw_image(int argc, char **argv)
+static int check_and_print_fw_image(int img_fd, const char *img_filename)
 {
-	int img_fd, ret;
+	int ret;
 	struct switchtec_fw_image_info info;
-
-	if (optind >= argc) {
-		argconfig_print_usage();
-		exit(-EINVAL);
-	}
-
-	img_fd = open(argv[optind], O_RDONLY);
-	if (img_fd < 0) {
-		perror(argv[optind]);
-		return img_fd;
-	}
-
 	ret = switchtec_fw_image_info(img_fd, &info);
 
 	if (ret < 0) {
 		fprintf(stderr, "%s: Invalid image file format\n",
-			argv[optind]);
+			img_filename);
 		return ret;
 	}
 
-	printf("File:     %s\n", get_basename(argv[optind]));
+	printf("File:     %s\n", get_basename(img_filename));
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
 	printf("Img Len:  0x%zx\n", info.image_len);
 	printf("CRC:      0x%08lx\n", info.crc);
 
-	return img_fd;
+	return 0;
 }
 
 static int fw_image_info(int argc, char **argv, struct command *cmd,
 		       struct plugin *plugin)
 {
-	int img_fd;
 	const char *desc = "Display information for a firmware image";
+	int ret;
+
+	static struct {
+		int img_fd;
+		const char *img_filename;
+	} cfg = {0};
+	const struct argconfig_options opts[] = {
+		{"img_file", .cfg_type=CFG_FD_RD, .value_addr=&cfg.img_fd,
+		  .argument_type=required_positional,
+		  .help="image file to display information for"},
+		{NULL}};
 
 	argconfig_append_usage(" <img_file>");
-	argconfig_parse(argc, argv, desc, empty_opts, &empty_cfg,
-			sizeof(empty_cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	img_fd = open_and_print_fw_image(argc, argv);
-	if (img_fd < 0)
-		return img_fd;
+	ret = check_and_print_fw_image(cfg.img_fd, cfg.img_filename);
+	if (ret < 0)
+		return ret;
 
-	close(img_fd);
+	close(cfg.img_fd);
 	return 0;
 }
 
@@ -340,19 +334,21 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 static int fw_info(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {
-	struct switchtec_dev *dev;
+	const char *desc = "Test if switchtec interface is working";
 	int ret;
 	char version[64];
-	const char *desc = "Test if switchtec interface is working";
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {0};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
 
 	argconfig_append_usage(" <device>");
-	dev = parse_and_open(argc, argv, desc, empty_opts, &empty_cfg,
-			    sizeof(empty_cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (dev == NULL)
-		return -errno;
-
-	ret = switchtec_get_fw_version(dev, version, sizeof(version));
+	ret = switchtec_get_fw_version(cfg.dev, version, sizeof(version));
 	if (ret < 0) {
 		perror("fw info");
 		return ret;
@@ -361,7 +357,7 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 	printf("Currently Running:\n");
 	printf("  IMG Version: %s\n", version);
 
-	print_fw_part_info(dev);
+	print_fw_part_info(cfg.dev);
 
 	return 0;
 }
@@ -387,16 +383,21 @@ static void fw_progress_callback(int cur, int total)
 static int fw_update(int argc, char **argv, struct command *cmd,
 		     struct plugin *plugin)
 {
-	struct switchtec_dev *dev;
-	int img_fd;
 	int ret;
 	const char *desc = "Flash the firmware with a new image";
 
 	static struct {
+		struct switchtec_dev *dev;
+		int img_fd;
+		const char *img_filename;
 		int assume_yes;
 		int dont_activate;
-	} cfg;
+	} cfg = {0};
 	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"img_file", .cfg_type=CFG_FD_RD, .value_addr=&cfg.img_fd,
+		  .argument_type=required_positional,
+		  .help="image file to use as the new firmware"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{"dont-activate", 'A', "", CFG_NONE, &cfg.dont_activate, no_argument,
@@ -405,30 +406,27 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		{NULL}};
 
 	argconfig_append_usage(" <device> <img_file>");
-	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
-
-	if (dev == NULL)
-		return -errno;
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	printf("Writing the following firmware image to %s.\n",
-	       argv[optind-1]);
+	       switchtec_name(cfg.dev));
 
-	img_fd = open_and_print_fw_image(argc, argv);
-	if (img_fd < 0)
-		return img_fd;
+	ret = check_and_print_fw_image(cfg.img_fd, cfg.img_filename);
+	if (ret < 0)
+		return ret;
 
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
-		close(img_fd);
+		close(cfg.img_fd);
 		return ret;
 	}
 
-	ret = switchtec_fw_write_file(dev, img_fd, cfg.dont_activate,
+	ret = switchtec_fw_write_file(cfg.dev, cfg.img_fd, cfg.dont_activate,
 				      fw_progress_callback);
-	close(img_fd);
+	close(cfg.img_fd);
 	printf("\n\n");
 
-	print_fw_part_info(dev);
+	print_fw_part_info(cfg.dev);
 	printf("\n");
 
 	switchtec_fw_perror("firmware update", ret);
@@ -439,15 +437,16 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 static int fw_toggle(int argc, char **argv, struct command *cmd,
 		     struct plugin *plugin)
 {
-	struct switchtec_dev *dev;
+	const char *desc = "Toggle active and inactive firmware partitions";
 	int ret = 0;
-	const char *desc = "Flash the firmware with a new image";
 
 	static struct {
+		struct switchtec_dev *dev;
 		int firmware;
 		int config;
-	} cfg;
+	} cfg = {0};
 	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
 		{"firmware", 'f', "", CFG_NONE, &cfg.firmware, no_argument,
 		 "toggle IMG firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.config, no_argument,
@@ -455,17 +454,18 @@ static int fw_toggle(int argc, char **argv, struct command *cmd,
 		{NULL}};
 
 	argconfig_append_usage(" <device>");
-	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (!cfg.firmware && !cfg.config) {
 		fprintf(stderr, "NOTE: Not toggling images seeing neither "
 			"--firmware nor --config were specified\n\n");
 	} else {
-		ret = switchtec_fw_toggle_active_partition(dev, cfg.firmware,
+		ret = switchtec_fw_toggle_active_partition(cfg.dev,
+							   cfg.firmware,
 							   cfg.config);
 	}
 
-	print_fw_part_info(dev);
+	print_fw_part_info(cfg.dev);
 	printf("\n");
 
 	perror("firmware toggle");
@@ -476,23 +476,28 @@ static int fw_toggle(int argc, char **argv, struct command *cmd,
 static int fw_read(int argc, char **argv, struct command *cmd,
 		   struct plugin *plugin)
 {
-	struct switchtec_dev *dev;
+	const char *desc = "Flash the firmware with a new image";
 	struct switchtec_fw_footer ftr;
 	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg;
-	int fd;
 	int ret = 0;
-	const char *desc = "Flash the firmware with a new image";
 	char version[16];
-	const char *filename;
 	unsigned long img_addr;
 	size_t img_size;
 	enum switchtec_fw_image_type type;
 
 	static struct {
+		struct switchtec_dev *dev;
+		int out_fd;
+		const char *out_filename;
 		int inactive;
 		int data;
-	} cfg;
+	} cfg = {0};
 	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
+		  .argument_type=optional_positional,
+		  .force_default="image.pmc",
+		  .help="image file to display information for"},
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
 		 "read the inactive partition"},
 		{"data", 'd', "", CFG_NONE, &cfg.data, no_argument,
@@ -502,25 +507,10 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 		{NULL}};
 
 	argconfig_append_usage(" <device> [<file>]");
-	dev = parse_and_open(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (optind >= argc)
-		filename = "image.pmc";
-	else
-		filename = argv[optind];
-
-	if (strcmp(filename, "-") == 0) {
-		fd = STDOUT_FILENO;
-	} else {
-		fd = open(filename, O_CREAT | O_TRUNC | O_WRONLY, 0666);
-		if (fd < 0) {
-			perror(filename);
-			return -1;
-		}
-	}
-
-	ret = switchtec_fw_part_act_info(dev, &act_img, &inact_img, &act_cfg,
-					 &inact_cfg);
+	ret = switchtec_fw_part_act_info(cfg.dev, &act_img, &inact_img,
+					 &act_cfg, &inact_cfg);
 	if (ret < 0) {
 		perror("fw_part_act_info");
 		goto close_and_exit;
@@ -540,7 +530,7 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 		type = SWITCHTEC_FW_TYPE_IMG0;
 	}
 
-	ret = switchtec_fw_read_footer(dev, img_addr, img_size, &ftr,
+	ret = switchtec_fw_read_footer(cfg.dev, img_addr, img_size, &ftr,
 				       version, sizeof(version));
 	if (ret < 0) {
 		perror("fw_read_footer");
@@ -551,26 +541,21 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 	fprintf(stderr, "Img Len:  0x%x\n", (int) ftr.image_len);
 	fprintf(stderr, "CRC:      0x%x\n", (int) ftr.image_crc);
 
-	ret = switchtec_fw_img_write_hdr(fd, &ftr, type);
+	ret = switchtec_fw_img_write_hdr(cfg.out_fd, &ftr, type);
 	if (ret < 0) {
-		perror(filename);
+		perror(cfg.out_filename);
 		goto close_and_exit;
 	}
 
-	ret = switchtec_fw_read_file(dev, fd, img_addr, ftr.image_len,
-				     fw_progress_callback);
+	ret = switchtec_fw_read_file(cfg.dev, cfg.out_fd, img_addr,
+				     ftr.image_len, fw_progress_callback);
 	if (ret < 0)
 		perror("fw_read");
 
-	printf("\n");
-
-	if (fd == STDOUT_FILENO)
-		fprintf(stderr, "Firmware read to stdout.\n");
-	else
-		fprintf(stderr, "Firmware read to %s.\n", filename);
+	fprintf(stderr, "\nFirmware read to %s.\n", cfg.out_filename);
 
 close_and_exit:
-	close(fd);
+	close(cfg.out_fd);
 
 	return ret;
 }
