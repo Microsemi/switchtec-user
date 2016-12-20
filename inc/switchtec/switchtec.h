@@ -104,6 +104,7 @@ struct switchtec_status {
 
 struct switchtec_dev *switchtec_open(const char * path);
 void switchtec_close(struct switchtec_dev *dev);
+const char *switchtec_name(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen);

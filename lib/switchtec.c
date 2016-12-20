@@ -81,6 +81,8 @@ struct switchtec_dev *switchtec_open(const char * path)
 	if (check_switchtec_device(dev))
 		goto err_close_free;
 
+	snprintf(dev->name, sizeof(dev->name), "%s", path);
+
 	return dev;
 
 err_close_free:
@@ -97,6 +99,11 @@ void switchtec_close(struct switchtec_dev *dev)
 
 	close(dev->fd);
 	free(dev);
+}
+
+const char *switchtec_name(struct switchtec_dev *dev)
+{
+	return dev->name;
 }
 
 static int scan_dev_filter(const struct dirent *d)

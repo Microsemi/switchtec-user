@@ -19,9 +19,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
 
 struct switchtec_dev {
 	int fd;
+	char name[PATH_MAX];
 };
 
 static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
