@@ -394,7 +394,7 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		cmd.addr = htole32(addr);
 		cmd.length = htole32(chunk_len);
 
-		ret = switchtec_cmd(dev, MRPC_FWREAD, &cmd, sizeof(cmd),
+		ret = switchtec_cmd(dev, MRPC_RD_FLASH, &cmd, sizeof(cmd),
 				    cbuf, chunk_len);
 
 		if (ret < 0)
