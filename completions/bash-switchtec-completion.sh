@@ -29,7 +29,7 @@ _switchtec_list_opts () {
 				compopt -o filenames
 				compargs="-f"
 			fi
-			opts+=" -y"
+			opts+=" -y -A --dont-activate"
 			;;
 		"fw-read")
 			if [ $nonopt_args -eq 3 ]; then

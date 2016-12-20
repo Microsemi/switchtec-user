@@ -110,6 +110,7 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_fw, int toggle_cfg);
 int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
+			    int dont_activate,
 			    void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
 			   unsigned long addr, size_t len,

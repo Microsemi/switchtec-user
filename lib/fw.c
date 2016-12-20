@@ -87,6 +87,7 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 }
 
 int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
+			    int dont_activate,
 			    void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
@@ -97,7 +98,8 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
 	struct {
 		struct cmd_fwdl_hdr {
 			uint8_t subcmd;
-			uint8_t reserved[3];
+			uint8_t dont_activate;
+			uint8_t reserved[2];
 			uint32_t offset;
 			uint32_t img_length;
 			uint32_t blk_length;
@@ -119,6 +121,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
 		return -EBUSY;
 
 	cmd.hdr.subcmd = MRPC_FWDNLD_DOWNLOAD;
+	cmd.hdr.dont_activate = !!dont_activate;
 	cmd.hdr.img_length = htole32(image_size);
 
 	while (offset < image_size) {

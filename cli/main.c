@@ -338,10 +338,14 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 
 	static struct {
 		int assume_yes;
+		int dont_activate;
 	} cfg;
 	const struct argconfig_commandline_options opts[] = {
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
+		{"dont-activate", 'A', "", CFG_NONE, &cfg.dont_activate, no_argument,
+		 "don't activate the new image, use fw-toggle to do so "
+		 "when it is safe"},
 		{NULL}};
 
 	argconfig_append_usage(" <device> <img_file>");
@@ -363,7 +367,8 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		return ret;
 	}
 
-	ret = switchtec_fw_write_file(dev, img_fd, fw_progress_callback);
+	ret = switchtec_fw_write_file(dev, img_fd, cfg.dont_activate,
+				      fw_progress_callback);
 	close(img_fd);
 	printf("\n\n");
 
