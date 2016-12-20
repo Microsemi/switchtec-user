@@ -75,8 +75,9 @@ struct argconfig_options {
 	void *value_addr;
 	int argument_type;
 	const char *help;
-	int (*custom_handler)(char *optarg, void *value_addr,
+	int (*custom_handler)(const char *optarg, void *value_addr,
 			      const struct argconfig_options *opt);
+       	const char *force_default;
 };
 
 #define MAX_HELP_FUNC 20

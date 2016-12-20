@@ -149,21 +149,21 @@ void argconfig_print_help(const char *program_desc,
 		show_option(s);
 }
 
-static int cfg_none_handler(char *optarg, void *value_addr,
-			     const struct argconfig_options *opt)
+static int cfg_none_handler(const char *optarg, void *value_addr,
+			    const struct argconfig_options *opt)
 {
 	*((int *)value_addr) = 1;
 	return 0;
 }
 
-static int cfg_string_handler(char *optarg, void *value_addr,
+static int cfg_string_handler(const char *optarg, void *value_addr,
 			      const struct argconfig_options *opt)
 {
-	*((char **)value_addr) = optarg;
+	*((const char **)value_addr) = optarg;
 	return 0;
 }
 
-static int cfg_int_handler(char *optarg, void *value_addr,
+static int cfg_int_handler(const char *optarg, void *value_addr,
 			   const struct argconfig_options *opt)
 {
 	char *endptr;
@@ -181,7 +181,7 @@ static int cfg_int_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_size_handler(char *optarg, void *value_addr,
+static int cfg_size_handler(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt)
 {
 	char *endptr;
@@ -198,7 +198,7 @@ static int cfg_size_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_long_handler(char *optarg, void *value_addr,
+static int cfg_long_handler(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt)
 {
 	char *endptr;
@@ -215,7 +215,7 @@ static int cfg_long_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_long_suffix_handler(char *optarg, void *value_addr,
+static int cfg_long_suffix_handler(const char *optarg, void *value_addr,
 				   const struct argconfig_options *opt)
 {
 	*((long *)value_addr) = suffix_binary_parse(optarg);
@@ -230,7 +230,7 @@ static int cfg_long_suffix_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_double_handler(char *optarg, void *value_addr,
+static int cfg_double_handler(const char *optarg, void *value_addr,
 			      const struct argconfig_options *opt)
 {
 	char *endptr;
@@ -246,7 +246,7 @@ static int cfg_double_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_bool_handler(char *optarg, void *value_addr,
+static int cfg_bool_handler(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt)
 {
 	char *endptr;
@@ -264,7 +264,7 @@ static int cfg_bool_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_byte_handler(char *optarg, void *value_addr,
+static int cfg_byte_handler(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt)
 {
 	char *endptr;
@@ -281,7 +281,7 @@ static int cfg_byte_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_short_handler(char *optarg, void *value_addr,
+static int cfg_short_handler(const char *optarg, void *value_addr,
 			     const struct argconfig_options *opt)
 {
 	char *endptr;
@@ -298,7 +298,7 @@ static int cfg_short_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_positive_handler(char *optarg, void *value_addr,
+static int cfg_positive_handler(const char *optarg, void *value_addr,
 				const struct argconfig_options *opt)
 {
 	char *endptr;
@@ -315,14 +315,14 @@ static int cfg_positive_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_increment_handler(char *optarg, void *value_addr,
+static int cfg_increment_handler(const char *optarg, void *value_addr,
 				 const struct argconfig_options *opt)
 {
 	(*((int *)value_addr))++;
 	return 0;
 }
 
-static int cfg_file_handler(char *optarg, void *value_addr,
+static int cfg_file_handler(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt)
 {
 	const char *fopts = "";
@@ -346,7 +346,7 @@ static int cfg_file_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_fd_handler(char *optarg, void *value_addr,
+static int cfg_fd_handler(const char *optarg, void *value_addr,
 			  const struct argconfig_options *opt)
 {
 	int fd;
@@ -367,7 +367,7 @@ static int cfg_fd_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
-static int cfg_custom_handler(char *optarg, void *value_addr,
+static int cfg_custom_handler(const char *optarg, void *value_addr,
 			      const struct argconfig_options *opt)
 {
 	if (opt->custom_handler == NULL) {
@@ -379,7 +379,7 @@ static int cfg_custom_handler(char *optarg, void *value_addr,
 	return opt->custom_handler(optarg, value_addr, opt);
 }
 
-typedef int (*type_handler)(char *optarg, void *value_addr,
+typedef int (*type_handler)(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt);
 
 static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
@@ -406,6 +406,19 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_FD_RD] = cfg_fd_handler,
 	[CFG_CUSTOM] = cfg_custom_handler,
 };
+
+static int handle(const char *optarg, void *value_addr,
+		  const struct argconfig_options *s)
+{
+	if (s->config_type >= _CFG_MAX_TYPES ||
+	    cfg_type_handlers[s->config_type] == NULL) {
+		fprintf(stderr, "FATAL: unknown config type: %d\n",
+			s->config_type);
+		return 1;
+	}
+
+	return cfg_type_handlers[s->config_type](optarg, value_addr, s);
+}
 
 static const struct argconfig_options *
 get_option(const struct argconfig_options * options,
@@ -509,16 +522,8 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 			s = get_option(options, option_index);
 		}
 
-		value_addr = (void *)(char *)s->value_addr;
-		if (s->config_type >= _CFG_MAX_TYPES ||
-		    cfg_type_handlers[s->config_type] == NULL) {
-			fprintf(stderr, "FATAL: unknown config type: %d\n",
-				s->config_type);
-			goto exit;
-		}
-
-		if (cfg_type_handlers[s->config_type](optarg, value_addr, s))
-			goto exit;
+		if (handle(optarg, s->value_addr, s))
+		    goto exit;
 	}
 
 	for (s = options; (s->option != NULL); s++) {
@@ -536,20 +541,25 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		if (optind >= argc)
 			continue;
 
-		value_addr = (void *)(char *)s->value_addr;
-		if (s->config_type >= _CFG_MAX_TYPES ||
-		    cfg_type_handlers[s->config_type] == NULL) {
-			fprintf(stderr, "FATAL: unknown config type: %d\n",
-				s->config_type);
-			goto exit;
-		}
-
-		if (cfg_type_handlers[s->config_type](argv[optind],
-						      value_addr, s))
-			goto exit;
+		if (handle(argv[optind], s->value_addr, s))
+		    goto exit;
 
 		optind++;
 	}
+
+	for (s = options; (s->option != NULL); s++) {
+		if (!s->force_default)
+			continue;
+
+		value_addr = (void *)(char *)s->value_addr;
+
+		if (*(int *)value_addr)
+			continue;
+
+		if (handle(s->force_default, s->value_addr, s))
+		    goto exit;
+	}
+
 
 	free(short_opts);
 	free(long_opts);
