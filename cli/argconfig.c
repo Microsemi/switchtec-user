@@ -148,6 +148,13 @@ void argconfig_print_help(const char *program_desc,
 		show_option(s);
 }
 
+static int cfg_none_handler(char *optarg, void *value_addr,
+			     const struct argconfig_commandline_options *opt)
+{
+	*((int *)value_addr) = 1;
+	return 0;
+}
+
 static int cfg_string_handler(char *optarg, void *value_addr,
 			      const struct argconfig_commandline_options *opt)
 {
@@ -330,7 +337,7 @@ static int cfg_file_handler(char *optarg, void *value_addr,
 
 	FILE *f = fopen(optarg, fopts);
 	if (f == NULL) {
-		fprintf(stderr, "Unable to open file: %s\n", optarg);
+		perror(optarg);
 		return 1;
 	}
 	*((FILE **) value_addr) = f;
@@ -343,6 +350,7 @@ typedef int (*type_handler)(char *optarg, void *value_addr,
 			    const struct argconfig_commandline_options *opt);
 
 static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
+	[CFG_NONE] = cfg_none_handler,
 	[CFG_STRING] = cfg_string_handler,
 	[CFG_INT] = cfg_int_handler,
 	[CFG_SIZE] = cfg_size_handler,
@@ -363,6 +371,23 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_FILE_RP] = cfg_file_handler,
 };
 
+static const struct argconfig_commandline_options *
+get_option(const struct argconfig_commandline_options * options,
+	   int option_index)
+{
+	const struct argconfig_commandline_options *s;
+
+	for (s = options; s->option; s++) {
+		if (s->argument_type != optional_positional &&
+		    s->argument_type != required_positional)
+			continue;
+		if (!option_index--)
+			return s;
+	}
+
+	return s;
+}
+
 int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		    const struct argconfig_commandline_options *options,
 		    void *config_out, size_t config_size)
@@ -374,14 +399,23 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	void *value_addr;
 
 	errno = 0;
-	for (s = options; s->option != NULL; s++)
+	for (s = options; s->option != NULL; s++) {
+		if (s->argument_type == optional_positional ||
+		    s->argument_type == required_positional)
+			continue;
 		options_count++;
+	}
 
 	long_opts = malloc(sizeof(struct option) * (options_count + 2));
 	short_opts = malloc(sizeof(*short_opts) * (options_count * 3 + 4));
 
 	for (s = options; (s->option != NULL) && (option_index < options_count);
 	     s++) {
+
+		if (s->argument_type == optional_positional ||
+		    s->argument_type == required_positional)
+			continue;
+
 		if (s->short_option != 0) {
 			short_opts[short_index++] = s->short_option;
 			if (s->argument_type == required_argument ||
@@ -396,9 +430,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 
 			if (s->argument_type == no_argument
 			    && s->default_value != NULL) {
-				value_addr = (void *)(char *)s->default_value;
-
-				long_opts[option_index].flag = value_addr;
+				long_opts[option_index].flag = s->default_value;
 				long_opts[option_index].val = 1;
 			} else {
 				long_opts[option_index].flag = NULL;
@@ -429,20 +461,45 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 				argconfig_print_help(program_desc, options);
 				goto exit;
 			}
-			for (option_index = 0; option_index < options_count;
-			     option_index++) {
-				if (c == options[option_index].short_option)
+
+			for (s = options; s->option; s++) {
+				if (c == s->short_option)
 					break;
 			}
-			if (option_index == options_count)
+
+			if (s == NULL)
 				continue;
-			if (long_opts[option_index].flag) {
-				*(uint8_t *)(long_opts[option_index].flag) = 1;
-				continue;
-			}
+		} else {
+			s = get_option(options, option_index);
 		}
 
-		s = &options[option_index];
+		value_addr = (void *)(char *)s->default_value;
+		if (s->config_type >= _CFG_MAX_TYPES ||
+		    cfg_type_handlers[s->config_type] == NULL) {
+			fprintf(stderr, "FATAL: unknown config type: %d\n",
+				s->config_type);
+			goto exit;
+		}
+
+		if (cfg_type_handlers[s->config_type](optarg, value_addr, s))
+			goto exit;
+	}
+
+	for (s = options; (s->option != NULL); s++) {
+		if (s->argument_type != optional_positional &&
+		    s->argument_type != required_positional)
+			continue;
+
+		if (s->argument_type == required_positional &&
+		    optind >= argc)
+		{
+			argconfig_print_usage();
+			goto exit;
+		}
+
+		if (optind >= argc)
+			continue;
+
 		value_addr = (void *)(char *)s->default_value;
 		if (s->config_type >= _CFG_MAX_TYPES ||
 		    cfg_type_handlers[s->config_type] == NULL) {
@@ -454,7 +511,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		if (cfg_type_handlers[s->config_type](optarg, value_addr, s))
 			goto exit;
 
-
+		optind++;
 	}
 
 	free(short_opts);

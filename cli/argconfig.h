@@ -37,6 +37,11 @@
 #include <getopt.h>
 #include <stdarg.h>
 
+enum {
+	optional_positional = 20,
+	required_positional = 21,
+};
+
 enum argconfig_types {
 	CFG_NONE,
 	CFG_STRING,
