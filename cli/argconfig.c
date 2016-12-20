@@ -148,12 +148,226 @@ void argconfig_print_help(const char *program_desc,
 		show_option(s);
 }
 
+static int cfg_string_handler(char *optarg, void *value_addr,
+			      const struct argconfig_commandline_options *opt)
+{
+	*((char **)value_addr) = optarg;
+	return 0;
+}
+
+static int cfg_int_handler(char *optarg, void *value_addr,
+			   const struct argconfig_commandline_options *opt)
+{
+	char *endptr;
+
+	*((int *)value_addr) = strtol(optarg, &endptr, 0);
+
+	if (errno || optarg == endptr) {
+		fprintf(stderr,
+			"Expected integer argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int cfg_size_handler(char *optarg, void *value_addr,
+			    const struct argconfig_commandline_options *opt)
+{
+	char *endptr;
+
+	*((size_t *) value_addr) = strtol(optarg, &endptr, 0);
+	if (errno || optarg == endptr) {
+		fprintf(stderr,
+			"Expected integer argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int cfg_long_handler(char *optarg, void *value_addr,
+			    const struct argconfig_commandline_options *opt)
+{
+	char *endptr;
+
+	*((unsigned long *)value_addr) = strtoul(optarg, &endptr, 0);
+	if (errno || optarg == endptr) {
+		fprintf(stderr,
+			"Expected long integer argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int cfg_long_suffix_handler(char *optarg, void *value_addr,
+				   const struct argconfig_commandline_options *opt)
+{
+	*((long *)value_addr) = suffix_binary_parse(optarg);
+	if (errno) {
+		fprintf(stderr,
+			"Expected suffixed integer argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int cfg_double_handler(char *optarg, void *value_addr,
+			      const struct argconfig_commandline_options *opt)
+{
+	char *endptr;
+
+	*((double *)value_addr) = strtod(optarg, &endptr);
+	if (errno || optarg == endptr) {
+		fprintf(stderr,
+			"Expected float argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+	return 0;
+}
+
+static int cfg_bool_handler(char *optarg, void *value_addr,
+			    const struct argconfig_commandline_options *opt)
+{
+	char *endptr;
+
+	int tmp = strtol(optarg, &endptr, 0);
+	if (errno || tmp < 0 || tmp > 1 || optarg == endptr) {
+		fprintf(stderr,
+			"Expected 0 or 1 argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+	*((int *)value_addr) = tmp;
+
+	return 0;
+}
+
+static int cfg_byte_handler(char *optarg, void *value_addr,
+			    const struct argconfig_commandline_options *opt)
+{
+	char *endptr;
+
+	unsigned long tmp = strtoul(optarg, &endptr, 0);
+	if (errno || tmp >= (1 << 8)  || optarg == endptr) {
+		fprintf(stderr,
+			"Expected byte argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+	*((uint8_t *) value_addr) = tmp;
+	return 0;
+}
+
+static int cfg_short_handler(char *optarg, void *value_addr,
+			     const struct argconfig_commandline_options *opt)
+{
+	char *endptr;
+
+	unsigned long tmp = strtoul(optarg, &endptr, 0);
+	if (errno || tmp >= (1 << 16)  || optarg == endptr) {
+		fprintf(stderr,
+			"Expected short argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+	*((uint16_t *) value_addr) = tmp;
+	return 0;
+}
+
+static int cfg_positive_handler(char *optarg, void *value_addr,
+				const struct argconfig_commandline_options *opt)
+{
+	char *endptr;
+
+	uint32_t tmp = strtoul(optarg, &endptr, 0);
+	if (errno || optarg == endptr) {
+		fprintf(stderr,
+			"Expected positive argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+	*((unsigned *) value_addr) = tmp;
+	return 0;
+}
+
+static int cfg_increment_handler(char *optarg, void *value_addr,
+				 const struct argconfig_commandline_options *opt)
+{
+	(*((int *)value_addr))++;
+	return 0;
+}
+
+static int cfg_file_handler(char *optarg, void *value_addr,
+			    const struct argconfig_commandline_options *opt)
+{
+	const char *fopts = "";
+	switch(opt->config_type) {
+	case CFG_FILE_A: fopts= "a"; break;
+	case CFG_FILE_R: fopts= "r"; break;
+	case CFG_FILE_W: fopts= "w"; break;
+	case CFG_FILE_AP: fopts= "a+"; break;
+	case CFG_FILE_RP: fopts= "r+"; break;
+	case CFG_FILE_WP: fopts= "w+"; break;
+	default: return 1;
+	}
+
+	FILE *f = fopen(optarg, fopts);
+	if (f == NULL) {
+		fprintf(stderr, "Unable to open file: %s\n", optarg);
+		return 1;
+	}
+	*((FILE **) value_addr) = f;
+
+	return 0;
+}
+
+
+typedef int (*type_handler)(char *optarg, void *value_addr,
+			    const struct argconfig_commandline_options *opt);
+
+static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
+	[CFG_STRING] = cfg_string_handler,
+	[CFG_INT] = cfg_int_handler,
+	[CFG_SIZE] = cfg_size_handler,
+	[CFG_LONG] = cfg_long_handler,
+	[CFG_LONG_SUFFIX] = cfg_long_suffix_handler,
+	[CFG_DOUBLE] = cfg_double_handler,
+	[CFG_BOOL] = cfg_bool_handler,
+	[CFG_BYTE] = cfg_byte_handler,
+	[CFG_SHORT] = cfg_short_handler,
+	[CFG_POSITIVE] = cfg_positive_handler,
+	[CFG_INCREMENT] = cfg_increment_handler,
+	[CFG_FILE_A] = cfg_file_handler,
+	[CFG_FILE_A] = cfg_file_handler,
+	[CFG_FILE_W] = cfg_file_handler,
+	[CFG_FILE_R] = cfg_file_handler,
+	[CFG_FILE_AP] = cfg_file_handler,
+	[CFG_FILE_WP] = cfg_file_handler,
+	[CFG_FILE_RP] = cfg_file_handler,
+};
+
 int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		    const struct argconfig_commandline_options *options,
 		    void *config_out, size_t config_size)
 {
 	char *short_opts;
-	char *endptr;
 	struct option *long_opts;
 	const struct argconfig_commandline_options *s;
 	int c, option_index = 0, short_index = 0, options_count = 0;
@@ -230,115 +444,19 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 
 		s = &options[option_index];
 		value_addr = (void *)(char *)s->default_value;
-		if (s->config_type == CFG_STRING) {
-			*((char **)value_addr) = optarg;
-		} else if (s->config_type == CFG_SIZE) {
-			*((size_t *) value_addr) = strtol(optarg, &endptr, 0);
-			if (errno || optarg == endptr) {
-				fprintf(stderr,
-					"Expected integer argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-		} else if (s->config_type == CFG_INT) {
-			*((int *)value_addr) = strtol(optarg, &endptr, 0);
-			if (errno || optarg == endptr) {
-				fprintf(stderr,
-					"Expected integer argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-		} else if (s->config_type == CFG_BOOL) {
-			int tmp = strtol(optarg, &endptr, 0);
-			if (errno || tmp < 0 || tmp > 1 || optarg == endptr) {
-				fprintf(stderr,
-					"Expected 0 or 1 argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-			*((int *)value_addr) = tmp;
-		} else if (s->config_type == CFG_BYTE) {
-			unsigned long tmp = strtoul(optarg, &endptr, 0);
-			if (errno || tmp >= (1 << 8)  || optarg == endptr) {
-				fprintf(stderr,
-					"Expected byte argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-			*((uint8_t *) value_addr) = tmp;
-		} else if (s->config_type == CFG_SHORT) {
-			unsigned long tmp = strtoul(optarg, &endptr, 0);
-			if (errno || tmp >= (1 << 16) || optarg == endptr) {
-				fprintf(stderr,
-					"Expected short argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-			*((uint16_t *) value_addr) = tmp;
-		} else if (s->config_type == CFG_POSITIVE) {
-			uint32_t tmp = strtoul(optarg, &endptr, 0);
-			if (errno || optarg == endptr) {
-				fprintf(stderr,
-					"Expected word argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-			*((uint32_t *) value_addr) = tmp;
-		} else if (s->config_type == CFG_INCREMENT) {
-			(*((int *)value_addr))++;
-		} else if (s->config_type == CFG_LONG) {
-			*((unsigned long *)value_addr) = strtoul(optarg, &endptr, 0);
-			if (errno || optarg == endptr) {
-				fprintf(stderr,
-					"Expected long integer argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-		} else if (s->config_type == CFG_LONG_SUFFIX) {
-			*((long *)value_addr) = suffix_binary_parse(optarg);
-			if (errno) {
-				fprintf(stderr,
-					"Expected long suffixed integer argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-		} else if (s->config_type == CFG_DOUBLE) {
-			*((double *)value_addr) = strtod(optarg, &endptr);
-			if (errno || optarg == endptr) {
-				fprintf(stderr,
-					"Expected float argument for '%s' but got '%s'!\n",
-					long_opts[option_index].name, optarg);
-				goto exit;
-			}
-		} else if (s->config_type == CFG_FILE_A ||
-			   s->config_type == CFG_FILE_R ||
-			   s->config_type == CFG_FILE_W ||
-			   s->config_type == CFG_FILE_AP ||
-			   s->config_type == CFG_FILE_RP ||
-			   s->config_type == CFG_FILE_WP) {
-			const char *fopts = "";
-			if (s->config_type == CFG_FILE_A)
-				fopts = "a";
-			else if (s->config_type == CFG_FILE_R)
-				fopts = "r";
-			else if (s->config_type == CFG_FILE_W)
-				fopts = "w";
-			else if (s->config_type == CFG_FILE_AP)
-				fopts = "a+";
-			else if (s->config_type == CFG_FILE_RP)
-				fopts = "r+";
-			else if (s->config_type == CFG_FILE_WP)
-				fopts = "w+";
-
-			FILE *f = fopen(optarg, fopts);
-			if (f == NULL) {
-				fprintf(stderr, "Unable to open %s file: %s\n",
-					s->option, optarg);
-				goto exit;
-			}
-			*((FILE **) value_addr) = f;
+		if (s->config_type >= _CFG_MAX_TYPES ||
+		    cfg_type_handlers[s->config_type] == NULL) {
+			fprintf(stderr, "FATAL: unknown config type: %d\n",
+				s->config_type);
+			goto exit;
 		}
+
+		if (cfg_type_handlers[s->config_type](optarg, value_addr, s))
+			goto exit;
+
+
 	}
+
 	free(short_opts);
 	free(long_opts);
 

@@ -56,6 +56,7 @@ enum argconfig_types {
 	CFG_FILE_AP,
 	CFG_FILE_WP,
 	CFG_FILE_RP,
+	_CFG_MAX_TYPES,
 };
 
 struct argconfig_commandline_options {
