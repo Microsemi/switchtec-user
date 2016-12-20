@@ -538,6 +538,7 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 	}
 
 	fprintf(stderr, "Version:  %s\n", version);
+	fprintf(stderr, "Type:     %s\n", cfg.data ? "DAT" : "IMG");
 	fprintf(stderr, "Img Len:  0x%x\n", (int) ftr.image_len);
 	fprintf(stderr, "CRC:      0x%x\n", (int) ftr.image_crc);
 
