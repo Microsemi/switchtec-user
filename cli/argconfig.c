@@ -40,6 +40,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <inttypes.h>
+#include <unistd.h>
 
 static argconfig_help_func *help_funcs[MAX_HELP_FUNC] = { NULL };
 
@@ -351,6 +352,14 @@ static int cfg_fd_handler(const char *optarg, void *value_addr,
 {
 	int fd;
 	int flags;
+
+	if (strcmp(optarg, "-")) {
+		*((int *) value_addr) = opt->config_type == CFG_FD_WR ?
+			STDOUT_FILENO : STDIN_FILENO;
+
+		return 0;
+	}
+
 	switch(opt->config_type) {
 	case CFG_FD_WR: flags = O_CREAT | O_TRUNC | O_WRONLY; break;
 	case CFG_FD_RD: flags = O_RDONLY; break;
