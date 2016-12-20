@@ -327,7 +327,7 @@ static int cfg_file_handler(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt)
 {
 	const char *fopts = "";
-	switch(opt->config_type) {
+	switch(opt->cfg_type) {
 	case CFG_FILE_A: fopts= "a"; break;
 	case CFG_FILE_R: fopts= "r"; break;
 	case CFG_FILE_W: fopts= "w"; break;
@@ -361,7 +361,7 @@ static int cfg_fd_handler(const char *optarg, void *value_addr,
 	int flags;
 
 	if (strcmp(optarg, "-") == 0) {
-		if (opt->config_type == CFG_FD_WR)
+		if (opt->cfg_type == CFG_FD_WR)
 			set_fd_path(value_addr, STDOUT_FILENO, "stdout");
 		else
 			set_fd_path(value_addr, STDIN_FILENO, "stdin");
@@ -369,7 +369,7 @@ static int cfg_fd_handler(const char *optarg, void *value_addr,
 		return 0;
 	}
 
-	switch(opt->config_type) {
+	switch(opt->cfg_type) {
 	case CFG_FD_WR: flags = O_CREAT | O_TRUNC | O_WRONLY; break;
 	case CFG_FD_RD: flags = O_RDONLY; break;
 	default: return 1;
@@ -429,14 +429,14 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 static int handle(const char *optarg, void *value_addr,
 		  const struct argconfig_options *s)
 {
-	if (s->config_type >= _CFG_MAX_TYPES ||
-	    cfg_type_handlers[s->config_type] == NULL) {
+	if (s->cfg_type >= _CFG_MAX_TYPES ||
+	    cfg_type_handlers[s->cfg_type] == NULL) {
 		fprintf(stderr, "FATAL: unknown config type: %d\n",
-			s->config_type);
+			s->cfg_type);
 		return 1;
 	}
 
-	return cfg_type_handlers[s->config_type](optarg, value_addr, s);
+	return cfg_type_handlers[s->cfg_type](optarg, value_addr, s);
 }
 
 static const struct argconfig_options *

@@ -71,7 +71,7 @@ struct argconfig_options {
 	const char *option;
 	const char short_option;
 	const char *meta;
-	enum argconfig_types config_type;
+	enum argconfig_types cfg_type;
 	void *value_addr;
 	int argument_type;
 	const char *help;
