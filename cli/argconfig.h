@@ -61,6 +61,8 @@ enum argconfig_types {
 	CFG_FILE_AP,
 	CFG_FILE_WP,
 	CFG_FILE_RP,
+	CFG_FD_RD,
+	CFG_FD_WR,
 	CFG_CUSTOM,
 	_CFG_MAX_TYPES,
 };

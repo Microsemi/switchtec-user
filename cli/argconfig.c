@@ -32,6 +32,7 @@
 #include "argconfig.h"
 #include "suffix.h"
 
+#include <fcntl.h>
 #include <string.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -345,6 +346,27 @@ static int cfg_file_handler(char *optarg, void *value_addr,
 	return 0;
 }
 
+static int cfg_fd_handler(char *optarg, void *value_addr,
+			  const struct argconfig_options *opt)
+{
+	int fd;
+	int flags;
+	switch(opt->config_type) {
+	case CFG_FD_WR: flags = O_CREAT | O_TRUNC | O_WRONLY; break;
+	case CFG_FD_RD: flags = O_RDONLY; break;
+	default: return 1;
+	}
+
+	fd = open(optarg, flags, 0666);
+	if (fd < 0) {
+		perror(optarg);
+		return 1;
+	}
+
+	*((int *) value_addr) = fd;
+	return 0;
+}
+
 static int cfg_custom_handler(char *optarg, void *value_addr,
 			      const struct argconfig_options *opt)
 {
@@ -380,6 +402,8 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_FILE_AP] = cfg_file_handler,
 	[CFG_FILE_WP] = cfg_file_handler,
 	[CFG_FILE_RP] = cfg_file_handler,
+	[CFG_FD_WR] = cfg_fd_handler,
+	[CFG_FD_RD] = cfg_fd_handler,
 	[CFG_CUSTOM] = cfg_custom_handler,
 };
 
