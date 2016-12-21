@@ -94,6 +94,23 @@ static int is_positional(const struct argconfig_options *s)
 		s->argument_type == required_positional;
 }
 
+static int is_file_option(const struct argconfig_options * s)
+{
+	switch (s->cfg_type) {
+	case CFG_FILE_A:
+	case CFG_FILE_W:
+	case CFG_FILE_R:
+	case CFG_FILE_AP:
+	case CFG_FILE_WP:
+	case CFG_FILE_RP:
+	case CFG_FD_RD:
+	case CFG_FD_WR:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 static int num_positional(const struct argconfig_options *options)
 {
 	int count = 0;
@@ -182,8 +199,7 @@ static void show_choices(const struct argconfig_options *option)
 {
 	struct argconfig_choice *c;
 
-	if (option->cfg_type != CFG_CHOICES &&
-	    option->cfg_type != CFG_MULT_CHOICES)
+	if (!option->choices)
 		return;
 
 	printf("\033[1mChoices for %s:\033[0m\n", option->meta);
@@ -504,6 +520,13 @@ static int cfg_choices_handler(const char *optarg, void *value_addr,
 	unsigned *ivalue = value_addr;
 	struct argconfig_choice *c;
 
+	if (!opt->choices) {
+		fprintf(stderr,
+			"No choices set for '--%s/-%c' ",
+			opt->option, opt->short_option);
+		return 1;
+	}
+
 	for (c = opt->choices; c->name; c++) {
 		if (strcasecmp(optarg, c->name) == 0)
 			break;
@@ -583,20 +606,79 @@ static int handle(const char *optarg, void *value_addr,
 }
 
 static const struct argconfig_options *
-get_option(const struct argconfig_options * options,
-	   int option_index)
+get_option(int c, int option_index,
+	    const struct argconfig_options *options)
 {
 	const struct argconfig_options *s;
 
-	for (s = options; s->option; s++) {
-		if (is_positional(s))
-			continue;
-		if (!option_index--)
-			return s;
+	if (c) {
+		for (s = options; s->option; s++) {
+			if (c == s->short_option)
+				break;
+		}
+
+		if (s == NULL)
+			return NULL;
+	} else {
+		for (s = options; s->option; s++) {
+			if (is_positional(s))
+				continue;
+			if (!option_index--)
+				return s;
+		}
 	}
 
 	return s;
+
 }
+
+static const struct argconfig_options *
+find_option(char *arg, const struct argconfig_options *options)
+{
+	const struct argconfig_options *s;
+
+	while(arg[0]=='-') arg++;
+	while(arg[strlen(arg)-1] == '=') arg[strlen(arg)-1] = 0;
+
+	for (s = options; s->option; s++) {
+		if (strcmp(s->option, arg) == 0)
+			return s;
+	}
+
+	return NULL;
+}
+
+
+static void print_option_completions(const struct argconfig_options *s)
+{
+	const struct argconfig_choice *c;
+
+	if (!s)
+		exit(0);
+
+	if (is_file_option(s))
+		exit(2);
+
+	switch(s->cfg_type) {
+	case CFG_CHOICES:
+	case CFG_MULT_CHOICES:
+		if (!s->choices)
+			exit(0);
+
+		for (c = s->choices; c->name; c++) {
+			printf(" %s", c->name);
+		}
+
+
+		break;
+	default:
+		break;
+	}
+
+	printf("\n");
+	exit(0);
+}
+
 
 static void print_completions(int argc, char *argv[],
 			      const char *short_opts,
@@ -604,12 +686,29 @@ static void print_completions(int argc, char *argv[],
 			      const struct argconfig_options *options)
 {
 	int pos_args = 0;
-	const struct argconfig_options *s;
+	const struct argconfig_options *s = NULL;
 	int accept_file = 0;
+	int c;
+	int option_index = 0;
+	char *last_optarg = NULL;
 
 	opterr = 0;
-	while (getopt_long_only(argc, argv, short_opts, long_opts,
-				NULL) != -1) { };
+	while ((c = getopt_long_only(argc, argv, short_opts, long_opts,
+				     &option_index)) != -1) {
+		if (c == ':') {
+			if (optopt == 0)
+				s = find_option(argv[optind-1], options);
+			else
+				s = get_option(optopt, 0, options);
+			print_option_completions(s);
+		} else {
+			s = get_option(optopt, option_index, options);
+			last_optarg = optarg;
+		}
+	};
+
+	if (last_optarg && s && strlen(last_optarg) == 0)
+		print_option_completions(s);
 
 	pos_args = argc - optind;
 
@@ -638,20 +737,8 @@ static void print_completions(int argc, char *argv[],
 		if (pos_args != -1)
 			continue;
 
-		switch (s->cfg_type) {
-		case CFG_FILE_A:
-		case CFG_FILE_W:
-		case CFG_FILE_R:
-		case CFG_FILE_AP:
-		case CFG_FILE_WP:
-		case CFG_FILE_RP:
-		case CFG_FD_RD:
-		case CFG_FD_WR:
+		if (is_file_option(s))
 			accept_file = 2;
-			break;
-		default:
-			break;
-		}
 	}
 
 	printf("\n");
@@ -673,6 +760,8 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	options_count = num_options(options);
 	long_opts = malloc(sizeof(struct option) * (options_count + 2));
 	short_opts = malloc(sizeof(*short_opts) * (options_count * 3 + 4));
+
+	short_opts[short_index++] = ':';
 
 	for (s = options; (s->option != NULL) && (option_index < options_count);
 	     s++) {
@@ -723,22 +812,12 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	optind = 0;
 	while ((c = getopt_long_only(argc, argv, short_opts, long_opts,
 				&option_index)) != -1) {
-		if (c != 0) {
-			if (c == '?' || c == 'h') {
-				argconfig_print_help(program_desc, options);
-				goto exit;
-			}
-
-			for (s = options; s->option; s++) {
-				if (c == s->short_option)
-					break;
-			}
-
-			if (s == NULL)
-				continue;
-		} else {
-			s = get_option(options, option_index);
+		if (c == '?' || c == 'h' || c == ':') {
+			argconfig_print_help(program_desc, options);
+			goto exit;
 		}
+
+		s = get_option(c, option_index, options);
 
 		if (handle(optarg, s->value_addr, s))
 		    goto exit;
