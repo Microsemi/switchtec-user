@@ -207,6 +207,10 @@ int switchtec_fw_part_act_info(struct switchtec_dev *dev,
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type);
 
+
+
+void switchtec_pmon_perror(const char *str);
+
 int switchtec_evcntr_type_count(void);
 int switchtec_evcntr_setup(struct switchtec_dev *dev, unsigned stack_id,
 			   unsigned cntr_id,

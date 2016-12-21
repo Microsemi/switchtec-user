@@ -265,8 +265,10 @@ int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	if (ret < 0)
 		return ret;
 
-	if (ret != sizeof(buf))
-		return -EIO;
+	if (ret != sizeof(buf)) {
+		errno = EIO;
+		return -errno;
+	}
 
 	return 0;
 }
@@ -282,10 +284,15 @@ int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
 	if (ret < 0)
 		return ret;
 
-	if (ret != sizeof(buf))
-		return -EIO;
+	if (ret != sizeof(buf)) {
+		errno = EIO;
+		return -errno;
+	}
 
 	memcpy(&ret, buf, sizeof(ret));
+
+	if (ret)
+		errno = ret;
 
 	if (!resp)
 		return ret;
@@ -432,8 +439,10 @@ int switchtec_status(struct switchtec_dev *dev,
 	int nr_ports = 0;
 	struct switchtec_status *s;
 
-	if (!status)
-		return -EINVAL;
+	if (!status) {
+		errno = EINVAL;
+		return -errno;
+	}
 
 	struct {
 		uint8_t phys_port_id;
