@@ -71,11 +71,26 @@ void usage(struct plugin *plugin)
 		printf("usage: %s %s\n", prog->name, prog->usage);
 }
 
+static void print_completions(struct plugin *plugin)
+{
+	int i;
+
+	if (!getenv("SWITCHTEC_COMPLETE"))
+		return;
+
+	for (i = 0; plugin->commands[i]; i++)
+		printf(" %s", plugin->commands[i]->name);
+	printf("\n");
+	exit(0);
+}
+
 void general_help(struct plugin *plugin)
 {
 	struct program *prog = plugin->parent;
 	struct plugin *extension;
 	unsigned i = 0;
+
+	print_completions(plugin);
 
 	printf("%s-%s\n", prog->name, prog->version);
 
@@ -184,6 +199,8 @@ int handle_plugin(int argc, char **argv, struct plugin *plugin)
 		}
 		extension = extension->next;
 	}
+
+	print_completions(plugin);
 	printf("ERROR: Invalid sub-command '%s'\n", str);
 	return -ENOTSUP;
 }

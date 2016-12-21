@@ -540,6 +540,67 @@ get_option(const struct argconfig_options * options,
 	return s;
 }
 
+static void print_completions(int argc, char *argv[],
+			      const char *short_opts,
+			      const struct option *long_opts,
+			      const struct argconfig_options *options)
+{
+	int pos_args = 0;
+	const struct argconfig_options *s;
+	int accept_file = 0;
+
+	opterr = 0;
+	while (getopt_long_only(argc, argv, short_opts, long_opts,
+				NULL) != -1) { };
+
+	pos_args = argc - optind;
+
+	for (s = options; s->option; s++) {
+		if (is_positional(s))
+			continue;
+
+		if (s->argument_type == no_argument)
+			printf(" --%s", s->option);
+		else
+			printf(" --%s=", s->option);
+
+		printf(" -%c", s->short_option);
+	}
+
+	for (s = options; s->option; s++) {
+		if (!is_positional(s))
+			continue;
+
+		if(pos_args-- > 0)
+			continue;
+
+		if (s->complete)
+			printf(" %s", s->complete);
+
+		if (pos_args != -1)
+			continue;
+
+		switch (s->cfg_type) {
+		case CFG_FILE_A:
+		case CFG_FILE_W:
+		case CFG_FILE_R:
+		case CFG_FILE_AP:
+		case CFG_FILE_WP:
+		case CFG_FILE_RP:
+		case CFG_FD_RD:
+		case CFG_FD_WR:
+			accept_file = 2;
+			break;
+		default:
+			break;
+		}
+	}
+
+	printf("\n");
+
+	exit(accept_file);
+}
+
 int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		    const struct argconfig_options *options,
 		    void *config_out, size_t config_size)
@@ -597,6 +658,9 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	short_opts[short_index++] = '?';
 	short_opts[short_index++] = 'h';
 	short_opts[short_index] = 0;
+
+	if (getenv("SWITCHTEC_COMPLETE"))
+		print_completions(argc, argv, short_opts, long_opts, options);
 
 	optind = 0;
 	while ((c = getopt_long_only(argc, argv, short_opts, long_opts,

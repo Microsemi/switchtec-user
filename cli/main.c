@@ -70,6 +70,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
 #define DEVICE_OPTION {"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
 		       .argument_type=required_positional, \
 		       .custom_handler=switchtec_handler, \
+		       .complete="/dev/switchtec*", \
 		       .help="switchtec device to operate on"}
 
 
