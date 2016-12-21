@@ -141,7 +141,7 @@ static int num_options(const struct argconfig_options *options)
 
 static void show_option(const struct argconfig_options *option)
 {
-	char buffer[0x1000];
+	char buffer[0x4000];
 	char *b = buffer;
 
 	if (is_positional(option))
@@ -157,7 +157,14 @@ static void show_option(const struct argconfig_options *option)
 		if (option->short_option)
 			b += sprintf(b, ",");
 	}
+
 	if (option->short_option) {
+		if ((b - buffer) >= 30) {
+			fprintf(stderr, "%s\n", buffer);
+			b = buffer;
+			b += sprintf(b, "     ");
+		}
+
 		b += sprintf(b, " -%c", option->short_option);
 		if (option->argument_type == optional_argument)
 			b += sprintf(b, " [<%s>]", option->meta ? option->meta : "arg");
@@ -227,13 +234,16 @@ void argconfig_print_usage(const struct argconfig_options *options)
 	printf("\033[1mUsage:\033[0m %s", append_usage_str);
 
 	for (s = options; (s->option != NULL) && (s != NULL); s++) {
-		if (!is_positional(s))
+		if (!is_positional(s) && !s->require_in_usage)
 			continue;
 
 		if (s->argument_type == optional_positional)
 			printf(" [<%s>]", s->option);
-		else
+		else if (s->argument_type == required_positional)
 			printf(" <%s>", s->option);
+		else
+			printf(" --%s=<%s>", s->option, s->meta);
+
 	}
 
 	if (num_options(options))
