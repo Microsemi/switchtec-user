@@ -18,6 +18,7 @@
 #include "version.h"
 
 #include <switchtec/switchtec.h>
+#include <switchtec/utils.h>
 
 #include <locale.h>
 #include <time.h>
@@ -550,6 +551,126 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 
 close_and_exit:
 	close(cfg.out_fd);
+
+	return ret;
+}
+
+static void create_type_choices(struct argconfig_choice *c)
+{
+	const struct switchtec_evcntr_type_list *t;
+
+	for (t = switchtec_evcntr_type_list; t->name; t++, c++) {
+		c->name = t->name;
+		c->value = t->mask;
+		c->help = t->help;
+	}
+
+	c->name = NULL;
+	c->value = 0;
+	c->help = 0;
+}
+
+static int get_free_counter(struct switchtec_dev *dev, int stack)
+{
+	struct switchtec_evcntr_setup setups[SWITCHTEC_MAX_EVENT_COUNTERS];
+	int ret;
+	int i;
+
+	ret = switchtec_evcntr_get_setup(dev, stack, 0, ARRAY_SIZE(setups),
+					 setups);
+	if (ret < 0) {
+		switchtec_pmon_perror("evcntr_get_setup");
+		return ret;
+	}
+
+	for (i = 0; i < ret; i ++) {
+		if (!setups[i].port_mask || !setups[i].type_mask)
+			return i;
+	}
+
+	errno = EUSERS;
+	return -errno;
+}
+
+static int evcntr_setup(int argc, char **argv, struct command *cmd,
+			struct plugin *plugin)
+{
+	const char *desc = "Setup a new event counter";
+	int nr_type_choices = switchtec_evcntr_type_count();
+	struct argconfig_choice type_choices[nr_type_choices+1];
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int stack;
+		int counter;
+		struct switchtec_evcntr_setup setup;
+	} cfg = {
+		.stack = -1,
+		.counter = -1,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		 "stack to create the counter in",
+		 .require_in_usage=1},
+		{"event", 'e', "EVENT", CFG_MULT_CHOICES, &cfg.setup.type_mask,
+		  required_argument,
+		 "event to count on, may specify this argument multiple times "
+		 "to count on multiple events",
+		 .choices=type_choices, .require_in_usage=1},
+
+		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		 "counter index, default is to use the next unused index"},
+		{"egress", 'g', "", CFG_NONE, &cfg.setup.egress, no_argument,
+		 "measure egress TLPs instead of ingress -- only meaningful for "
+		 "POSTED_TLP, COMP_TLP and NON_POSTED_TLP counts"},
+		{"port_mask", 'p', "0xXX|#,#,#-#,#", CFG_MASK_8, &cfg.setup.port_mask,
+		  required_argument,
+		 "ports to capture events on, default is all ports"},
+		{"thresh", 't', "NUM", CFG_POSITIVE, &cfg.setup.threshold,
+		 required_argument,
+		 "threshold to trigger an event notification"},
+		{NULL}};
+
+	create_type_choices(type_choices);
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.stack < 0) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --stack argument is required!\n");
+		return 1;
+	}
+
+	if (!cfg.setup.type_mask) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "Must specify at least one event!\n");
+		return 1;
+	}
+
+	if (!cfg.setup.port_mask)
+		cfg.setup.port_mask = -1;
+
+	if (cfg.counter < 0) {
+		cfg.counter = get_free_counter(cfg.dev, cfg.stack);
+		if (cfg.counter < 0)
+			return cfg.counter;
+	}
+
+	if (cfg.setup.threshold &&
+	    __builtin_popcount(cfg.setup.port_mask) > 1 &&
+	    __builtin_popcount(cfg.setup.type_mask) > 1)
+	{
+		fprintf(stderr, "A threshold can only be used with a counter "
+			"that has a single port and single event\n");
+		return 1;
+	}
+
+	ret = switchtec_evcntr_setup(cfg.dev, cfg.stack, cfg.counter,
+				     &cfg.setup);
+
+	switchtec_pmon_perror("evcntr-setup");
 
 	return ret;
 }
