@@ -32,6 +32,7 @@ struct switchtec_dev;
 #define SWITCHTEC_MAX_PARTS  48
 #define SWITCHTEC_MAX_PORTS  48
 #define SWITCHTEC_MAX_STACKS 16
+#define SWITCHTEC_MAX_EVENT_COUNTERS 64
 
 struct switchtec_device_info {
 	char name[256];
@@ -102,6 +103,54 @@ struct switchtec_status {
 	const char *ltssm_str;
 };
 
+enum switchtec_evcntr_type_mask {
+	UNSUP_REQ_ERR = 1 << 0,
+	ECRC_ERR = 1 << 1,
+	MALFORM_TLP_ERR = 1 << 2,
+	RCVR_OFLOW_ERR = 1 << 3,
+	CMPLTR_ABORT_ERR = 1 << 4,
+	POISONED_TLP_ERR = 1 << 5,
+	SURPRISE_DOWN_ERR = 1 << 6,
+	DATA_LINK_PROTO_ERR = 1 << 7,
+	HDR_LOG_OFLOW_ERR = 1 << 8,
+	UNCOR_INT_ERR = 1 << 9,
+	REPLAY_TMR_TIMEOUT = 1 << 10,
+	REPLAY_NUM_ROLLOVER = 1 << 11,
+	BAD_DLPP = 1 << 12,
+	BAD_TLP = 1 << 13,
+	RCVR_ERR = 1 << 14,
+	RCV_FATAL_MSG = 1 << 15,
+	RCV_NON_FATAL_MSG = 1 << 16,
+	RCV_CORR_MSG = 1 << 17,
+	NAK_RCVD = 1 << 18,
+	RULE_TABLE_HIT = 1 << 19,
+        POSTED_TLP = 1 << 20,
+	COMP_TLP = 1 << 21,
+	NON_POSTED_TLP = 1 << 22,
+	ALL_ERRORS = (UNSUP_REQ_ERR | ECRC_ERR | MALFORM_TLP_ERR |
+		      RCVR_OFLOW_ERR | CMPLTR_ABORT_ERR | POISONED_TLP_ERR |
+		      SURPRISE_DOWN_ERR | DATA_LINK_PROTO_ERR |
+		      HDR_LOG_OFLOW_ERR | UNCOR_INT_ERR |
+		      REPLAY_TMR_TIMEOUT | REPLAY_NUM_ROLLOVER |
+		      BAD_DLPP | BAD_TLP | RCVR_ERR | RCV_FATAL_MSG |
+		      RCV_NON_FATAL_MSG | RCV_CORR_MSG | NAK_RCVD),
+	ALL_TLPS = (POSTED_TLP | COMP_TLP | NON_POSTED_TLP),
+	ALL = (1 << 23) - 1,
+};
+
+extern const struct switchtec_evcntr_type_list {
+	enum switchtec_evcntr_type_mask mask;
+	const char *name;
+	const char *help;
+} switchtec_evcntr_type_list[];
+
+struct switchtec_evcntr_setup {
+	unsigned port_mask;
+	enum switchtec_evcntr_type_mask type_mask;
+	int egress;
+	unsigned threshold;
+};
+
 struct switchtec_dev *switchtec_open(const char * path);
 void switchtec_close(struct switchtec_dev *dev);
 const char *switchtec_name(struct switchtec_dev *dev);
@@ -158,6 +207,20 @@ int switchtec_fw_part_act_info(struct switchtec_dev *dev,
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type);
 
+int switchtec_evcntr_type_count(void);
+int switchtec_evcntr_setup(struct switchtec_dev *dev, unsigned stack_id,
+			   unsigned cntr_id,
+			   struct switchtec_evcntr_setup *setup);
+int switchtec_evcntr_get_setup(struct switchtec_dev *dev, unsigned stack_id,
+			       unsigned cntr_id, unsigned nr_cntrs,
+			       struct switchtec_evcntr_setup *res);
+int switchtec_evcntr_get(struct switchtec_dev *dev, unsigned stack_id,
+			 unsigned cntr_id, unsigned nr_cntrs, unsigned *res,
+			 int clear);
+int switchtec_evcntr_get_both(struct switchtec_dev *dev, unsigned stack_id,
+			      unsigned cntr_id, unsigned nr_cntrs,
+			      struct switchtec_evcntr_setup *setup,
+			      unsigned *counts, int clear);
 
 #ifdef __cplusplus
 }
