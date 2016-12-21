@@ -878,3 +878,34 @@ void argconfig_register_help_func(argconfig_help_func * f)
 		}
 	}
 }
+
+int argconfig_parse_comma_range(char *str, int *res, int max_nums)
+{
+	char *tok;
+	const char *delims = " ,";
+	int start, end;
+	int cnt = 0;
+
+	tok = strtok(str, delims);
+
+	while (tok != NULL) {
+		start = strtol(tok, &tok, 0);
+		if (*tok == '-') {
+			end = strtol(tok+1, &tok, 0);
+			for (; start <= end; start++)
+				res[cnt++] = start;
+		} else {
+			res[cnt++] = start;
+		}
+
+		if (cnt == max_nums)
+			return cnt;
+
+		if (*tok != 0)
+			return -1;
+
+		tok = strtok(NULL, delims);
+	}
+
+	return cnt;
+}
