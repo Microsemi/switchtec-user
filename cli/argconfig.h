@@ -63,8 +63,16 @@ enum argconfig_types {
 	CFG_FILE_RP,
 	CFG_FD_RD,
 	CFG_FD_WR,
+	CFG_CHOICES,
+	CFG_MULT_CHOICES,
 	CFG_CUSTOM,
 	_CFG_MAX_TYPES,
+};
+
+struct argconfig_choice {
+	const char *name;
+	int value;
+	const char *help;
 };
 
 struct argconfig_options {
@@ -79,6 +87,7 @@ struct argconfig_options {
 			      const struct argconfig_options *opt);
        	const char *force_default;
 	const char *complete;
+	struct argconfig_choice *choices;
 };
 
 #define MAX_HELP_FUNC 20

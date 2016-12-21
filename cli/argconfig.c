@@ -178,6 +178,33 @@ static void show_positional(const struct argconfig_options *option)
 	fprintf(stderr, "\n");
 }
 
+static void show_choices(const struct argconfig_options *option)
+{
+	struct argconfig_choice *c;
+
+	if (option->cfg_type != CFG_CHOICES &&
+	    option->cfg_type != CFG_MULT_CHOICES)
+		return;
+
+	printf("\033[1mChoices for %s:\033[0m\n", option->meta);
+
+	for (c = option->choices; c->name; c++) {
+		char buffer[0x1000];
+		char *b = buffer;
+
+		b += snprintf(buffer, sizeof(buffer), "    %s ", c->name);
+
+		fprintf(stderr, "%s", buffer);
+		if (option->help) {
+			print_word_wrapped("--- ", 40, b - buffer);
+			print_word_wrapped(c->help, 44, 44);
+		}
+		fprintf(stderr, "\n");
+	}
+
+	fprintf(stderr, "\n");
+}
+
 void argconfig_print_usage(const struct argconfig_options *options)
 {
 	const struct argconfig_options *s;
@@ -230,6 +257,9 @@ void argconfig_print_help(const char *program_desc,
 		printf("\n");
 	}
 
+
+	for (s = options; (s->option != NULL) && (s != NULL); s++)
+		show_choices(s);
 }
 
 static int cfg_none_handler(const char *optarg, void *value_addr,
@@ -386,7 +416,7 @@ static int cfg_positive_handler(const char *optarg, void *value_addr,
 {
 	char *endptr;
 
-	uint32_t tmp = strtoul(optarg, &endptr, 0);
+	unsigned long tmp = strtoul(optarg, &endptr, 0);
 	if (errno || optarg == endptr) {
 		fprintf(stderr,
 			"Expected positive argument for '--%s/-%c' "
@@ -468,6 +498,32 @@ static int cfg_fd_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
+static int cfg_choices_handler(const char *optarg, void *value_addr,
+			       const struct argconfig_options *opt)
+{
+	unsigned *ivalue = value_addr;
+	struct argconfig_choice *c;
+
+	for (c = opt->choices; c->name; c++) {
+		if (strcasecmp(optarg, c->name) == 0)
+			break;
+	}
+
+	if (!c->name) {
+		fprintf(stderr,
+			"Unexpected choice '%s' for '--%s/-%c' ",
+			optarg, opt->option, opt->short_option);
+		return 1;
+	}
+
+	if (opt->cfg_type == CFG_MULT_CHOICES)
+		*ivalue |= c->value;
+	else
+		*ivalue = c->value;
+
+	return 0;
+}
+
 static int cfg_custom_handler(const char *optarg, void *value_addr,
 			      const struct argconfig_options *opt)
 {
@@ -505,6 +561,8 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_FILE_RP] = cfg_file_handler,
 	[CFG_FD_WR] = cfg_fd_handler,
 	[CFG_FD_RD] = cfg_fd_handler,
+	[CFG_CHOICES] = cfg_choices_handler,
+	[CFG_MULT_CHOICES] = cfg_choices_handler,
 	[CFG_CUSTOM] = cfg_custom_handler,
 };
 
