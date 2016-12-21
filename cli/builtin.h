@@ -31,6 +31,7 @@ COMMAND_LIST(
 	ENTRY("fw-toggle", "Toggle the active and inactive firmware partition", fw_toggle)
 	ENTRY("fw-read", "Read back firmware image from hardware", fw_read)
 	ENTRY("fw-img-info", "Display information for a firmware image", fw_image_info)
+	ENTRY("evcntr", "Display event counters", evcntr)
 	ENTRY("evcntr-setup", "Setup an event counter", evcntr_setup)
 );
 
