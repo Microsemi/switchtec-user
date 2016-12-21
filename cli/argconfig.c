@@ -532,7 +532,7 @@ static int cfg_choices_handler(const char *optarg, void *value_addr,
 
 	if (!opt->choices) {
 		fprintf(stderr,
-			"No choices set for '--%s/-%c' ",
+			"No choices set for '--%s/-%c' \n",
 			opt->option, opt->short_option);
 		return 1;
 	}
@@ -544,7 +544,7 @@ static int cfg_choices_handler(const char *optarg, void *value_addr,
 
 	if (!c->name) {
 		fprintf(stderr,
-			"Unexpected choice '%s' for '--%s/-%c' ",
+			"Unexpected choice '%s' for '--%s/-%c' \n",
 			optarg, opt->option, opt->short_option);
 		return 1;
 	}
@@ -569,7 +569,7 @@ static int cfg_mask_handler(const char *optarg, void *value_addr,
 
 	if (cnt < 0) {
 		fprintf(stderr,
-			"Invalid number or range for '--%s/-%c' ",
+			"Invalid number or range for '--%s/-%c' \n",
 			opt->option, opt->short_option);
 		return 1;
 	}
@@ -611,7 +611,7 @@ static int cfg_mask_handler(const char *optarg, void *value_addr,
 
 range_error:
 	fprintf(stderr,
-		"%d out of range for '--%s/-%c' ",
+		"%d out of range for '--%s/-%c' \n",
 		nums[i], opt->option, opt->short_option);
 	return 1;
 }
