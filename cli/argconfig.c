@@ -547,6 +547,65 @@ static int cfg_choices_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
+static int cfg_mask_handler(const char *optarg, void *value_addr,
+			    const struct argconfig_options *opt)
+{
+	int nums[sizeof(uint64_t) * 8];
+	int cnt;
+	int i;
+
+	cnt = argconfig_parse_comma_range(optarg, nums,
+					  sizeof(nums) / sizeof(*nums));
+
+	if (cnt < 0) {
+		fprintf(stderr,
+			"Invalid number or range for '--%s/-%c' ",
+			opt->option, opt->short_option);
+		return 1;
+	}
+
+	for (i = 0; i < cnt; i++) {
+		if (nums[i] < 0)
+			goto range_error;
+
+		switch(opt->cfg_type) {
+		case CFG_MASK_64:
+			if (nums[i] >= sizeof(uint64_t) * 8)
+				goto range_error;
+			*((long long *) value_addr) |= 1 << nums[i];
+			break;
+		case CFG_MASK_32:
+			if (nums[i] >= sizeof(uint32_t) * 8)
+				goto range_error;
+			*((uint32_t *) value_addr) |= 1 << nums[i];
+			break;
+		case CFG_MASK_16:
+			if (nums[i] >= sizeof(uint16_t) * 8)
+				goto range_error;
+			*((uint16_t *) value_addr) |= 1 << nums[i];
+			break;
+		case CFG_MASK_8:
+			if (nums[i] >= sizeof(uint8_t) * 8)
+				goto range_error;
+			*((uint8_t *) value_addr) |= 1 << nums[i];
+			break;
+
+		default:
+			if (nums[i] >= sizeof(int) * 8)
+				goto range_error;
+			*((int *) value_addr) |= 1 << nums[i];
+		}
+	}
+
+	return 0;
+
+range_error:
+	fprintf(stderr,
+		"%d out of range for '--%s/-%c' ",
+		nums[i], opt->option, opt->short_option);
+	return 1;
+}
+
 static int cfg_custom_handler(const char *optarg, void *value_addr,
 			      const struct argconfig_options *opt)
 {
@@ -586,6 +645,11 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_FD_RD] = cfg_fd_handler,
 	[CFG_CHOICES] = cfg_choices_handler,
 	[CFG_MULT_CHOICES] = cfg_choices_handler,
+	[CFG_MASK] = cfg_mask_handler,
+	[CFG_MASK_8] = cfg_mask_handler,
+	[CFG_MASK_16] = cfg_mask_handler,
+	[CFG_MASK_32] = cfg_mask_handler,
+	[CFG_MASK_64] = cfg_mask_handler,
 	[CFG_CUSTOM] = cfg_custom_handler,
 };
 
@@ -879,14 +943,16 @@ void argconfig_register_help_func(argconfig_help_func * f)
 	}
 }
 
-int argconfig_parse_comma_range(char *str, int *res, int max_nums)
+int argconfig_parse_comma_range(const char *str, int *res, int max_nums)
 {
+	char buf[strlen(str)];
 	char *tok;
 	const char *delims = " ,";
 	int start, end;
 	int cnt = 0;
 
-	tok = strtok(str, delims);
+	strcpy(buf, str);
+	tok = strtok(buf, delims);
 
 	while (tok != NULL) {
 		start = strtol(tok, &tok, 0);
@@ -899,7 +965,7 @@ int argconfig_parse_comma_range(char *str, int *res, int max_nums)
 		}
 
 		if (cnt == max_nums)
-			return cnt;
+			return -1;
 
 		if (*tok != 0)
 			return -1;

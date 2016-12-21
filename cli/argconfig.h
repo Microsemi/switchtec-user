@@ -66,6 +66,10 @@ enum argconfig_types {
 	CFG_CHOICES,
 	CFG_MULT_CHOICES,
 	CFG_MASK,
+	CFG_MASK_8,
+	CFG_MASK_16,
+	CFG_MASK_32,
+	CFG_MASK_64,
 	CFG_CUSTOM,
 	_CFG_MAX_TYPES,
 };
@@ -111,7 +115,7 @@ void argconfig_register_help_func(argconfig_help_func * f);
 
 void print_word_wrapped(const char *s, int indent, int start);
 
-int argconfig_parse_comma_range(char *str, int *res, int max_nums);
+int argconfig_parse_comma_range(const char *str, int *res, int max_nums);
 
 #ifdef __cplusplus
 }
