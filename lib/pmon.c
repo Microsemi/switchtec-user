@@ -60,6 +60,21 @@ int switchtec_evcntr_type_count(void)
 	return i;
 }
 
+const char *switchtec_evcntr_type_str(int *type_mask)
+{
+	const struct switchtec_evcntr_type_list *t;
+
+	for (t = switchtec_evcntr_type_list; t->name; t++) {
+		if ((t->mask & *type_mask) != t->mask)
+			continue;
+
+		*type_mask &= ~t->mask;
+		return t->name;
+	}
+
+	return NULL;
+}
+
 int switchtec_evcntr_setup(struct switchtec_dev *dev, unsigned stack_id,
 			   unsigned cntr_id,
 			   struct switchtec_evcntr_setup *setup)

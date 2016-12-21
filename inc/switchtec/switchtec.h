@@ -212,6 +212,7 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 void switchtec_pmon_perror(const char *str);
 
 int switchtec_evcntr_type_count(void);
+const char *switchtec_evcntr_type_str(int *type_mask);
 int switchtec_evcntr_setup(struct switchtec_dev *dev, unsigned stack_id,
 			   unsigned cntr_id,
 			   struct switchtec_evcntr_setup *setup);
