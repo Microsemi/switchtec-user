@@ -4,8 +4,7 @@ _switchtec_comp () {
 	_init_completion || return
 	local compargs=""
 
-	unset words[${#words[@]}-1]
-	opts=$(SWITCHTEC_COMPLETE=1 ${words[*]})
+	opts=$(SWITCHTEC_COMPLETE=1 ${words[*]:0:$cword})
 	compfile=$?
 
 	if [ $compfile -eq 2 ]; then
