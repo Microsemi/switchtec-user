@@ -31,7 +31,7 @@ struct switchtec_dev;
 
 #define SWITCHTEC_MAX_PARTS  48
 #define SWITCHTEC_MAX_PORTS  48
-#define SWITCHTEC_MAX_STACKS 16
+#define SWITCHTEC_MAX_STACKS 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 
 struct switchtec_device_info {

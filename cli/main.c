@@ -577,10 +577,14 @@ static char *type_mask_to_string(int type_mask, char *buf, size_t buflen)
 
 	while (type_mask) {
 		const char *str = switchtec_evcntr_type_str(&type_mask);
+		if (str == NULL)
+			break;
 
 		w = snprintf(buf, buflen, "%s,", str);
 		buf += w;
 		buflen -= w;
+		if (buflen < 0)
+			return ret;
 	}
 
 	buf[-2] = 0;
@@ -646,10 +650,8 @@ static int display_event_counters(struct switchtec_dev *dev, int stack,
 	ret = switchtec_evcntr_get_both(dev, stack, 0, ARRAY_SIZE(setups),
 					setups, counts, reset);
 
-	if (ret < 0) {
-		switchtec_perror("get_evcntr");
+	if (ret < 0)
 		return ret;
-	}
 
 	printf("Stack %d:\n", stack);
 
@@ -783,6 +785,7 @@ static int evcntr(int argc, char **argv, struct command *cmd,
 		  struct plugin *plugin)
 {
 	const char *desc = "Display event counters";
+	int ret, i;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -798,11 +801,21 @@ static int evcntr(int argc, char **argv, struct command *cmd,
 		 "reset counters back to zero"},
 		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in"},
-	};
+		{0}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	return display_event_counters(cfg.dev, cfg.stack, cfg.reset);
+	if (cfg.stack < 0) {
+		for (i = 0; i < SWITCHTEC_MAX_STACKS; i++)
+			display_event_counters(cfg.dev, i, cfg.reset);
+		return 0;
+	}
+
+	ret = display_event_counters(cfg.dev, cfg.stack, cfg.reset);
+	if (ret)
+		switchtec_perror("display events");
+
+	return ret;
 }
 
 int main(int argc, char **argv)
