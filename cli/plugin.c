@@ -80,7 +80,7 @@ static void print_completions(struct plugin *plugin)
 
 	for (i = 0; plugin->commands[i]; i++)
 		printf(" %s", plugin->commands[i]->name);
-	printf("\n");
+	printf(" version help\n");
 	exit(0);
 }
 
