@@ -206,21 +206,3 @@ int switchtec_evcntr_get_both(struct switchtec_dev *dev, unsigned stack_id,
 	return switchtec_evcntr_get(dev, stack_id, cntr_id, nr_cntrs,
 				    counts, clear);
 }
-
-void switchtec_pmon_perror(const char *str)
-{
-	const char *msg;
-
-	switch (errno) {
-	case 0x100001: msg = "Invalid Stack"; break;
-	case 0x100002: msg = "Invalid Port"; break;
-	case 0x100003: msg = "Invalid Event"; break;
-	case 0x100005: msg = "Reset rule search failed"; break;
-	case 0xffff0001: msg = "Access Refused"; break;
-	default:
-		perror(str);
-		return;
-	}
-
-	fprintf(stderr, "%s: %s\n", str, msg);
-}

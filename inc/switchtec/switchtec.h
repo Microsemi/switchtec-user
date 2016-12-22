@@ -172,7 +172,7 @@ int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
-
+void switchtec_perror(const char *str);
 
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
@@ -206,10 +206,6 @@ int switchtec_fw_part_act_info(struct switchtec_dev *dev,
 			       struct switchtec_fw_image_info *inact_cfg);
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type);
-
-
-
-void switchtec_pmon_perror(const char *str);
 
 int switchtec_evcntr_type_count(void);
 const char *switchtec_evcntr_type_str(int *type_mask);

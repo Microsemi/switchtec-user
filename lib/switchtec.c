@@ -17,6 +17,7 @@
 
 #include "switchtec/switchtec.h"
 #include "switchtec/mrpc.h"
+#include "switchtec/errors.h"
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -495,4 +496,35 @@ int switchtec_status(struct switchtec_dev *dev,
 	qsort(s, nr_ports, sizeof(*s), compare_status);
 
 	return nr_ports;
+}
+
+void switchtec_perror(const char *str)
+{
+	const char *msg;
+
+	switch (errno) {
+
+	case ERR_NO_AVAIL_MRPC_THREAD:
+		msg = "No available MRPC handler thread"; break;
+	case ERR_HANDLER_THREAD_NOT_IDLE:
+		msg = "The handler thread is not idle"; break;
+	case ERR_NO_BG_THREAD:
+		msg = "No background thread run for the command"; break;
+
+	case ERR_SUBCMD_INVALID: 	msg = "Invalid subcommand"; break;
+	case ERR_CMD_INVALID: 		msg = "Invalid command"; break;
+	case ERR_PARAM_INVALID:		msg = "Invalid parameter"; break;
+	case ERR_BAD_FW_STATE:		msg = "Bad firmware state"; break;
+	case ERR_STACK_INVALID: 	msg = "Invalid Stack"; break;
+	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
+	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
+	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
+	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
+
+	default:
+		perror(str);
+		return;
+	}
+
+	fprintf(stderr, "%s: %s\n", str, msg);
 }

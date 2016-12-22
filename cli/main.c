@@ -60,7 +60,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
 	global_dev = dev = switchtec_open(optarg);
 
 	if (dev == NULL) {
-		perror(optarg);
+		switchtec_perror(optarg);
 		return 1;
 	}
 
@@ -121,7 +121,7 @@ static int status(int argc, char **argv, struct command *cmd,
 
 	ret = switchtec_status(cfg.dev, &status);
 	if (ret < 0) {
-		perror("status");
+		switchtec_perror("status");
 		return ret;
 	}
 
@@ -176,7 +176,7 @@ static int test(int argc, char **argv, struct command *cmd,
 	ret = switchtec_echo(cfg.dev, in, &out);
 
 	if (ret) {
-		perror(argv[optind]);
+		switchtec_perror(argv[optind]);
 		return ret;
 	}
 
@@ -240,7 +240,7 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 
 	ret = switchtec_hard_reset(cfg.dev);
 	if (ret) {
-		perror(argv[optind]);
+		switchtec_perror(argv[optind]);
 		return ret;
 	}
 
@@ -347,7 +347,7 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 
 	ret = switchtec_get_fw_version(cfg.dev, version, sizeof(version));
 	if (ret < 0) {
-		perror("fw info");
+		switchtec_perror("fw info");
 		return ret;
 	}
 
@@ -463,7 +463,7 @@ static int fw_toggle(int argc, char **argv, struct command *cmd,
 	print_fw_part_info(cfg.dev);
 	printf("\n");
 
-	perror("firmware toggle");
+	switchtec_perror("firmware toggle");
 
 	return ret;
 }
@@ -506,7 +506,7 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 	ret = switchtec_fw_part_act_info(cfg.dev, &act_img, &inact_img,
 					 &act_cfg, &inact_cfg);
 	if (ret < 0) {
-		perror("fw_part_act_info");
+		switchtec_perror("fw_part_act_info");
 		goto close_and_exit;
 	}
 
@@ -527,7 +527,7 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 	ret = switchtec_fw_read_footer(cfg.dev, img_addr, img_size, &ftr,
 				       version, sizeof(version));
 	if (ret < 0) {
-		perror("fw_read_footer");
+		switchtec_perror("fw_read_footer");
 		goto close_and_exit;
 	}
 
@@ -538,14 +538,14 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 
 	ret = switchtec_fw_img_write_hdr(cfg.out_fd, &ftr, type);
 	if (ret < 0) {
-		perror(cfg.out_filename);
+		switchtec_perror(cfg.out_filename);
 		goto close_and_exit;
 	}
 
 	ret = switchtec_fw_read_file(cfg.dev, cfg.out_fd, img_addr,
 				     ftr.image_len, fw_progress_callback);
 	if (ret < 0)
-		perror("fw_read");
+		switchtec_perror("fw_read");
 
 	fprintf(stderr, "\nFirmware read to %s.\n", cfg.out_filename);
 
@@ -647,7 +647,7 @@ static int display_event_counters(struct switchtec_dev *dev, int stack,
 					setups, counts, reset);
 
 	if (ret < 0) {
-		switchtec_pmon_perror("get_evcntr");
+		switchtec_perror("get_evcntr");
 		return ret;
 	}
 
@@ -683,7 +683,7 @@ static int get_free_counter(struct switchtec_dev *dev, int stack)
 	ret = switchtec_evcntr_get_setup(dev, stack, 0, ARRAY_SIZE(setups),
 					 setups);
 	if (ret < 0) {
-		switchtec_pmon_perror("evcntr_get_setup");
+		switchtec_perror("evcntr_get_setup");
 		return ret;
 	}
 
@@ -774,7 +774,7 @@ static int evcntr_setup(int argc, char **argv, struct command *cmd,
 	ret = switchtec_evcntr_setup(cfg.dev, cfg.stack, cfg.counter,
 				     &cfg.setup);
 
-	switchtec_pmon_perror("evcntr-setup");
+	switchtec_perror("evcntr-setup");
 
 	return ret;
 }
