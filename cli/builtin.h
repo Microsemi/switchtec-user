@@ -33,6 +33,7 @@ COMMAND_LIST(
 	ENTRY("fw-img-info", "Display information for a firmware image", fw_image_info)
 	ENTRY("evcntr", "Display event counters", evcntr)
 	ENTRY("evcntr-setup", "Setup an event counter", evcntr_setup)
+	ENTRY("evcntr-show", "Show an event counters setup info", evcntr_show)
 );
 
 #endif

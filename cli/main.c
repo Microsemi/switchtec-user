@@ -587,7 +587,7 @@ static char *type_mask_to_string(int type_mask, char *buf, size_t buflen)
 			return ret;
 	}
 
-	buf[-2] = 0;
+	buf[-1] = 0;
 
 	return ret;
 }
@@ -663,10 +663,10 @@ static int display_event_counters(struct switchtec_dev *dev, int stack,
 		printf("   %2d - %-11s", i, buf);
 
 		type_mask_to_string(setups[i].type_mask, buf, sizeof(buf));
-		if (strlen(buf) > 30)
-			snprintf(buf, sizeof(buf), "MANY");
+		if (strlen(buf) > 39)
+			strcpy(buf, "MANY");
 
-		printf("%-30s   %10d\n", buf, counts[i]);
+		printf("%-40s   %10d\n", buf, counts[i]);
 		count++;
 	}
 
@@ -696,6 +696,30 @@ static int get_free_counter(struct switchtec_dev *dev, int stack)
 
 	errno = EUSERS;
 	return -errno;
+}
+
+static void show_event_counter(int stack, int counter,
+			       struct switchtec_evcntr_setup *setup)
+{
+	char buf[200];
+
+	printf("Stack:     %d\n", stack);
+	printf("Counter:   %d\n", counter);
+
+	if (!setup->port_mask || !setup->type_mask) {
+		printf("Not Configured.\n");
+		return;
+	}
+
+	if (setup->threshold)
+		printf("Threshold: %d\n", setup->threshold);
+	printf("Ports:     %s\n", port_mask_to_string(setup->port_mask,
+						      buf, sizeof(buf)));
+	printf("Events:    %s\n", type_mask_to_string(setup->type_mask,
+						      buf, sizeof(buf)));
+	if (setup->type_mask & ALL_TLPS)
+		printf("Direction: %s\n", setup->egress ?
+		       "EGRESS" : "INGRESS");
 }
 
 static int evcntr_setup(int argc, char **argv, struct command *cmd,
@@ -773,6 +797,8 @@ static int evcntr_setup(int argc, char **argv, struct command *cmd,
 		return 1;
 	}
 
+	show_event_counter(cfg.stack, cfg.counter, &cfg.setup);
+
 	ret = switchtec_evcntr_setup(cfg.dev, cfg.stack, cfg.counter,
 				     &cfg.setup);
 
@@ -816,6 +842,58 @@ static int evcntr(int argc, char **argv, struct command *cmd,
 		switchtec_perror("display events");
 
 	return ret;
+}
+
+static int evcntr_show(int argc, char **argv, struct command *cmd,
+		       struct plugin *plugin)
+{
+	const char *desc = "Display setup information for an event counter";
+	struct switchtec_evcntr_setup setup;
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int stack;
+		int counter;
+	} cfg = {
+		.stack = -1,
+		.counter = -1,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		 "stack to create the counter in",
+		 .require_in_usage=1},
+		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		 "counter index, default is to use the next unused index",
+		 .require_in_usage=1},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.stack < 0) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --stack argument is required!\n");
+		return 1;
+	}
+
+	if (cfg.counter < 0) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --counter argument is required!\n");
+		return 1;
+	}
+
+	ret = switchtec_evcntr_get_setup(cfg.dev, cfg.stack, cfg.counter, 1,
+					 &setup);
+	if (ret < 0) {
+		switchtec_perror("evcntr_show");
+		return ret;
+	}
+
+	show_event_counter(cfg.stack, cfg.counter, &setup);
+
+	return 0;
 }
 
 int main(int argc, char **argv)
