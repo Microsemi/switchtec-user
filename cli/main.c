@@ -896,6 +896,56 @@ static int evcntr_show(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int evcntr_del(int argc, char **argv, struct command *cmd,
+		       struct plugin *plugin)
+{
+	const char *desc = "Deconfigure an event counter counter";
+	struct switchtec_evcntr_setup setup = {};
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int stack;
+		int counter;
+	} cfg = {
+		.stack = -1,
+		.counter = -1,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		 "stack to create the counter in",
+		 .require_in_usage=1},
+		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		 "counter index, default is to use the next unused index",
+		 .require_in_usage=1},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.stack < 0) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --stack argument is required!\n");
+		return 1;
+	}
+
+	if (cfg.counter < 0) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --counter argument is required!\n");
+		return 1;
+	}
+
+	ret = switchtec_evcntr_setup(cfg.dev, cfg.stack, cfg.counter, &setup);
+	if (ret < 0) {
+		switchtec_perror("evcntr_del");
+		return ret;
+	}
+
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
