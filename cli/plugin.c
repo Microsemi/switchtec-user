@@ -33,6 +33,9 @@ static int version(struct plugin *plugin)
 {
 	struct program *prog = plugin->parent;
 
+	if (getenv(COMPLETE_ENV))
+		return 0;
+
 	if (plugin->name)
 		printf("%s %s version %s\n", prog->name, plugin->name, prog->version);
 	else
@@ -40,10 +43,26 @@ static int version(struct plugin *plugin)
 	return 0;
 }
 
+static void print_completions(struct plugin *plugin)
+{
+	int i;
+
+	if (!getenv(COMPLETE_ENV))
+		return;
+
+	for (i = 0; plugin->commands[i]; i++)
+		printf(" %s", plugin->commands[i]->name);
+	printf(" version help\n");
+	exit(0);
+}
+
 static int help(int argc, char **argv, struct plugin *plugin)
 {
 	char man[0x100];
 	struct program *prog = plugin->parent;
+
+	if (getenv(COMPLETE_ENV))
+		print_completions(plugin);
 
 	if (argc == 1) {
 		general_help(plugin);
@@ -69,19 +88,6 @@ void usage(struct plugin *plugin)
 		printf("usage: %s %s %s\n", prog->name, plugin->name, prog->usage);
 	else
 		printf("usage: %s %s\n", prog->name, prog->usage);
-}
-
-static void print_completions(struct plugin *plugin)
-{
-	int i;
-
-	if (!getenv("SWITCHTEC_COMPLETE"))
-		return;
-
-	for (i = 0; plugin->commands[i]; i++)
-		printf(" %s", plugin->commands[i]->name);
-	printf(" version help\n");
-	exit(0);
 }
 
 void general_help(struct plugin *plugin)

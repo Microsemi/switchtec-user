@@ -880,7 +880,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	short_opts[short_index++] = 'h';
 	short_opts[short_index] = 0;
 
-	if (getenv("SWITCHTEC_COMPLETE"))
+	if (getenv(COMPLETE_ENV))
 		print_completions(argc, argv, short_opts, long_opts, options);
 
 	optind = 0;
