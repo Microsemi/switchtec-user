@@ -272,6 +272,7 @@ int switchtec_evcntr_get_both(struct switchtec_dev *dev, unsigned stack_id,
 			      unsigned cntr_id, unsigned nr_cntrs,
 			      struct switchtec_evcntr_setup *setup,
 			      unsigned *counts, int clear);
+int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms);
 
 #ifdef __cplusplus
 }
