@@ -154,6 +154,7 @@ struct switchtec_evcntr_setup {
 struct switchtec_dev *switchtec_open(const char * path);
 void switchtec_close(struct switchtec_dev *dev);
 const char *switchtec_name(struct switchtec_dev *dev);
+int switchtec_fd(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen);
@@ -173,6 +174,8 @@ int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
 void switchtec_perror(const char *str);
+
+int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
 
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,

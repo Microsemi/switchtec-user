@@ -108,6 +108,11 @@ const char *switchtec_name(struct switchtec_dev *dev)
 	return dev->name;
 }
 
+int switchtec_fd(struct switchtec_dev *dev)
+{
+	return dev->fd;
+}
+
 static int scan_dev_filter(const struct dirent *d)
 {
 	if (d->d_name[0] == '.')
