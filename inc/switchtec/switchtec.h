@@ -103,6 +103,14 @@ struct switchtec_status {
 	const char *ltssm_str;
 };
 
+struct switchtec_event_summary {
+	uint64_t global_summary;
+	uint64_t part_event_bitmap;
+	unsigned local_part_event_summary;
+	unsigned part_event_summary[SWITCHTEC_MAX_PARTS];
+	unsigned port_event_summary[SWITCHTEC_MAX_PORTS];
+};
+
 enum switchtec_evcntr_type_mask {
 	UNSUP_REQ_ERR = 1 << 0,
 	ECRC_ERR = 1 << 1,

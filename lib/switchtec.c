@@ -19,6 +19,8 @@
 #include "switchtec/mrpc.h"
 #include "switchtec/errors.h"
 
+#include <linux/switchtec_ioctl.h>
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <endian.h>
@@ -26,6 +28,7 @@
 #include <libgen.h>
 #include <sys/stat.h>
 #include <poll.h>
+#include <sys/ioctl.h>
 
 #include <errno.h>
 #include <string.h>
@@ -549,6 +552,32 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 
 	if (fds.revents & POLLPRI)
 		return 1;
+
+	return 0;
+}
+
+int switchtec_event_summary(struct switchtec_dev *dev,
+			    struct switchtec_event_summary *sum)
+{
+	int ret, i;
+	struct switchtec_ioctl_event_summary isum;
+
+	if (!sum)
+		return -EINVAL;
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
+	if (ret < 0)
+		return ret;
+
+	sum->global_summary = isum.global_summary;
+	sum->part_event_bitmap = isum.part_event_bitmap;
+	sum->local_part_event_summary = isum.local_part_event_summary;
+
+	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
+		sum->part_event_summary[i] = isum.part_event_summary[i];
+
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+		sum->port_event_summary[i] = isum.port_event_summary[i];
 
 	return 0;
 }
