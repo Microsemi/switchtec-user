@@ -946,6 +946,37 @@ static int evcntr_del(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int evcntr_wait(int argc, char **argv, struct command *cmd,
+		       struct plugin *plugin)
+{
+	const char *desc = "Wait for an event counter to reach its threshold";
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int timeout;
+	} cfg = {
+		.timeout = -1,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"timeout", 't', "MS", CFG_INT, &cfg.timeout, required_argument,
+		 "timeout in milliseconds"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_evcntr_wait(cfg.dev, cfg.timeout);
+
+	if (!ret) {
+		fprintf(stderr, "timeout\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int ret;

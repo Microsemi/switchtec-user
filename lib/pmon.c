@@ -210,7 +210,7 @@ int switchtec_evcntr_get_both(struct switchtec_dev *dev, unsigned stack_id,
 int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms)
 {
 	int i;
-	struct switchtec_event_summary wait_for;
+	struct switchtec_event_summary wait_for = {0};
 
 	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
 		wait_for.port_event_summary[i] = SWITCHTEC_PORT_EVT_THRESHOLD;

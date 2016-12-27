@@ -35,6 +35,7 @@ COMMAND_LIST(
 	ENTRY("evcntr-setup", "Setup an event counter", evcntr_setup)
 	ENTRY("evcntr-show", "Show an event counters setup info", evcntr_show)
 	ENTRY("evcntr-del", "Deconfigure an event counter", evcntr_del)
+	ENTRY("evcntr-wait", "Wait for an event counter", evcntr_wait)
 );
 
 #endif

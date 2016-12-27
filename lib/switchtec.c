@@ -625,6 +625,13 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 	long long start, now;
 	int ret;
 
+	ret = switchtec_event_check(dev, wait_for);
+	if (ret < 0)
+		return ret;
+
+	if (ret)
+		return 1;
+
 	ret = gettimeofday(&tv, NULL);
 	if (ret)
 		return ret;
