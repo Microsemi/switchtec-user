@@ -25,6 +25,7 @@
 #include <dirent.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include <poll.h>
 
 #include <errno.h>
 #include <string.h>
@@ -527,4 +528,22 @@ void switchtec_perror(const char *str)
 	}
 
 	fprintf(stderr, "%s: %s\n", str, msg);
+}
+
+int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
+{
+	int ret;
+	struct pollfd fds = {
+		.fd = dev->fd,
+		.events = POLLPRI,
+	};
+
+	ret = poll(&fds, 1, timeout_ms);
+	if (ret <= 0)
+		return ret;
+
+	if (fds.revents & POLLPRI)
+		return 1;
+
+	return 0;
 }
