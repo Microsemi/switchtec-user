@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <poll.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 
 #include <errno.h>
 #include <string.h>
@@ -580,4 +581,80 @@ int switchtec_event_summary(struct switchtec_dev *dev,
 		sum->port_event_summary[i] = isum.port_event_summary[i];
 
 	return 0;
+}
+
+int switchtec_event_check(struct switchtec_dev *dev,
+			  struct switchtec_event_summary *check)
+{
+	int ret, i;
+	struct switchtec_ioctl_event_summary isum;
+
+	if (!check)
+		return -EINVAL;
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
+	if (ret < 0)
+		return ret;
+
+	if (isum.global_summary & check->global_summary)
+		return 1;
+
+	if (isum.part_event_bitmap & check->part_event_bitmap)
+		return 1;
+
+	if (isum.local_part_event_summary &
+	    check->local_part_event_summary)
+		return 1;
+
+	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
+		if (isum.part_event_summary[i] & check->part_event_summary[i])
+			return 1;
+
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+		if (isum.port_event_summary[i] & check->port_event_summary[i])
+			return 1;
+
+	return 0;
+}
+
+int switchtec_event_wait_for(struct switchtec_dev *dev,
+			     struct switchtec_event_summary *wait_for,
+			     int timeout_ms)
+{
+	struct timeval tv;
+	long long start, now;
+	int ret;
+
+	ret = gettimeofday(&tv, NULL);
+	if (ret)
+		return ret;
+
+	now = start = ((tv.tv_sec) * 1000 + tv.tv_usec / 1000);
+
+	while (1) {
+		ret = switchtec_event_wait(dev, timeout_ms > 0 ?
+					   now - start + timeout_ms : -1);
+		if (ret < 0)
+			return ret;
+
+		if (ret == 0)
+			goto next;
+
+		ret = switchtec_event_check(dev, wait_for);
+		if (ret < 0)
+			return ret;
+
+		if (ret)
+			return 1;
+
+next:
+		ret = gettimeofday(&tv, NULL);
+		if (ret)
+			return ret;
+
+		now = ((tv.tv_sec) * 1000 + tv.tv_usec / 1000);
+
+		if (timeout_ms > 0 && now - start >= timeout_ms)
+			return 0;
+	}
 }

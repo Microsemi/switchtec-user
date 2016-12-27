@@ -184,6 +184,13 @@ int switchtec_status(struct switchtec_dev *dev,
 void switchtec_perror(const char *str);
 
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
+int switchtec_event_summary(struct switchtec_dev *dev,
+			    struct switchtec_event_summary *sum);
+int switchtec_event_check(struct switchtec_dev *dev,
+			  struct switchtec_event_summary *check);
+int switchtec_event_wait_for(struct switchtec_dev *dev,
+			     struct switchtec_event_summary *wait_for,
+			     int timeout_ms);
 
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
