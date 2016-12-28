@@ -665,3 +665,116 @@ next:
 			return 0;
 	}
 }
+
+int switchtec_event_get(struct switchtec_dev *dev,
+			enum switchtec_event_type t,
+			enum switchtec_event e,
+			int index,
+			uint32_t *hdr,
+			uint32_t data[5])
+{
+	int ret;
+	struct switchtec_ioctl_event_info inf;
+
+	inf.index = index;
+
+	switch (t) {
+	case SWITCHTEC_GLOBAL_EVT:
+		switch (e) {
+		case SWITCHTEC_GLOBAL_EVT_STACK_ERR:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_STACK_ERROR;
+			break;
+		case SWITCHTEC_GLOBAL_EVT_PPU_ERR:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_PPU_ERROR;
+			break;
+		case SWITCHTEC_GLOBAL_EVT_ISP_ERROR:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_ISP_ERROR;
+			break;
+		case SWITCHTEC_GLOBAL_EVT_TWI_MRPC_COMP:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_TWI_MRPC_COMP;
+			break;
+		case SWITCHTEC_GLOBAL_EVT_TWI_MRPC_COMP_ASYNC:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_TWI_MRPC_COMP_ASYNC;
+			break;
+		case SWITCHTEC_GLOBAL_EVT_CLI_MRPC_COMP:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_CLI_MRPC_COMP;
+			break;
+		case SWITCHTEC_GLOBAL_EVT_CLI_MRPC_COMP_ASYNC:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_CLI_MRPC_COMP_ASYNC;
+			break;
+		case SWITCHTEC_GLOBAL_EVT_GPIO_INT:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_GPIO_INT;
+			break;
+
+		default:
+			return -EINVAL;
+		}
+	case SWITCHTEC_PART_EVT:
+		switch (e) {
+		case SWITCHTEC_PART_EVT_RESET:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_PART_RESET;
+			break;
+		case SWITCHTEC_PART_EVT_MRPC_COMP_ASYNC:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_MRPC_COMP_ASYNC;
+			break;
+		case SWITCHTEC_PART_EVT_DYN_PART_BIND:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_DYN_PART_BIND_COMP;
+			break;
+		default:
+			return -EINVAL;
+		}
+	case SWITCHTEC_PORT_EVT:
+		switch (e) {
+		case SWITCHTEC_PORT_EVT_AER_IN_P2P:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_AER_IN_P2P;
+			break;
+		case SWITCHTEC_PORT_EVT_AER_INVEP:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_AER_IN_VEP;
+			break;
+		case SWITCHTEC_PORT_EVT_DPC:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_DPC;
+			break;
+		case SWITCHTEC_PORT_EVT_CTS:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_CTS;
+			break;
+		case SWITCHTEC_PORT_EVT_HOTPLUG:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_HOTPLUG;
+			break;
+		case SWITCHTEC_PORT_EVT_IER:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_IER;
+			break;
+		case SWITCHTEC_PORT_EVT_THRESHOLD:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_THRESH;
+			break;
+		case SWITCHTEC_PORT_EVT_PWR_MGMT:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_POWER_MGMT;
+			break;
+		case SWITCHTEC_PORT_EVT_TLP_THROTTLING:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_TLP_THROTTLING;
+			break;
+		case SWITCHTEC_PORT_EVT_FORCE_SPEED:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_FORCE_SPEED;
+			break;
+		case SWITCHTEC_PORT_EVT_CREDIT_TIMEOUT:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_CREDIT_TIMEOUT;
+			break;
+		case SWITCHTEC_PORT_EVT_LINK_STATE:
+			inf.event_id = SWITCHTEC_IOCTL_EVENT_LINK_STATE;
+			break;
+		default:
+			return -EINVAL;
+		}
+	}
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_INFO, &inf);
+	if (ret)
+		return ret;
+
+	if (hdr)
+		*hdr = inf.header;
+
+	if (data)
+		memcpy(data, inf.data, sizeof(inf.data));
+
+	return 0;
+}

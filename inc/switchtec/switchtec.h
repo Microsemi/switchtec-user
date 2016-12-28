@@ -133,6 +133,13 @@ enum switchtec_event {
 	SWITCHTEC_PORT_EVT_TLP_THROTTLING = 1 << 9,
 	SWITCHTEC_PORT_EVT_FORCE_SPEED = 1 << 10,
 	SWITCHTEC_PORT_EVT_CREDIT_TIMEOUT = 1 << 11,
+	SWITCHTEC_PORT_EVT_LINK_STATE = 1 << 12,
+};
+
+enum switchtec_event_type {
+	SWITCHTEC_GLOBAL_EVT,
+	SWITCHTEC_PART_EVT,
+	SWITCHTEC_PORT_EVT,
 };
 
 struct switchtec_event_summary {
@@ -223,6 +230,12 @@ int switchtec_event_check(struct switchtec_dev *dev,
 int switchtec_event_wait_for(struct switchtec_dev *dev,
 			     struct switchtec_event_summary *wait_for,
 			     int timeout_ms);
+int switchtec_event_get(struct switchtec_dev *dev,
+			enum switchtec_event_type t,
+			enum switchtec_event e,
+			int index,
+			uint32_t *hdr,
+			uint32_t data[5]);
 
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
