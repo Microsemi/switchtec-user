@@ -233,7 +233,7 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 int switchtec_event_get(struct switchtec_dev *dev,
 			enum switchtec_event_type t,
 			enum switchtec_event e,
-			int index,
+			int index, int clear,
 			uint32_t *hdr,
 			uint32_t data[5]);
 

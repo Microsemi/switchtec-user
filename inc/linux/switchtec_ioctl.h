@@ -85,6 +85,7 @@ enum switchtec_ioctl_event {
 struct switchtec_ioctl_event_info {
 	__u32 event_id;
 	__s32 index;
+	__u32 clear;
 	__u32 header;
 	__u32 data[5];
 };

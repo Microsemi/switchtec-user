@@ -669,7 +669,7 @@ next:
 int switchtec_event_get(struct switchtec_dev *dev,
 			enum switchtec_event_type t,
 			enum switchtec_event e,
-			int index,
+			int index, int clear,
 			uint32_t *hdr,
 			uint32_t data[5])
 {
@@ -677,6 +677,7 @@ int switchtec_event_get(struct switchtec_dev *dev,
 	struct switchtec_ioctl_event_info inf;
 
 	inf.index = index;
+	inf.clear = clear;
 
 	switch (t) {
 	case SWITCHTEC_GLOBAL_EVT:
