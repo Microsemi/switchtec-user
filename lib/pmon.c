@@ -106,7 +106,7 @@ int switchtec_evcntr_setup(struct switchtec_dev *dev, unsigned stack_id,
 
 static int evcntr_get(struct switchtec_dev *dev, int sub_cmd,
 		      unsigned stack_id, unsigned cntr_id, unsigned nr_cntrs,
-		      void *res, size_t res_size)
+		      void *res, size_t res_size, int clear)
 {
 	int ret;
 
@@ -115,6 +115,7 @@ static int evcntr_get(struct switchtec_dev *dev, int sub_cmd,
 		.stack_id = stack_id,
 		.counter_id = cntr_id,
 		.num_counters = nr_cntrs,
+		.read_clear = clear,
 	};
 
 	if (res_size > MRPC_MAX_DATA_LEN ||
@@ -152,7 +153,7 @@ int switchtec_evcntr_get_setup(struct switchtec_dev *dev, unsigned stack_id,
 
 	ret = evcntr_get(dev, MRPC_PMON_GET_EV_COUNTER_SETUP,
 			 stack_id, cntr_id, nr_cntrs, data,
-			 sizeof(data));
+			 sizeof(data), 0);
 	if (ret)
 		return ret;
 
@@ -181,7 +182,7 @@ int switchtec_evcntr_get(struct switchtec_dev *dev, unsigned stack_id,
 
 	ret = evcntr_get(dev, MRPC_PMON_GET_EV_COUNTER,
 			 stack_id, cntr_id, nr_cntrs, data,
-			 sizeof(data));
+			 sizeof(data), clear);
 	if (ret)
 		return ret;
 
