@@ -557,10 +557,26 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 	return 0;
 }
 
+static void event_summary_copy(struct switchtec_event_summary *dst,
+			       struct switchtec_ioctl_event_summary *src)
+{
+	int i;
+
+	dst->global_summary = src->global_summary;
+	dst->part_event_bitmap = src->part_event_bitmap;
+	dst->local_part_event_summary = src->local_part_event_summary;
+
+	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
+		dst->part_event_summary[i] = src->part_event_summary[i];
+
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+		dst->port_event_summary[i] = src->port_event_summary[i];
+}
+
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum)
 {
-	int ret, i;
+	int ret;
 	struct switchtec_ioctl_event_summary isum;
 
 	if (!sum)
@@ -570,21 +586,14 @@ int switchtec_event_summary(struct switchtec_dev *dev,
 	if (ret < 0)
 		return ret;
 
-	sum->global_summary = isum.global_summary;
-	sum->part_event_bitmap = isum.part_event_bitmap;
-	sum->local_part_event_summary = isum.local_part_event_summary;
-
-	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
-		sum->part_event_summary[i] = isum.part_event_summary[i];
-
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
-		sum->port_event_summary[i] = isum.port_event_summary[i];
+	event_summary_copy(sum, &isum);
 
 	return 0;
 }
 
 int switchtec_event_check(struct switchtec_dev *dev,
-			  struct switchtec_event_summary *check)
+			  struct switchtec_event_summary *check,
+			  struct switchtec_event_summary *res)
 {
 	int ret, i;
 	struct switchtec_ioctl_event_summary isum;
@@ -596,36 +605,42 @@ int switchtec_event_check(struct switchtec_dev *dev,
 	if (ret < 0)
 		return ret;
 
+	ret = 0;
+
 	if (isum.global_summary & check->global_summary)
-		return 1;
+		ret = 1;
 
 	if (isum.part_event_bitmap & check->part_event_bitmap)
-		return 1;
+		ret = 1;
 
 	if (isum.local_part_event_summary &
 	    check->local_part_event_summary)
-		return 1;
+		ret = 1;
 
 	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
 		if (isum.part_event_summary[i] & check->part_event_summary[i])
-			return 1;
+			ret = 1;
 
 	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
 		if (isum.port_event_summary[i] & check->port_event_summary[i])
-			return 1;
+			ret = 1;
 
-	return 0;
+	if (res)
+		event_summary_copy(res, &isum);
+
+	return ret;
 }
 
 int switchtec_event_wait_for(struct switchtec_dev *dev,
 			     struct switchtec_event_summary *wait_for,
+			     struct switchtec_event_summary *res,
 			     int timeout_ms)
 {
 	struct timeval tv;
 	long long start, now;
 	int ret;
 
-	ret = switchtec_event_check(dev, wait_for);
+	ret = switchtec_event_check(dev, wait_for, res);
 	if (ret < 0)
 		return ret;
 
@@ -647,7 +662,7 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 		if (ret == 0)
 			goto next;
 
-		ret = switchtec_event_check(dev, wait_for);
+		ret = switchtec_event_check(dev, wait_for, res);
 		if (ret < 0)
 			return ret;
 
