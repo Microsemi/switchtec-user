@@ -950,7 +950,7 @@ static int evcntr_wait(int argc, char **argv, struct command *cmd,
 		       struct plugin *plugin)
 {
 	const char *desc = "Wait for an event counter to reach its threshold";
-	int ret;
+	int ret, i;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -973,6 +973,9 @@ static int evcntr_wait(int argc, char **argv, struct command *cmd,
 		fprintf(stderr, "timeout\n");
 		return -1;
 	}
+
+	for (i = 0; i < SWITCHTEC_MAX_STACKS; i++)
+		display_event_counters(cfg.dev, i, 0);
 
 	return 0;
 }
