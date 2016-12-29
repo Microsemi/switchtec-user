@@ -24,6 +24,7 @@
 COMMAND_LIST(
 	ENTRY("list", "List all switchtec devices on this machine", list)
 	ENTRY("status", "Display status information", status)
+	ENTRY("events", "Display events that have occurred", events)
 	ENTRY("test", "Test if switchtec interface is working", test)
 	ENTRY("hard-reset", "Perform a hard reset of the switch", hard_reset)
 	ENTRY("fw-update", "Upload a new firmware image", fw_update)

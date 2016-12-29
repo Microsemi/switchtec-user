@@ -152,7 +152,122 @@ static int status(int argc, char **argv, struct command *cmd,
 	free(status);
 
 	return 0;
+}
 
+struct event_list {
+	enum switchtec_event_id eid;
+	int partition;
+	int port;
+	int count;
+};
+
+static int compare_event_list(const void *aa, const void *bb)
+{
+	const struct event_list *a = aa, *b = bb;
+
+	if (a->partition != b->partition)
+		return a->partition - b->partition;
+	if (a->port != b->port)
+		return a->port - b->port;
+
+	return a->eid - b->eid;
+}
+
+static void print_event_list(struct event_list *e, size_t cnt)
+{
+	const char *name, *desc;
+	int last_part = -2, last_port = -2;
+
+	while (cnt--) {
+		if (e->partition != last_part) {
+			if (e->partition == -1)
+				printf("Global Events:\n");
+			else
+				printf("Partition %d Events:\n", e->partition);
+		}
+
+		if (e->port != last_port && e->port != -1)
+			printf("    Port %d:\n", e->port);
+
+		last_part = e->partition;
+		last_port = e->port;
+
+		switchtec_event_info(e->eid, &name, &desc);
+		printf("\t%-22s\t%-4d\t%s\n", name, e->count, desc);
+
+		e++;
+	}
+}
+
+static int events(int argc, char **argv, struct command *cmd,
+		  struct plugin *plugin)
+{
+	const char *desc = "Display information on events that have occurred";
+	struct switchtec_event_summary sum;
+	struct event_list elist[256];
+	struct event_list *e = elist;
+	enum switchtec_event_type type;
+
+	int idx;
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {0};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_event_summary(cfg.dev, &sum);
+	if (ret < 0) {
+		perror("event_summary");
+		return ret;
+	}
+
+	while (switchtec_event_summary_iter(&sum, &e->eid, &idx)) {
+		if (e->eid == -1)
+			continue;
+
+		type = switchtec_event_info(e->eid, NULL, NULL);
+
+		switch (type)  {
+		case SWITCHTEC_EVT_GLOBAL:
+			e->partition = -1;
+			e->port = -1;
+			break;
+		case SWITCHTEC_EVT_PART:
+			e->partition = idx;
+			e->port = -1;
+			break;
+		case SWITCHTEC_EVT_PFF:
+			ret = switchtec_pff_to_port(cfg.dev, idx,
+						    &e->partition,
+						    &e->port);
+			if (ret < 0) {
+				perror("pff_to_port");
+				return ret;
+			}
+			break;
+		}
+
+		ret = switchtec_event_ctl(cfg.dev, e->eid, idx, 0, NULL);
+		if (ret < 0) {
+			perror("event_ctl");
+			return ret;
+		}
+
+		e->count = ret;
+		e++;
+		if (e - elist > ARRAY_SIZE(elist))
+			break;
+	}
+
+	qsort(elist, e - elist, sizeof(*elist), compare_event_list);
+	print_event_list(elist, e - elist);
+
+	return 0;
 }
 
 static int test(int argc, char **argv, struct command *cmd,
