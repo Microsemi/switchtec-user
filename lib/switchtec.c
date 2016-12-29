@@ -19,12 +19,15 @@
 #include "switchtec/mrpc.h"
 #include "switchtec/errors.h"
 
+#include <linux/switchtec_ioctl.h>
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <endian.h>
 #include <dirent.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 
 #include <errno.h>
 #include <string.h>
@@ -532,4 +535,42 @@ void switchtec_perror(const char *str)
 	}
 
 	fprintf(stderr, "%s: %s\n", str, msg);
+}
+
+int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
+			  int *partition, int *port)
+{
+	int ret;
+	struct switchtec_ioctl_pff_port p;
+
+	p.pff = pff;
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_PFF_TO_PORT, &p);
+	if (ret)
+		return ret;
+
+	if (partition)
+		*partition = p.partition;
+	if (port)
+		*port = p.port;
+
+	return 0;
+}
+
+int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
+			  int port, int *pff)
+{
+	int ret;
+	struct switchtec_ioctl_pff_port p;
+
+	p.port = port;
+	p.partition = partition;
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_PORT_TO_PFF, &p);
+	if (ret)
+		return ret;
+
+	if (pff)
+		*pff = p.pff;
+
+	return 0;
 }

@@ -82,6 +82,11 @@ int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
 void switchtec_perror(const char *str);
+int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
+			  int *partition, int *port);
+int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
+			  int port, int *pff);
+
 
 /*********** EVENT Handling ***********/
 
