@@ -227,9 +227,9 @@ int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms)
 		      SWITCHTEC_PORT_EVT_THRESHOLD))
 			continue;
 
-		rc = switchtec_event_get(dev, SWITCHTEC_PORT_EVT,
+		rc = switchtec_event_ctl(dev, SWITCHTEC_PORT_EVT,
 					 SWITCHTEC_PORT_EVT_THRESHOLD,
-					 i, 1, NULL, NULL);
+					 i, NULL);
 
 		if (rc < 0)
 			return rc;

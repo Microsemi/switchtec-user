@@ -232,11 +232,10 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 			     struct switchtec_event_summary *wait_for,
 			     struct switchtec_event_summary *res,
 			     int timeout_ms);
-int switchtec_event_get(struct switchtec_dev *dev,
+int switchtec_event_ctl(struct switchtec_dev *dev,
 			enum switchtec_event_type t,
 			enum switchtec_event e,
-			int index, int clear,
-			uint32_t *hdr,
+			int index,
 			uint32_t data[5]);
 
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
