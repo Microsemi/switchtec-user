@@ -26,6 +26,7 @@
 
 #include <errno.h>
 #include <string.h>
+#include <strings.h>
 
 #define EV(t, n, s, d)[SWITCHTEC_ ## t ## _EVT_ ## n] = {\
 	.type = t, \
@@ -38,9 +39,9 @@
 static const struct {
 	enum switchtec_event_id id;
 	enum {
-		GLOBAL,
-		PART,
-		PFF,
+		GLOBAL = SWITCHTEC_EVT_GLOBAL,
+		PART = SWITCHTEC_EVT_PART,
+		PFF = SWITCHTEC_EVT_PFF,
 	} type;
 	uint64_t summary_bit;
 	int ioctl_id;
@@ -80,7 +81,8 @@ static const struct {
 };
 
 #define EVBIT(t, n, b)[b] = SWITCHTEC_ ## t ## _EVT_ ## n
-static const enum switchtec_event_id global_event_bits[] = {
+static const enum switchtec_event_id global_event_bits[64] = {
+	[0 ... 63] = -1,
 	EVBIT(GLOBAL, STACK_ERROR, 0),
 	EVBIT(GLOBAL, PPU_ERROR, 1),
 	EVBIT(GLOBAL, ISP_ERROR, 2),
@@ -96,14 +98,16 @@ static const enum switchtec_event_id global_event_bits[] = {
 	EVBIT(GLOBAL, GPIO_INT, 12),
 };
 
-static const enum switchtec_event_id part_event_bits[] = {
+static const enum switchtec_event_id part_event_bits[64] = {
+	[0 ... 63] = -1,
 	EVBIT(PART, PART_RESET, 0),
 	EVBIT(PART, MRPC_COMP, 1),
 	EVBIT(PART, MRPC_COMP_ASYNC, 2),
 	EVBIT(PART, DYN_PART_BIND_COMP, 3),
 };
 
-static const enum switchtec_event_id pff_event_bits[] = {
+static const enum switchtec_event_id pff_event_bits[64] = {
+	[0 ... 63] = -1,
 	EVBIT(PFF, AER_IN_P2P, 0),
 	EVBIT(PFF, AER_IN_VEP, 1),
 	EVBIT(PFF, DPC, 2),
@@ -205,6 +209,60 @@ int switchtec_event_summary_test(struct switchtec_event_summary *sum,
 	}
 
 	return 0;
+}
+
+int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
+				 enum switchtec_event_id *e,
+				 int *idx)
+{
+	int bit;
+
+	if (!idx || !e)
+		return -EINVAL;
+
+	*idx = 0;
+
+	bit = ffs(sum->global) - 1;
+	if (bit >= 0) {
+		*e = global_event_bits[bit];
+		sum->global &= ~(1 << bit);
+		return 1;
+	}
+
+	for (*idx = 0; *idx < ARRAY_SIZE(sum->part); (*idx)++) {
+		bit = ffs(sum->part[*idx]) - 1;
+		if (bit < 0)
+			continue;
+
+		*e = part_event_bits[bit];
+		sum->part[*idx] &= ~(1 << bit);
+		return 1;
+	}
+
+	for (*idx = 0; *idx < ARRAY_SIZE(sum->pff); (*idx)++) {
+		bit = ffs(sum->pff[*idx]) - 1;
+		if (bit < 0)
+			continue;
+
+		*e = pff_event_bits[bit];
+		sum->pff[*idx] &= ~(1 << bit);
+		return 1;
+	}
+
+	return 0;
+}
+
+enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
+					       const char **name,
+					       const char **desc)
+{
+	if (name)
+		*name = events[e].short_name;
+
+	if (desc)
+		*desc = events[e].desc;
+
+	return events[e].type;
 }
 
 static void event_summary_copy(struct switchtec_event_summary *dst,

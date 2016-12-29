@@ -140,6 +140,12 @@ enum {
 	SWITCHTEC_EVT_IDX_ALL = -2,
 };
 
+enum switchtec_event_type {
+	SWITCHTEC_EVT_GLOBAL,
+	SWITCHTEC_EVT_PART,
+	SWITCHTEC_EVT_PFF,
+};
+
 struct switchtec_event_summary {
 	uint64_t global;
 	uint64_t part_bitmap;
@@ -155,6 +161,12 @@ int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 int switchtec_event_summary_test(struct switchtec_event_summary *sum,
 				 enum switchtec_event_id e,
 				 int index);
+int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
+				 enum switchtec_event_id *e,
+				 int *idx);
+enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
+					       const char **name,
+					       const char **desc);
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum);
 int switchtec_event_check(struct switchtec_dev *dev,
