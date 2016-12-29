@@ -43,50 +43,6 @@ struct switchtec_device_info {
 	char path[PATH_MAX];
 };
 
-enum switchtec_fw_dlstatus {
-	SWITCHTEC_DLSTAT_READY = 0,
-	SWITCHTEC_DLSTAT_INPROGRESS = 1,
-	SWITCHTEC_DLSTAT_HEADER_INCORRECT = 2,
-	SWITCHTEC_DLSTAT_OFFSET_INCORRECT = 3,
-	SWITCHTEC_DLSTAT_CRC_INCORRECT = 4,
-	SWITCHTEC_DLSTAT_LENGTH_INCORRECT = 5,
-	SWITCHTEC_DLSTAT_HARDWARE_ERR = 6,
-	SWITCHTEC_DLSTAT_COMPLETES = 7,
-	SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT = 8,
-	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
-};
-
-enum switchtec_fw_image_type {
-	SWITCHTEC_FW_TYPE_BOOT = 0x0,
-	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
-	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
-	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
-	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
-	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
-	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
-	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
-};
-
-struct switchtec_fw_image_info {
-	enum switchtec_fw_image_type type;
-	char version[32];
-	size_t image_addr;
-	size_t image_len;
-	unsigned long crc;
-	int active;
-
-};
-
-struct switchtec_fw_footer {
-	char magic[4];
-	uint32_t image_len;
-	uint32_t load_addr;
-	uint32_t version;
-	uint32_t rsvd;
-	uint32_t header_crc;
-	uint32_t image_crc;
-};
-
 struct switchtec_status {
 	unsigned char partition;
 	unsigned char stack;
@@ -102,6 +58,32 @@ struct switchtec_status {
 	unsigned char ltssm;
 	const char *ltssm_str;
 };
+
+struct switchtec_dev *switchtec_open(const char *path);
+void switchtec_close(struct switchtec_dev *dev);
+const char *switchtec_name(struct switchtec_dev *dev);
+int switchtec_fd(struct switchtec_dev *dev);
+int switchtec_list(struct switchtec_device_info **devlist);
+int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
+			     size_t buflen);
+
+int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
+			 const void *payload, size_t payload_len);
+
+int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
+			size_t resp_len);
+
+int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
+		  const void *payload, size_t payload_len, void *resp,
+		  size_t resp_len);
+
+int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
+int switchtec_hard_reset(struct switchtec_dev *dev);
+int switchtec_status(struct switchtec_dev *dev,
+		     struct switchtec_status **status);
+void switchtec_perror(const char *str);
+
+/*********** EVENT Handling ***********/
 
 enum switchtec_event {
 	SWITCHTEC_GLOBAL_EVT_STACK_ERR = 1 << 0,
@@ -150,78 +132,6 @@ struct switchtec_event_summary {
 	unsigned port_event_summary[SWITCHTEC_MAX_PORTS];
 };
 
-enum switchtec_evcntr_type_mask {
-	UNSUP_REQ_ERR = 1 << 0,
-	ECRC_ERR = 1 << 1,
-	MALFORM_TLP_ERR = 1 << 2,
-	RCVR_OFLOW_ERR = 1 << 3,
-	CMPLTR_ABORT_ERR = 1 << 4,
-	POISONED_TLP_ERR = 1 << 5,
-	SURPRISE_DOWN_ERR = 1 << 6,
-	DATA_LINK_PROTO_ERR = 1 << 7,
-	HDR_LOG_OFLOW_ERR = 1 << 8,
-	UNCOR_INT_ERR = 1 << 9,
-	REPLAY_TMR_TIMEOUT = 1 << 10,
-	REPLAY_NUM_ROLLOVER = 1 << 11,
-	BAD_DLPP = 1 << 12,
-	BAD_TLP = 1 << 13,
-	RCVR_ERR = 1 << 14,
-	RCV_FATAL_MSG = 1 << 15,
-	RCV_NON_FATAL_MSG = 1 << 16,
-	RCV_CORR_MSG = 1 << 17,
-	NAK_RCVD = 1 << 18,
-	RULE_TABLE_HIT = 1 << 19,
-        POSTED_TLP = 1 << 20,
-	COMP_TLP = 1 << 21,
-	NON_POSTED_TLP = 1 << 22,
-	ALL_ERRORS = (UNSUP_REQ_ERR | ECRC_ERR | MALFORM_TLP_ERR |
-		      RCVR_OFLOW_ERR | CMPLTR_ABORT_ERR | POISONED_TLP_ERR |
-		      SURPRISE_DOWN_ERR | DATA_LINK_PROTO_ERR |
-		      HDR_LOG_OFLOW_ERR | UNCOR_INT_ERR |
-		      REPLAY_TMR_TIMEOUT | REPLAY_NUM_ROLLOVER |
-		      BAD_DLPP | BAD_TLP | RCVR_ERR | RCV_FATAL_MSG |
-		      RCV_NON_FATAL_MSG | RCV_CORR_MSG | NAK_RCVD),
-	ALL_TLPS = (POSTED_TLP | COMP_TLP | NON_POSTED_TLP),
-	ALL = (1 << 23) - 1,
-};
-
-extern const struct switchtec_evcntr_type_list {
-	enum switchtec_evcntr_type_mask mask;
-	const char *name;
-	const char *help;
-} switchtec_evcntr_type_list[];
-
-struct switchtec_evcntr_setup {
-	unsigned port_mask;
-	enum switchtec_evcntr_type_mask type_mask;
-	int egress;
-	unsigned threshold;
-};
-
-struct switchtec_dev *switchtec_open(const char * path);
-void switchtec_close(struct switchtec_dev *dev);
-const char *switchtec_name(struct switchtec_dev *dev);
-int switchtec_fd(struct switchtec_dev *dev);
-int switchtec_list(struct switchtec_device_info **devlist);
-int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
-			     size_t buflen);
-
-int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
-			 const void *payload, size_t payload_len);
-
-int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
-			size_t resp_len);
-
-int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
-		  const void *payload, size_t payload_len, void *resp,
-		  size_t resp_len);
-
-int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
-int switchtec_hard_reset(struct switchtec_dev *dev);
-int switchtec_status(struct switchtec_dev *dev,
-		     struct switchtec_status **status);
-void switchtec_perror(const char *str);
-
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum);
@@ -237,6 +147,52 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
 			enum switchtec_event e,
 			int index,
 			uint32_t data[5]);
+
+/******** FIRMWARE Management ********/
+
+enum switchtec_fw_dlstatus {
+	SWITCHTEC_DLSTAT_READY = 0,
+	SWITCHTEC_DLSTAT_INPROGRESS = 1,
+	SWITCHTEC_DLSTAT_HEADER_INCORRECT = 2,
+	SWITCHTEC_DLSTAT_OFFSET_INCORRECT = 3,
+	SWITCHTEC_DLSTAT_CRC_INCORRECT = 4,
+	SWITCHTEC_DLSTAT_LENGTH_INCORRECT = 5,
+	SWITCHTEC_DLSTAT_HARDWARE_ERR = 6,
+	SWITCHTEC_DLSTAT_COMPLETES = 7,
+	SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT = 8,
+	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
+};
+
+enum switchtec_fw_image_type {
+	SWITCHTEC_FW_TYPE_BOOT = 0x0,
+	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
+	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
+	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
+	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
+	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
+	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
+	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
+};
+
+struct switchtec_fw_image_info {
+	enum switchtec_fw_image_type type;
+	char version[32];
+	size_t image_addr;
+	size_t image_len;
+	unsigned long crc;
+	int active;
+
+};
+
+struct switchtec_fw_footer {
+	char magic[4];
+	uint32_t image_len;
+	uint32_t load_addr;
+	uint32_t version;
+	uint32_t rsvd;
+	uint32_t header_crc;
+	uint32_t image_crc;
+};
 
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
@@ -270,6 +226,56 @@ int switchtec_fw_part_act_info(struct switchtec_dev *dev,
 			       struct switchtec_fw_image_info *inact_cfg);
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type);
+
+/********** EVENT COUNTER *********/
+
+enum switchtec_evcntr_type_mask {
+	UNSUP_REQ_ERR = 1 << 0,
+	ECRC_ERR = 1 << 1,
+	MALFORM_TLP_ERR = 1 << 2,
+	RCVR_OFLOW_ERR = 1 << 3,
+	CMPLTR_ABORT_ERR = 1 << 4,
+	POISONED_TLP_ERR = 1 << 5,
+	SURPRISE_DOWN_ERR = 1 << 6,
+	DATA_LINK_PROTO_ERR = 1 << 7,
+	HDR_LOG_OFLOW_ERR = 1 << 8,
+	UNCOR_INT_ERR = 1 << 9,
+	REPLAY_TMR_TIMEOUT = 1 << 10,
+	REPLAY_NUM_ROLLOVER = 1 << 11,
+	BAD_DLPP = 1 << 12,
+	BAD_TLP = 1 << 13,
+	RCVR_ERR = 1 << 14,
+	RCV_FATAL_MSG = 1 << 15,
+	RCV_NON_FATAL_MSG = 1 << 16,
+	RCV_CORR_MSG = 1 << 17,
+	NAK_RCVD = 1 << 18,
+	RULE_TABLE_HIT = 1 << 19,
+	POSTED_TLP = 1 << 20,
+	COMP_TLP = 1 << 21,
+	NON_POSTED_TLP = 1 << 22,
+	ALL_ERRORS = (UNSUP_REQ_ERR | ECRC_ERR | MALFORM_TLP_ERR |
+		      RCVR_OFLOW_ERR | CMPLTR_ABORT_ERR | POISONED_TLP_ERR |
+		      SURPRISE_DOWN_ERR | DATA_LINK_PROTO_ERR |
+		      HDR_LOG_OFLOW_ERR | UNCOR_INT_ERR |
+		      REPLAY_TMR_TIMEOUT | REPLAY_NUM_ROLLOVER |
+		      BAD_DLPP | BAD_TLP | RCVR_ERR | RCV_FATAL_MSG |
+		      RCV_NON_FATAL_MSG | RCV_CORR_MSG | NAK_RCVD),
+	ALL_TLPS = (POSTED_TLP | COMP_TLP | NON_POSTED_TLP),
+	ALL = (1 << 23) - 1,
+};
+
+extern const struct switchtec_evcntr_type_list {
+	enum switchtec_evcntr_type_mask mask;
+	const char *name;
+	const char *help;
+} switchtec_evcntr_type_list[];
+
+struct switchtec_evcntr_setup {
+	unsigned port_mask;
+	enum switchtec_evcntr_type_mask type_mask;
+	int egress;
+	unsigned threshold;
+};
 
 int switchtec_evcntr_type_count(void);
 const char *switchtec_evcntr_type_str(int *type_mask);
