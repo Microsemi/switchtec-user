@@ -968,10 +968,14 @@ static int evcntr_wait(int argc, char **argv, struct command *cmd,
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_evcntr_wait(cfg.dev, cfg.timeout);
+	if (ret < 0) {
+		perror("evcntr_wait");
+		return -1;
+	}
 
 	if (!ret) {
 		fprintf(stderr, "timeout\n");
-		return -1;
+		return 1;
 	}
 
 	for (i = 0; i < SWITCHTEC_MAX_STACKS; i++)

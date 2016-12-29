@@ -85,43 +85,54 @@ void switchtec_perror(const char *str);
 
 /*********** EVENT Handling ***********/
 
-enum switchtec_event {
-	SWITCHTEC_GLOBAL_EVT_STACK_ERR = 1 << 0,
-	SWITCHTEC_GLOBAL_EVT_PPU_ERR = 1 << 1,
-	SWITCHTEC_GLOBAL_EVT_ISP_ERROR = 1 << 2,
-	SWITCHTEC_GLOBAL_EVT_SYS_RESET = 1 << 3,
-	SWITCHTEC_GLOBAL_EVT_FIRMWARE_ERR = 1 << 4,
-	SWITCHTEC_GLOBAL_EVT_FIRMWARE_NMI = 1 << 5,
-	SWITCHTEC_GLOBAL_EVT_FIRMWARE_NON_FATAL_ERR = 1 << 6,
-	SWITCHTEC_GLOBAL_EVT_FIRMWARE_FATAL_ERR = 1 << 7,
-	SWITCHTEC_GLOBAL_EVT_TWI_MRPC_COMP = 1 << 8,
-	SWITCHTEC_GLOBAL_EVT_TWI_MRPC_COMP_ASYNC = 1 << 9,
-	SWITCHTEC_GLOBAL_EVT_CLI_MRPC_COMP = 1 << 10,
-	SWITCHTEC_GLOBAL_EVT_CLI_MRPC_COMP_ASYNC = 1 << 11,
-	SWITCHTEC_GLOBAL_EVT_GPIO_INT = 1 << 12,
-
-	SWITCHTEC_PART_EVT_RESET = 1 << 0,
-	SWITCHTEC_PART_EVT_MRPC_COMP_ASYNC = 1 << 2,
-	SWITCHTEC_PART_EVT_DYN_PART_BIND = 1 << 3,
-
-	SWITCHTEC_PORT_EVT_AER_IN_P2P = 1 << 0,
-	SWITCHTEC_PORT_EVT_AER_INVEP = 1 << 1,
-	SWITCHTEC_PORT_EVT_DPC = 1 << 2,
-	SWITCHTEC_PORT_EVT_CTS = 1 << 3,
-	SWITCHTEC_PORT_EVT_HOTPLUG = 1 << 5,
-	SWITCHTEC_PORT_EVT_IER = 1 << 6,
-	SWITCHTEC_PORT_EVT_THRESHOLD = 1 << 7,
-	SWITCHTEC_PORT_EVT_PWR_MGMT = 1 << 8,
-	SWITCHTEC_PORT_EVT_TLP_THROTTLING = 1 << 9,
-	SWITCHTEC_PORT_EVT_FORCE_SPEED = 1 << 10,
-	SWITCHTEC_PORT_EVT_CREDIT_TIMEOUT = 1 << 11,
-	SWITCHTEC_PORT_EVT_LINK_STATE = 1 << 12,
+enum switchtec_event_id {
+	SWITCHTEC_GLOBAL_EVT_STACK_ERROR,
+	SWITCHTEC_GLOBAL_EVT_PPU_ERROR,
+	SWITCHTEC_GLOBAL_EVT_ISP_ERROR,
+	SWITCHTEC_GLOBAL_EVT_SYS_RESET,
+	SWITCHTEC_GLOBAL_EVT_FW_EXC,
+	SWITCHTEC_GLOBAL_EVT_FW_NMI,
+	SWITCHTEC_GLOBAL_EVT_FW_NON_FATAL,
+	SWITCHTEC_GLOBAL_EVT_FW_FATAL,
+	SWITCHTEC_GLOBAL_EVT_TWI_MRPC_COMP,
+	SWITCHTEC_GLOBAL_EVT_TWI_MRPC_COMP_ASYNC,
+	SWITCHTEC_GLOBAL_EVT_CLI_MRPC_COMP,
+	SWITCHTEC_GLOBAL_EVT_CLI_MRPC_COMP_ASYNC,
+	SWITCHTEC_GLOBAL_EVT_GPIO_INT,
+	SWITCHTEC_PART_EVT_PART_RESET,
+	SWITCHTEC_PART_EVT_MRPC_COMP,
+	SWITCHTEC_PART_EVT_MRPC_COMP_ASYNC,
+	SWITCHTEC_PART_EVT_DYN_PART_BIND_COMP,
+	SWITCHTEC_PFF_EVT_AER_IN_P2P,
+	SWITCHTEC_PFF_EVT_AER_IN_VEP,
+	SWITCHTEC_PFF_EVT_DPC,
+	SWITCHTEC_PFF_EVT_CTS,
+	SWITCHTEC_PFF_EVT_HOTPLUG,
+	SWITCHTEC_PFF_EVT_IER,
+	SWITCHTEC_PFF_EVT_THRESH,
+	SWITCHTEC_PFF_EVT_POWER_MGMT,
+	SWITCHTEC_PFF_EVT_TLP_THROTTLING,
+	SWITCHTEC_PFF_EVT_FORCE_SPEED,
+	SWITCHTEC_PFF_EVT_CREDIT_TIMEOUT,
+	SWITCHTEC_PFF_EVT_LINK_STATE,
+	SWITCHTEC_MAX_EVENTS,
 };
 
-enum switchtec_event_type {
-	SWITCHTEC_GLOBAL_EVT,
-	SWITCHTEC_PART_EVT,
-	SWITCHTEC_PORT_EVT,
+enum switchtec_event_flags {
+	SWITCHTEC_EVT_FLAG_CLEAR = 1 << 0,
+	SWITCHTEC_EVT_FLAG_EN_POLL = 1 << 1,
+	SWITCHTEC_EVT_FLAG_EN_LOG = 1 << 2,
+	SWITCHTEC_EVT_FLAG_EN_CLI = 1 << 3,
+	SWITCHTEC_EVT_FLAG_EN_FATAL = 1 << 4,
+	SWITCHTEC_EVT_FLAG_DIS_POLL = 1 << 5,
+	SWITCHTEC_EVT_FLAG_DIS_LOG = 1 << 6,
+	SWITCHTEC_EVT_FLAG_DIS_CLI = 1 << 7,
+	SWITCHTEC_EVT_FLAG_DIS_FATAL = 1 << 8,
+};
+
+enum {
+	SWITCHTEC_EVT_IDX_LOCAL = -1,
+	SWITCHTEC_EVT_IDX_ALL = -2,
 };
 
 struct switchtec_event_summary {
@@ -133,19 +144,24 @@ struct switchtec_event_summary {
 };
 
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
+int switchtec_event_summary_set(struct switchtec_event_summary *sum,
+				enum switchtec_event_id e,
+				int index);
+int switchtec_event_summary_test(struct switchtec_event_summary *sum,
+				 enum switchtec_event_id e,
+				 int index);
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum);
 int switchtec_event_check(struct switchtec_dev *dev,
 			  struct switchtec_event_summary *check,
 			  struct switchtec_event_summary *res);
 int switchtec_event_wait_for(struct switchtec_dev *dev,
-			     struct switchtec_event_summary *wait_for,
+			     enum switchtec_event_id e, int index,
 			     struct switchtec_event_summary *res,
 			     int timeout_ms);
 int switchtec_event_ctl(struct switchtec_dev *dev,
-			enum switchtec_event_type t,
-			enum switchtec_event e,
-			int index,
+			enum switchtec_event_id e,
+			int index, int flags,
 			uint32_t data[5]);
 
 /******** FIRMWARE Management ********/
