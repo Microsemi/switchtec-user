@@ -136,11 +136,11 @@ enum {
 };
 
 struct switchtec_event_summary {
-	uint64_t global_summary;
-	uint64_t part_event_bitmap;
-	unsigned local_part_event_summary;
-	unsigned part_event_summary[SWITCHTEC_MAX_PARTS];
-	unsigned port_event_summary[SWITCHTEC_MAX_PORTS];
+	uint64_t global;
+	uint64_t part_bitmap;
+	unsigned local_part;
+	unsigned part[SWITCHTEC_MAX_PARTS];
+	unsigned pff[SWITCHTEC_MAX_PORTS];
 };
 
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);

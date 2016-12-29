@@ -46,11 +46,11 @@ struct switchtec_ioctl_fw_info {
 };
 
 struct switchtec_ioctl_event_summary {
-	__u64 global_summary;
-	__u64 part_event_bitmap;
-	__u32 local_part_event_summary;
-	__u32 part_event_summary[48];
-	__u32 port_event_summary[255];
+	__u64 global;
+	__u64 part_bitmap;
+	__u32 local_part;
+	__u32 part[48];
+	__u32 pff[255];
 };
 
 enum switchtec_ioctl_event {

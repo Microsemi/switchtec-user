@@ -29,7 +29,7 @@
 
 #define EV(t, n, s, d)[SWITCHTEC_ ## t ## _EVT_ ## n] = {\
 	.type = t, \
-	.summary_bit = (1 << (s0), \
+	.summary_bit = (1 << (s)), \
 	.ioctl_id = SWITCHTEC_IOCTL_EVENT_ ## n, \
 	.short_name = #n, \
 	.desc = d, \
@@ -140,16 +140,16 @@ static void set_all_parts(struct switchtec_event_summary *sum, uint64_t bit)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(sum->part_event_summary); i++)
-		sum->part_event_summary[i] |= bit;
+	for (i = 0; i < ARRAY_SIZE(sum->part); i++)
+		sum->part[i] |= bit;
 }
 
 static void set_all_pffs(struct switchtec_event_summary *sum, uint64_t bit)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(sum->port_event_summary); i++)
-		sum->port_event_summary[i] |= bit;
+	for (i = 0; i < ARRAY_SIZE(sum->pff); i++)
+		sum->pff[i] |= bit;
 }
 
 int switchtec_event_summary_set(struct switchtec_event_summary *sum,
@@ -160,30 +160,28 @@ int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 
 	switch (events[e].type) {
 	case GLOBAL:
-		sum->global_summary &= bit;
+		sum->global &= bit;
 		break;
 	case PART:
 		if (index == SWITCHTEC_EVT_IDX_LOCAL) {
-			sum->local_part_event_summary |= bit;
+			sum->local_part |= bit;
 		} else if (index == SWITCHTEC_EVT_IDX_ALL) {
 			set_all_parts(sum, bit);
-		} else if (index < 0 ||
-			   index >= ARRAY_SIZE(sum->part_event_summary)) {
+		} else if (index < 0 || index >= ARRAY_SIZE(sum->part)) {
 			errno = EINVAL;
 			return -EINVAL;
 		} else {
-			sum->part_event_summary[index] &= bit;
+			sum->part[index] &= bit;
 		}
 		break;
 	case PFF:
 		if (index == SWITCHTEC_EVT_IDX_ALL) {
 			set_all_pffs(sum, bit);
-		} else if (index < 0 ||
-			   index >= ARRAY_SIZE(sum->port_event_summary)) {
+		} else if (index < 0 || index >= ARRAY_SIZE(sum->pff)) {
 			errno = EINVAL;
 			return -EINVAL;
 		} else {
-			sum->port_event_summary[index] |= bit;
+			sum->pff[index] |= bit;
 		}
 		break;
 	}
@@ -199,11 +197,11 @@ int switchtec_event_summary_test(struct switchtec_event_summary *sum,
 
 	switch (events[e].type) {
 	case GLOBAL:
-		return sum->global_summary & bit;
+		return sum->global & bit;
 	case PART:
-		return sum->part_event_summary[index] & bit;
+		return sum->part[index] & bit;
 	case PFF:
-		return sum->port_event_summary[index] & bit;
+		return sum->pff[index] & bit;
 	}
 
 	return 0;
@@ -214,15 +212,15 @@ static void event_summary_copy(struct switchtec_event_summary *dst,
 {
 	int i;
 
-	dst->global_summary = src->global_summary;
-	dst->part_event_bitmap = src->part_event_bitmap;
-	dst->local_part_event_summary = src->local_part_event_summary;
+	dst->global = src->global;
+	dst->part_bitmap = src->part_bitmap;
+	dst->local_part = src->local_part;
 
 	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
-		dst->part_event_summary[i] = src->part_event_summary[i];
+		dst->part[i] = src->part[i];
 
 	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
-		dst->port_event_summary[i] = src->port_event_summary[i];
+		dst->pff[i] = src->pff[i];
 }
 
 int switchtec_event_summary(struct switchtec_dev *dev,
@@ -259,22 +257,21 @@ int switchtec_event_check(struct switchtec_dev *dev,
 
 	ret = 0;
 
-	if (isum.global_summary & check->global_summary)
+	if (isum.global & check->global)
 		ret = 1;
 
-	if (isum.part_event_bitmap & check->part_event_bitmap)
+	if (isum.part_bitmap & check->part_bitmap)
 		ret = 1;
 
-	if (isum.local_part_event_summary &
-	    check->local_part_event_summary)
+	if (isum.local_part & check->local_part)
 		ret = 1;
 
 	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
-		if (isum.part_event_summary[i] & check->part_event_summary[i])
+		if (isum.part[i] & check->part[i])
 			ret = 1;
 
 	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
-		if (isum.port_event_summary[i] & check->port_event_summary[i])
+		if (isum.pff[i] & check->pff[i])
 			ret = 1;
 
 	if (res)
