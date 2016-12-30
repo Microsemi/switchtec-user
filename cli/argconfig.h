@@ -94,6 +94,7 @@ struct argconfig_options {
 	const char *complete;
 	struct argconfig_choice *choices;
 	int require_in_usage;
+	const char *env;
 };
 
 #define MAX_HELP_FUNC 20

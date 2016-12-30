@@ -125,6 +125,22 @@ static int num_positional(const struct argconfig_options *options)
 	return count;
 }
 
+static int num_env_variables(const struct argconfig_options *options)
+{
+	int count = 0;
+	const struct argconfig_options *s;
+
+	for (s = options; s->option; s++) {
+		if (!is_positional(s))
+			continue;
+		if (!s->env)
+			continue;
+		count++;
+	}
+
+	return count;
+}
+
 static int num_options(const struct argconfig_options *options)
 {
 	int count = 0;
@@ -202,6 +218,30 @@ static void show_positional(const struct argconfig_options *option)
 	fprintf(stderr, "\n");
 }
 
+static void show_env(const struct argconfig_options *option)
+{
+	char buffer[0x1000];
+	char *b = buffer;
+
+	if (!is_positional(option))
+		return;
+	if (!option->env)
+		return;
+
+	b += snprintf(buffer, sizeof(buffer), "    %s  ", option->env);
+
+	fprintf(stderr, "%s", buffer);
+
+	sprintf(buffer, "if set, the value will be used for the <%s> argument",
+		option->option);
+
+	if (option->help) {
+		print_word_wrapped("--- ", 40, b - buffer);
+		print_word_wrapped(buffer, 44, 44);
+	}
+	fprintf(stderr, "\n");
+}
+
 static void show_choices(const struct argconfig_options *option)
 {
 	struct argconfig_choice *c;
@@ -258,15 +298,16 @@ void argconfig_print_help(const char *program_desc,
 	const struct argconfig_options *s;
 	int num_opt = num_options(options);
 	int num_pos = num_positional(options);
+	int num_env = num_env_variables(options);
 
 	argconfig_print_usage(options);
 	printf("\n");
 
 	print_word_wrapped(program_desc, 0, 0);
-	printf("\n");
+	printf("\n\n");
 
 	if (num_pos) {
-		printf("\n\n\033[1mPositional Arguments:\033[0m\n");
+		printf("\n\033[1mPositional Arguments:\033[0m\n");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_positional(s);
@@ -274,8 +315,17 @@ void argconfig_print_help(const char *program_desc,
 		printf("\n");
 	}
 
+	if (num_env) {
+		printf("\n\033[1mEnvironment Variables:\033[0m\n");
+
+		for (s = options; (s->option != NULL) && (s != NULL); s++)
+			show_env(s);
+
+		printf("\n");
+	}
+
 	if (num_opt) {
-		printf("\033[1mOptions:\033[0m\n");
+		printf("\n\033[1mOptions:\033[0m\n");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_option(s);
@@ -802,6 +852,9 @@ static void print_completions(int argc, char *argv[],
 		if (!is_positional(s))
 			continue;
 
+		if (s->env && getenv(s->env))
+			continue;
+
 		if(pos_args-- > 0)
 			continue;
 
@@ -900,6 +953,12 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	for (s = options; (s->option != NULL); s++) {
 		if (!is_positional(s))
 			continue;
+
+		if (s->env && getenv(s->env)) {
+			if (handle(getenv(s->env), s->value_addr, s))
+				goto exit;
+			continue;
+		}
 
 		if (s->argument_type == required_positional &&
 		    optind >= argc)

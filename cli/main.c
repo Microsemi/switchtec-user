@@ -72,8 +72,8 @@ int switchtec_handler(const char *optarg, void *value_addr,
 		       .argument_type=required_positional, \
 		       .custom_handler=switchtec_handler, \
 		       .complete="/dev/switchtec*", \
+		       .env="SWITCHTEC_DEV", \
 		       .help="switchtec device to operate on"}
-
 
 static int list(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
