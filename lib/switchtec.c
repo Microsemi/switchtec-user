@@ -454,17 +454,24 @@ static const char *ltssm_str(int ltssm)
 	}
 }
 
+static int compare_port_id(const void *aa, const void *bb)
+{
+	const struct switchtec_port_id *a = aa, *b = bb;
+
+	if (a->partition != b->partition)
+		return a->partition - b->partition;
+	if (a->upstream != b->upstream)
+		return b->upstream - a->upstream;
+	if (a->stack != b->stack)
+		return a->stack - b->stack;
+	return a->stk_id;
+}
+
 static int compare_status(const void *aa, const void *bb)
 {
 	const struct switchtec_status *a = aa, *b = bb;
 
-	if (a->partition != b->partition)
-		return a->partition - b->partition;
-	if (a->upstream_port != b->upstream_port)
-		return b->upstream_port - a->upstream_port;
-	if (a->stack != b->stack)
-		return a->stack - b->stack;
-	return a->stk_port_id;
+	return compare_port_id(&a->port, &b->port);
 }
 
 int switchtec_status(struct switchtec_dev *dev,
@@ -514,12 +521,12 @@ int switchtec_status(struct switchtec_dev *dev,
 		if (ports[i].par_id > SWITCHTEC_MAX_PORTS)
 			continue;
 
-		s[i].partition = ports[i].par_id;
-		s[i].stack = ports[i].stk_id >> 4;
-		s[i].upstream_port = ports[i].usp_flag;
-		s[i].stk_port_id = ports[i].stk_id &0xF;
-		s[i].phys_port_id = ports[i].phys_port_id;
-		s[i].log_port_id = ports[i].log_port_id;
+		s[i].port.partition = ports[i].par_id;
+		s[i].port.stack = ports[i].stk_id >> 4;
+		s[i].port.upstream = ports[i].usp_flag;
+		s[i].port.stk_id = ports[i].stk_id & 0xF;
+		s[i].port.phys_id = ports[i].phys_port_id;
+		s[i].port.log_id = ports[i].log_port_id;
 
 		s[i].cfg_lnk_width = ports[i].cfg_lnk_width;
 		s[i].neg_lnk_width = ports[i].neg_lnk_width;

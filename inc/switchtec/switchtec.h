@@ -43,14 +43,17 @@ struct switchtec_device_info {
 	char path[PATH_MAX];
 };
 
-struct switchtec_status {
+struct switchtec_port_id {
 	unsigned char partition;
 	unsigned char stack;
-	unsigned char upstream_port;
-	unsigned char stk_port_id;
-	unsigned char phys_port_id;
-	unsigned char log_port_id;
+	unsigned char upstream;
+	unsigned char stk_id;
+	unsigned char phys_id;
+	unsigned char log_id;
+};
 
+struct switchtec_status {
+	struct switchtec_port_id port;
 	unsigned char cfg_lnk_width;
 	unsigned char neg_lnk_width;
 	unsigned char link_up;
@@ -230,7 +233,6 @@ struct switchtec_fw_image_info {
 	size_t image_len;
 	unsigned long crc;
 	int active;
-
 };
 
 struct switchtec_fw_footer {

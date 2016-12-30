@@ -128,22 +128,22 @@ static int status(int argc, char **argv, struct command *cmd,
 	for (p = 0; p < ret; p++) {
 		struct switchtec_status *s = &status[p];
 
-		if (s->partition != last_partition) {
+		if (s->port.partition != last_partition) {
 			const char *local = "";
-			if (s->partition == switchtec_partition(cfg.dev))
+			if (s->port.partition == switchtec_partition(cfg.dev))
 				local = "    (LOCAL)";
-			printf("Partition %d:%s\n", s->partition, local);
+			printf("Partition %d:%s\n", s->port.partition, local);
 		}
-		last_partition = s->partition;
+		last_partition = s->port.partition;
 
-		printf("      Stack %d, Port %d (%s): \n", s->stack,
-		       s->stk_port_id, s->upstream_port ? "USP" : "DSP");
+		printf("      Stack %d, Port %d (%s):\n", s->port.stack,
+		       s->port.stk_id, s->port.upstream ? "USP" : "DSP");
 		printf("         Status:          \t%s\n",
 		       s->link_up ? "UP" : "DOWN");
 		printf("         LTSSM:           \t%s\n", s->ltssm_str);
 		printf("         Max-Width:       \tx%d\n", s->cfg_lnk_width);
-		printf("         Phys Port ID:    \t%d\n", s->phys_port_id);
-		printf("         Logical Port ID: \t%d\n", s->log_port_id);
+		printf("         Phys Port ID:    \t%d\n", s->port.phys_id);
+		printf("         Logical Port ID: \t%d\n", s->port.log_id);
 
 		if (!s->link_up) continue;
 
