@@ -92,7 +92,7 @@ struct argconfig_options {
 			      const struct argconfig_options *opt);
        	const char *force_default;
 	const char *complete;
-	struct argconfig_choice *choices;
+	const struct argconfig_choice *choices;
 	int require_in_usage;
 	const char *env;
 };

@@ -244,7 +244,7 @@ static void show_env(const struct argconfig_options *option)
 
 static void show_choices(const struct argconfig_options *option)
 {
-	struct argconfig_choice *c;
+	const struct argconfig_choice *c;
 
 	if (!option->choices)
 		return;
@@ -578,7 +578,7 @@ static int cfg_choices_handler(const char *optarg, void *value_addr,
 			       const struct argconfig_options *opt)
 {
 	unsigned *ivalue = value_addr;
-	struct argconfig_choice *c;
+	const struct argconfig_choice *c;
 
 	if (!opt->choices) {
 		fprintf(stderr,
