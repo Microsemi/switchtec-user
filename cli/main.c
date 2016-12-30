@@ -128,8 +128,12 @@ static int status(int argc, char **argv, struct command *cmd,
 	for (p = 0; p < ret; p++) {
 		struct switchtec_status *s = &status[p];
 
-		if (s->partition != last_partition)
-			printf("Partition %d:\n", s->partition);
+		if (s->partition != last_partition) {
+			const char *local = "";
+			if (s->partition == switchtec_partition(cfg.dev))
+				local = "    (LOCAL)";
+			printf("Partition %d:%s\n", s->partition, local);
+		}
 		last_partition = s->partition;
 
 		printf("      Stack %d, Port %d (%s): \n", s->stack,
