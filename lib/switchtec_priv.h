@@ -23,6 +23,7 @@
 
 struct switchtec_dev {
 	int fd;
+	int partition;
 	char name[PATH_MAX];
 };
 

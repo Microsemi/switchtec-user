@@ -53,76 +53,6 @@ static int dev_to_sysfs_path(struct switchtec_dev *dev, const char *suffix,
 	return 0;
 }
 
-static int check_switchtec_device(struct switchtec_dev *dev)
-{
-	int ret;
-	char syspath[PATH_MAX];
-
-	ret = dev_to_sysfs_path(dev, "device/switchtec", syspath,
-				sizeof(syspath));
-	if (ret)
-		return ret;
-
-	ret = access(syspath, F_OK);
-	if (ret)
-		errno = ENOTTY;
-
-	return ret;
-}
-
-struct switchtec_dev *switchtec_open(const char * path)
-{
-	struct switchtec_dev * dev;
-
-	dev = malloc(sizeof(*dev));
-	if (dev == NULL)
-		return dev;
-
-	dev->fd = open(path, O_RDWR | O_CLOEXEC);
-	if (dev->fd < 0)
-		goto err_free;
-
-	if (check_switchtec_device(dev))
-		goto err_close_free;
-
-	snprintf(dev->name, sizeof(dev->name), "%s", path);
-
-	return dev;
-
-err_close_free:
-	close(dev->fd);
-err_free:
-	free(dev);
-	return NULL;
-}
-
-void switchtec_close(struct switchtec_dev *dev)
-{
-	if (dev == NULL)
-		return;
-
-	close(dev->fd);
-	free(dev);
-}
-
-const char *switchtec_name(struct switchtec_dev *dev)
-{
-	return dev->name;
-}
-
-int switchtec_fd(struct switchtec_dev *dev)
-{
-	return dev->fd;
-}
-
-static int scan_dev_filter(const struct dirent *d)
-{
-	if (d->d_name[0] == '.')
-		return 0;
-
-	return 1;
-}
-
 static int sysfs_read_str(const char *path, char *buf, size_t buflen)
 {
 	int ret;
@@ -149,6 +79,104 @@ static int sysfs_read_int(const char *path, int base)
 		return ret;
 
 	return strtol(buf, NULL, base);
+}
+
+static int check_switchtec_device(struct switchtec_dev *dev)
+{
+	int ret;
+	char syspath[PATH_MAX];
+
+	ret = dev_to_sysfs_path(dev, "device/switchtec", syspath,
+				sizeof(syspath));
+	if (ret)
+		return ret;
+
+	ret = access(syspath, F_OK);
+	if (ret)
+		errno = ENOTTY;
+
+	return ret;
+}
+
+static int get_partition(struct switchtec_dev *dev)
+{
+	int ret;
+	char syspath[PATH_MAX];
+
+	ret = dev_to_sysfs_path(dev, "partition", syspath,
+				sizeof(syspath));
+	if (ret)
+		return ret;
+
+	dev->partition = sysfs_read_int(syspath, 10);
+	if (dev->partition < 0)
+		return dev->partition;
+
+	return 0;
+}
+
+struct switchtec_dev *switchtec_open(const char * path)
+{
+	struct switchtec_dev *dev;
+
+	dev = malloc(sizeof(*dev));
+	if (dev == NULL)
+		return dev;
+
+	dev->fd = open(path, O_RDWR | O_CLOEXEC);
+	if (dev->fd < 0)
+		goto err_free;
+
+	if (check_switchtec_device(dev))
+		goto err_close_free;
+
+	if (get_partition(dev))
+		goto err_close_free;
+
+	snprintf(dev->name, sizeof(dev->name), "%s", path);
+
+	return dev;
+
+err_close_free:
+	close(dev->fd);
+err_free:
+	free(dev);
+	return NULL;
+}
+
+void switchtec_close(struct switchtec_dev *dev)
+{
+	if (dev == NULL)
+		return;
+
+	close(dev->fd);
+	free(dev);
+}
+
+__attribute__ ((pure))
+const char *switchtec_name(struct switchtec_dev *dev)
+{
+	return dev->name;
+}
+
+__attribute__ ((pure))
+int switchtec_fd(struct switchtec_dev *dev)
+{
+	return dev->fd;
+}
+
+__attribute__ ((pure))
+int switchtec_partition(struct switchtec_dev *dev)
+{
+	return dev->partition;
+}
+
+static int scan_dev_filter(const struct dirent *d)
+{
+	if (d->d_name[0] == '.')
+		return 0;
+
+	return 1;
 }
 
 static void get_device_str(const char *path, const char *file,
