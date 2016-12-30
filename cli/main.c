@@ -221,10 +221,12 @@ static int events(int argc, char **argv, struct command *cmd,
 	int flags;
 	int idx;
 	int ret;
+	int local_part;
 	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
 
 	static struct {
 		struct switchtec_dev *dev;
+		int show_all;
 		int clear_all;
 		int partition;
 		unsigned event_id;
@@ -233,6 +235,8 @@ static int events(int argc, char **argv, struct command *cmd,
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"all", 'a', "", CFG_NONE, &cfg.show_all, no_argument,
+		 "show events in all partitions"},
 		{"clear", 'c', "", CFG_NONE, &cfg.clear_all, no_argument,
 		 "clear all events"},
 		{"event", 'e', "EVENT", CFG_MULT_CHOICES, &cfg.event_id,
@@ -248,6 +252,8 @@ static int events(int argc, char **argv, struct command *cmd,
 		perror("event_summary");
 		return ret;
 	}
+
+	local_part = switchtec_partition(cfg.dev);
 
 	while (switchtec_event_summary_iter(&sum, &e->eid, &idx)) {
 		if (e->eid == -1)
@@ -274,6 +280,9 @@ static int events(int argc, char **argv, struct command *cmd,
 			}
 			break;
 		}
+
+		if (!cfg.show_all && e->partition != local_part)
+			continue;
 
 		if (cfg.clear_all || cfg.event_id & (1 << e->eid))
 			flags = SWITCHTEC_EVT_FLAG_CLEAR;
