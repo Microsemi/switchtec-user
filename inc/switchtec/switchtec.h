@@ -59,6 +59,16 @@ struct switchtec_status {
 	const char *ltssm_str;
 };
 
+enum switchtec_log_type {
+	SWITCHTEC_LOG_RAM,
+	SWITCHTEC_LOG_FLASH,
+	SWITCHTEC_LOG_MEMLOG,
+	SWITCHTEC_LOG_REGS,
+	SWITCHTEC_LOG_THRD_STACK,
+	SWITCHTEC_LOG_SYS_STACK,
+	SWITCHTEC_LOG_THRD,
+};
+
 struct switchtec_dev *switchtec_open(const char *path);
 void switchtec_close(struct switchtec_dev *dev);
 
@@ -90,7 +100,9 @@ int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 			  int *partition, int *port);
 int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 			  int port, int *pff);
-
+int switchtec_log_to_file(struct switchtec_dev *dev,
+			  enum switchtec_log_type type,
+			  int fd);
 
 /*********** EVENT Handling ***********/
 

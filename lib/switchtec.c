@@ -18,6 +18,7 @@
 #include "switchtec/switchtec.h"
 #include "switchtec/mrpc.h"
 #include "switchtec/errors.h"
+#include "switchtec/log.h"
 
 #include <linux/switchtec_ioctl.h>
 
@@ -327,7 +328,6 @@ int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
 	}
 
 	memcpy(&ret, buf, sizeof(ret));
-
 	if (ret)
 		errno = ret;
 
@@ -601,4 +601,88 @@ int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 		*pff = p.pff;
 
 	return 0;
+}
+
+static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
+{
+	int ret;
+	int read = 0;
+	struct log_a_retr_result res;
+	struct log_a_retr cmd = {
+		.sub_cmd_id = sub_cmd_id,
+		.start = -1,
+	};
+
+	res.hdr.remain = 1;
+
+	while (res.hdr.remain) {
+		ret = switchtec_cmd(dev, MRPC_FWLOGRD, &cmd, sizeof(cmd),
+				    &res, sizeof(res));
+		if (ret)
+			return -1;
+
+		ret = write(fd, res.data, sizeof(*res.data) * res.hdr.count);
+		if (ret < 0)
+			return ret;
+
+		read += le32toh(res.hdr.count);
+		cmd.start = res.hdr.next_start;
+	}
+
+	return read;
+}
+
+static int log_b_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
+{
+	int ret;
+	int read = 0;
+	struct log_b_retr_result res;
+	struct log_b_retr cmd = {
+		.sub_cmd_id = sub_cmd_id,
+		.offset = 0,
+		.length = htole32(sizeof(res.data)),
+	};
+
+	res.hdr.remain = sizeof(res.data);
+
+	while (res.hdr.remain) {
+		ret = switchtec_cmd(dev, MRPC_FWLOGRD, &cmd, sizeof(cmd),
+				    &res, sizeof(res));
+		if (ret)
+			return -1;
+
+		ret = write(fd, res.data, res.hdr.length);
+		if (ret < 0)
+			return ret;
+
+		read += le32toh(res.hdr.length);
+		cmd.offset = htole32(read);
+	}
+
+	return read;
+}
+
+int switchtec_log_to_file(struct switchtec_dev *dev,
+			  enum switchtec_log_type type,
+			  int fd)
+{
+	switch (type) {
+	case SWITCHTEC_LOG_RAM:
+		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd);
+	case SWITCHTEC_LOG_FLASH:
+		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd);
+	case SWITCHTEC_LOG_MEMLOG:
+		return log_b_to_file(dev, MRPC_FWLOGRD_MEMLOG, fd);
+	case SWITCHTEC_LOG_REGS:
+		return log_b_to_file(dev, MRPC_FWLOGRD_REGS, fd);
+	case SWITCHTEC_LOG_THRD_STACK:
+		return log_b_to_file(dev, MRPC_FWLOGRD_THRD_STACK, fd);
+	case SWITCHTEC_LOG_SYS_STACK:
+		return log_b_to_file(dev, MRPC_FWLOGRD_SYS_STACK, fd);
+	case SWITCHTEC_LOG_THRD:
+		return log_b_to_file(dev, MRPC_FWLOGRD_THRD, fd);
+	};
+
+	errno = EINVAL;
+	return -errno;
 }

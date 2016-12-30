@@ -311,6 +311,60 @@ static int events(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int log_dump(int argc, char **argv, struct command *cmd,
+		    struct plugin *plugin)
+{
+	const char *desc = "Dump the raw APP log to a file";
+	int ret;
+
+	const struct argconfig_choice types[] = {
+		{"RAM", SWITCHTEC_LOG_RAM, "Dump the APP log from RAM"},
+		{"FLASH", SWITCHTEC_LOG_FLASH, "Dump the APP log from FLASH"},
+		{"MEMLOG", SWITCHTEC_LOG_MEMLOG,
+		 "Dump the Memlog info from Flash in last fatal error handing dump"},
+		{"REGS", SWITCHTEC_LOG_REGS,
+		 "Dump the Generic Registers context from Flash in last fatal error handing dump"},
+		{"THRD_STACK", SWITCHTEC_LOG_THRD_STACK,
+		 "Dump the thread stack info from Flash in last fatal error handing dump"},
+		{"SYS_STACK", SWITCHTEC_LOG_SYS_STACK,
+		 "Dump the system stack info from Flash in last fatal error handing dump"},
+		{"THRDS", SWITCHTEC_LOG_THRD,
+		 "Dump all thread info from Flash in last fatal error handing dump"},
+		{0}
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		int out_fd;
+		const char *out_filename;
+		unsigned type;
+	} cfg = {
+		.type = SWITCHTEC_LOG_RAM
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
+		  .argument_type=optional_positional,
+		  .force_default="switchtec.log",
+		  .help="image file to display information for"},
+		{"type", 't', "TYPE", CFG_CHOICES, &cfg.type,
+		  required_argument,
+		 "log type to dump", .choices=types},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_log_to_file(cfg.dev, cfg.type, cfg.out_fd);
+	if (ret < 0) {
+		switchtec_perror("log");
+		return ret;
+	}
+
+	fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
+
+	return ret;
+}
+
 static int test(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {
