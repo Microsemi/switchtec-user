@@ -346,7 +346,7 @@ int switchtec_evcntr_get_both(struct switchtec_dev *dev, unsigned stack_id,
 			      unsigned *counts, int clear);
 int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms);
 
-/********** BW COUNTER *********/
+/********** BANDWIDTH COUNTER *********/
 
 struct switchtec_bwcntr_res {
 	uint64_t time_us;
@@ -364,6 +364,21 @@ int switchtec_bwcntr_all(struct switchtec_dev *dev, int clear,
 			 struct switchtec_port_id **ports,
 			 struct switchtec_bwcntr_res **res);
 uint64_t switchtec_bwcntr_tot(struct switchtec_bwcntr_dir *d);
+
+/********** LATENCY COUNTER *********/
+
+#define SWITCHTEC_LAT_ALL_INGRESS 63
+
+int switchtec_lat_setup_many(struct switchtec_dev *dev, int nr_ports,
+			     int *egress_port_ids, int *ingress_port_ids);
+int switchtec_lat_setup(struct switchtec_dev *dev, int egress_port_id,
+			int ingress_port_id, int clear);
+int switchtec_lat_get_many(struct switchtec_dev *dev, int nr_ports,
+			   int clear, int *egress_port_ids,
+			   int *cur_ns, int *max_ns);
+int switchtec_lat_get(struct switchtec_dev *dev, int clear,
+		      int egress_port_ids, int *cur_ns,
+		      int *max_ns);
 
 #ifdef __cplusplus
 }

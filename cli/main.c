@@ -291,6 +291,65 @@ static int bw(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int latency(int argc, char **argv, struct command *cmd,
+		   struct plugin *plugin)
+{
+	const char *desc = "Measure latency of a port";
+	int ret;
+	int cur_ns, max_ns;
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned meas_time;
+		int egress;
+		int ingress;
+	} cfg = {
+		.meas_time = 5,
+		.egress = -1,
+		.ingress = SWITCHTEC_LAT_ALL_INGRESS,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"time", 't', "NUM", CFG_POSITIVE, &cfg.meas_time,
+		  required_argument,
+		 "measurement time, in seconds"},
+		{"egress", 'e', "NUM", CFG_POSITIVE, &cfg.egress,
+		  required_argument,
+		 "physical port id for the egress side",
+		 .require_in_usage=1},
+		{"ingress", 'i', "NUM", CFG_POSITIVE, &cfg.ingress,
+		  required_argument,
+		 "physical port id for the ingress side, by default use all ports"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.egress < 0) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --egress argument is required!\n");
+		return 1;
+	}
+
+	ret = switchtec_lat_setup(cfg.dev, cfg.egress, cfg.ingress, 1);
+	if (ret < 0) {
+		switchtec_perror("latency");
+		return -1;
+	}
+
+	sleep(cfg.meas_time);
+
+	ret = switchtec_lat_get(cfg.dev, 0, cfg.egress, &cur_ns, &max_ns);
+	if (ret < 0) {
+		switchtec_perror("latency");
+		return -1;
+	}
+
+	printf("Current: %d ns\n", cur_ns);
+	printf("Maximum: %d ns\n", max_ns);
+
+	return 0;
+}
+
 struct event_list {
 	enum switchtec_event_id eid;
 	int partition;

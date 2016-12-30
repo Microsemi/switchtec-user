@@ -283,3 +283,84 @@ uint64_t switchtec_bwcntr_tot(struct switchtec_bwcntr_dir *d)
 {
 	return d->posted + d->nonposted + d->comp;
 }
+
+int switchtec_lat_setup_many(struct switchtec_dev *dev, int nr_ports,
+			     int *egress_port_ids, int *ingress_port_ids)
+{
+	int i;
+	size_t cmd_size;
+	struct pmon_lat_setup cmd = {
+		.sub_cmd_id = MRPC_PMON_SETUP_LAT_COUNTER,
+		.count = nr_ports,
+	};
+
+	for (i = 0; i < nr_ports; i++) {
+		cmd.ports[i].egress = egress_port_ids[i];
+		cmd.ports[i].ingress = ingress_port_ids[i];
+	}
+
+	cmd_size = offsetof(struct pmon_lat_setup, ports) +
+		sizeof(cmd.ports[0]) * nr_ports;
+
+	return switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, NULL, 0);
+}
+
+int switchtec_lat_setup(struct switchtec_dev *dev, int egress_port_id,
+			int ingress_port_id, int clear)
+{
+	int ret;
+
+	ret = switchtec_lat_setup_many(dev, 1, &egress_port_id,
+				       &ingress_port_id);
+	if (ret)
+		return ret;
+
+	if (!clear)
+		return ret;
+
+	return switchtec_lat_get(dev, 1, egress_port_id, NULL, NULL);
+}
+
+int switchtec_lat_get_many(struct switchtec_dev *dev, int nr_ports,
+			   int clear, int *egress_port_ids,
+			   int *cur_ns, int *max_ns)
+{
+	int ret, i;
+	size_t cmd_size;
+	struct pmon_lat_data resp[nr_ports];
+	struct pmon_lat_get cmd = {
+		.sub_cmd_id = MRPC_PMON_GET_LAT_COUNTER,
+		.count = nr_ports,
+		.clear = clear,
+	};
+
+	for (i = 0; i < nr_ports; i++)
+		cmd.port_ids[i] = egress_port_ids[i];
+
+	cmd_size = offsetof(struct pmon_lat_get, port_ids) +
+		sizeof(cmd.port_ids[0]) * nr_ports;
+
+	ret = switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, resp,
+			    sizeof(resp));
+
+	if (ret)
+		return -1;
+
+	if (cur_ns)
+		for (i = 0; i < nr_ports; i++)
+			cur_ns[i] = resp[i].cur_ns;
+
+	if (max_ns)
+		for (i = 0; i < nr_ports; i++)
+			max_ns[i] = resp[i].max_ns;
+
+	return nr_ports;
+}
+
+int switchtec_lat_get(struct switchtec_dev *dev, int clear,
+		      int egress_port_ids, int *cur_ns,
+		      int *max_ns)
+{
+	return switchtec_lat_get_many(dev, 1, clear, &egress_port_ids,
+				      cur_ns, max_ns);
+}

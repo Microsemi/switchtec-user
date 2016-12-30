@@ -65,4 +65,25 @@ struct pmon_bw_get {
 	} ports[SWITCHTEC_MAX_PORTS];
 };
 
+struct pmon_lat_setup {
+	uint8_t sub_cmd_id;
+	uint8_t count;
+	struct {
+		uint8_t egress;
+		uint8_t ingress;
+	} ports[SWITCHTEC_MAX_PORTS];
+};
+
+struct pmon_lat_get {
+	uint8_t sub_cmd_id;
+	uint8_t count;
+	uint8_t clear;
+	uint8_t port_ids[SWITCHTEC_MAX_PORTS];
+};
+
+struct pmon_lat_data {
+	uint16_t cur_ns;
+	uint16_t max_ns;
+};
+
 #endif
