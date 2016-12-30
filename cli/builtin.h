@@ -24,6 +24,7 @@
 COMMAND_LIST(
 	ENTRY("list", "List all switchtec devices on this machine", list)
 	ENTRY("status", "Display status information", status)
+	ENTRY("bw", "Measure the bandwidth for each port", bw)
 	ENTRY("events", "Display events that have occurred", events)
 	ENTRY("log-dump", "Dump firmware log to a file", log_dump)
 	ENTRY("test", "Test if switchtec interface is working", test)

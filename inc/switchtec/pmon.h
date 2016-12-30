@@ -20,6 +20,7 @@
 #define LIBSWITCHTEC_PMON_H
 
 #include <stdint.h>
+#include <switchtec/switchtec.h>
 
 struct pmon_event_counter_setup {
 	uint8_t sub_cmd_id;
@@ -55,5 +56,13 @@ struct pmon_event_counter_result {
 	uint32_t threshold;
 };
 
+struct pmon_bw_get {
+	uint8_t sub_cmd_id;
+	uint8_t count;
+	struct {
+		uint8_t id;
+		uint8_t clear;
+	} ports[SWITCHTEC_MAX_PORTS];
+};
 
 #endif

@@ -16,6 +16,7 @@
 #include "plugin.h"
 #include "argconfig.h"
 #include "version.h"
+#include "suffix.h"
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
@@ -98,6 +99,23 @@ static int list(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static void print_port_title(struct switchtec_dev *dev,
+			     struct switchtec_port_id *p)
+{
+	static int last_partition = -1;
+	const char *local = "";
+
+	if (p->partition != last_partition) {
+		if (p->partition == switchtec_partition(dev))
+			local = "    (LOCAL)";
+		printf("Partition %d:%s\n", p->partition, local);
+	}
+	last_partition = p->partition;
+
+	printf("    Stack %d, Port %d (%s):\n", p->stack,
+	       p->stk_id, p->upstream ? "USP" : "DSP");
+}
+
 static int status(int argc, char **argv, struct command *cmd,
 		  struct plugin *plugin)
 {
@@ -105,7 +123,6 @@ static int status(int argc, char **argv, struct command *cmd,
 	int ret;
 	struct switchtec_status *status;
 	int p;
-	int last_partition = -1;
 
 	const float gen_transfers[] = {0, 2.5, 5, 8, 16};
 	const float gen_datarate[] = {0, 250, 500, 985, 1969};
@@ -127,34 +144,121 @@ static int status(int argc, char **argv, struct command *cmd,
 
 	for (p = 0; p < ret; p++) {
 		struct switchtec_status *s = &status[p];
+		print_port_title(cfg.dev, &s->port);
 
-		if (s->port.partition != last_partition) {
-			const char *local = "";
-			if (s->port.partition == switchtec_partition(cfg.dev))
-				local = "    (LOCAL)";
-			printf("Partition %d:%s\n", s->port.partition, local);
-		}
-		last_partition = s->port.partition;
-
-		printf("      Stack %d, Port %d (%s):\n", s->port.stack,
-		       s->port.stk_id, s->port.upstream ? "USP" : "DSP");
-		printf("         Status:          \t%s\n",
+		printf("\tStatus:          \t%s\n",
 		       s->link_up ? "UP" : "DOWN");
-		printf("         LTSSM:           \t%s\n", s->ltssm_str);
-		printf("         Max-Width:       \tx%d\n", s->cfg_lnk_width);
-		printf("         Phys Port ID:    \t%d\n", s->port.phys_id);
-		printf("         Logical Port ID: \t%d\n", s->port.log_id);
+		printf("\tLTSSM:           \t%s\n", s->ltssm_str);
+		printf("\tMax-Width:       \tx%d\n", s->cfg_lnk_width);
+		printf("\tPhys Port ID:    \t%d\n", s->port.phys_id);
+		printf("\tLogical Port ID: \t%d\n", s->port.log_id);
 
 		if (!s->link_up) continue;
 
-		printf("         Width:           \tx%d\n", s->neg_lnk_width);
-		printf("         Rate:            \tGen%d - %g GT/s  %g GB/s\n",
+		printf("\tWidth:           \tx%d\n", s->neg_lnk_width);
+		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
 		       s->link_rate, gen_transfers[s->link_rate],
 		       gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
 	}
 
 	free(status);
 
+	return 0;
+}
+
+static void print_bw(const char *msg, uint64_t time_us, uint64_t bytes)
+{
+	double rate = bytes / (time_us * 1e-6);
+	const char *suf = suffix_si_get(&rate);
+
+	printf("\t%-8s\t%5.3g %sB/s\n", msg, rate, suf);
+}
+
+static int bw(int argc, char **argv, struct command *cmd,
+	      struct plugin *plugin)
+{
+	const char *desc = "Measure switch bandwidth";
+	struct switchtec_bwcntr_res *before, *after;
+	struct switchtec_port_id *port_ids;
+	int ret;
+	int i;
+	uint64_t ingress_tot, egress_tot;
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned meas_time;
+		int verbose;
+	} cfg = {
+		.meas_time = 5,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"time", 't', "NUM", CFG_POSITIVE, &cfg.meas_time,
+		  required_argument,
+		 "measurement time, in seconds"},
+		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
+		 "print posted, non-posted and completion results"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_bwcntr_all(cfg.dev, 0, &port_ids, &before);
+	if (ret < 0) {
+		perror("bw");
+		return ret;
+	}
+
+	sleep(cfg.meas_time);
+
+	ret = switchtec_bwcntr_all(cfg.dev, 0, NULL, &after);
+	if (ret < 0) {
+		free(before);
+		free(port_ids);
+		perror("bw");
+		return ret;
+	}
+
+	for (i = 0; i < ret; i++) {
+		print_port_title(cfg.dev, &port_ids[i]);
+
+		after[i].time_us -= before[i].time_us;
+		after[i].egress.posted -= before[i].egress.posted;
+		after[i].egress.nonposted -= before[i].egress.nonposted;
+		after[i].egress.comp -= before[i].egress.comp;
+		after[i].ingress.posted -= before[i].ingress.posted;
+		after[i].ingress.nonposted -= before[i].ingress.nonposted;
+		after[i].ingress.comp -= before[i].ingress.comp;
+
+		egress_tot = switchtec_bwcntr_tot(&after[i].egress);
+		ingress_tot = switchtec_bwcntr_tot(&after[i].ingress);
+
+		if (!cfg.verbose) {
+			print_bw("Out:", after[i].time_us, egress_tot);
+			print_bw("In:", after[i].time_us, ingress_tot);
+		} else {
+			printf("\tOut:\n");
+			print_bw("  Posted:", after[i].time_us,
+				 after[i].egress.posted);
+			print_bw("  Non-Posted:", after[i].time_us,
+				 after[i].egress.nonposted);
+			print_bw("  Completion:", after[i].time_us,
+				 after[i].egress.comp);
+			print_bw("  Total:", after[i].time_us, egress_tot);
+
+			printf("\tIn:\n");
+			print_bw("  Posted:", after[i].time_us,
+				 after[i].ingress.posted);
+			print_bw("  Non-Posted:", after[i].time_us,
+				 after[i].ingress.nonposted);
+			print_bw("  Completion:", after[i].time_us,
+				 after[i].ingress.comp);
+			print_bw("  Total:", after[i].time_us, ingress_tot);
+		}
+	}
+
+	free(before);
+	free(after);
+	free(port_ids);
 	return 0;
 }
 

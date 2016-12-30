@@ -17,6 +17,7 @@
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 
+#include <stddef.h>
 #include <errno.h>
 
 #define ENTRY(x, h) {.mask=x, .name=#x, .help=h}
@@ -213,4 +214,72 @@ int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms)
 	return switchtec_event_wait_for(dev, SWITCHTEC_PFF_EVT_THRESH,
 					SWITCHTEC_EVT_IDX_ALL,
 					NULL, timeout_ms);
+}
+
+int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
+			  int *phys_port_ids, int clear,
+			  struct switchtec_bwcntr_res *res)
+{
+	int i;
+	int ret;
+	size_t cmd_size;
+	struct pmon_bw_get cmd = {
+		.sub_cmd_id = MRPC_PMON_GET_BW_COUNTER,
+		.count = nr_ports,
+	};
+
+	for (i = 0; i < nr_ports; i++) {
+		cmd.ports[i].id = phys_port_ids[i];
+		cmd.ports[i].clear = clear;
+	}
+
+	cmd_size = offsetof(struct pmon_bw_get, ports) +
+		sizeof(cmd.ports[0]) * nr_ports;
+
+	ret = switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, res,
+			    sizeof(*res) * nr_ports);
+	if (ret)
+		return -1;
+
+	return nr_ports;
+}
+
+int switchtec_bwcntr_all(struct switchtec_dev *dev, int clear,
+			 struct switchtec_port_id **ports,
+			 struct switchtec_bwcntr_res **res)
+{
+	int ret, i;
+	struct switchtec_status *status;
+	int ids[SWITCHTEC_MAX_PORTS];
+
+	ret = switchtec_status(dev, &status);
+	if (ret < 0)
+		return ret;
+
+	if (ports)
+		*ports = calloc(ret, sizeof(**ports));
+	if (res)
+		*res = calloc(ret, sizeof(**res));
+
+	for (i = 0; i < ret; i++) {
+		ids[i] = status[i].port.phys_id;
+		if (ports)
+			(*ports)[i] = status[i].port;
+	}
+
+	ret = switchtec_bwcntr_many(dev, ret, ids, clear, *res);
+	if (ret < 0) {
+		if (ports)
+			free(*ports);
+		if (res)
+			free(*res);
+	}
+
+	free(status);
+	return ret;
+}
+
+uint64_t switchtec_bwcntr_tot(struct switchtec_bwcntr_dir *d)
+{
+	return d->posted + d->nonposted + d->comp;
 }

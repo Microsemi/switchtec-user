@@ -345,6 +345,25 @@ int switchtec_evcntr_get_both(struct switchtec_dev *dev, unsigned stack_id,
 			      unsigned *counts, int clear);
 int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms);
 
+/********** BW COUNTER *********/
+
+struct switchtec_bwcntr_res {
+	uint64_t time_us;
+	struct switchtec_bwcntr_dir {
+		uint64_t posted;
+		uint64_t comp;
+		uint64_t nonposted;
+	} egress, ingress;
+};
+
+int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
+			  int *ids, int clear,
+			  struct switchtec_bwcntr_res *res);
+int switchtec_bwcntr_all(struct switchtec_dev *dev, int clear,
+			 struct switchtec_port_id **ports,
+			 struct switchtec_bwcntr_res **res);
+uint64_t switchtec_bwcntr_tot(struct switchtec_bwcntr_dir *d);
+
 #ifdef __cplusplus
 }
 #endif
