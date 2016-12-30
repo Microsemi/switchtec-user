@@ -357,7 +357,7 @@ struct switchtec_bwcntr_res {
 };
 
 int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
-			  int *ids, int clear,
+			  int *phys_port_ids, int clear,
 			  struct switchtec_bwcntr_res *res);
 int switchtec_bwcntr_all(struct switchtec_dev *dev, int clear,
 			 struct switchtec_port_id **ports,

@@ -122,16 +122,23 @@ static int status(int argc, char **argv, struct command *cmd,
 	const char *desc = "Display status of the ports on the switch";
 	int ret;
 	struct switchtec_status *status;
+	int port_ids[SWITCHTEC_MAX_PORTS];
+	struct switchtec_bwcntr_res bw_data[SWITCHTEC_MAX_PORTS];
 	int p;
+	double bw_val;
+	const char *bw_suf;
 
 	const float gen_transfers[] = {0, 2.5, 5, 8, 16};
 	const float gen_datarate[] = {0, 250, 500, 985, 1969};
 
 	static struct {
 		struct switchtec_dev *dev;
+		int reset_bytes;
 	} cfg = {0};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
+		 "reset byte counters"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -141,6 +148,20 @@ static int status(int argc, char **argv, struct command *cmd,
 		switchtec_perror("status");
 		return ret;
 	}
+
+	for (p = 0; p < ret; p++)
+		port_ids[p] = status[p].port.phys_id;
+
+	ret = switchtec_bwcntr_many(cfg.dev, ret, port_ids, cfg.reset_bytes,
+				    bw_data);
+	if (ret < 0) {
+		switchtec_perror("bwcntr");
+		free(status);
+		return ret;
+	}
+
+	if (cfg.reset_bytes)
+		memset(bw_data, 0, sizeof(bw_data));
 
 	for (p = 0; p < ret; p++) {
 		struct switchtec_status *s = &status[p];
@@ -159,6 +180,14 @@ static int status(int argc, char **argv, struct command *cmd,
 		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
 		       s->link_rate, gen_transfers[s->link_rate],
 		       gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
+
+		bw_val = switchtec_bwcntr_tot(&bw_data[p].egress);
+		bw_suf = suffix_si_get(&bw_val);
+		printf("\tOut Bytes:       \t%-.3g %sB\n", bw_val, bw_suf);
+
+		bw_val = switchtec_bwcntr_tot(&bw_data[p].ingress);
+		bw_suf = suffix_si_get(&bw_val);
+		printf("\tIn Bytes:        \t%-.3g %sB\n", bw_val, bw_suf);
 	}
 
 	free(status);
@@ -204,7 +233,7 @@ static int bw(int argc, char **argv, struct command *cmd,
 
 	ret = switchtec_bwcntr_all(cfg.dev, 0, &port_ids, &before);
 	if (ret < 0) {
-		perror("bw");
+		switchtec_perror("bw");
 		return ret;
 	}
 
@@ -214,7 +243,7 @@ static int bw(int argc, char **argv, struct command *cmd,
 	if (ret < 0) {
 		free(before);
 		free(port_ids);
-		perror("bw");
+		switchtec_perror("bw");
 		return ret;
 	}
 
