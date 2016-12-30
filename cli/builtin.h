@@ -28,6 +28,7 @@ COMMAND_LIST(
 	ENTRY("events", "Display events that have occurred", events)
 	ENTRY("log-dump", "Dump firmware log to a file", log_dump)
 	ENTRY("test", "Test if switchtec interface is working", test)
+	ENTRY("temp", "Return the switchtec die temperature", temp)
 	ENTRY("hard-reset", "Perform a hard reset of the switch", hard_reset)
 	ENTRY("fw-update", "Upload a new firmware image", fw_update)
 	ENTRY("fw-info", "Return information on currently flashed firmware", fw_info)

@@ -535,6 +535,32 @@ static int test(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static int temp(int argc, char **argv, struct command *cmd,
+		struct plugin *plugin)
+{
+	const char *desc = "Display die temperature of the switchtec device";
+	float ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {0};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_die_temp(cfg.dev);
+	if (ret < 0) {
+		switchtec_perror("die_temp");
+		return 1;
+	}
+
+	printf("%.3g °C\n", ret);
+
+	return 0;
+}
+
 static int ask_if_sure(int always_yes)
 {
 	char buf[10];

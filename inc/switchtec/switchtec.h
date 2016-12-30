@@ -106,6 +106,7 @@ int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 int switchtec_log_to_file(struct switchtec_dev *dev,
 			  enum switchtec_log_type type,
 			  int fd);
+float switchtec_die_temp(struct switchtec_dev *dev);
 
 /*********** EVENT Handling ***********/
 
