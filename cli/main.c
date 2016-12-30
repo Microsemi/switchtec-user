@@ -199,6 +199,17 @@ static void print_event_list(struct event_list *e, size_t cnt)
 	}
 }
 
+static void populate_event_choices(struct argconfig_choice *c)
+{
+	int i;
+
+	for (i = 0; i < SWITCHTEC_MAX_EVENTS; i++) {
+		c->value = 1 << i;
+		switchtec_event_info(i, &c->name, &c->help);
+		c++;
+	}
+}
+
 static int events(int argc, char **argv, struct command *cmd,
 		  struct plugin *plugin)
 {
@@ -207,17 +218,29 @@ static int events(int argc, char **argv, struct command *cmd,
 	struct event_list elist[256];
 	struct event_list *e = elist;
 	enum switchtec_event_type type;
-
+	int flags;
 	int idx;
 	int ret;
+	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
 
 	static struct {
 		struct switchtec_dev *dev;
-	} cfg = {0};
+		int clear_all;
+		int partition;
+		unsigned event_id;
+	} cfg = {
+		.partition = -1,
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"clear", 'c', "", CFG_NONE, &cfg.clear_all, no_argument,
+		 "clear all events"},
+		{"event", 'e', "EVENT", CFG_MULT_CHOICES, &cfg.event_id,
+		  required_argument, .choices=event_choices,
+		  .help="clear all events of a specified type"},
 		{NULL}};
 
+	populate_event_choices(event_choices);
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_event_summary(cfg.dev, &sum);
@@ -252,7 +275,12 @@ static int events(int argc, char **argv, struct command *cmd,
 			break;
 		}
 
-		ret = switchtec_event_ctl(cfg.dev, e->eid, idx, 0, NULL);
+		if (cfg.clear_all || cfg.event_id & (1 << e->eid))
+			flags = SWITCHTEC_EVT_FLAG_CLEAR;
+		else
+			flags = 0;
+
+		ret = switchtec_event_ctl(cfg.dev, e->eid, idx, flags, NULL);
 		if (ret < 0) {
 			perror("event_ctl");
 			return ret;
