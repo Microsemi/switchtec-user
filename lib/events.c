@@ -175,7 +175,7 @@ int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 			errno = EINVAL;
 			return -EINVAL;
 		} else {
-			sum->part[index] &= bit;
+			sum->part[index] |= bit;
 		}
 		break;
 	case PFF:
