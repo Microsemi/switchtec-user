@@ -395,67 +395,43 @@ static void print_event_list(struct event_list *e, size_t cnt)
 	}
 }
 
-static void populate_event_choices(struct argconfig_choice *c)
+static void populate_event_choices(struct argconfig_choice *c, int mask)
 {
 	int i;
 
 	for (i = 0; i < SWITCHTEC_MAX_EVENTS; i++) {
-		c->value = 1 << i;
+		if (mask)
+			c->value = 1 << i;
+		else
+			c->value = i;
 		switchtec_event_info(i, &c->name, &c->help);
 		c++;
 	}
 }
 
-static int events(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int get_events(struct switchtec_dev *dev,
+		      struct switchtec_event_summary *sum,
+		      struct event_list *elist, size_t elist_len,
+		      int event_id, int show_all, int clear_all,
+		      int index)
 {
-	const char *desc = "Display information on events that have occurred";
-	struct switchtec_event_summary sum;
-	struct event_list elist[256];
 	struct event_list *e = elist;
 	enum switchtec_event_type type;
 	int flags;
 	int idx;
 	int ret;
 	int local_part;
-	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
 
-	static struct {
-		struct switchtec_dev *dev;
-		int show_all;
-		int clear_all;
-		int partition;
-		unsigned event_id;
-	} cfg = {
-		.partition = -1,
-	};
-	const struct argconfig_options opts[] = {
-		DEVICE_OPTION,
-		{"all", 'a', "", CFG_NONE, &cfg.show_all, no_argument,
-		 "show events in all partitions"},
-		{"reset", 'r', "", CFG_NONE, &cfg.clear_all, no_argument,
-		 "clear all events"},
-		{"event", 'e', "EVENT", CFG_MULT_CHOICES, &cfg.event_id,
-		  required_argument, .choices=event_choices,
-		  .help="clear all events of a specified type"},
-		{NULL}};
+	local_part = switchtec_partition(dev);
 
-	populate_event_choices(event_choices);
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
-
-	ret = switchtec_event_summary(cfg.dev, &sum);
-	if (ret < 0) {
-		perror("event_summary");
-		return ret;
-	}
-
-	local_part = switchtec_partition(cfg.dev);
-
-	while (switchtec_event_summary_iter(&sum, &e->eid, &idx)) {
+	while (switchtec_event_summary_iter(sum, &e->eid, &idx)) {
 		if (e->eid == -1)
 			continue;
 
 		type = switchtec_event_info(e->eid, NULL, NULL);
+
+		if (index >= 0 && index != idx)
+			continue;
 
 		switch (type)  {
 		case SWITCHTEC_EVT_GLOBAL:
@@ -467,38 +443,166 @@ static int events(int argc, char **argv, struct command *cmd,
 			e->port = -1;
 			break;
 		case SWITCHTEC_EVT_PFF:
-			ret = switchtec_pff_to_port(cfg.dev, idx,
-						    &e->partition,
+			ret = switchtec_pff_to_port(dev, idx, &e->partition,
 						    &e->port);
 			if (ret < 0) {
 				perror("pff_to_port");
-				return ret;
+				return -1;
 			}
 			break;
 		}
 
-		if (!cfg.show_all && e->partition != local_part)
+		if (!show_all && e->partition != local_part)
 			continue;
 
-		if (cfg.clear_all || cfg.event_id & (1 << e->eid))
+		if (clear_all || event_id & (1 << e->eid))
 			flags = SWITCHTEC_EVT_FLAG_CLEAR;
 		else
 			flags = 0;
 
-		ret = switchtec_event_ctl(cfg.dev, e->eid, idx, flags, NULL);
+		ret = switchtec_event_ctl(dev, e->eid, idx, flags, NULL);
 		if (ret < 0) {
 			perror("event_ctl");
-			return ret;
+			return -1;
 		}
 
 		e->count = ret;
 		e++;
-		if (e - elist > ARRAY_SIZE(elist))
+		if (e - elist > elist_len)
 			break;
 	}
 
-	qsort(elist, e - elist, sizeof(*elist), compare_event_list);
-	print_event_list(elist, e - elist);
+	return e - elist;
+}
+
+static int events(int argc, char **argv, struct command *cmd,
+		  struct plugin *plugin)
+{
+	const char *desc = "Display information on events that have occurred";
+	struct event_list elist[256];
+	struct switchtec_event_summary sum;
+	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int show_all;
+		int clear_all;
+		unsigned event_id;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"all", 'a', "", CFG_NONE, &cfg.show_all, no_argument,
+		 "show events in all partitions"},
+		{"reset", 'r', "", CFG_NONE, &cfg.clear_all, no_argument,
+		 "clear all events"},
+		{"event", 'e', "EVENT", CFG_MULT_CHOICES, &cfg.event_id,
+		  required_argument, .choices=event_choices,
+		  .help="clear all events of a specified type"},
+		{NULL}};
+
+	populate_event_choices(event_choices, 1);
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_event_summary(cfg.dev, &sum);
+	if (ret < 0) {
+		perror("event_summary");
+		return ret;
+	}
+
+	ret = get_events(cfg.dev, &sum, elist, ARRAY_SIZE(elist), cfg.event_id,
+			 cfg.show_all, cfg.clear_all, -1);
+	if (ret < 0)
+		return ret;
+
+	qsort(elist, ret, sizeof(*elist), compare_event_list);
+	print_event_list(elist, ret);
+
+	return 0;
+}
+
+static int event_wait(int argc, char **argv, struct command *cmd,
+		      struct plugin *plugin)
+{
+	const char *desc = "Wait for an event to occur";
+	struct event_list elist[256];
+	struct switchtec_event_summary sum;
+	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
+	int index;
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int show_all;
+		int partition;
+		int port;
+		int timeout;
+		unsigned event_id;
+	} cfg = {
+		.partition = -1,
+		.port = -1,
+		.timeout = -1,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"event", 'e', "EVENT", CFG_CHOICES, &cfg.event_id,
+		  required_argument, .choices=event_choices,
+		  .help="event to wait on"},
+		{"partition", 'p', "NUM", CFG_POSITIVE, &cfg.partition,
+		  required_argument,
+		  .help="partition number for the event"},
+		{"port", 'q', "NUM", CFG_POSITIVE, &cfg.port,
+		  required_argument,
+		  .help="port number for the event"},
+		{"timeout", 't', "MS", CFG_INT, &cfg.timeout,
+		  required_argument,
+		  "timeout in milliseconds"},
+		{NULL}};
+
+	populate_event_choices(event_choices, 0);
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	switch (switchtec_event_info(cfg.event_id, NULL, NULL)) {
+	case SWITCHTEC_EVT_GLOBAL:
+		break;
+	case SWITCHTEC_EVT_PART:
+		if (cfg.port < 0) {
+			fprintf(stderr, "Port cannot be specified for this event type.\n");
+			return -1;
+		}
+
+		if (cfg.partition < 0)
+			index = SWITCHTEC_EVT_IDX_ALL;
+		else
+			index = cfg.partition;
+
+		break;
+	case SWITCHTEC_EVT_PFF:
+		if (cfg.partition < 0 && cfg.port < 0) {
+			index = SWITCHTEC_EVT_IDX_ALL;
+		} else if (cfg.partition < 0 || cfg.port < 0) {
+			fprintf(stderr, "Must specify partition and port for this event type.\n");
+			return -1;
+		} else {
+			ret = switchtec_port_to_pff(cfg.dev, cfg.partition,
+						    cfg.port, &index);
+			if (ret) {
+				perror("port");
+				return ret;
+			}
+		}
+	}
+
+	switchtec_event_wait_for(cfg.dev, cfg.event_id, index, &sum,
+				 cfg.timeout);
+
+	ret = get_events(cfg.dev, &sum, elist, ARRAY_SIZE(elist),
+			 1 << cfg.event_id, 0, 0, index);
+	if (ret < 0)
+		return ret;
+
+	qsort(elist, ret, sizeof(*elist), compare_event_list);
+	print_event_list(elist, ret);
 
 	return 0;
 }

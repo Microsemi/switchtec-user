@@ -27,6 +27,7 @@ COMMAND_LIST(
 	ENTRY("bw", "Measure the bandwidth for each port", bw)
 	ENTRY("latency", "Measure the latency of a port", latency)
 	ENTRY("events", "Display events that have occurred", events)
+	ENTRY("event-wait", "Wait for an event to occur", event_wait)
 	ENTRY("log-dump", "Dump firmware log to a file", log_dump)
 	ENTRY("test", "Test if switchtec interface is working", test)
 	ENTRY("temp", "Return the switchtec die temperature", temp)
