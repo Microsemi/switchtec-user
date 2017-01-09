@@ -479,7 +479,7 @@ int switchtec_status(struct switchtec_dev *dev,
 {
 	uint64_t port_bitmap = 0;
 	int ret;
-	int i;
+	int i, p;
 	int nr_ports = 0;
 	struct switchtec_status *s;
 
@@ -508,7 +508,7 @@ int switchtec_status(struct switchtec_dev *dev,
 
 
 	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
-		if (ports[i].par_id > SWITCHTEC_MAX_PORTS)
+		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
 			continue;
 		nr_ports++;
 	}
@@ -517,23 +517,24 @@ int switchtec_status(struct switchtec_dev *dev,
 	if (!s)
 		return -ENOMEM;
 
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
-		if (ports[i].par_id > SWITCHTEC_MAX_PORTS)
+	for (i = 0, p = 0; i < SWITCHTEC_MAX_PORTS && p < nr_ports; i++) {
+		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
 			continue;
 
-		s[i].port.partition = ports[i].par_id;
-		s[i].port.stack = ports[i].stk_id >> 4;
-		s[i].port.upstream = ports[i].usp_flag;
-		s[i].port.stk_id = ports[i].stk_id & 0xF;
-		s[i].port.phys_id = ports[i].phys_port_id;
-		s[i].port.log_id = ports[i].log_port_id;
+		s[p].port.partition = ports[i].par_id;
+		s[p].port.stack = ports[i].stk_id >> 4;
+		s[p].port.upstream = ports[i].usp_flag;
+		s[p].port.stk_id = ports[i].stk_id & 0xF;
+		s[p].port.phys_id = ports[i].phys_port_id;
+		s[p].port.log_id = ports[i].log_port_id;
 
-		s[i].cfg_lnk_width = ports[i].cfg_lnk_width;
-		s[i].neg_lnk_width = ports[i].neg_lnk_width;
-		s[i].link_up = ports[i].linkup_linkrate >> 7;
-		s[i].link_rate = ports[i].linkup_linkrate & 0x7F;
-		s[i].ltssm = le16toh(ports[i].LTSSM);
-		s[i].ltssm_str = ltssm_str(s[i].ltssm);
+		s[p].cfg_lnk_width = ports[i].cfg_lnk_width;
+		s[p].neg_lnk_width = ports[i].neg_lnk_width;
+		s[p].link_up = ports[i].linkup_linkrate >> 7;
+		s[p].link_rate = ports[i].linkup_linkrate & 0x7F;
+		s[p].ltssm = le16toh(ports[i].LTSSM);
+		s[p].ltssm_str = ltssm_str(s[i].ltssm);
+		p++;
 	}
 
 	qsort(s, nr_ports, sizeof(*s), compare_status);
