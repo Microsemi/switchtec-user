@@ -33,6 +33,7 @@ struct switchtec_dev;
 #define SWITCHTEC_MAX_PORTS  48
 #define SWITCHTEC_MAX_STACKS 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
+#define SWITCHTEC_UNBOUND_PORT 255
 
 struct switchtec_device_info {
 	char name[256];

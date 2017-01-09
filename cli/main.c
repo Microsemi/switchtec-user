@@ -106,14 +106,23 @@ static void print_port_title(struct switchtec_dev *dev,
 	const char *local = "";
 
 	if (p->partition != last_partition) {
-		if (p->partition == switchtec_partition(dev))
-			local = "    (LOCAL)";
-		printf("Partition %d:%s\n", p->partition, local);
+		if (p->partition == SWITCHTEC_UNBOUND_PORT) {
+			printf("Unbound Ports:\n");
+		} else {
+			if (p->partition == switchtec_partition(dev))
+				local = "    (LOCAL)";
+			printf("Partition %d:%s\n", p->partition, local);
+		}
 	}
 	last_partition = p->partition;
 
-	printf("    Stack %d, Port %d (%s):\n", p->stack,
-	       p->stk_id, p->upstream ? "USP" : "DSP");
+	if (p->partition == SWITCHTEC_UNBOUND_PORT) {
+		printf("    Phys Port ID %d  (Stack %d, Port %d)\n",
+		       p->phys_id, p->stack, p->stk_id);
+	} else {
+		printf("    Logical Port ID %d (%s):\n", p->log_id,
+		       p->upstream ? "USP" : "DSP");
+	}
 }
 
 static int status(int argc, char **argv, struct command *cmd,
@@ -167,16 +176,20 @@ static int status(int argc, char **argv, struct command *cmd,
 		struct switchtec_status *s = &status[p];
 		print_port_title(cfg.dev, &s->port);
 
+		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
+			continue;
+
+		printf("\tPhys Port ID:    \t%d (Stack %d, Port %d)\n",
+		       s->port.phys_id, s->port.stack, s->port.stk_id);
+
 		printf("\tStatus:          \t%s\n",
 		       s->link_up ? "UP" : "DOWN");
 		printf("\tLTSSM:           \t%s\n", s->ltssm_str);
 		printf("\tMax-Width:       \tx%d\n", s->cfg_lnk_width);
-		printf("\tPhys Port ID:    \t%d\n", s->port.phys_id);
-		printf("\tLogical Port ID: \t%d\n", s->port.log_id);
 
 		if (!s->link_up) continue;
 
-		printf("\tWidth:           \tx%d\n", s->neg_lnk_width);
+		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
 		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
 		       s->link_rate, gen_transfers[s->link_rate],
 		       gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
