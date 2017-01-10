@@ -268,7 +268,7 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 			     struct switchtec_fw_footer *ftr,
 			     char *version, size_t version_len);
 void switchtec_fw_perror(const char *s, int ret);
-int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info);
+int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			   struct switchtec_fw_image_info *info);

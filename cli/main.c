@@ -807,7 +807,7 @@ static int check_and_print_fw_image(int img_fd, const char *img_filename)
 {
 	int ret;
 	struct switchtec_fw_image_info info;
-	ret = switchtec_fw_image_info(img_fd, &info);
+	ret = switchtec_fw_file_info(img_fd, &info);
 
 	if (ret < 0) {
 		fprintf(stderr, "%s: Invalid image file format\n",

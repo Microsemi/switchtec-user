@@ -211,7 +211,7 @@ struct fw_image_header {
 	uint32_t image_crc;
 } hdr;
 
-int switchtec_fw_image_info(int fd, struct switchtec_fw_image_info *info)
+int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 {
 	int ret;
 
