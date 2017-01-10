@@ -789,7 +789,7 @@ static int hard_reset(int argc, char **argv, struct command *cmd,
 		return ret;
 	}
 
-	fprintf(stderr, "%s: hard reset\n", argv[optind]);
+	fprintf(stderr, "%s: hard reset\n", switchtec_name(cfg.dev));
 	return 0;
 }
 
