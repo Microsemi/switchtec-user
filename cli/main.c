@@ -852,19 +852,29 @@ static int fw_image_info(int argc, char **argv, struct command *cmd,
 
 static int print_fw_part_info(struct switchtec_dev *dev)
 {
-	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg;
-	int ret;
+	int nr_mult = 16;
+	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg,
+		mult_cfg[nr_mult];
+	int ret, i;
 
-	ret = switchtec_fw_part_act_info(dev, &act_img, &inact_img, &act_cfg,
-					 &inact_cfg);
+	ret = switchtec_fw_img_info(dev, &act_img, &inact_img);
 	if (ret < 0)
 		return ret;
+
+	ret = switchtec_fw_cfg_info(dev, &act_cfg, &inact_cfg, mult_cfg,
+				    &nr_mult);
 
 	printf("Active Partition:\n");
 	printf("  IMG \tVersion: %-8s\tCRC: %08lx\n",
 	       act_img.version, act_img.crc);
 	printf("  CFG  \tVersion: %-8s\tCRC: %08lx\n",
 	       act_cfg.version, act_cfg.crc);
+
+	for (i = 0; i < nr_mult; i++) {
+		printf("   \tMulti Config %d%s\n", i,
+		       mult_cfg[i].active ? " - Active" : "");
+	}
+
 	printf("Inactive Partition:\n");
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx\n",
 	       inact_img.version, inact_img.crc);
@@ -1048,10 +1058,15 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_fw_part_act_info(cfg.dev, &act_img, &inact_img,
-					 &act_cfg, &inact_cfg);
+	ret = switchtec_fw_img_info(cfg.dev, &act_img, &inact_img);
 	if (ret < 0) {
-		switchtec_perror("fw_part_act_info");
+		switchtec_perror("fw_img_info");
+		goto close_and_exit;
+	}
+
+	ret = switchtec_fw_cfg_info(cfg.dev, &act_cfg, &inact_cfg, NULL, NULL);
+	if (ret < 0) {
+		switchtec_perror("fw_cfg_info");
 		goto close_and_exit;
 	}
 

@@ -329,19 +329,110 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 	return nr_info;
 }
 
-int switchtec_fw_part_act_info(struct switchtec_dev *dev,
-			       struct switchtec_fw_image_info *act_img,
-			       struct switchtec_fw_image_info *inact_img,
-			       struct switchtec_fw_image_info *act_cfg,
-			       struct switchtec_fw_image_info *inact_cfg)
+static long multicfg_subcmd(struct switchtec_dev *dev, uint32_t subcmd,
+			    uint8_t index)
 {
 	int ret;
-	struct switchtec_fw_image_info info[4];
+	uint32_t result;
+
+	subcmd |= index << 8;
+
+	ret = switchtec_cmd(dev, MRPC_MULTI_CFG, &subcmd, sizeof(subcmd),
+			    &result, sizeof(result));
+	if (ret)
+		return -1;
+
+	return result;
+}
+
+static int get_multicfg(struct switchtec_dev *dev,
+			struct switchtec_fw_image_info *info,
+			int *nr_mult)
+{
+	int ret;
+	int i;
+
+	ret = multicfg_subcmd(dev, MRPC_MULTI_CFG_SUPPORTED, 0);
+	if (ret < 0)
+		return ret;
+
+	if (!ret) {
+		*nr_mult = 0;
+		return 0;
+	}
+
+	ret = multicfg_subcmd(dev, MRPC_MULTI_CFG_COUNT, 0);
+	if (ret < 0)
+		return ret;
+
+	if (*nr_mult > ret)
+		*nr_mult = ret;
+
+	for (i = 0; i < *nr_mult; i++) {
+		info[i].image_addr = multicfg_subcmd(dev,
+						     MRPC_MULTI_CFG_START_ADDR,
+						     i);
+		info[i].image_len = multicfg_subcmd(dev,
+						    MRPC_MULTI_CFG_LENGTH, i);
+		strcpy(info[i].version, "");
+		info[i].crc = 0;
+		info[i].active = 0;
+	}
+
+	ret = multicfg_subcmd(dev, MRPC_MULTI_CFG_ACTIVE, 0);
+	if (ret < 0)
+		return ret;
+
+	if (ret < *nr_mult)
+		info[ret].active = 1;
+
+	return 0;
+}
+
+int switchtec_fw_cfg_info(struct switchtec_dev *dev,
+			  struct switchtec_fw_image_info *act_cfg,
+			  struct switchtec_fw_image_info *inact_cfg,
+			  struct switchtec_fw_image_info *mult_cfg,
+			  int *nr_mult)
+{
+	int ret;
+	struct switchtec_fw_image_info info[2];
+
+	info[0].type = SWITCHTEC_FW_TYPE_DAT0;
+	info[1].type = SWITCHTEC_FW_TYPE_DAT1;
+
+	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info),
+				     info);
+	if (ret < 0)
+		return ret;
+
+	if (info[0].active) {
+		if (act_cfg)
+			memcpy(act_cfg, &info[0], sizeof(*act_cfg));
+		if (inact_cfg)
+			memcpy(inact_cfg, &info[1], sizeof(*inact_cfg));
+	} else {
+		if (act_cfg)
+			memcpy(act_cfg, &info[1], sizeof(*act_cfg));
+		if (inact_cfg)
+			memcpy(inact_cfg, &info[0], sizeof(*inact_cfg));
+	}
+
+	if (!nr_mult || !mult_cfg || *nr_mult == 0)
+		return 0;
+
+	return get_multicfg(dev, mult_cfg, nr_mult);
+}
+
+int switchtec_fw_img_info(struct switchtec_dev *dev,
+			  struct switchtec_fw_image_info *act_img,
+			  struct switchtec_fw_image_info *inact_img)
+{
+	int ret;
+	struct switchtec_fw_image_info info[2];
 
 	info[0].type = SWITCHTEC_FW_TYPE_IMG0;
 	info[1].type = SWITCHTEC_FW_TYPE_IMG1;
-	info[2].type = SWITCHTEC_FW_TYPE_DAT0;
-	info[3].type = SWITCHTEC_FW_TYPE_DAT1;
 
 	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info),
 				     info);
@@ -358,18 +449,6 @@ int switchtec_fw_part_act_info(struct switchtec_dev *dev,
 			memcpy(act_img, &info[1], sizeof(*act_img));
 		if (inact_img)
 			memcpy(inact_img, &info[0], sizeof(*inact_img));
-	}
-
-	if (info[2].active) {
-		if (act_cfg)
-			memcpy(act_cfg, &info[2], sizeof(*act_cfg));
-		if (inact_cfg)
-			memcpy(inact_cfg, &info[3], sizeof(*inact_cfg));
-	} else {
-		if (act_cfg)
-			memcpy(act_cfg, &info[3], sizeof(*act_cfg));
-		if (inact_cfg)
-			memcpy(inact_cfg, &info[2], sizeof(*inact_cfg));
 	}
 
 	return 0;
