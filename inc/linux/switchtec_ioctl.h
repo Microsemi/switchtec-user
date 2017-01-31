@@ -1,6 +1,6 @@
 /*
  * Microsemi Switchtec PCIe Driver
- * Copyright (c) 2016, Microsemi Corporation
+ * Copyright (c) 2017, Microsemi Corporation
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms and conditions of the GNU General Public License,
@@ -18,37 +18,39 @@
 
 #include <linux/types.h>
 
-enum switchtec_ioctl_partition {
-	SWITCHTEC_IOCTL_PART_CFG0,
-	SWITCHTEC_IOCTL_PART_CFG1,
-	SWITCHTEC_IOCTL_PART_IMG0,
-	SWITCHTEC_IOCTL_PART_IMG1,
-	SWITCHTEC_IOCTL_PART_NVLOG,
-	SWITCHTEC_IOCTL_PART_VENDOR0,
-	SWITCHTEC_IOCTL_PART_VENDOR1,
-	SWITCHTEC_IOCTL_PART_VENDOR2,
-	SWITCHTEC_IOCTL_PART_VENDOR3,
-	SWITCHTEC_IOCTL_PART_VENDOR4,
-	SWITCHTEC_IOCTL_PART_VENDOR5,
-	SWITCHTEC_IOCTL_PART_VENDOR6,
-	SWITCHTEC_IOCTL_PART_VENDOR7,
-	SWITCHTEC_IOCTL_NUM_PARTITIONS,
+#define SWITCHTEC_IOCTL_PART_CFG0	0
+#define SWITCHTEC_IOCTL_PART_CFG1	1
+#define SWITCHTEC_IOCTL_PART_IMG0	2
+#define SWITCHTEC_IOCTL_PART_IMG1	3
+#define SWITCHTEC_IOCTL_PART_NVLOG	4
+#define SWITCHTEC_IOCTL_PART_VENDOR0	5
+#define SWITCHTEC_IOCTL_PART_VENDOR1	6
+#define SWITCHTEC_IOCTL_PART_VENDOR2	7
+#define SWITCHTEC_IOCTL_PART_VENDOR3	8
+#define SWITCHTEC_IOCTL_PART_VENDOR4	9
+#define SWITCHTEC_IOCTL_PART_VENDOR5	10
+#define SWITCHTEC_IOCTL_PART_VENDOR6	11
+#define SWITCHTEC_IOCTL_PART_VENDOR7	12
+#define SWITCHTEC_IOCTL_NUM_PARTITIONS  13
+
+struct switchtec_ioctl_flash_info {
+	__u64 flash_length;
+	__u32 num_partitions;
+	__u32 padding;
 };
 
-struct switchtec_ioctl_fw_info {
-	__u32 flash_length;
-
-	struct {
-		__u32 address;
-		__u32 length;
-		__u32 active;
-	} partition[SWITCHTEC_IOCTL_NUM_PARTITIONS];
+struct switchtec_ioctl_flash_part_info {
+	__u32 flash_partition;
+	__u32 address;
+	__u32 length;
+	__u32 active;
 };
 
 struct switchtec_ioctl_event_summary {
 	__u64 global;
 	__u64 part_bitmap;
 	__u32 local_part;
+	__u32 padding;
 	__u32 part[48];
 	__u32 pff[48];
 };
@@ -98,13 +100,14 @@ enum switchtec_ioctl_event {
 #define SWITCHTEC_IOCTL_EVENT_FLAG_DIS_LOG   (1 << 6)
 #define SWITCHTEC_IOCTL_EVENT_FLAG_DIS_CLI   (1 << 7)
 #define SWITCHTEC_IOCTL_EVENT_FLAG_DIS_FATAL (1 << 8)
+#define SWITCHTEC_IOCTL_EVENT_FLAG_UNUSED    (~0x1ff)
 
 struct switchtec_ioctl_event_ctl {
 	__u32 event_id;
 	__s32 index;
 	__u32 flags;
-	__u16 occurred;
-	__u16 count;
+	__u32 occurred;
+	__u32 count;
 	__u32 data[5];
 };
 
@@ -115,15 +118,17 @@ struct switchtec_ioctl_pff_port {
 	__u32 port;
 };
 
-#define SWITCHTEC_IOCTL_FW_INFO \
-	_IOR('W', 0x40, struct switchtec_ioctl_fw_info)
+#define SWITCHTEC_IOCTL_FLASH_INFO \
+	_IOR('W', 0x40, struct switchtec_ioctl_flash_info)
+#define SWITCHTEC_IOCTL_FLASH_PART_INFO \
+	_IOWR('W', 0x41, struct switchtec_ioctl_flash_part_info)
 #define SWITCHTEC_IOCTL_EVENT_SUMMARY \
-	_IOR('W', 0x41, struct switchtec_ioctl_event_summary)
+	_IOR('W', 0x42, struct switchtec_ioctl_event_summary)
 #define SWITCHTEC_IOCTL_EVENT_CTL \
-	_IOWR('W', 0x42, struct switchtec_ioctl_event_ctl)
+	_IOWR('W', 0x43, struct switchtec_ioctl_event_ctl)
 #define SWITCHTEC_IOCTL_PFF_TO_PORT \
-	_IOWR('W', 0x43, struct switchtec_ioctl_pff_port)
-#define SWITCHTEC_IOCTL_PORT_TO_PFF \
 	_IOWR('W', 0x44, struct switchtec_ioctl_pff_port)
+#define SWITCHTEC_IOCTL_PORT_TO_PFF \
+	_IOWR('W', 0x45, struct switchtec_ioctl_pff_port)
 
 #endif

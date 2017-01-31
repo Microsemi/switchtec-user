@@ -262,13 +262,22 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
-static void copy_part_info(struct switchtec_fw_image_info *info,
-			   struct switchtec_ioctl_fw_info *ioctl_info,
-			   enum switchtec_ioctl_partition part)
+static int get_part(struct switchtec_dev *dev,
+		    struct switchtec_fw_image_info *info, int part)
 {
-	info->image_addr = ioctl_info->partition[part].address;
-	info->image_len = ioctl_info->partition[part].length;
-	info->active = ioctl_info->partition[part].active;
+	struct switchtec_ioctl_flash_part_info ioctl_info;
+	int ret;
+
+	ioctl_info.flash_partition = part;
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FLASH_PART_INFO, &ioctl_info);
+	if (ret)
+		return ret;
+
+	info->image_addr = ioctl_info.address;
+	info->image_len = ioctl_info.length;
+	info->active = ioctl_info.active;
+	return 0;
 }
 
 int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
@@ -276,37 +285,31 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 {
 	int ret;
 	int i;
-	struct switchtec_ioctl_fw_info ioctl_info;
 	struct switchtec_fw_footer ftr;
 
 	if (info == NULL || nr_info == 0)
 		return -EINVAL;
 
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FW_INFO, &ioctl_info);
-	if (ret)
-		return ret;
-
 	for (i = 0; i < nr_info; i++) {
+		struct switchtec_fw_image_info *inf = &info[i];
+
 		switch(info[i].type) {
 		case SWITCHTEC_FW_TYPE_IMG0:
-			copy_part_info(&info[i], &ioctl_info,
-				       SWITCHTEC_IOCTL_PART_IMG0);
+			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_IMG0);
 			break;
 		case SWITCHTEC_FW_TYPE_IMG1:
-			copy_part_info(&info[i], &ioctl_info,
-				       SWITCHTEC_IOCTL_PART_IMG1);
+			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_IMG1);
 			break;
 		case SWITCHTEC_FW_TYPE_DAT0:
-			copy_part_info(&info[i], &ioctl_info,
-				       SWITCHTEC_IOCTL_PART_CFG0);
+			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_CFG0);
 			break;
 		case SWITCHTEC_FW_TYPE_DAT1:
-			copy_part_info(&info[i], &ioctl_info,
-				       SWITCHTEC_IOCTL_PART_CFG1);
+			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_CFG1);
 			break;
 		case SWITCHTEC_FW_TYPE_NVLOG:
-			copy_part_info(&info[i], &ioctl_info,
-				       SWITCHTEC_IOCTL_PART_NVLOG);
+			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_NVLOG);
+			if (ret)
+				return ret;
 
 			info[i].version[0] = 0;
 			info[i].crc = 0;
@@ -316,10 +319,13 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			return -EINVAL;
 		}
 
-		ret = switchtec_fw_read_footer(dev, info[i].image_addr,
-					       info[i].image_len,
-					       &ftr, info[i].version,
-					       sizeof(info[i].version));
+		if (ret)
+			return ret;
+
+		ret = switchtec_fw_read_footer(dev, inf->image_addr,
+					       inf->image_len, &ftr,
+					       inf->version,
+					       sizeof(inf->version));
 		if (ret < 0)
 			return ret;
 
