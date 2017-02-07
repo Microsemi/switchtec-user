@@ -23,6 +23,7 @@
 
 COMMAND_LIST(
 	ENTRY("list", "List all switchtec devices on this machine", list)
+	ENTRY("gui", "Display a simple ncurses GUI for the switch", gui)
 	ENTRY("status", "Display status information", status)
 	ENTRY("bw", "Measure the bandwidth for each port", bw)
 	ENTRY("latency", "Measure the latency of a port", latency)
