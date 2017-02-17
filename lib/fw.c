@@ -86,26 +86,27 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 			     NULL, 0);
 }
 
-int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
-			    int dont_activate,
-			    void (*progress_callback)(int cur, int tot))
+struct cmd_fwdl {
+	struct cmd_fwdl_hdr {
+		uint8_t subcmd;
+		uint8_t dont_activate;
+		uint8_t reserved[2];
+		uint32_t offset;
+		uint32_t img_length;
+		uint32_t blk_length;
+	} hdr;
+	uint8_t data[MRPC_MAX_DATA_LEN - sizeof(struct cmd_fwdl_hdr)];
+};
+
+int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
+			  int dont_activate,
+			  void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
 	enum mrpc_bg_status bgstatus;
 	ssize_t image_size, offset = 0;
 	int ret;
-
-	struct {
-		struct cmd_fwdl_hdr {
-			uint8_t subcmd;
-			uint8_t dont_activate;
-			uint8_t reserved[2];
-			uint32_t offset;
-			uint32_t img_length;
-			uint32_t blk_length;
-		} hdr;
-		uint8_t data[MRPC_MAX_DATA_LEN - sizeof(struct cmd_fwdl_hdr)];
-	} cmd = {};
+	struct cmd_fwdl cmd = {};
 
 	image_size = lseek(img_fd, 0, SEEK_END);
 	if (image_size < 0)
@@ -155,6 +156,82 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
 		if (progress_callback)
 			progress_callback(offset, image_size);
 
+	}
+
+	if (status == SWITCHTEC_DLSTAT_COMPLETES)
+		return 0;
+
+	if (status == SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT)
+		return 0;
+
+	if (status == SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
+		return 0;
+
+	if (status == 0)
+		return SWITCHTEC_DLSTAT_HARDWARE_ERR;
+
+	return status;
+}
+
+int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
+			    int dont_activate,
+			    void (*progress_callback)(int cur, int tot))
+{
+	enum switchtec_fw_dlstatus status;
+	enum mrpc_bg_status bgstatus;
+	ssize_t image_size, offset = 0;
+	int ret;
+	struct cmd_fwdl cmd = {};
+
+	ret = fseek(fimg, 0, SEEK_END);
+	if (ret)
+		return -errno;
+	image_size = ftell(fimg);
+	if (image_size < 0)
+		return -errno;
+	ret = fseek(fimg, 0, SEEK_SET);
+	if (ret)
+		return -errno;
+
+	switchtec_fw_dlstatus(dev, &status, &bgstatus);
+
+	if (status == SWITCHTEC_DLSTAT_INPROGRESS)
+		return -EBUSY;
+
+	if (bgstatus == MRPC_BG_STAT_INPROGRESS)
+		return -EBUSY;
+
+	cmd.hdr.subcmd = MRPC_FWDNLD_DOWNLOAD;
+	cmd.hdr.dont_activate = !!dont_activate;
+	cmd.hdr.img_length = htole32(image_size);
+
+	while (offset < image_size) {
+		ssize_t blklen = fread(&cmd.data, 1, sizeof(cmd.data), fimg);
+
+		if (blklen == 0) {
+			ret = ferror(fimg);
+			if (ret)
+				return ret;
+			break;
+		}
+
+		cmd.hdr.offset = htole32(offset);
+		cmd.hdr.blk_length = htole32(blklen);
+
+		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
+				    NULL, 0);
+
+		if (ret < 0)
+			return ret;
+
+		ret = switchtec_fw_wait(dev, &status);
+		if (ret < 0)
+			return ret;
+
+		offset += cmd.hdr.blk_length;
+
+		if (progress_callback)
+			progress_callback(offset, image_size);
 	}
 
 	if (status == SWITCHTEC_DLSTAT_COMPLETES)
@@ -494,9 +571,9 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 	return read;
 }
 
-int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
-			   unsigned long addr, size_t len,
-			   void (*progress_callback)(int cur, int tot))
+int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
+			 unsigned long addr, size_t len,
+			 void (*progress_callback)(int cur, int tot))
 {
 	int ret;
 	unsigned char buf[(MRPC_MAX_DATA_LEN-8)*4];

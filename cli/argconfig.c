@@ -516,12 +516,12 @@ static int cfg_file_handler(const char *optarg, void *value_addr,
 {
 	const char *fopts = "";
 	switch(opt->cfg_type) {
-	case CFG_FILE_A: fopts= "a"; break;
-	case CFG_FILE_R: fopts= "r"; break;
-	case CFG_FILE_W: fopts= "w"; break;
-	case CFG_FILE_AP: fopts= "a+"; break;
-	case CFG_FILE_RP: fopts= "r+"; break;
-	case CFG_FILE_WP: fopts= "w+"; break;
+	case CFG_FILE_A: fopts = "ab"; break;
+	case CFG_FILE_R: fopts = "rb"; break;
+	case CFG_FILE_W: fopts = "wb"; break;
+	case CFG_FILE_AP: fopts = "a+b"; break;
+	case CFG_FILE_RP: fopts = "r+b"; break;
+	case CFG_FILE_WP: fopts = "w+b"; break;
 	default: return 1;
 	}
 
@@ -530,7 +530,9 @@ static int cfg_file_handler(const char *optarg, void *value_addr,
 		perror(optarg);
 		return 1;
 	}
-	*((FILE **) value_addr) = f;
+	*((FILE **)value_addr) = f;
+	value_addr += sizeof(FILE *);
+	*((const char **)value_addr) = optarg;
 
 	return 0;
 }

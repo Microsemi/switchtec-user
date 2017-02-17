@@ -22,6 +22,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -254,12 +255,15 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 		      enum switchtec_fw_dlstatus *status);
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_fw, int toggle_cfg);
-int switchtec_fw_write_file(struct switchtec_dev *dev, int img_fd,
+int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
+			  int dont_activate,
+			  void (*progress_callback)(int cur, int tot));
+int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 			    int dont_activate,
 			    void (*progress_callback)(int cur, int tot));
-int switchtec_fw_read_file(struct switchtec_dev *dev, int fd,
-			   unsigned long addr, size_t len,
-			   void (*progress_callback)(int cur, int tot));
+int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
+			 unsigned long addr, size_t len,
+			 void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 int switchtec_fw_read_footer(struct switchtec_dev *dev,

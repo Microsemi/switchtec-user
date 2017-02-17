@@ -955,14 +955,14 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 
 	static struct {
 		struct switchtec_dev *dev;
-		int img_fd;
+		FILE *fimg;
 		const char *img_filename;
 		int assume_yes;
 		int dont_activate;
 	} cfg = {0};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"img_file", .cfg_type=CFG_FD_RD, .value_addr=&cfg.img_fd,
+		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
 		  .argument_type=required_positional,
 		  .help="image file to use as the new firmware"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
@@ -977,19 +977,19 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 	printf("Writing the following firmware image to %s.\n",
 	       switchtec_name(cfg.dev));
 
-	ret = check_and_print_fw_image(cfg.img_fd, cfg.img_filename);
+	ret = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename);
 	if (ret < 0)
 		return ret;
 
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
-		close(cfg.img_fd);
+		fclose(cfg.fimg);
 		return ret;
 	}
 
-	ret = switchtec_fw_write_file(cfg.dev, cfg.img_fd, cfg.dont_activate,
+	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
 				      fw_progress_callback);
-	close(cfg.img_fd);
+	fclose(cfg.fimg);
 	printf("\n\n");
 
 	print_fw_part_info(cfg.dev);
@@ -1117,8 +1117,8 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 		goto close_and_exit;
 	}
 
-	ret = switchtec_fw_read_file(cfg.dev, cfg.out_fd, img_addr,
-				     ftr.image_len, fw_progress_callback);
+	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, img_addr,
+				   ftr.image_len, fw_progress_callback);
 	if (ret < 0)
 		switchtec_perror("fw_read");
 
