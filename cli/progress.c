@@ -55,7 +55,7 @@ static void print_bar(int cur, int total)
 
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 
-	bar_width = w.ws_col - 23;
+	bar_width = w.ws_col - 33;
 	pos = bar_width * cur / total;
 
 	printf(" %3.0f%% [", progress);
@@ -80,11 +80,12 @@ static void print_time(struct timeval *interval)
 	printf("%d:%02d:%02d", hrmin.quot, hrmin.rem, minsec.rem);
 }
 
-static int calc_eta(int cur, int total, struct timeval *eta)
+static int calc_eta(int cur, int total, struct timeval *eta, double *rate)
 {
 	struct timeval now;
 	struct timeval elapsed;
 	double elaps_sec;
+	double per_item;
 
 	if (cur == 0)
 		return -1;
@@ -93,7 +94,10 @@ static int calc_eta(int cur, int total, struct timeval *eta)
 	timeval_subtract(&elapsed, &now, &start_time);
 	elaps_sec = elapsed.tv_sec + elapsed.tv_usec * 1e-6;
 
-	elaps_sec = (elaps_sec / cur) * (total - cur);
+	per_item = elaps_sec / cur;
+	elaps_sec = (per_item) * (total - cur);
+	if (rate)
+		*rate = 1 / per_item;
 
 	eta->tv_sec = elaps_sec;
 
@@ -108,14 +112,17 @@ void progress_start(void)
 void progress_update(int cur, int total)
 {
 	struct timeval eta;
+	double rate = 0.0;
 
 	print_bar(cur, total);
 
 	printf("ETA:  ");
-	if (calc_eta(cur, total, &eta))
+	if (calc_eta(cur, total, &eta, &rate))
 		printf("-:--:--");
 	else
 		print_time(&eta);
+
+	printf("  %3.0fkB/s ", rate / 1024);
 
 	printf("\r");
 	fflush(stdout);
