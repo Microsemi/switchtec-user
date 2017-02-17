@@ -17,6 +17,7 @@
 #include "argconfig.h"
 #include "version.h"
 #include "suffix.h"
+#include "progress.h"
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
@@ -929,24 +930,6 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static void fw_progress_callback(int cur, int total)
-{
-	const int bar_width = 60;
-
-	int i;
-	float progress = cur * 100.0 / total;
-	int pos = bar_width * cur / total;
-
-	printf(" [");
-	for (i = 0; i < bar_width; i++) {
-		if (i < pos) putchar('=');
-		else if (i == pos) putchar('>');
-		else putchar(' ');
-	}
-	printf("] %2.0f %%\r", progress);
-	fflush(stdout);
-}
-
 static int fw_update(int argc, char **argv, struct command *cmd,
 		     struct plugin *plugin)
 {
@@ -987,10 +970,13 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		return ret;
 	}
 
+	progress_start();
 	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
-				      fw_progress_callback);
+				      progress_update);
+	progress_finish();
+
 	fclose(cfg.fimg);
-	printf("\n\n");
+	printf("\n");
 
 	print_fw_part_info(cfg.dev);
 	printf("\n");
@@ -1117,8 +1103,11 @@ static int fw_read(int argc, char **argv, struct command *cmd,
 		goto close_and_exit;
 	}
 
+	progress_start();
 	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, img_addr,
-				   ftr.image_len, fw_progress_callback);
+				   ftr.image_len, progress_update);
+	progress_finish();
+
 	if (ret < 0)
 		switchtec_perror("fw_read");
 
