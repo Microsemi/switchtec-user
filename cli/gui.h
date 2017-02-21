@@ -18,6 +18,6 @@
 
 #include <switchtec/switchtec.h>
 
-int gui_main(struct switchtec_dev *dev);
+int gui_main(struct switchtec_dev *, unsigned, unsigned, int);
 
 #endif

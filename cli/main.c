@@ -136,15 +136,28 @@ static int gui(int argc, char **argv, struct command *cmd,
 
 	static struct {
 		struct switchtec_dev *dev;
-	} cfg = {0};
+		unsigned reset_bytes;
+		unsigned refresh;
+		int duration;
+	} cfg = {
+	    .refresh  = 1,
+	    .duration = -1,
+	};
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
+		 "reset byte counters"},
+		{"refresh", 'f', "", CFG_POSITIVE, &cfg.refresh, required_argument,
+		 "gui refresh period in seconds (default: 1 second)"},
+		{"duration", 'd', "", CFG_INT, &cfg.duration, required_argument,
+		 "gui duration in seconds (-1 forever)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = gui_main(cfg.dev);
+	ret = gui_main(cfg.dev, cfg.reset_bytes, cfg.refresh,
+		       cfg. duration);
 
 	return ret;
 }
