@@ -18,6 +18,7 @@ Currently the following features are supported:
 * Dump firmware logs
 * Send a hard reset command to the switch
 * Update and readback firmware as well as display image version and CRC info
+* A simple ncurses GUI that shows salient information for the switch
 
 ## Installation
 
