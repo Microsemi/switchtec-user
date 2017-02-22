@@ -110,6 +110,9 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  int fd);
 float switchtec_die_temp(struct switchtec_dev *dev);
 
+static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16};
+static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969};
+
 /*********** EVENT Handling ***********/
 
 enum switchtec_event_id {

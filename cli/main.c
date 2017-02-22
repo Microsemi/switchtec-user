@@ -32,6 +32,7 @@
 
 #define CREATE_CMD
 #include "builtin.h"
+#include "gui.h"
 
 static const char version_string[] = VERSION;
 
@@ -126,6 +127,41 @@ static void print_port_title(struct switchtec_dev *dev,
 	}
 }
 
+static int gui(int argc, char **argv, struct command *cmd,
+		  struct plugin *plugin)
+{
+
+	const char *desc = "Display a simple ncurses GUI for the switch";
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned reset_bytes;
+		unsigned refresh;
+		int duration;
+	} cfg = {
+	    .refresh  = 1,
+	    .duration = -1,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
+		 "reset byte counters"},
+		{"refresh", 'f', "", CFG_POSITIVE, &cfg.refresh, required_argument,
+		 "gui refresh period in seconds (default: 1 second)"},
+		{"duration", 'd', "", CFG_INT, &cfg.duration, required_argument,
+		 "gui duration in seconds (-1 forever)"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = gui_main(cfg.dev, cfg.reset_bytes, cfg.refresh,
+		       cfg. duration);
+
+	return ret;
+}
+
 static int status(int argc, char **argv, struct command *cmd,
 		  struct plugin *plugin)
 {
@@ -137,9 +173,6 @@ static int status(int argc, char **argv, struct command *cmd,
 	int p;
 	double bw_val;
 	const char *bw_suf;
-
-	const float gen_transfers[] = {0, 2.5, 5, 8, 16};
-	const float gen_datarate[] = {0, 250, 500, 985, 1969};
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -192,8 +225,8 @@ static int status(int argc, char **argv, struct command *cmd,
 
 		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
 		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
-		       s->link_rate, gen_transfers[s->link_rate],
-		       gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
+		       s->link_rate, switchtec_gen_transfers[s->link_rate],
+		       switchtec_gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
 
 		bw_val = switchtec_bwcntr_tot(&bw_data[p].egress);
 		bw_suf = suffix_si_get(&bw_val);
