@@ -1010,15 +1010,19 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 	progress_start();
 	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
 				      progress_update);
-	progress_finish();
-
 	fclose(cfg.fimg);
+
+	if (ret) {
+		printf("\n");
+		switchtec_fw_perror("firmware update", ret);
+		return ret;
+	}
+
+	progress_finish();
 	printf("\n");
 
 	print_fw_part_info(cfg.dev);
 	printf("\n");
-
-	switchtec_fw_perror("firmware update", ret);
 
 	return ret;
 }

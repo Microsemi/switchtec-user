@@ -115,11 +115,15 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 
 	switchtec_fw_dlstatus(dev, &status, &bgstatus);
 
-	if (status == SWITCHTEC_DLSTAT_INPROGRESS)
+	if (status == SWITCHTEC_DLSTAT_INPROGRESS) {
+		errno = EBUSY;
 		return -EBUSY;
+	}
 
-	if (bgstatus == MRPC_BG_STAT_INPROGRESS)
+	if (bgstatus == MRPC_BG_STAT_INPROGRESS) {
+		errno = EBUSY;
 		return -EBUSY;
+	}
 
 	cmd.hdr.subcmd = MRPC_FWDNLD_DOWNLOAD;
 	cmd.hdr.dont_activate = !!dont_activate;
@@ -195,11 +199,15 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 
 	switchtec_fw_dlstatus(dev, &status, &bgstatus);
 
-	if (status == SWITCHTEC_DLSTAT_INPROGRESS)
+	if (status == SWITCHTEC_DLSTAT_INPROGRESS) {
+		errno = EBUSY;
 		return -EBUSY;
+	}
 
-	if (bgstatus == MRPC_BG_STAT_INPROGRESS)
+	if (bgstatus == MRPC_BG_STAT_INPROGRESS) {
+		errno = EBUSY;
 		return -EBUSY;
+	}
 
 	cmd.hdr.subcmd = MRPC_FWDNLD_DOWNLOAD;
 	cmd.hdr.dont_activate = !!dont_activate;
