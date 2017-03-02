@@ -134,6 +134,11 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 	if (ret <= 0)
 		return ret;
 
+	if (fds.revents & POLLERR) {
+		errno = ENODEV;
+		return -1;
+	}
+
 	if (fds.revents & POLLPRI)
 		return 1;
 

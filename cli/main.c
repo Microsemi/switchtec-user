@@ -640,8 +640,12 @@ static int event_wait(int argc, char **argv, struct command *cmd,
 		}
 	}
 
-	switchtec_event_wait_for(cfg.dev, cfg.event_id, index, &sum,
-				 cfg.timeout);
+	ret = switchtec_event_wait_for(cfg.dev, cfg.event_id, index, &sum,
+				       cfg.timeout);
+	if (ret < 0) {
+		switchtec_perror("event-wait");
+		return ret;
+	}
 
 	ret = get_events(cfg.dev, &sum, elist, ARRAY_SIZE(elist),
 			 1 << cfg.event_id, 0, 0, index);
