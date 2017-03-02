@@ -566,9 +566,8 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 
 		ret = switchtec_cmd(dev, MRPC_RD_FLASH, &cmd, sizeof(cmd),
 				    cbuf, chunk_len);
-
-		if (ret < 0)
-			return ret;
+		if (ret)
+			return -1;
 
 		addr += chunk_len;
 		len -= chunk_len;
