@@ -216,6 +216,18 @@ int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms)
 					NULL, timeout_ms);
 }
 
+void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
+			  struct switchtec_bwcntr_res *old)
+{
+	new->time_us -= old->time_us;
+	new->egress.posted -= old->egress.posted;
+	new->egress.nonposted -= old->egress.nonposted;
+	new->egress.comp -= old->egress.comp;
+	new->ingress.posted -= old->ingress.posted;
+	new->ingress.nonposted -= old->ingress.nonposted;
+	new->ingress.comp -= old->ingress.comp;
+}
+
 int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 			  int *phys_port_ids, int clear,
 			  struct switchtec_bwcntr_res *res)

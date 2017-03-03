@@ -297,13 +297,7 @@ static int bw(int argc, char **argv, struct command *cmd,
 	for (i = 0; i < ret; i++) {
 		print_port_title(cfg.dev, &port_ids[i]);
 
-		after[i].time_us -= before[i].time_us;
-		after[i].egress.posted -= before[i].egress.posted;
-		after[i].egress.nonposted -= before[i].egress.nonposted;
-		after[i].egress.comp -= before[i].egress.comp;
-		after[i].ingress.posted -= before[i].ingress.posted;
-		after[i].ingress.nonposted -= before[i].ingress.nonposted;
-		after[i].ingress.comp -= before[i].ingress.comp;
+		switchtec_bwcntr_sub(&after[i], &before[i]);
 
 		egress_tot = switchtec_bwcntr_tot(&after[i].egress);
 		ingress_tot = switchtec_bwcntr_tot(&after[i].ingress);
