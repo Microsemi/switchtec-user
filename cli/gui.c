@@ -26,11 +26,14 @@
 #include <string.h>
 #include <curses.h>
 #include <signal.h>
+#include <math.h>
 
 #define WINBORDER  '|', '|', '-', '-', 0, 0, 0, 0
 #define WINPORTX 20
 #define WINPORTY 15
 #define WINPORTSIZE WINPORTY, WINPORTX
+
+#define GUI_INIT_TIME 100000
 
 static WINDOW *mainwin;
 
@@ -39,7 +42,7 @@ struct portloc {
 	unsigned starty;
 };
 
-void gui_timer(unsigned duration)
+static void gui_timer(unsigned duration)
 {
 
 	struct itimerval it;
@@ -52,7 +55,7 @@ void gui_timer(unsigned duration)
 	setitimer(ITIMER_REAL, &it, NULL);
 }
 
-void gui_handler(int signum)
+static void gui_handler(int signum)
 {
 
 	extern WINDOW *mainwin;
@@ -96,8 +99,7 @@ static void portid_str(char *str, struct switchtec_port_id *port_id)
    * top, down-stream ports at the bottom. */
 
 static void get_portlocs(struct portloc *portlocs,
-			 struct switchtec_status *status,
-			 int numports)
+			 struct switchtec_status *status, int numports)
 {
 	unsigned p, nup, ndown, iup, idown;
 	nup = ndown = iup = idown = 0;
@@ -123,16 +125,50 @@ static void get_portlocs(struct portloc *portlocs,
 
 }
 
+static void gui_printbw(char *str, const char *prefix, double val,
+			const char *suf)
+{
+	if (isinf(val) || isnan(val))
+		sprintf(str, "%s: --", prefix);
+	else
+		sprintf(str, "%s: %-.3g %sB", prefix, val, suf);
+}
+
+struct portstats {
+	double tot_val_ingress;
+	double tot_val_egress;
+	double bw_rate_ingress;
+	double bw_rate_egress;
+};
+
+static void gui_portcalc(struct switchtec_bwcntr_res *after,
+			 struct switchtec_bwcntr_res *before,
+			 struct portstats *stats)
+{
+	uint64_t ingress_tot, egress_tot;
+	struct switchtec_bwcntr_res this;
+
+	memcpy(&this, after, sizeof(this));
+
+	stats->tot_val_ingress = switchtec_bwcntr_tot(&after->ingress);
+	stats->tot_val_egress = switchtec_bwcntr_tot(&after->egress);
+
+	switchtec_bwcntr_sub(&this, before);
+	ingress_tot = switchtec_bwcntr_tot(&this.ingress);
+	egress_tot = switchtec_bwcntr_tot(&this.egress);
+
+	stats->bw_rate_ingress = ingress_tot / (this.time_us * 1e-6);
+	stats->bw_rate_egress = egress_tot / (this.time_us * 1e-6);
+}
+
   /* Draw a window for the port. */
 
 static WINDOW *gui_portwin(struct portloc *portlocs,
-			   struct switchtec_status *s,
-			   struct switchtec_bwcntr_res *bw_data)
+			   struct switchtec_status *s, struct portstats *stats)
 {
 	WINDOW *portwin;
 	char str[256];
-	double bw_val;
-	const char *bw_suf;
+	const char *tot_suf, *bw_suf;
 
 	portwin = newwin(WINPORTSIZE, portlocs->starty, portlocs->startx);
 	wborder(portwin, WINBORDER);
@@ -152,19 +188,94 @@ static WINDOW *gui_portwin(struct portloc *portlocs,
 		switchtec_gen_transfers[s->link_rate]);
 	mvwaddstr(portwin, 4, 1, &str[0]);
 
-	bw_val = switchtec_bwcntr_tot(&bw_data->egress);
-	bw_suf = suffix_si_get(&bw_val);
-	sprintf(&str[0], "E: %-.3g %sB", bw_val, bw_suf);
+	tot_suf = suffix_si_get(&stats->tot_val_ingress);
+	sprintf(&str[0], "E: %-.3g %sB", stats->tot_val_ingress, tot_suf);
 	mvwaddstr(portwin, 6, 1, &str[0]);
 
-	bw_val = switchtec_bwcntr_tot(&bw_data->ingress);
-	bw_suf = suffix_si_get(&bw_val);
-	sprintf(&str[0], "I: %-.3g %sB", bw_val, bw_suf);
+	tot_suf = suffix_si_get(&stats->tot_val_egress);
+	sprintf(&str[0], "E: %-.3g %sB", stats->tot_val_egress, tot_suf);
 	mvwaddstr(portwin, 7, 1, &str[0]);
+
+	bw_suf = suffix_si_get(&stats->bw_rate_ingress);
+	gui_printbw(str, "I", stats->bw_rate_ingress, bw_suf);
+	mvwaddstr(portwin, 9, 1, &str[0]);
+
+	bw_suf = suffix_si_get(&stats->bw_rate_egress);
+	gui_printbw(str, "E", stats->bw_rate_egress, bw_suf);
+	mvwaddstr(portwin, 10, 1, &str[0]);
 
  out:
 	wrefresh(portwin);
 	return portwin;
+}
+
+static void gui_winports(struct switchtec_dev *dev,
+			 struct switchtec_bwcntr_res *bw_data)
+{
+	int ret, p, numports, port_ids[SWITCHTEC_MAX_PORTS];
+	struct switchtec_status *status;
+	struct switchtec_bwcntr_res bw_data_new[SWITCHTEC_MAX_PORTS];
+
+	ret = switchtec_status(dev, &status);
+	if (ret < 0) {
+		switchtec_perror("status");
+		exit(ret);
+	}
+	numports = ret;
+
+	struct portloc portlocs[numports];
+	WINDOW *portwins[numports];
+
+	get_portlocs(portlocs, status, numports);
+
+	for (p = 0; p < numports; p++)
+		port_ids[p] = status[p].port.phys_id;
+
+	ret = switchtec_bwcntr_many(dev, numports, port_ids, 0, bw_data_new);
+	if (ret < 0) {
+		switchtec_perror("bwcntr");
+		exit(ret);
+	}
+	for (p = 0; p < numports; p++) {
+		struct switchtec_status *s = &status[p];
+		struct portstats stats;
+
+		gui_portcalc(bw_data_new, bw_data, &stats);
+		portwins[p] = gui_portwin(&portlocs[p], s, &stats);
+		wrefresh(portwins[p]);
+	}
+
+	memcpy(bw_data, bw_data_new, SWITCHTEC_MAX_PORTS *
+	       sizeof(struct switchtec_bwcntr_res));
+
+	free(status);
+
+}
+
+static int gui_init(struct switchtec_dev *dev, unsigned reset,
+		    struct switchtec_bwcntr_res *bw_data)
+{
+	int ret, p, numports, port_ids[SWITCHTEC_MAX_PORTS];
+	struct switchtec_status *status;
+
+	ret = switchtec_status(dev, &status);
+	if (ret < 0) {
+		switchtec_perror("status");
+		exit(ret);
+	}
+	numports = ret;
+
+	for (p = 0; p < numports; p++)
+		port_ids[p] = status[p].port.phys_id;
+
+	if (reset)
+		ret = switchtec_bwcntr_many(dev, numports, port_ids, 1, NULL);
+	else
+		ret = switchtec_bwcntr_many(dev, numports, port_ids, 0,
+					    bw_data);
+
+	free(status);
+	return ret;
 }
 
   /* Main GUI window. */
@@ -183,53 +294,19 @@ int gui_main(struct switchtec_dev *dev, unsigned reset, unsigned refresh,
 	if (duration >= 0)
 		gui_timer(duration);
 
-	int ret, numports;
-	struct switchtec_status *status;
-	struct switchtec_bwcntr_res bw_data[SWITCHTEC_MAX_PORTS];
-	int port_ids[SWITCHTEC_MAX_PORTS];
+	int ret;
+	struct switchtec_bwcntr_res bw_data[SWITCHTEC_MAX_PORTS] = { {0} };
 
-	ret = switchtec_status(dev, &status);
+	ret = gui_init(dev, reset, bw_data);
 	if (ret < 0) {
-		switchtec_perror("status");
+		switchtec_perror("gui_main");
 		return ret;
 	}
-	numports = ret;
-
-	unsigned p;
-	struct portloc portlocs[numports];
-	WINDOW *portwins[numports];
-
-	get_portlocs(portlocs, status, numports);
-
-	for (p = 0; p < numports; p++)
-		port_ids[p] = status[p].port.phys_id;
-
-	ret = switchtec_bwcntr_many(dev, numports, port_ids, reset, bw_data);
-	if (ret < 0) {
-		switchtec_perror("bwcntr");
-		free(status);
-		return numports;
-	}
-
-	for (p = 0; p < numports; p++) {
-		struct switchtec_status *s = &status[p];
-		portwins[p] = gui_portwin(&portlocs[p], s, &bw_data[p]);
-	}
+	usleep(GUI_INIT_TIME);
 
 	while (1) {
+		gui_winports(dev, bw_data);
 		sleep(refresh);
-		ret = switchtec_bwcntr_many(dev, numports, port_ids, 0,
-					    bw_data);
-		if (ret < 0) {
-			switchtec_perror("bwcntr");
-			free(status);
-			return numports;
-		}
-		for (p = 0; p < numports; p++) {
-			struct switchtec_status *s = &status[p];
-			portwins[p] = gui_portwin(&portlocs[p], s, &bw_data[p]);
-			wrefresh(portwins[p]);
-		}
 	}
 
 	return 0;

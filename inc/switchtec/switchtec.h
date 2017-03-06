@@ -368,6 +368,9 @@ struct switchtec_bwcntr_res {
 	} egress, ingress;
 };
 
+void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
+			  struct switchtec_bwcntr_res *old);
+
 int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 			  int *phys_port_ids, int clear,
 			  struct switchtec_bwcntr_res *res);
