@@ -29,8 +29,8 @@
 #include <math.h>
 
 #define WINBORDER  '|', '|', '-', '-', 0, 0, 0, 0
-#define WINPORTX 20
-#define WINPORTY 15
+#define WINPORTX 22
+#define WINPORTY 16
 #define WINPORTSIZE WINPORTY, WINPORTX
 
 #define GUI_INIT_TIME 100000
@@ -188,21 +188,34 @@ static WINDOW *gui_portwin(struct portloc *portlocs,
 		switchtec_gen_transfers[s->link_rate]);
 	mvwaddstr(portwin, 4, 1, &str[0]);
 
+	if (s->vendor_id && s->device_id) {
+		snprintf(str, sizeof(str), "%04x:%04x", s->vendor_id,
+			 s->device_id);
+		mvwaddstr(portwin, 5, 1, &str[0]);
+	}
+
+	if (s->class_devices) {
+		snprintf(str, sizeof(str), "%s", s->class_devices);
+		if (strlen(str) > WINPORTX - 2)
+			strcpy(&str[WINPORTX - 6], "...");
+		mvwaddstr(portwin, 6, 1, &str[0]);
+	}
+
 	tot_suf = suffix_si_get(&stats->tot_val_ingress);
 	sprintf(&str[0], "I: %-.3g %sB", stats->tot_val_ingress, tot_suf);
-	mvwaddstr(portwin, 6, 1, &str[0]);
+	mvwaddstr(portwin, 8, 1, &str[0]);
 
 	tot_suf = suffix_si_get(&stats->tot_val_egress);
 	sprintf(&str[0], "E: %-.3g %sB", stats->tot_val_egress, tot_suf);
-	mvwaddstr(portwin, 7, 1, &str[0]);
+	mvwaddstr(portwin, 9, 1, &str[0]);
 
 	bw_suf = suffix_si_get(&stats->bw_rate_ingress);
 	gui_printbw(str, "I", stats->bw_rate_ingress, bw_suf);
-	mvwaddstr(portwin, 9, 1, &str[0]);
+	mvwaddstr(portwin, 11, 1, &str[0]);
 
 	bw_suf = suffix_si_get(&stats->bw_rate_egress);
 	gui_printbw(str, "E", stats->bw_rate_egress, bw_suf);
-	mvwaddstr(portwin, 10, 1, &str[0]);
+	mvwaddstr(portwin, 12, 1, &str[0]);
 
  out:
 	wrefresh(portwin);
@@ -222,6 +235,12 @@ static void gui_winports(struct switchtec_dev *dev,
 		exit(ret);
 	}
 	numports = ret;
+
+	ret = switchtec_get_devices(dev, status, numports);
+	if (ret < 0) {
+		switchtec_perror("get_devices");
+		exit(ret);
+	}
 
 	struct portloc portlocs[numports];
 	WINDOW *portwins[numports];
