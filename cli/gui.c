@@ -131,7 +131,7 @@ static void gui_printbw(char *str, const char *prefix, double val,
 	if (isinf(val) || isnan(val))
 		sprintf(str, "%s: --", prefix);
 	else
-		sprintf(str, "%s: %-.3g %sB", prefix, val, suf);
+		sprintf(str, "%s: %-.3g %sB/s", prefix, val, suf);
 }
 
 struct portstats {
@@ -189,7 +189,7 @@ static WINDOW *gui_portwin(struct portloc *portlocs,
 	mvwaddstr(portwin, 4, 1, &str[0]);
 
 	tot_suf = suffix_si_get(&stats->tot_val_ingress);
-	sprintf(&str[0], "E: %-.3g %sB", stats->tot_val_ingress, tot_suf);
+	sprintf(&str[0], "I: %-.3g %sB", stats->tot_val_ingress, tot_suf);
 	mvwaddstr(portwin, 6, 1, &str[0]);
 
 	tot_suf = suffix_si_get(&stats->tot_val_egress);
@@ -240,7 +240,7 @@ static void gui_winports(struct switchtec_dev *dev,
 		struct switchtec_status *s = &status[p];
 		struct portstats stats;
 
-		gui_portcalc(bw_data_new, bw_data, &stats);
+		gui_portcalc(&bw_data_new[p], &bw_data[p], &stats);
 		portwins[p] = gui_portwin(&portlocs[p], s, &stats);
 		wrefresh(portwins[p]);
 	}
