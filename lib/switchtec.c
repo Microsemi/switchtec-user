@@ -558,6 +558,44 @@ int switchtec_status(struct switchtec_dev *dev,
 	return nr_ports;
 }
 
+static int get_class_devices(const char *searchpath,
+			     struct switchtec_status *status)
+{
+	int i;
+	ssize_t len;
+	char syspath[PATH_MAX];
+	glob_t paths;
+	int found = 0;
+	const size_t MAX_LEN = 256;
+
+	snprintf(syspath, sizeof(syspath), "%s*/*/device", searchpath);
+	glob(syspath, 0, NULL, &paths);
+
+	for (i = 0; i < paths.gl_pathc; i++) {
+		char *p = paths.gl_pathv[i];
+
+		len = readlink(p, syspath, sizeof(syspath));
+		if (len <= 0)
+			continue;
+
+		p = dirname(p);
+
+		if (!status->class_devices) {
+			status->class_devices = calloc(MAX_LEN, 1);
+			strcpy(status->class_devices, basename(p));
+		} else {
+			len = strlen(status->class_devices);
+			snprintf(&status->class_devices[len], MAX_LEN - len,
+				 ", %s", basename(p));
+		}
+
+		found = 1;
+	}
+
+	globfree(&paths);
+	return found;
+}
+
 static void get_port_info(const char *searchpath, int port,
 			  struct switchtec_status *status)
 {
@@ -586,9 +624,14 @@ static void get_port_info(const char *searchpath, int port,
 		if (status->device_id < 0)
 			continue;
 
-		status->pci_dev = strdup(basename(p));
+		if (get_class_devices(p, status)) {
+			if (status->pci_dev)
+				free(status->pci_dev);
+			status->pci_dev = strdup(basename(p));
+		}
 
-		break;
+		if (!status->pci_dev)
+			status->pci_dev = strdup(basename(p));
 	}
 
 	globfree(&paths);
@@ -629,6 +672,9 @@ void switchtec_status_free(struct switchtec_status *status, int ports)
 	for (i = 0; i < ports; i++) {
 		if (status[i].pci_dev)
 			free(status[i].pci_dev);
+
+		if (status[i].class_devices)
+			free(status[i].class_devices);
 	}
 
 	free(status);

@@ -65,6 +65,7 @@ struct switchtec_status {
 	char *pci_dev;
 	int vendor_id;
 	int device_id;
+	char *class_devices;
 };
 
 enum switchtec_log_type {

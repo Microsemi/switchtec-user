@@ -247,6 +247,8 @@ static int status(int argc, char **argv, struct command *cmd,
 
 		printf("\tDevice:          \t%04x:%04x (%s)\n",
 		       s->vendor_id, s->device_id, s->pci_dev);
+		if (s->class_devices)
+			printf("\t                 \t%s\n", s->class_devices);
 	}
 
 	ret = 0;
