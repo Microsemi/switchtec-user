@@ -248,8 +248,7 @@ static void gui_winports(struct switchtec_dev *dev,
 	memcpy(bw_data, bw_data_new, SWITCHTEC_MAX_PORTS *
 	       sizeof(struct switchtec_bwcntr_res));
 
-	free(status);
-
+	switchtec_status_free(status, numports);
 }
 
 static int gui_init(struct switchtec_dev *dev, unsigned reset,
@@ -274,7 +273,7 @@ static int gui_init(struct switchtec_dev *dev, unsigned reset,
 		ret = switchtec_bwcntr_many(dev, numports, port_ids, 0,
 					    bw_data);
 
-	free(status);
+	switchtec_status_free(status, numports);
 	return ret;
 }
 

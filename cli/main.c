@@ -167,6 +167,7 @@ static int status(int argc, char **argv, struct command *cmd,
 {
 	const char *desc = "Display status of the ports on the switch";
 	int ret;
+	int ports;
 	struct switchtec_status *status;
 	int port_ids[SWITCHTEC_MAX_PORTS];
 	struct switchtec_bwcntr_res bw_data[SWITCHTEC_MAX_PORTS];
@@ -186,27 +187,32 @@ static int status(int argc, char **argv, struct command *cmd,
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_status(cfg.dev, &status);
-	if (ret < 0) {
+	ports = switchtec_status(cfg.dev, &status);
+	if (ports < 0) {
 		switchtec_perror("status");
-		return ret;
+		return ports;
 	}
 
-	for (p = 0; p < ret; p++)
+	ret = switchtec_get_devices(cfg.dev, status, ports);
+	if (ret < 0) {
+		switchtec_perror("get_devices");
+		goto free_and_return;
+	}
+
+	for (p = 0; p < ports; p++)
 		port_ids[p] = status[p].port.phys_id;
 
-	ret = switchtec_bwcntr_many(cfg.dev, ret, port_ids, cfg.reset_bytes,
+	ret = switchtec_bwcntr_many(cfg.dev, ports, port_ids, cfg.reset_bytes,
 				    bw_data);
 	if (ret < 0) {
 		switchtec_perror("bwcntr");
-		free(status);
-		return ret;
+		goto free_and_return;
 	}
 
 	if (cfg.reset_bytes)
 		memset(bw_data, 0, sizeof(bw_data));
 
-	for (p = 0; p < ret; p++) {
+	for (p = 0; p < ports; p++) {
 		struct switchtec_status *s = &status[p];
 		print_port_title(cfg.dev, &s->port);
 
@@ -235,11 +241,20 @@ static int status(int argc, char **argv, struct command *cmd,
 		bw_val = switchtec_bwcntr_tot(&bw_data[p].ingress);
 		bw_suf = suffix_si_get(&bw_val);
 		printf("\tIn Bytes:        \t%-.3g %sB\n", bw_val, bw_suf);
+
+		if (!s->vendor_id || !s->device_id || !s->pci_dev)
+			continue;
+
+		printf("\tDevice:          \t%04x:%04x (%s)\n",
+		       s->vendor_id, s->device_id, s->pci_dev);
 	}
 
-	free(status);
+	ret = 0;
 
-	return 0;
+free_and_return:
+	switchtec_status_free(status, ports);
+
+	return ret;
 }
 
 static void print_bw(const char *msg, uint64_t time_us, uint64_t bytes)

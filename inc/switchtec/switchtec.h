@@ -62,6 +62,9 @@ struct switchtec_status {
 	unsigned char link_rate;
 	unsigned char ltssm;
 	const char *ltssm_str;
+	char *pci_dev;
+	int vendor_id;
+	int device_id;
 };
 
 enum switchtec_log_type {
@@ -100,6 +103,11 @@ int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
+int switchtec_get_devices(struct switchtec_dev *dev,
+			  struct switchtec_status *status,
+			  int ports);
+void switchtec_status_free(struct switchtec_status *status, int ports);
+
 void switchtec_perror(const char *str);
 int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 			  int *partition, int *port);

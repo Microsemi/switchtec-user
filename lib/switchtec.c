@@ -34,6 +34,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <glob.h>
 
 static const char *sys_path = "/sys/class/switchtec";
 
@@ -555,6 +556,82 @@ int switchtec_status(struct switchtec_dev *dev,
 	qsort(s, nr_ports, sizeof(*s), compare_status);
 
 	return nr_ports;
+}
+
+static void get_port_info(const char *searchpath, int port,
+			  struct switchtec_status *status)
+{
+	int i;
+	char syspath[PATH_MAX];
+	glob_t paths;
+
+	snprintf(syspath, sizeof(syspath), "%s/*:*:%02d.*/*:*:*/",
+		 searchpath, port);
+
+	glob(syspath, 0, NULL, &paths);
+
+	for (i = 0; i < paths.gl_pathc; i++) {
+		char *p = paths.gl_pathv[i];
+
+		if (strstr(p, "pcie"))
+			continue;
+
+		snprintf(syspath, sizeof(syspath), "%s/vendor", p);
+		status->vendor_id = sysfs_read_int(syspath, 16);
+		if (status->vendor_id < 0)
+			continue;
+
+		snprintf(syspath, sizeof(syspath), "%s/device", p);
+		status->device_id = sysfs_read_int(syspath, 16);
+		if (status->device_id < 0)
+			continue;
+
+		status->pci_dev = strdup(basename(p));
+
+		break;
+	}
+
+	globfree(&paths);
+}
+
+int switchtec_get_devices(struct switchtec_dev *dev,
+			  struct switchtec_status *status,
+			  int ports)
+{
+	int ret;
+	int i;
+	char syspath[PATH_MAX];
+	char searchpath[PATH_MAX];
+
+	ret = dev_to_sysfs_path(dev, "device", syspath,
+				sizeof(syspath));
+	if (ret)
+		return ret;
+
+	if (!realpath(syspath, searchpath)) {
+		errno = ENXIO;
+		return -errno;
+	}
+
+	//Replace eg "0000:03:00.1" into "0000:03:00.0"
+	searchpath[strlen(searchpath) - 1] = '0';
+
+	for (i = 1; i < ports; i++)
+		get_port_info(searchpath, i - 1, &status[i]);
+
+	return 0;
+}
+
+void switchtec_status_free(struct switchtec_status *status, int ports)
+{
+	int i;
+
+	for (i = 0; i < ports; i++) {
+		if (status[i].pci_dev)
+			free(status[i].pci_dev);
+	}
+
+	free(status);
 }
 
 void switchtec_perror(const char *str)
