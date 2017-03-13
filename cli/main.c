@@ -395,7 +395,7 @@ struct event_list {
 	enum switchtec_event_id eid;
 	int partition;
 	int port;
-	int count;
+	unsigned count;
 };
 
 static int compare_event_list(const void *aa, const void *bb)
@@ -430,7 +430,7 @@ static void print_event_list(struct event_list *e, size_t cnt)
 		last_port = e->port;
 
 		switchtec_event_info(e->eid, &name, &desc);
-		printf("\t%-22s\t%-4d\t%s\n", name, e->count, desc);
+		printf("\t%-22s\t%-4u\t%s\n", name, e->count, desc);
 
 		e++;
 	}
@@ -1265,7 +1265,7 @@ static int display_event_counters(struct switchtec_dev *dev, int stack,
 		if (strlen(buf) > 39)
 			strcpy(buf, "MANY");
 
-		printf("%-40s   %10d\n", buf, counts[i]);
+		printf("%-40s   %10u\n", buf, counts[i]);
 		count++;
 	}
 
