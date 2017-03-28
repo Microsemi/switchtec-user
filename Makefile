@@ -64,7 +64,7 @@ $(OBJDIR)/%.o: %.c | $(OBJDIR)
 
 libswitchtec.a: $(LIB_OBJS)
 	@$(NQ) echo "  AR    $@"
-	$(Q)$(AR) rusc $@ $^
+	$(Q)$(AR) rDsc $@ $^
 
 libswitchtec.so: $(LIB_OBJS)
 	@$(NQ) echo "  LD    $@"
