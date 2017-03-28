@@ -789,16 +789,21 @@ static int temp(int argc, char **argv, struct command *cmd,
 static int ask_if_sure(int always_yes)
 {
 	char buf[10];
+	char *ret;
 
 	if (always_yes)
 		return 0;
 
 	fprintf(stderr, "Do you want to continue? [y/N] ");
-	fgets(buf, sizeof(buf), stdin);
+	ret = fgets(buf, sizeof(buf), stdin);
+
+	if (!ret)
+		goto abort;
 
 	if (strcmp(buf, "y\n") == 0 || strcmp(buf, "Y\n") == 0)
 		return 0;
 
+abort:
 	fprintf(stderr, "Abort.\n");
 	errno = EINTR;
 	return -errno;
