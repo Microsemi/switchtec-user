@@ -26,7 +26,7 @@ SYSCONFDIR ?= $(DESTDIR)/etc
 CPPFLAGS=-Iinc -Ibuild -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
 CFLAGS=-g -O2 -fPIC -Wall
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
-LDFLAGS=-lcurses
+LDLIBS=-lcurses
 
 LIB_SRCS=$(wildcard lib/*.c)
 CLI_SRCS=$(wildcard cli/*.c)
@@ -72,7 +72,7 @@ libswitchtec.so: $(LIB_OBJS)
 
 switchtec: $(CLI_OBJS) libswitchtec.a
 	@$(NQ) echo "  LD    $@"
-	$(Q)$(LINK.o) $^ -o $@
+	$(Q)$(LINK.o) $^ $(LDLIBS) -o $@
 
 install-bash-completion:
 	@$(NQ) echo "  INSTALL  $(SYSCONFDIR)/bash_completion.d/bash-switchtec-completion.sh"
