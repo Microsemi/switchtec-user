@@ -857,7 +857,8 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static int check_and_print_fw_image(int img_fd, const char *img_filename)
+static enum switchtec_fw_image_type check_and_print_fw_image(
+	int img_fd, const char *img_filename)
 {
 	int ret;
 	struct switchtec_fw_image_info info;
@@ -875,7 +876,7 @@ static int check_and_print_fw_image(int img_fd, const char *img_filename)
 	printf("Img Len:  0x%zx\n", info.image_len);
 	printf("CRC:      0x%08lx\n", info.crc);
 
-	return 0;
+	return info.type;
 }
 
 static int fw_image_info(int argc, char **argv, struct command *cmd,
@@ -1001,6 +1002,7 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		const char *img_filename;
 		int assume_yes;
 		int dont_activate;
+		int set_boot_rw;
 	} cfg = {0};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -1012,6 +1014,8 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 		{"dont-activate", 'A', "", CFG_NONE, &cfg.dont_activate, no_argument,
 		 "don't activate the new image, use fw-toggle to do so "
 		 "when it is safe"},
+		{"set-boot-rw", 'W', "", CFG_NONE, &cfg.set_boot_rw, no_argument,
+		 "set the bootloader partition as RW (only valid for BOOT images)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -1023,11 +1027,19 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 	if (ret < 0)
 		return ret;
 
+	if (cfg.set_boot_rw && ret != SWITCHTEC_FW_TYPE_BOOT) {
+		fprintf(stderr, "The --set-boot-rw option only applies for BOOT images\n");
+		return -1;
+	}
+
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
 		fclose(cfg.fimg);
 		return ret;
 	}
+
+	if (cfg.set_boot_rw)
+		switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
 
 	progress_start();
 	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
@@ -1037,7 +1049,7 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 	if (ret) {
 		printf("\n");
 		switchtec_fw_perror("firmware update", ret);
-		return ret;
+		goto set_boot_ro;
 	}
 
 	progress_finish();
@@ -1045,6 +1057,10 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 
 	print_fw_part_info(cfg.dev);
 	printf("\n");
+
+set_boot_ro:
+	if (cfg.set_boot_rw)
+		switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RO);
 
 	return ret;
 }
