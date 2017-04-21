@@ -350,7 +350,7 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 static int get_part(struct switchtec_dev *dev,
 		    struct switchtec_fw_image_info *info, int part)
 {
-	struct switchtec_ioctl_flash_part_info ioctl_info;
+	struct switchtec_ioctl_flash_part_info ioctl_info = {0};
 	int ret;
 
 	ioctl_info.flash_partition = part;
