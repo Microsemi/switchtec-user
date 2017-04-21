@@ -241,6 +241,11 @@ enum switchtec_fw_image_type {
 	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
 };
 
+enum switchtec_fw_ro {
+	SWITCHTEC_FW_RW = 0,
+	SWITCHTEC_FW_RO = 1,
+};
+
 struct switchtec_fw_image_info {
 	enum switchtec_fw_image_type type;
 	char version[32];
@@ -298,6 +303,9 @@ int switchtec_fw_cfg_info(struct switchtec_dev *dev,
 			  int *nr_mult);
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type);
+int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
+int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
+			     enum switchtec_fw_ro ro);
 
 /********** EVENT COUNTER *********/
 

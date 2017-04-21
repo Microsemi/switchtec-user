@@ -660,3 +660,45 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 
 	return write(fd, &hdr, sizeof(hdr));
 }
+
+struct switchtec_boot_ro {
+	uint8_t subcmd;
+	uint8_t set_get;
+	uint8_t status;
+	uint8_t reserved;
+};
+
+int switchtec_fw_is_boot_ro(struct switchtec_dev *dev)
+{
+	struct switchtec_boot_ro subcmd = {
+		.subcmd = MRPC_FWDNLD_BOOT_RO,
+		.set_get = 0,
+	};
+
+	struct {
+		uint8_t status;
+		uint8_t reserved[3];
+	} result;
+
+	int ret;
+
+	ret = switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
+			    &result, sizeof(result));
+	if (ret)
+		return ret;
+
+	return result.status;
+}
+
+int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
+			     enum switchtec_fw_ro ro)
+{
+	struct switchtec_boot_ro subcmd = {
+		.subcmd = MRPC_FWDNLD_BOOT_RO,
+		.set_get = 1,
+		.status = ro,
+	};
+
+	return switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
+			     NULL, 0);
+}
