@@ -911,6 +911,7 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 		mult_cfg[nr_mult];
 	struct switchtec_fw_footer bootloader;
 	char bootloader_ver[16];
+	int bootloader_ro;
 	int ret, i;
 
 	ret = switchtec_fw_img_info(dev, &act_img, &inact_img);
@@ -931,9 +932,14 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 		return ret;
 	}
 
+	bootloader_ro = switchtec_fw_is_boot_ro(dev);
+	if (bootloader_ro != SWITCHTEC_FW_RO)
+		bootloader_ro = 0;
+
 	printf("Active Partition:\n");
-	printf("  BOOT \tVersion: %-8s\tCRC: %08lx\n",
-	       bootloader_ver, (long)bootloader.image_crc);
+	printf("  BOOT \tVersion: %-8s\tCRC: %08lx   %s\n",
+	       bootloader_ver, (long)bootloader.image_crc,
+	       bootloader_ro ? "(RO)" : "");
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx\n",
 	       act_img.version, act_img.crc);
 	printf("  CFG  \tVersion: %-8s\tCRC: %08lx\n",
