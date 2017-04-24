@@ -1071,6 +1071,134 @@ set_boot_ro:
 	return ret;
 }
 
+static int mrpc_ses( int argc, char **argv, struct command *cmd, struct plugin *plugin )
+{
+    int         ret  = 0;
+    const char *desc = "Send an MRPC SES command to the firmware";
+
+    static struct
+    {
+        struct switchtec_dev *dev;
+        FILE                 *fp;
+    }   cfg = { 0 };
+
+    const struct argconfig_options opts[] =
+    {
+        DEVICE_OPTION,
+        {
+            "mrpc_ses_input_file",
+            .cfg_type      = CFG_FILE_R,
+            .value_addr    = &cfg.fp,
+            .argument_type = required_positional,
+            .help          = "MRPC SES file to use as input"
+        },
+        { NULL }
+    };
+
+    argconfig_parse( argc, argv, desc, opts, &cfg, sizeof(cfg) );
+
+    ret = switchtec_send_mrpc_ses_command( cfg.dev, cfg.fp );
+
+    fclose( cfg.fp );
+
+    if( ret )
+    {
+        printf( "Error sending MRPC SES command.\n" );
+    }
+
+    return ret;
+}
+
+uint8_t ascii_to_bin( char input )
+{
+    if( (input >= 0x30) && (input <= 0x39) )
+    {
+        return ( (uint8_t)input - 0x30 );
+    }
+
+    if( (input >= 0x41) && (input <= 0x46) )
+    {
+        return ( (uint8_t)input - 0x37 );
+    }
+
+    if( (input >= 0x61) && (input <= 0x66) )
+    {
+        return ( (uint8_t)input - 0x57 );
+    }
+
+    return ( 0xFF );
+}
+
+int switchtec_send_mrpc_ses_command(struct switchtec_dev *dev, FILE *fp)
+{
+    int      ret = 0;
+    uint8_t  mrpc_input[MRPC_MAX_DATA_LEN];
+    uint8_t  mrpc_output[MRPC_MAX_DATA_LEN];
+    uint8_t  byte;
+    uint8_t  byte_0;
+    uint8_t  byte_1;
+    uint8_t  byte_2;
+    uint8_t  byte_3;
+    uint32_t dword;
+    uint32_t index = 0;
+    uint32_t exit  = 0;
+    char     input;
+
+    memset(mrpc_input,  0, sizeof(mrpc_input));
+    memset(mrpc_output, 0, sizeof(mrpc_output));
+
+    do
+    {
+        input = (char)fgetc( fp );
+
+        if( input == EOF )
+        {
+            exit = 1;
+        }
+        else
+        {
+            byte = ascii_to_bin( input );
+
+            if( byte != 0xFF )
+            {
+                mrpc_input[index] = byte << 4;
+
+                input = (char)fgetc( fp );
+                byte  = ascii_to_bin( input );
+                mrpc_input[index] |= byte;
+                index++;
+            }
+        }
+
+    }   while( (exit == 0) && (index < MRPC_MAX_DATA_LEN) );
+
+    ret = switchtec_cmd( dev, MRPC_SES, mrpc_input, sizeof(mrpc_input), mrpc_output, sizeof(mrpc_output) );
+
+    if( mrpc_input[0] == 2 )
+    {
+        index = 0;
+
+        do
+        {
+            byte_0 = mrpc_output[index++];
+            byte_1 = mrpc_output[index++];
+            byte_2 = mrpc_output[index++];
+            byte_3 = mrpc_output[index++];
+
+            dword  = 0;
+            dword |= ((uint32_t)(byte_0)) <<  0;
+            dword |= ((uint32_t)(byte_1)) <<  8;
+            dword |= ((uint32_t)(byte_2)) << 16;
+            dword |= ((uint32_t)(byte_3)) << 24;
+
+            printf( "OFFSET 0x%08X: 0x%08X\n", index - 4, dword );
+
+        }   while( index < MRPC_MAX_DATA_LEN );
+    }
+
+    return ret;
+}
+
 static int fw_toggle(int argc, char **argv, struct command *cmd,
 		     struct plugin *plugin)
 {
