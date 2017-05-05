@@ -58,6 +58,9 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 	int ret;
 
 	do {
+		// Delay slightly to avoid interrupting the firmware too much
+		usleep(5000);
+
 		ret = switchtec_fw_dlstatus(dev, status, &bgstatus);
 		if (ret < 0)
 			return ret;
