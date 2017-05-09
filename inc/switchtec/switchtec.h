@@ -306,6 +306,7 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);
+int switchtec_send_mrpc_ses_command(struct switchtec_dev *dev, FILE *fp);
 
 /********** EVENT COUNTER *********/
 
