@@ -643,6 +643,8 @@ int switchtec_get_devices(struct switchtec_dev *dev,
 {
 	int ret;
 	int i;
+	int local_part;
+	int port;
 	char syspath[PATH_MAX];
 	char searchpath[PATH_MAX];
 
@@ -659,8 +661,17 @@ int switchtec_get_devices(struct switchtec_dev *dev,
 	//Replace eg "0000:03:00.1" into "0000:03:00.0"
 	searchpath[strlen(searchpath) - 1] = '0';
 
-	for (i = 1; i < ports; i++)
-		get_port_info(searchpath, i - 1, &status[i]);
+	local_part = switchtec_partition(dev);
+	port = 0;
+
+	for (i = 0; i < ports; i++) {
+		if (status[i].port.upstream ||
+		    status[i].port.partition != local_part)
+			continue;
+
+		get_port_info(searchpath, port, &status[i]);
+		port++;
+	}
 
 	return 0;
 }
