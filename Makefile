@@ -26,7 +26,7 @@ SYSCONFDIR ?= $(DESTDIR)/etc
 CPPFLAGS=-Iinc -Ibuild -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
 CFLAGS=-g -O2 -fPIC -Wall
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
-LDLIBS=-lcurses
+LDLIBS=-lcurses -ltinfo
 
 LIB_SRCS=$(wildcard lib/*.c)
 CLI_SRCS=$(wildcard cli/*.c)
