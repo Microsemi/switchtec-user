@@ -223,7 +223,8 @@ static WINDOW *gui_portwin(struct portloc *portlocs,
 }
 
 static void gui_winports(struct switchtec_dev *dev,
-			 struct switchtec_bwcntr_res *bw_data)
+			 struct switchtec_bwcntr_res *bw_data,
+			 unsigned reset_cntrs)
 {
 	int ret, p, numports, port_ids[SWITCHTEC_MAX_PORTS];
 	struct switchtec_status *status;
@@ -249,6 +250,13 @@ static void gui_winports(struct switchtec_dev *dev,
 
 	for (p = 0; p < numports; p++)
 		port_ids[p] = status[p].port.phys_id;
+
+	if (reset_cntrs) {
+		switchtec_bwcntr_many(dev, numports, port_ids, 1,
+				      NULL);
+		switchtec_bwcntr_many(dev, numports, port_ids, 0,
+				      bw_data);
+	}
 
 	ret = switchtec_bwcntr_many(dev, numports, port_ids, 0, bw_data_new);
 	if (ret < 0) {
@@ -296,6 +304,22 @@ static int gui_init(struct switchtec_dev *dev, unsigned reset,
 	return ret;
 }
 
+/*
+ * Function to handle keypresses when in GUI mode. For now only 'r'
+ * has any significance (resets counters).
+ */
+
+static unsigned gui_keypress()
+{
+	int ch = getch();
+
+	switch (ch) {
+	case 'r':
+		return 1;
+	}
+	return 0;
+}
+
   /* Main GUI window. */
 
 int gui_main(struct switchtec_dev *dev, unsigned reset, unsigned refresh,
@@ -311,6 +335,9 @@ int gui_main(struct switchtec_dev *dev, unsigned reset, unsigned refresh,
 	gui_signals();
 	if (duration >= 0)
 		gui_timer(duration);
+	nodelay(stdscr, TRUE);
+	noecho();
+	cbreak();
 
 	int ret;
 	struct switchtec_bwcntr_res bw_data[SWITCHTEC_MAX_PORTS] = { {0} };
@@ -323,7 +350,7 @@ int gui_main(struct switchtec_dev *dev, unsigned reset, unsigned refresh,
 	usleep(GUI_INIT_TIME);
 
 	while (1) {
-		gui_winports(dev, bw_data);
+		gui_winports(dev, bw_data, gui_keypress());
 		sleep(refresh);
 	}
 
