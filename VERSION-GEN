@@ -24,7 +24,7 @@
 
 GVF=build/version.h
 MVF=build/version.mk
-DEF_VER=v0.1
+DEF_VER=???
 
 LF='
 '
