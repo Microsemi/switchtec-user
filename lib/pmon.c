@@ -234,24 +234,34 @@ int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 {
 	int i;
 	int ret;
+	int remain = nr_ports;
 	size_t cmd_size;
 	struct pmon_bw_get cmd = {
 		.sub_cmd_id = MRPC_PMON_GET_BW_COUNTER,
-		.count = nr_ports,
 	};
 
-	for (i = 0; i < nr_ports; i++) {
-		cmd.ports[i].id = phys_port_ids[i];
-		cmd.ports[i].clear = clear;
+	while (remain) {
+		cmd.count = remain;
+		if (cmd.count > MRPC_MAX_DATA_LEN / sizeof(*res))
+			cmd.count = MRPC_MAX_DATA_LEN / sizeof(*res);
+
+		for (i = 0; i < cmd.count; i++) {
+			cmd.ports[i].id = phys_port_ids[i];
+			cmd.ports[i].clear = clear;
+		}
+
+		cmd_size = offsetof(struct pmon_bw_get, ports) +
+			sizeof(cmd.ports[0]) * cmd.count;
+
+		ret = switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, res,
+				    sizeof(*res) * cmd.count);
+		if (ret)
+			return -1;
+
+		remain -= cmd.count;
+		phys_port_ids += cmd.count;
+		res += cmd.count;
 	}
-
-	cmd_size = offsetof(struct pmon_bw_get, ports) +
-		sizeof(cmd.ports[0]) * nr_ports;
-
-	ret = switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, res,
-			    sizeof(*res) * nr_ports);
-	if (ret)
-		return -1;
 
 	return nr_ports;
 }
