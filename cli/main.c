@@ -136,6 +136,7 @@ static int gui(int argc, char **argv, struct command *cmd,
 
 	static struct {
 		struct switchtec_dev *dev;
+		unsigned all_ports;
 		unsigned reset_bytes;
 		unsigned refresh;
 		int duration;
@@ -146,6 +147,8 @@ static int gui(int argc, char **argv, struct command *cmd,
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"all_ports", 'a', "", CFG_NONE, &cfg.all_ports, no_argument,
+		 "show all ports (including downed links)"},
 		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
 		 "reset byte counters"},
 		{"refresh", 'f', "", CFG_POSITIVE, &cfg.refresh, required_argument,
@@ -156,7 +159,7 @@ static int gui(int argc, char **argv, struct command *cmd,
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = gui_main(cfg.dev, cfg.reset_bytes, cfg.refresh,
+	ret = gui_main(cfg.dev, cfg.all_ports, cfg.reset_bytes, cfg.refresh,
 		       cfg. duration);
 
 	return ret;

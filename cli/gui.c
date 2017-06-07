@@ -98,18 +98,23 @@ static void portid_str(char *str, struct switchtec_port_id *port_id)
   /* Determine positioning for the port windows. Upstream ports at the
    * top, down-stream ports at the bottom. */
 
-static void get_portlocs(struct portloc *portlocs,
+static void get_portlocs(struct portloc *portlocs, unsigned all_ports,
 			 struct switchtec_status *status, int numports)
 {
 	unsigned p, nup, ndown, iup, idown;
 	nup = ndown = iup = idown = 0;
-	for (p = 0; p < numports; p++)
+	for (p = 0; p < numports; p++) {
+		if (!all_ports && !status[p].link_up)
+			continue;
 		if (status[p].port.upstream)
 			nup++;
 		else
 			ndown++;
+	}
 
 	for (p = 0; p < numports; p++) {
+		if (!all_ports && !status[p].link_up)
+			continue;
 		if (status[p].port.upstream) {
 			portlocs[p].startx =
 			    (iup + 1) * COLS / (nup + 1) - WINPORTY / 2;
@@ -222,7 +227,7 @@ static WINDOW *gui_portwin(struct portloc *portlocs,
 	return portwin;
 }
 
-static void gui_winports(struct switchtec_dev *dev,
+static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 			 struct switchtec_bwcntr_res *bw_data,
 			 unsigned reset_cntrs)
 {
@@ -246,7 +251,7 @@ static void gui_winports(struct switchtec_dev *dev,
 	struct portloc portlocs[numports];
 	WINDOW *portwins[numports];
 
-	get_portlocs(portlocs, status, numports);
+	get_portlocs(portlocs, all_ports, status, numports);
 
 	for (p = 0; p < numports; p++)
 		port_ids[p] = status[p].port.phys_id;
@@ -267,9 +272,11 @@ static void gui_winports(struct switchtec_dev *dev,
 		struct switchtec_status *s = &status[p];
 		struct portstats stats;
 
-		gui_portcalc(&bw_data_new[p], &bw_data[p], &stats);
-		portwins[p] = gui_portwin(&portlocs[p], s, &stats);
-		wrefresh(portwins[p]);
+		if (all_ports || s->link_up) {
+			gui_portcalc(&bw_data_new[p], &bw_data[p], &stats);
+			portwins[p] = gui_portwin(&portlocs[p], s, &stats);
+			wrefresh(portwins[p]);
+		}
 	}
 
 	memcpy(bw_data, bw_data_new, SWITCHTEC_MAX_PORTS *
@@ -322,8 +329,8 @@ static unsigned gui_keypress()
 
   /* Main GUI window. */
 
-int gui_main(struct switchtec_dev *dev, unsigned reset, unsigned refresh,
-	     int duration)
+int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
+	     unsigned refresh, int duration)
 {
 
 	if ((mainwin = initscr()) == NULL) {
@@ -350,7 +357,7 @@ int gui_main(struct switchtec_dev *dev, unsigned reset, unsigned refresh,
 	usleep(GUI_INIT_TIME);
 
 	while (1) {
-		gui_winports(dev, bw_data, gui_keypress());
+		gui_winports(dev, all_ports, bw_data, gui_keypress());
 		sleep(refresh);
 	}
 
