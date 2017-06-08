@@ -443,8 +443,12 @@ static void print_event_list(struct event_list *e, size_t cnt)
 				printf("Partition %d Events:\n", e->partition);
 		}
 
-		if (e->port != last_port && e->port != -1)
-			printf("    Port %d:\n", e->port);
+		if (e->port != last_port && e->port != -1) {
+			if (e->port == SWITCHTEC_PFF_PORT_VEP)
+				printf("    Port VEP:\n");
+			else
+				printf("    Port %d:\n", e->port);
+		}
 
 		last_part = e->partition;
 		last_port = e->port;
