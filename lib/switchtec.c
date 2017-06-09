@@ -478,9 +478,7 @@ static int compare_port_id(const void *aa, const void *bb)
 		return a->partition - b->partition;
 	if (a->upstream != b->upstream)
 		return b->upstream - a->upstream;
-	if (a->stack != b->stack)
-		return a->stack - b->stack;
-	return a->stk_id;
+	return a->log_id - b->log_id;
 }
 
 static int compare_status(const void *aa, const void *bb)
