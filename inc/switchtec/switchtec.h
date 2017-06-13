@@ -247,6 +247,11 @@ enum switchtec_fw_ro {
 	SWITCHTEC_FW_RO = 1,
 };
 
+enum switchtec_fw_active {
+	SWITCHTEC_FW_PART_ACTIVE = 1,
+	SWITCHTEC_FW_PART_RUNNING = 2,
+};
+
 struct switchtec_fw_image_info {
 	enum switchtec_fw_image_type type;
 	char version[32];
@@ -254,7 +259,18 @@ struct switchtec_fw_image_info {
 	size_t image_len;
 	unsigned long crc;
 	int active;
+	int running;
 };
+
+static inline int switchtec_fw_active(struct switchtec_fw_image_info *inf)
+{
+	return inf->active & SWITCHTEC_FW_PART_ACTIVE;
+}
+
+static inline int switchtec_fw_running(struct switchtec_fw_image_info *inf)
+{
+	return inf->active & SWITCHTEC_FW_PART_RUNNING;
+}
 
 struct switchtec_fw_footer {
 	char magic[4];

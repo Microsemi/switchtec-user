@@ -912,6 +912,16 @@ static int fw_image_info(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
+static const char *fw_active_string(struct switchtec_fw_image_info *inf)
+{
+	return switchtec_fw_active(inf) ? " - Active" : "";
+}
+
+static const char *fw_running_string(struct switchtec_fw_image_info *inf)
+{
+	return switchtec_fw_running(inf) ? "\t(Running)" : "";
+}
+
 static int print_fw_part_info(struct switchtec_dev *dev)
 {
 	int nr_mult = 16;
@@ -948,21 +958,25 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("  BOOT \tVersion: %-8s\tCRC: %08lx   %s\n",
 	       bootloader_ver, (long)bootloader.image_crc,
 	       bootloader_ro ? "(RO)" : "");
-	printf("  IMG  \tVersion: %-8s\tCRC: %08lx\n",
-	       act_img.version, act_img.crc);
-	printf("  CFG  \tVersion: %-8s\tCRC: %08lx\n",
-	       act_cfg.version, act_cfg.crc);
+	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
+	       act_img.version, act_img.crc,
+	       fw_running_string(&act_img));
+	printf("  CFG  \tVersion: %-8s\tCRC: %08lx%s\n",
+	       act_cfg.version, act_cfg.crc,
+	       fw_running_string(&act_cfg));
 
 	for (i = 0; i < nr_mult; i++) {
 		printf("   \tMulti Config %d%s\n", i,
-		       mult_cfg[i].active ? " - Active" : "");
+		       fw_active_string(&mult_cfg[i]));
 	}
 
 	printf("Inactive Partition:\n");
-	printf("  IMG  \tVersion: %-8s\tCRC: %08lx\n",
-	       inact_img.version, inact_img.crc);
-	printf("  CFG  \tVersion: %-8s\tCRC: %08lx\n",
-	       inact_cfg.version, inact_cfg.crc);
+	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
+	       inact_img.version, inact_img.crc,
+	       fw_running_string(&inact_img));
+	printf("  CFG  \tVersion: %-8s\tCRC: %08lx%s\n",
+	       inact_cfg.version, inact_cfg.crc,
+	       fw_running_string(&inact_cfg));
 
 	return 0;
 }
