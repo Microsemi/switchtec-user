@@ -15,6 +15,7 @@
 
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
+#include "switchtec/errors.h"
 
 #include <unistd.h>
 #include <sys/ioctl.h>
@@ -687,6 +688,12 @@ int switchtec_fw_is_boot_ro(struct switchtec_dev *dev)
 
 	ret = switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
 			    &result, sizeof(result));
+
+	if (ret == ERR_SUBCMD_INVALID) {
+		errno = 0;
+		return 0;
+	}
+
 	if (ret)
 		return ret;
 
