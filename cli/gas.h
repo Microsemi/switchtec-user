@@ -21,7 +21,7 @@
 
 #include "cmd.h"
 
-PLUGIN(NAME("gas", "Global Address Space Access (dangerous)\n\n"
+PLUGIN(NAME("gas", "Global Address Space Access (dangerous)",
 	    "These functions should be used with extreme caution only "
 	    "if you know what you are doing. Any register accesses through "
 	    "this interface is unsupported by Microsemi unless specifically "

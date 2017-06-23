@@ -38,6 +38,7 @@ static const char version_string[] = VERSION;
 
 static struct plugin builtin = {
 	.commands = commands,
+	.builtin = true,
 	.tail = &builtin,
 };
 

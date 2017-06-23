@@ -112,6 +112,12 @@ void general_help(struct plugin *plugin)
 		printf("\n");
 	}
 
+	if (plugin->long_desc) {
+		printf("\n");
+		print_word_wrapped(plugin->long_desc, 0, 0);
+		printf("\n");
+	}
+
 	printf("\nThe following are all implemented sub-commands:\n");
 
 	for (; plugin->commands[i]; i++)
@@ -131,7 +137,7 @@ void general_help(struct plugin *plugin)
 
 	/* The first plugin is the built-in. If we're not showing help for the
 	 * built-in, don't show the program's other extensions */
-	if (plugin->name)
+	if (!plugin->builtin)
 		return;
 
 	extension = prog->extensions->next;

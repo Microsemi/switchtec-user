@@ -98,7 +98,7 @@ static struct command *commands[] = {	\
  */
 
 #undef NAME
-#define NAME(n, d) .name = n, .desc = d,
+#define NAME(n, d, l) .name = n, .desc = d, .long_desc=l,
 
 #undef COMMAND_LIST
 #define COMMAND_LIST(args...)

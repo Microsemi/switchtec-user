@@ -40,6 +40,8 @@ struct program {
 struct plugin {
 	const char *name;
 	const char *desc;
+	const char *long_desc;
+	bool builtin;
 	struct command **commands;
 	struct program *parent;
 	struct plugin *next;
