@@ -28,6 +28,7 @@ PLUGIN(NAME("gas", "Global Address Space Access (dangerous)\n\n"
 	    "otherwise specified."),
 	COMMAND_LIST(
 		     ENTRY("dump", "dump the global address space", gas_dump)
+		     ENTRY("read", "read a register from the global address space", gas_read)
 		    )
 );
 

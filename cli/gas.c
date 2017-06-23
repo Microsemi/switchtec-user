@@ -20,6 +20,7 @@
 
 #include <sys/mman.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #define CREATE_CMD
 #include "gas.h"
@@ -108,4 +109,124 @@ static int gas_dump(int argc, char **argv, struct command *cmd,
 	}
 
 	return pipe_to_hd_less(map);
+}
+
+static int print_hex(void *addr, int offset, int bytes)
+{
+	unsigned long long x;
+
+	offset = offset & ~(bytes - 1);
+
+	switch (bytes) {
+	case 1: x = *((uint8_t *)(addr + offset));  break;
+	case 2: x = *((uint16_t *)(addr + offset)); break;
+	case 4: x = *((uint32_t *)(addr + offset)); break;
+	case 8: x = *((uint64_t *)(addr + offset)); break;
+	default:
+		fprintf(stderr, "invalid access width\n");
+		return -1;
+	}
+
+	printf("%06X - 0x%0*llX\n", offset, bytes * 2, x);
+	return 0;
+}
+
+static int print_dec(void *addr, int offset, int bytes)
+{
+	unsigned long long x;
+
+	offset = offset & ~(bytes - 1);
+
+	switch (bytes) {
+	case 1: x = *((uint8_t *)(addr + offset));  break;
+	case 2: x = *((uint16_t *)(addr + offset)); break;
+	case 4: x = *((uint32_t *)(addr + offset)); break;
+	case 8: x = *((uint64_t *)(addr + offset)); break;
+	default:
+		fprintf(stderr, "invalid access width\n");
+		return -1;
+	}
+
+	printf("%06X - %lld\n", offset, x);
+	return 0;
+}
+
+static int print_str(void *addr, int offset, int bytes)
+{
+	char buf[bytes + 1];
+
+	memset(buf, 0, bytes + 1);
+	memcpy(buf, addr + offset, bytes);
+
+	printf("%06X - %s\n", offset, buf);
+	return 0;
+}
+
+enum {
+	HEX,
+	DEC,
+	STR,
+};
+
+int (*print_funcs[])(void *addr, int offset, int bytes) = {
+	[HEX] = print_hex,
+	[DEC] = print_dec,
+	[STR] = print_str,
+};
+
+static int gas_read(int argc, char **argv, struct command *cmd,
+		    struct plugin *plugin)
+{
+	const char *desc = "Read a gas register";
+	void *map;
+	int i;
+	int ret = 0;
+
+	struct argconfig_choice print_choices[] = {
+		{"hex", HEX, "print in hexadecimal"},
+		{"dec", DEC, "print in decimal"},
+		{"str", STR, "print as an ascii string"},
+		{0},
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned long addr;
+		unsigned long count;
+		unsigned bytes;
+		unsigned print_style;
+	} cfg = {
+		.bytes=4,
+		.count=1,
+		.print_style=HEX,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
+		 "address to read"},
+		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
+		 "number of bytes to read per access (default 4)"},
+		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
+		 "number of accesses to performe (default 1)"},
+		{"print", 'p', "STYLE", CFG_CHOICES, &cfg.print_style, required_argument,
+		 "printing style", .choices=print_choices},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	map = switchtec_gas_map(cfg.dev, 0);
+	if (map == MAP_FAILED) {
+		switchtec_perror("gas_map");
+		return 1;
+	}
+
+	for (i = 0; i < cfg.count; i++) {
+		ret = print_funcs[cfg.print_style](map, cfg.addr, cfg.bytes);
+		cfg.addr += cfg.bytes;
+		if (ret)
+			break;
+	}
+
+	switchtec_gas_unmap(cfg.dev, map);
+	return ret;
 }
