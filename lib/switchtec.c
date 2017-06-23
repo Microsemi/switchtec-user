@@ -29,6 +29,7 @@
 #include <libgen.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 
 #include <errno.h>
 #include <string.h>
@@ -860,4 +861,44 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 		return -1.0;
 
 	return temp / 100.;
+}
+
+/*
+ * GAS map maps the hardware registers into user memory space.
+ * Needless to say, this can be very dangerous and should only
+ * be done if you know what you are doing. Any register accesses
+ * that use this will remain unsupported by Microsemi unless it's
+ * done within the switchtec user project or otherwise specified.
+ */
+void *switchtec_gas_map(struct switchtec_dev *dev, int writeable)
+{
+	int ret;
+	int fd;
+	void *map;
+	char respath[PATH_MAX];
+
+	ret = dev_to_sysfs_path(dev, "device/resource0_wc", respath,
+				sizeof(respath));
+
+	if (ret) {
+		errno = ret;
+		return MAP_FAILED;
+	}
+
+	fd = open(respath, writeable ? O_RDWR : O_RDONLY);
+	if (fd < 0)
+		return MAP_FAILED;
+
+	map = mmap(NULL, SWITCHTEC_GAS_MAP_SIZE,
+		   (writeable ? PROT_WRITE : 0) | PROT_READ,
+		   MAP_SHARED, fd, 0);
+
+	close(fd);
+
+	return map;
+}
+
+void switchtec_gas_unmap(struct switchtec_dev *dev, void *map)
+{
+	munmap(map, SWITCHTEC_GAS_MAP_SIZE);
 }

@@ -428,6 +428,20 @@ int switchtec_lat_get(struct switchtec_dev *dev, int clear,
 		      int egress_port_ids, int *cur_ns,
 		      int *max_ns);
 
+/********** GLOBAL ADDRESS SPACE ACCESS *********/
+
+/*
+ * GAS map maps the hardware registers into user memory space.
+ * Needless to say, this can be very dangerous and should only
+ * be done if you know what you are doing. Any register accesses
+ * that use this will remain unsupported by Microsemi unless it's
+ * done within the switchtec user project or otherwise specified.
+ */
+
+#define SWITCHTEC_GAS_MAP_SIZE 0x400000
+void *switchtec_gas_map(struct switchtec_dev *dev, int writeable);
+void switchtec_gas_unmap(struct switchtec_dev *dev, void *map);
+
 #ifdef __cplusplus
 }
 #endif
