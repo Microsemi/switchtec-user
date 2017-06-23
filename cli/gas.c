@@ -230,3 +230,62 @@ static int gas_read(int argc, char **argv, struct command *cmd,
 	switchtec_gas_unmap(cfg.dev, map);
 	return ret;
 }
+
+static int gas_write(int argc, char **argv, struct command *cmd,
+		    struct plugin *plugin)
+{
+	const char *desc = "Write a gas register";
+	void *map;
+	int ret = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned long addr;
+		unsigned bytes;
+		unsigned long value;
+		int assume_yes;
+	} cfg = {
+		.bytes=4,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
+		 "address to read"},
+		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
+		 "number of bytes to read per access (default 4)"},
+		{"value", 'v', "ADDR", CFG_LONG_SUFFIX, &cfg.value, required_argument,
+		 "value to write"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	map = switchtec_gas_map(cfg.dev, 1);
+	if (map == MAP_FAILED) {
+		switchtec_perror("gas_map");
+		return 1;
+	}
+
+	if (!cfg.assume_yes)
+		fprintf(stderr,
+			"Writing 0x%lx to %06lx (%d bytes).\n",
+			cfg.value, cfg.addr, cfg.bytes);
+
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return ret;
+
+	switch (cfg.bytes) {
+	case 1: *((uint8_t *)(map + cfg.addr)) = cfg.value;  break;
+	case 2: *((uint16_t *)(map + cfg.addr)) = cfg.value; break;
+	case 4: *((uint32_t *)(map + cfg.addr)) = cfg.value; break;
+	case 8: *((uint64_t *)(map + cfg.addr)) = cfg.value; break;
+	default:
+		fprintf(stderr, "invalid access width\n");
+		return -1;
+	}
+
+	switchtec_gas_unmap(cfg.dev, map);
+	return ret;
+}

@@ -786,7 +786,7 @@ static int temp(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int ask_if_sure(int always_yes)
+int ask_if_sure(int always_yes)
 {
 	char buf[10];
 	char *ret;

@@ -58,6 +58,7 @@ int handle_plugin(int argc, char **argv, struct plugin *plugin);
 
 void register_extension(struct plugin *plugin);
 
+int ask_if_sure(int always_yes);
 int switchtec_handler(const char *optarg, void *value_addr,
 		      const struct argconfig_options *opt);
 
