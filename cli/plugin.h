@@ -24,6 +24,7 @@
 #ifndef PLUGIN_H
 #define PLUGIN_H
 
+#include "argconfig.h"
 #include <stdbool.h>
 
 struct program {
@@ -54,5 +55,17 @@ struct command {
 void usage(struct plugin *plugin);
 void general_help(struct plugin *plugin);
 int handle_plugin(int argc, char **argv, struct plugin *plugin);
+
+void register_extension(struct plugin *plugin);
+
+int switchtec_handler(const char *optarg, void *value_addr,
+		      const struct argconfig_options *opt);
+
+#define DEVICE_OPTION {"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
+		       .argument_type=required_positional, \
+		       .custom_handler=switchtec_handler, \
+		       .complete="/dev/switchtec*", \
+		       .env="SWITCHTEC_DEV", \
+		       .help="switchtec device to operate on"}
 
 #endif

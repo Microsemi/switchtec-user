@@ -71,13 +71,6 @@ int switchtec_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
-#define DEVICE_OPTION {"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
-		       .argument_type=required_positional, \
-		       .custom_handler=switchtec_handler, \
-		       .complete="/dev/switchtec*", \
-		       .env="SWITCHTEC_DEV", \
-		       .help="switchtec device to operate on"}
-
 static int list(int argc, char **argv, struct command *cmd,
 		struct plugin *plugin)
 {
@@ -1652,6 +1645,14 @@ static int evcntr_wait(int argc, char **argv, struct command *cmd,
 		display_event_counters(cfg.dev, i, 0);
 
 	return 0;
+}
+
+void register_extension(struct plugin *plugin)
+{
+	plugin->parent = &switchtec;
+
+	switchtec.extensions->tail->next = plugin;
+	switchtec.extensions->tail = plugin;
 }
 
 int main(int argc, char **argv)
