@@ -61,6 +61,7 @@ static const struct {
 	EV(GLOBAL, CLI_MRPC_COMP, 10, "CLI MRPC Completion"),
 	EV(GLOBAL, CLI_MRPC_COMP_ASYNC, 11, "CLI MRPC Async Completion"),
 	EV(GLOBAL, GPIO_INT, 12, "GPIO Interrupt"),
+	EV(GLOBAL, GFMS, 13, "Global Fabric Management Server Event"),
 	EV(PART, PART_RESET, 0, "Partition Reset"),
 	EV(PART, MRPC_COMP, 1, "MRPC Completion"),
 	EV(PART, MRPC_COMP_ASYNC, 2, "MRPC Async Completion"),
