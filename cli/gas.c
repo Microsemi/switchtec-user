@@ -21,6 +21,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define CREATE_CMD
 #include "gas.h"
@@ -33,7 +35,7 @@ static int spawn_proc(int fd_in, int fd_out, int fd_close,
 	pid = fork();
 
 	if (pid != 0)
-		return 0;
+		return pid;
 
 	close(fd_close);
 
@@ -54,23 +56,24 @@ static int pipe_to_hd_less(void *map)
 {
 	int hd_fds[2];
 	int less_fds[2];
+	int less_pid, hd_pid;
 	int ret;
 
 	pipe(less_fds);
 
-	ret = spawn_proc(less_fds[0], STDOUT_FILENO, less_fds[1], "less");
-	if (ret < 0) {
+	less_pid = spawn_proc(less_fds[0], STDOUT_FILENO, less_fds[1], "less");
+	if (less_pid < 0) {
 		perror("less");
-		return ret;
+		return -1;
 	}
 	close(STDOUT_FILENO);
 	close(less_fds[0]);
 
 	pipe(hd_fds);
-	ret = spawn_proc(hd_fds[0], less_fds[1], hd_fds[1], "hd");
-	if (ret < 0) {
+	hd_pid = spawn_proc(hd_fds[0], less_fds[1], hd_fds[1], "hd");
+	if (hd_pid < 0) {
 		perror("hd");
-		return ret;
+		return -1;
 	}
 
 	close(hd_fds[0]);
@@ -78,6 +81,7 @@ static int pipe_to_hd_less(void *map)
 
 	ret = write(hd_fds[1], map, SWITCHTEC_GAS_MAP_SIZE);
 	close(hd_fds[1]);
+	waitpid(less_pid, NULL, 0);
 	return ret;
 }
 
