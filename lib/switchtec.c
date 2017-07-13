@@ -870,12 +870,14 @@ float switchtec_die_temp(struct switchtec_dev *dev)
  * that use this will remain unsupported by Microsemi unless it's
  * done within the switchtec user project or otherwise specified.
  */
-void *switchtec_gas_map(struct switchtec_dev *dev, int writeable)
+void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
+			size_t *map_size)
 {
 	int ret;
 	int fd;
 	void *map;
 	char respath[PATH_MAX];
+	struct stat stat;
 
 	ret = dev_to_sysfs_path(dev, "device/resource0_wc", respath,
 				sizeof(respath));
@@ -889,16 +891,25 @@ void *switchtec_gas_map(struct switchtec_dev *dev, int writeable)
 	if (fd < 0)
 		return MAP_FAILED;
 
-	map = mmap(NULL, SWITCHTEC_GAS_MAP_SIZE,
+	ret = fstat(fd, &stat);
+	if (ret < 0)
+		return MAP_FAILED;
+
+	map = mmap(NULL, stat.st_size,
 		   (writeable ? PROT_WRITE : 0) | PROT_READ,
 		   MAP_SHARED, fd, 0);
-
 	close(fd);
+
+	if (map_size)
+		*map_size = stat.st_size;
+
+	dev->gas_map = map;
+	dev->gas_map_size = stat.st_size;
 
 	return map;
 }
 
 void switchtec_gas_unmap(struct switchtec_dev *dev, void *map)
 {
-	munmap(map, SWITCHTEC_GAS_MAP_SIZE);
+	munmap(map, dev->gas_map_size);
 }

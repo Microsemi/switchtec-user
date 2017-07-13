@@ -52,7 +52,7 @@ static int spawn_proc(int fd_in, int fd_out, int fd_close,
 	return execlp(cmd, cmd, NULL);
 }
 
-static int pipe_to_hd_less(void *map)
+static int pipe_to_hd_less(void *map, size_t map_size)
 {
 	int hd_fds[2];
 	int less_fds[2];
@@ -79,7 +79,7 @@ static int pipe_to_hd_less(void *map)
 	close(hd_fds[0]);
 	close(less_fds[1]);
 
-	ret = write(hd_fds[1], map, SWITCHTEC_GAS_MAP_SIZE);
+	ret = write(hd_fds[1], map, map_size);
 	close(hd_fds[1]);
 	waitpid(less_pid, NULL, 0);
 	return ret;
@@ -90,6 +90,7 @@ static int gas_dump(int argc, char **argv, struct command *cmd,
 {
 	const char *desc = "Dump all gas registers";
 	void *map;
+	size_t map_size;
 	int ret;
 
 	static struct {
@@ -101,18 +102,18 @@ static int gas_dump(int argc, char **argv, struct command *cmd,
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	map = switchtec_gas_map(cfg.dev, 0);
+	map = switchtec_gas_map(cfg.dev, 0, &map_size);
 	if (map == MAP_FAILED) {
 		switchtec_perror("gas_map");
 		return 1;
 	}
 
 	if (!isatty(STDOUT_FILENO)) {
-		ret = write(STDOUT_FILENO, map, SWITCHTEC_GAS_MAP_SIZE);
+		ret = write(STDOUT_FILENO, map, map_size);
 		return ret > 0;
 	}
 
-	return pipe_to_hd_less(map);
+	return pipe_to_hd_less(map, map_size);
 }
 
 static int print_hex(void *addr, int offset, int bytes)
@@ -218,7 +219,7 @@ static int gas_read(int argc, char **argv, struct command *cmd,
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	map = switchtec_gas_map(cfg.dev, 0);
+	map = switchtec_gas_map(cfg.dev, 0, NULL);
 	if (map == MAP_FAILED) {
 		switchtec_perror("gas_map");
 		return 1;
@@ -265,7 +266,7 @@ static int gas_write(int argc, char **argv, struct command *cmd,
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	map = switchtec_gas_map(cfg.dev, 1);
+	map = switchtec_gas_map(cfg.dev, 1, NULL);
 	if (map == MAP_FAILED) {
 		switchtec_perror("gas_map");
 		return 1;

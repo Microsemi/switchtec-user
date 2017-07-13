@@ -439,8 +439,8 @@ int switchtec_lat_get(struct switchtec_dev *dev, int clear,
  * done within the switchtec user project or otherwise specified.
  */
 
-#define SWITCHTEC_GAS_MAP_SIZE 0x400000
-void *switchtec_gas_map(struct switchtec_dev *dev, int writeable);
+void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
+			size_t *map_size);
 void switchtec_gas_unmap(struct switchtec_dev *dev, void *map);
 
 #ifdef __cplusplus

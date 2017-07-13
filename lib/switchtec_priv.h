@@ -25,6 +25,9 @@ struct switchtec_dev {
 	int fd;
 	int partition;
 	char name[PATH_MAX];
+
+	void *gas_map;
+	size_t gas_map_size;
 };
 
 static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
