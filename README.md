@@ -20,6 +20,13 @@ Currently the following features are supported:
 * Update and readback firmware as well as display image version and CRC info
 * A simple ncurses GUI that shows salient information for the switch
 
+## Dependencies
+
+This program has build dependencies on the following libraries:
+
+* libncurses5-dev
+* libtinfo-dev
+
 ## Installation
 
 Installation is simple, with:
