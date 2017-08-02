@@ -351,6 +351,12 @@ static unsigned gui_keypress()
 		return 1;
 	case 'q':
 		cleanup_and_exit();
+	case KEY_RESIZE:
+		clear();
+		wborder(mainwin, WINBORDER);
+		wrefresh(mainwin);
+		refresh();
+		break;
 	}
 	return 0;
 }
