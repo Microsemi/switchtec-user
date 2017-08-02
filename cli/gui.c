@@ -260,8 +260,12 @@ static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 	struct switchtec_bwcntr_res bw_data_new[SWITCHTEC_MAX_PORTS];
 
 	ret = switchtec_status(dev, &status);
-	if (ret < 0)
+	if (errno == EINTR) {
+		errno = 0;
+		return;
+	} else if (ret < 0) {
 		cleanup_and_error("status");
+	}
 	numports = ret;
 
 	ret = switchtec_get_devices(dev, status, numports);
@@ -284,8 +288,12 @@ static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 	}
 
 	ret = switchtec_bwcntr_many(dev, numports, port_ids, 0, bw_data_new);
-	if (ret < 0)
+	if (errno == EINTR) {
+		errno = 0;
+		goto free_and_return;
+	} else if (ret < 0) {
 		cleanup_and_error("bwcntr");
+	}
 
 	for (p = 0; p < numports; p++) {
 		struct switchtec_status *s = &status[p];
@@ -301,6 +309,7 @@ static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 	memcpy(bw_data, bw_data_new, SWITCHTEC_MAX_PORTS *
 	       sizeof(struct switchtec_bwcntr_res));
 
+free_and_return:
 	switchtec_status_free(status, numports);
 }
 
