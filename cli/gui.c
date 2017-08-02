@@ -72,6 +72,12 @@ static void gui_handler(int signum)
 	}
 }
 
+static int reset_signal;
+static void sigusr1_handler(int sig)
+{
+	reset_signal = 1;
+}
+
 static void gui_signals(void)
 {
 
@@ -84,6 +90,7 @@ static void gui_signals(void)
 	sigaction(SIGTERM, &sa, NULL);
 	sigaction(SIGINT, &sa, NULL);
 	sigaction(SIGALRM, &sa, NULL);
+	signal(SIGUSR1, sigusr1_handler);
 }
 
   /* Generate a port based string for the port windows */
@@ -357,7 +364,13 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 	usleep(GUI_INIT_TIME);
 
 	while (1) {
-		gui_winports(dev, all_ports, bw_data, gui_keypress());
+		int do_reset;
+
+		do_reset = gui_keypress();
+		do_reset |= reset_signal;
+		reset_signal = 0;
+
+		gui_winports(dev, all_ports, bw_data, do_reset);
 		sleep(refresh);
 	}
 
