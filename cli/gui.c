@@ -55,6 +55,14 @@ static void gui_timer(unsigned duration)
 	setitimer(ITIMER_REAL, &it, NULL);
 }
 
+static void cleanup_and_exit(void)
+{
+	delwin(mainwin);
+	endwin();
+	refresh();
+	exit(0);
+}
+
 static void gui_handler(int signum)
 {
 
@@ -65,10 +73,7 @@ static void gui_handler(int signum)
 	case SIGTERM:
 	case SIGINT:
 	case SIGALRM:
-		delwin(mainwin);
-		endwin();
-		refresh();
-		exit(0);
+		cleanup_and_exit();
 	}
 }
 
@@ -330,6 +335,8 @@ static unsigned gui_keypress()
 	switch (ch) {
 	case 'r':
 		return 1;
+	case 'q':
+		cleanup_and_exit();
 	}
 	return 0;
 }
