@@ -55,12 +55,24 @@ static void gui_timer(unsigned duration)
 	setitimer(ITIMER_REAL, &it, NULL);
 }
 
-static void cleanup_and_exit(void)
+static void cleanup(void)
 {
 	delwin(mainwin);
 	endwin();
 	refresh();
+}
+
+static void cleanup_and_exit(void)
+{
+	cleanup();
 	exit(0);
+}
+
+static void cleanup_and_error(const char *str)
+{
+	cleanup();
+	switchtec_perror(str);
+	exit(1);
 }
 
 static void gui_handler(int signum)
@@ -248,17 +260,17 @@ static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 	struct switchtec_bwcntr_res bw_data_new[SWITCHTEC_MAX_PORTS];
 
 	ret = switchtec_status(dev, &status);
-	if (ret < 0) {
-		switchtec_perror("status");
-		exit(ret);
+	if (errno == EINTR) {
+		errno = 0;
+		return;
+	} else if (ret < 0) {
+		cleanup_and_error("status");
 	}
 	numports = ret;
 
 	ret = switchtec_get_devices(dev, status, numports);
-	if (ret < 0) {
-		switchtec_perror("get_devices");
-		exit(ret);
-	}
+	if (ret < 0)
+		cleanup_and_error("get_devices");
 
 	struct portloc portlocs[numports];
 	WINDOW *portwins[numports];
@@ -276,10 +288,13 @@ static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 	}
 
 	ret = switchtec_bwcntr_many(dev, numports, port_ids, 0, bw_data_new);
-	if (ret < 0) {
-		switchtec_perror("bwcntr");
-		exit(ret);
+	if (errno == EINTR) {
+		errno = 0;
+		goto free_and_return;
+	} else if (ret < 0) {
+		cleanup_and_error("bwcntr");
 	}
+
 	for (p = 0; p < numports; p++) {
 		struct switchtec_status *s = &status[p];
 		struct portstats stats;
@@ -294,6 +309,7 @@ static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 	memcpy(bw_data, bw_data_new, SWITCHTEC_MAX_PORTS *
 	       sizeof(struct switchtec_bwcntr_res));
 
+free_and_return:
 	switchtec_status_free(status, numports);
 }
 
@@ -304,10 +320,8 @@ static int gui_init(struct switchtec_dev *dev, unsigned reset,
 	struct switchtec_status *status;
 
 	ret = switchtec_status(dev, &status);
-	if (ret < 0) {
-		switchtec_perror("status");
-		exit(ret);
-	}
+	if (ret < 0)
+		cleanup_and_error("status");
 	numports = ret;
 
 	for (p = 0; p < numports; p++)
@@ -337,6 +351,12 @@ static unsigned gui_keypress()
 		return 1;
 	case 'q':
 		cleanup_and_exit();
+	case KEY_RESIZE:
+		clear();
+		wborder(mainwin, WINBORDER);
+		wrefresh(mainwin);
+		refresh();
+		break;
 	}
 	return 0;
 }

@@ -347,7 +347,14 @@ int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
 {
 	int ret;
 
+retry:
 	ret = switchtec_submit_cmd(dev, cmd, payload, payload_len);
+	if (errno == EBADE) {
+		switchtec_read_resp(dev, NULL, 0);
+		errno = 0;
+		goto retry;
+	}
+
 	if (ret < 0)
 		return ret;
 
