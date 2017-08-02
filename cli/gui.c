@@ -251,9 +251,9 @@ static WINDOW *gui_portwin(struct portloc *portlocs,
 	return portwin;
 }
 
-static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
-			 struct switchtec_bwcntr_res *bw_data,
-			 unsigned reset_cntrs)
+static int gui_winports(struct switchtec_dev *dev, unsigned all_ports,
+			struct switchtec_bwcntr_res *bw_data,
+			unsigned reset_cntrs)
 {
 	int ret, p, numports, port_ids[SWITCHTEC_MAX_PORTS];
 	struct switchtec_status *status;
@@ -262,7 +262,7 @@ static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 	ret = switchtec_status(dev, &status);
 	if (errno == EINTR) {
 		errno = 0;
-		return;
+		return -1;
 	} else if (ret < 0) {
 		cleanup_and_error("status");
 	}
@@ -308,9 +308,11 @@ static void gui_winports(struct switchtec_dev *dev, unsigned all_ports,
 
 	memcpy(bw_data, bw_data_new, SWITCHTEC_MAX_PORTS *
 	       sizeof(struct switchtec_bwcntr_res));
+	ret = 0;
 
 free_and_return:
 	switchtec_status_free(status, numports);
+	return ret;
 }
 
 static int gui_init(struct switchtec_dev *dev, unsigned reset,
@@ -395,10 +397,11 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 
 		do_reset = gui_keypress();
 		do_reset |= reset_signal;
-		reset_signal = 0;
-
-		gui_winports(dev, all_ports, bw_data, do_reset);
+		ret = gui_winports(dev, all_ports, bw_data, do_reset);
 		sleep(refresh);
+
+		if (!ret && do_reset)
+			reset_signal = 0;
 	}
 
 	return 0;
