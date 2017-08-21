@@ -1042,25 +1042,25 @@ static int fw_update(int argc, char **argv, struct command *cmd,
 	if (ret < 0)
 		return ret;
 
-	if (cfg.set_boot_rw && ret != SWITCHTEC_FW_TYPE_BOOT) {
-		fprintf(stderr, "The --set-boot-rw option only applies for BOOT images\n");
-		return -1;
-	} else if (ret == SWITCHTEC_FW_TYPE_BOOT) {
-		if (switchtec_fw_is_boot_ro(cfg.dev) == SWITCHTEC_FW_RO) {
-			fprintf(stderr, "\nfirmware update: the BOOT partition is read-only. "
-				"use --set-boot-rw to override\n");
-			return -1;
-		}
-	}
-
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
 		fclose(cfg.fimg);
 		return ret;
 	}
 
-	if (cfg.set_boot_rw)
-		switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
+	if (cfg.set_boot_rw && ret != SWITCHTEC_FW_TYPE_BOOT) {
+		fprintf(stderr, "The --set-boot-rw option only applies for BOOT images\n");
+		return -1;
+	} else if (ret == SWITCHTEC_FW_TYPE_BOOT) {
+		if (cfg.set_boot_rw)
+			switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
+
+		if (switchtec_fw_is_boot_ro(cfg.dev) == SWITCHTEC_FW_RO) {
+			fprintf(stderr, "\nfirmware update: the BOOT partition is read-only. "
+				"use --set-boot-rw to override\n");
+			return -1;
+		}
+	}
 
 	progress_start();
 	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
