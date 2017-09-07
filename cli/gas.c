@@ -85,8 +85,7 @@ static int pipe_to_hd_less(void *map, size_t map_size)
 	return ret;
 }
 
-static int gas_dump(int argc, char **argv, struct command *cmd,
-		    struct plugin *plugin)
+static int gas_dump(int argc, char **argv)
 {
 	const char *desc = "Dump all gas registers";
 	void *map;
@@ -179,8 +178,7 @@ int (*print_funcs[])(void *addr, int offset, int bytes) = {
 	[STR] = print_str,
 };
 
-static int gas_read(int argc, char **argv, struct command *cmd,
-		    struct plugin *plugin)
+static int gas_read(int argc, char **argv)
 {
 	const char *desc = "Read a gas register";
 	void *map;
@@ -236,8 +234,7 @@ static int gas_read(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int gas_write(int argc, char **argv, struct command *cmd,
-		    struct plugin *plugin)
+static int gas_write(int argc, char **argv)
 {
 	const char *desc = "Write a gas register";
 	void *map;

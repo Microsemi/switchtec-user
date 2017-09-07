@@ -72,8 +72,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
-static int list(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+static int list(int argc, char **argv)
 {
 	struct switchtec_device_info *devices;
 	int i, n;
@@ -121,8 +120,7 @@ static void print_port_title(struct switchtec_dev *dev,
 	}
 }
 
-static int gui(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int gui(int argc, char **argv)
 {
 
 	const char *desc = "Display a simple ncurses GUI for the switch";
@@ -159,8 +157,7 @@ static int gui(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int status(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int status(int argc, char **argv)
 {
 	const char *desc = "Display status of the ports on the switch";
 	int ret;
@@ -264,8 +261,7 @@ static void print_bw(const char *msg, uint64_t time_us, uint64_t bytes)
 	printf("\t%-8s\t%5.3g %sB/s\n", msg, rate, suf);
 }
 
-static int bw(int argc, char **argv, struct command *cmd,
-	      struct plugin *plugin)
+static int bw(int argc, char **argv)
 {
 	const char *desc = "Measure switch bandwidth";
 	struct switchtec_bwcntr_res *before, *after;
@@ -346,8 +342,7 @@ static int bw(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int latency(int argc, char **argv, struct command *cmd,
-		   struct plugin *plugin)
+static int latency(int argc, char **argv)
 {
 	const char *desc = "Measure latency of a port";
 	int ret;
@@ -534,8 +529,7 @@ static int get_events(struct switchtec_dev *dev,
 	return e - elist;
 }
 
-static int events(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int events(int argc, char **argv)
 {
 	const char *desc = "Display information on events that have occurred";
 	struct event_list elist[256];
@@ -580,8 +574,7 @@ static int events(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int event_wait(int argc, char **argv, struct command *cmd,
-		      struct plugin *plugin)
+static int event_wait(int argc, char **argv)
 {
 	const char *desc = "Wait for an event to occur";
 	struct event_list elist[256];
@@ -670,8 +663,7 @@ static int event_wait(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int log_dump(int argc, char **argv, struct command *cmd,
-		    struct plugin *plugin)
+static int log_dump(int argc, char **argv)
 {
 	const char *desc = "Dump the raw APP log to a file";
 	int ret;
@@ -724,8 +716,7 @@ static int log_dump(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int test(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+static int test(int argc, char **argv)
 {
 	const char *desc = "Test if switchtec interface is working";
 	int ret;
@@ -761,8 +752,7 @@ static int test(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int temp(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+static int temp(int argc, char **argv)
 {
 	const char *desc = "Display die temperature of the switchtec device";
 	float ret;
@@ -810,8 +800,7 @@ abort:
 	return -errno;
 }
 
-static int hard_reset(int argc, char **argv, struct command *cmd,
-		      struct plugin *plugin)
+static int hard_reset(int argc, char **argv)
 {
 	const char *desc = "Perform a hard reset on the switch";
 	int ret;
@@ -880,8 +869,7 @@ static enum switchtec_fw_image_type check_and_print_fw_image(
 	return info.type;
 }
 
-static int fw_image_info(int argc, char **argv, struct command *cmd,
-		       struct plugin *plugin)
+static int fw_image_info(int argc, char **argv)
 {
 	const char *desc = "Display information for a firmware image";
 	int ret;
@@ -975,8 +963,7 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	return 0;
 }
 
-static int fw_info(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+static int fw_info(int argc, char **argv)
 {
 	const char *desc = "Test if switchtec interface is working";
 	int ret;
@@ -1005,8 +992,7 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int fw_update(int argc, char **argv, struct command *cmd,
-		     struct plugin *plugin)
+static int fw_update(int argc, char **argv)
 {
 	int ret;
 	const char *desc = "Flash the firmware with a new image";
@@ -1086,8 +1072,7 @@ set_boot_ro:
 	return ret;
 }
 
-static int fw_toggle(int argc, char **argv, struct command *cmd,
-		     struct plugin *plugin)
+static int fw_toggle(int argc, char **argv)
 {
 	const char *desc = "Toggle active and inactive firmware partitions";
 	int ret = 0;
@@ -1124,8 +1109,7 @@ static int fw_toggle(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int fw_read(int argc, char **argv, struct command *cmd,
-		   struct plugin *plugin)
+static int fw_read(int argc, char **argv)
 {
 	const char *desc = "Flash the firmware with a new image";
 	struct switchtec_fw_footer ftr;
@@ -1386,8 +1370,7 @@ static void show_event_counter(int stack, int counter,
 		       "EGRESS" : "INGRESS");
 }
 
-static int evcntr_setup(int argc, char **argv, struct command *cmd,
-			struct plugin *plugin)
+static int evcntr_setup(int argc, char **argv)
 {
 	const char *desc = "Setup a new event counter";
 	int nr_type_choices = switchtec_evcntr_type_count();
@@ -1471,8 +1454,7 @@ static int evcntr_setup(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int evcntr(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int evcntr(int argc, char **argv)
 {
 	const char *desc = "Display event counters";
 	int ret, i;
@@ -1508,8 +1490,7 @@ static int evcntr(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int evcntr_show(int argc, char **argv, struct command *cmd,
-		       struct plugin *plugin)
+static int evcntr_show(int argc, char **argv)
 {
 	const char *desc = "Display setup information for an event counter";
 	struct switchtec_evcntr_setup setup;
@@ -1560,8 +1541,7 @@ static int evcntr_show(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int evcntr_del(int argc, char **argv, struct command *cmd,
-		       struct plugin *plugin)
+static int evcntr_del(int argc, char **argv)
 {
 	const char *desc = "Deconfigure an event counter counter";
 	struct switchtec_evcntr_setup setup = {};
@@ -1610,8 +1590,7 @@ static int evcntr_del(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int evcntr_wait(int argc, char **argv, struct command *cmd,
-		       struct plugin *plugin)
+static int evcntr_wait(int argc, char **argv)
 {
 	const char *desc = "Wait for an event counter to reach its threshold";
 	int ret, i;

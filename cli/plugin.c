@@ -187,7 +187,7 @@ int handle_plugin(int argc, char **argv, struct plugin *plugin)
 		if (strcmp(str, cmd->name))
 			continue;
 
-		return (cmd->fn(argc, argv, cmd, plugin));
+		return cmd->fn(argc, argv);
 	}
 
 	/* Check extensions only if this is running the built-in plugin */
