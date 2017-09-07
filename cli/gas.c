@@ -13,8 +13,9 @@
  *
  */
 
-#include "plugin.h"
+#include "commands.h"
 #include "argconfig.h"
+#include "common.h"
 
 #include <switchtec/switchtec.h>
 
@@ -23,9 +24,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-
-#define CREATE_CMD
-#include "gas.h"
 
 static int spawn_proc(int fd_in, int fd_out, int fd_close,
 		      const char *cmd)
@@ -291,3 +289,22 @@ static int gas_write(int argc, char **argv)
 	switchtec_gas_unmap(cfg.dev, map);
 	return ret;
 }
+
+static const struct cmd commands[] = {
+	{"dump", gas_dump, "dump the global address space"},
+	{"read", gas_read, "read a register from the global address space"},
+	{"write", gas_write, "write a register in the global address space"},
+	{}
+};
+
+static struct subcommand subcmd = {
+	.name = "gas",
+	.cmds = commands,
+	.desc = "Global Address Space Access (dangerous)",
+	.long_desc = "These functions should be used with extreme caution only "
+	      "if you know what you are doing. Any register accesses through "
+	      "this interface is unsupported by Microsemi unless specifically "
+	      "otherwise specified.",
+};
+
+REGISTER_SUBCMD(subcmd);

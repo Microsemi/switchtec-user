@@ -13,11 +13,12 @@
  *
  */
 
-#include "plugin.h"
+#include "commands.h"
 #include "argconfig.h"
-#include "version.h"
 #include "suffix.h"
 #include "progress.h"
+#include "gui.h"
+#include "common.h"
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
@@ -29,27 +30,6 @@
 
 #include <errno.h>
 #include <stdio.h>
-
-#define CREATE_CMD
-#include "builtin.h"
-#include "gui.h"
-
-static const char version_string[] = VERSION;
-
-static struct plugin builtin = {
-	.commands = commands,
-	.builtin = true,
-	.tail = &builtin,
-};
-
-static struct program switchtec = {
-	.name = "switchtec",
-	.version = version_string,
-	.usage = "<command> [<device>] [OPTIONS]",
-	.desc = "The <device> must be a switchtec device "\
-                "(ex: /dev/switchtec0)",
-	.extensions = &builtin,
-};
 
 static struct {} empty_cfg;
 const struct argconfig_options empty_opts[] = {{NULL}};
@@ -869,7 +849,7 @@ static enum switchtec_fw_image_type check_and_print_fw_image(
 	return info.type;
 }
 
-static int fw_image_info(int argc, char **argv)
+static int fw_img_info(int argc, char **argv)
 {
 	const char *desc = "Display information for a firmware image";
 	int ret;
@@ -1627,29 +1607,48 @@ static int evcntr_wait(int argc, char **argv)
 	return 0;
 }
 
-void register_extension(struct plugin *plugin)
-{
-	plugin->parent = &switchtec;
+static const struct cmd commands[] = {
+	CMD(list, "List all switchtec devices on this machine"),
+	CMD(gui, "Display a simple ncurses GUI for the switch"),
+	CMD(status, "Display status information"),
+	CMD(bw, "Measure the bandwidth for each port"),
+	CMD(latency, "Measure the latency of a port"),
+	CMD(events, "Display events that have occurred"),
+	CMD(event_wait, "Wait for an event to occur"),
+	CMD(log_dump, "Dump firmware log to a file"),
+	CMD(test, "Test if switchtec interface is working"),
+	CMD(temp, "Return the switchtec die temperature"),
+	CMD(hard_reset, "Perform a hard reset of the switch"),
+	CMD(fw_update, "Upload a new firmware image"),
+	CMD(fw_info, "Return information on currently flashed firmware"),
+	CMD(fw_toggle, "Toggle the active and inactive firmware partition"),
+	CMD(fw_read, "Read back firmware image from hardware"),
+	CMD(fw_img_info, "Display information for a firmware image"),
+	CMD(evcntr, "Display event counters"),
+	CMD(evcntr_setup, "Setup an event counter"),
+	CMD(evcntr_show, "Show an event counters setup info"),
+	CMD(evcntr_del, "Deconfigure an event counter"),
+	CMD(evcntr_wait, "Wait for an event counter to exceed its threshold"),
+	{},
+};
 
-	switchtec.extensions->tail->next = plugin;
-	switchtec.extensions->tail = plugin;
-}
+static struct subcommand subcmd = {
+	.cmds = commands,
+};
+
+REGISTER_SUBCMD(subcmd);
+
+static struct prog_info prog_info = {
+	.usage = "<command> [<device>] [OPTIONS]",
+	.desc = "The <device> must be a switchtec device "
+		"(ex: /dev/switchtec0)",
+};
 
 int main(int argc, char **argv)
 {
 	int ret;
 
-	switchtec.extensions->parent = &switchtec;
-	if (argc < 2) {
-		general_help(&builtin);
-		return 0;
-	}
-
-	setlocale(LC_ALL, "");
-
-	ret = handle_plugin(argc - 1, &argv[1], switchtec.extensions);
-	if (ret == -ENOTSUP)
-		general_help(&builtin);
+	ret = commands_handle(argc, argv, &prog_info);
 
 	switchtec_close(global_dev);
 
