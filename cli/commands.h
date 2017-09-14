@@ -22,11 +22,39 @@
  *
  */
 
-#ifndef PROGRESS_H
-#define PROGRESS_H
+#ifndef COMMANDS_H
+#define COMMANDS_H
 
-void progress_start(void);
-void progress_update(int cur, int total);
-void progress_finish(void);
+struct cmd {
+	const char *name;
+	int (*fn)(int argc, char **argv);
+	const char *help;
+};
+
+#define CMD(name_fn, help_str) {.name=#name_fn, .fn=name_fn, .help=help_str}
+
+struct subcommand {
+	const char *name;
+	const char *desc;
+	const char *long_desc;
+	const struct cmd *cmds;
+	struct subcommand *next;
+};
+
+#define REGISTER_SUBCMD(subcmd) \
+	__attribute__((constructor)) \
+	static void init(void) \
+	{ \
+		commands_register(&subcmd); \
+	}
+
+struct prog_info {
+	const char *exe;
+	const char *usage;
+	const char *desc;
+};
+
+void commands_register(struct subcommand *subcmd);
+int commands_handle(int argc, char **argv, struct prog_info *prog_info);
 
 #endif

@@ -22,11 +22,18 @@
  *
  */
 
-#ifndef PROGRESS_H
-#define PROGRESS_H
+#ifndef COMMON_H
+#define COMMON_H
 
-void progress_start(void);
-void progress_update(int cur, int total);
-void progress_finish(void);
+int ask_if_sure(int always_yes);
+int switchtec_handler(const char *optarg, void *value_addr,
+		      const struct argconfig_options *opt);
+
+#define DEVICE_OPTION {"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
+			.argument_type=required_positional, \
+			.custom_handler=switchtec_handler, \
+			.complete="/dev/switchtec*", \
+			.env="SWITCHTEC_DEV", \
+			.help="switchtec device to operate on"}
 
 #endif

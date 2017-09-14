@@ -2,19 +2,29 @@
  * Microsemi Switchtec(tm) PCIe Management Command Line Interface
  * Copyright (c) 2017, Microsemi Corporation
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
  *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
  */
 
-#include "plugin.h"
+#include "commands.h"
 #include "argconfig.h"
+#include "common.h"
 
 #include <switchtec/switchtec.h>
 
@@ -23,9 +33,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-
-#define CREATE_CMD
-#include "gas.h"
 
 static int spawn_proc(int fd_in, int fd_out, int fd_close,
 		      const char *cmd)
@@ -85,8 +92,7 @@ static int pipe_to_hd_less(void *map, size_t map_size)
 	return ret;
 }
 
-static int gas_dump(int argc, char **argv, struct command *cmd,
-		    struct plugin *plugin)
+static int gas_dump(int argc, char **argv)
 {
 	const char *desc = "Dump all gas registers";
 	void *map;
@@ -179,8 +185,7 @@ int (*print_funcs[])(void *addr, int offset, int bytes) = {
 	[STR] = print_str,
 };
 
-static int gas_read(int argc, char **argv, struct command *cmd,
-		    struct plugin *plugin)
+static int gas_read(int argc, char **argv)
 {
 	const char *desc = "Read a gas register";
 	void *map;
@@ -236,8 +241,7 @@ static int gas_read(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int gas_write(int argc, char **argv, struct command *cmd,
-		    struct plugin *plugin)
+static int gas_write(int argc, char **argv)
 {
 	const char *desc = "Write a gas register";
 	void *map;
@@ -294,3 +298,22 @@ static int gas_write(int argc, char **argv, struct command *cmd,
 	switchtec_gas_unmap(cfg.dev, map);
 	return ret;
 }
+
+static const struct cmd commands[] = {
+	{"dump", gas_dump, "dump the global address space"},
+	{"read", gas_read, "read a register from the global address space"},
+	{"write", gas_write, "write a register in the global address space"},
+	{}
+};
+
+static struct subcommand subcmd = {
+	.name = "gas",
+	.cmds = commands,
+	.desc = "Global Address Space Access (dangerous)",
+	.long_desc = "These functions should be used with extreme caution only "
+	      "if you know what you are doing. Any register accesses through "
+	      "this interface is unsupported by Microsemi unless specifically "
+	      "otherwise specified.",
+};
+
+REGISTER_SUBCMD(subcmd);

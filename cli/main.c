@@ -1,23 +1,33 @@
 /*
  * Microsemi Switchtec(tm) PCIe Management Command Line Interface
- * Copyright (c) 2016, Microsemi Corporation
+ * Copyright (c) 2017, Microsemi Corporation
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
  *
- * This program is distributed in the hope it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ * The above copyright notice and this permission notice shall be included
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  *
  */
 
-#include "plugin.h"
+#include "commands.h"
 #include "argconfig.h"
-#include "version.h"
 #include "suffix.h"
 #include "progress.h"
+#include "gui.h"
+#include "common.h"
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
@@ -29,27 +39,6 @@
 
 #include <errno.h>
 #include <stdio.h>
-
-#define CREATE_CMD
-#include "builtin.h"
-#include "gui.h"
-
-static const char version_string[] = VERSION;
-
-static struct plugin builtin = {
-	.commands = commands,
-	.builtin = true,
-	.tail = &builtin,
-};
-
-static struct program switchtec = {
-	.name = "switchtec",
-	.version = version_string,
-	.usage = "<command> [<device>] [OPTIONS]",
-	.desc = "The <device> must be a switchtec device "\
-                "(ex: /dev/switchtec0)",
-	.extensions = &builtin,
-};
 
 static struct {} empty_cfg;
 const struct argconfig_options empty_opts[] = {{NULL}};
@@ -72,8 +61,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
-static int list(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+static int list(int argc, char **argv)
 {
 	struct switchtec_device_info *devices;
 	int i, n;
@@ -121,8 +109,7 @@ static void print_port_title(struct switchtec_dev *dev,
 	}
 }
 
-static int gui(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int gui(int argc, char **argv)
 {
 
 	const char *desc = "Display a simple ncurses GUI for the switch";
@@ -159,8 +146,7 @@ static int gui(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int status(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int status(int argc, char **argv)
 {
 	const char *desc = "Display status of the ports on the switch";
 	int ret;
@@ -264,8 +250,7 @@ static void print_bw(const char *msg, uint64_t time_us, uint64_t bytes)
 	printf("\t%-8s\t%5.3g %sB/s\n", msg, rate, suf);
 }
 
-static int bw(int argc, char **argv, struct command *cmd,
-	      struct plugin *plugin)
+static int bw(int argc, char **argv)
 {
 	const char *desc = "Measure switch bandwidth";
 	struct switchtec_bwcntr_res *before, *after;
@@ -346,8 +331,7 @@ static int bw(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int latency(int argc, char **argv, struct command *cmd,
-		   struct plugin *plugin)
+static int latency(int argc, char **argv)
 {
 	const char *desc = "Measure latency of a port";
 	int ret;
@@ -534,8 +518,7 @@ static int get_events(struct switchtec_dev *dev,
 	return e - elist;
 }
 
-static int events(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int events(int argc, char **argv)
 {
 	const char *desc = "Display information on events that have occurred";
 	struct event_list elist[256];
@@ -580,8 +563,7 @@ static int events(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int event_wait(int argc, char **argv, struct command *cmd,
-		      struct plugin *plugin)
+static int event_wait(int argc, char **argv)
 {
 	const char *desc = "Wait for an event to occur";
 	struct event_list elist[256];
@@ -670,8 +652,7 @@ static int event_wait(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int log_dump(int argc, char **argv, struct command *cmd,
-		    struct plugin *plugin)
+static int log_dump(int argc, char **argv)
 {
 	const char *desc = "Dump the raw APP log to a file";
 	int ret;
@@ -724,8 +705,7 @@ static int log_dump(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int test(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+static int test(int argc, char **argv)
 {
 	const char *desc = "Test if switchtec interface is working";
 	int ret;
@@ -761,8 +741,7 @@ static int test(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int temp(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+static int temp(int argc, char **argv)
 {
 	const char *desc = "Display die temperature of the switchtec device";
 	float ret;
@@ -810,8 +789,7 @@ abort:
 	return -errno;
 }
 
-static int hard_reset(int argc, char **argv, struct command *cmd,
-		      struct plugin *plugin)
+static int hard_reset(int argc, char **argv)
 {
 	const char *desc = "Perform a hard reset on the switch";
 	int ret;
@@ -880,8 +858,7 @@ static enum switchtec_fw_image_type check_and_print_fw_image(
 	return info.type;
 }
 
-static int fw_image_info(int argc, char **argv, struct command *cmd,
-		       struct plugin *plugin)
+static int fw_img_info(int argc, char **argv)
 {
 	const char *desc = "Display information for a firmware image";
 	int ret;
@@ -975,8 +952,7 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	return 0;
 }
 
-static int fw_info(int argc, char **argv, struct command *cmd,
-		struct plugin *plugin)
+static int fw_info(int argc, char **argv)
 {
 	const char *desc = "Test if switchtec interface is working";
 	int ret;
@@ -1005,8 +981,7 @@ static int fw_info(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int fw_update(int argc, char **argv, struct command *cmd,
-		     struct plugin *plugin)
+static int fw_update(int argc, char **argv)
 {
 	int ret;
 	const char *desc = "Flash the firmware with a new image";
@@ -1086,8 +1061,7 @@ set_boot_ro:
 	return ret;
 }
 
-static int fw_toggle(int argc, char **argv, struct command *cmd,
-		     struct plugin *plugin)
+static int fw_toggle(int argc, char **argv)
 {
 	const char *desc = "Toggle active and inactive firmware partitions";
 	int ret = 0;
@@ -1124,8 +1098,7 @@ static int fw_toggle(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int fw_read(int argc, char **argv, struct command *cmd,
-		   struct plugin *plugin)
+static int fw_read(int argc, char **argv)
 {
 	const char *desc = "Flash the firmware with a new image";
 	struct switchtec_fw_footer ftr;
@@ -1386,8 +1359,7 @@ static void show_event_counter(int stack, int counter,
 		       "EGRESS" : "INGRESS");
 }
 
-static int evcntr_setup(int argc, char **argv, struct command *cmd,
-			struct plugin *plugin)
+static int evcntr_setup(int argc, char **argv)
 {
 	const char *desc = "Setup a new event counter";
 	int nr_type_choices = switchtec_evcntr_type_count();
@@ -1471,8 +1443,7 @@ static int evcntr_setup(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int evcntr(int argc, char **argv, struct command *cmd,
-		  struct plugin *plugin)
+static int evcntr(int argc, char **argv)
 {
 	const char *desc = "Display event counters";
 	int ret, i;
@@ -1508,8 +1479,7 @@ static int evcntr(int argc, char **argv, struct command *cmd,
 	return ret;
 }
 
-static int evcntr_show(int argc, char **argv, struct command *cmd,
-		       struct plugin *plugin)
+static int evcntr_show(int argc, char **argv)
 {
 	const char *desc = "Display setup information for an event counter";
 	struct switchtec_evcntr_setup setup;
@@ -1560,8 +1530,7 @@ static int evcntr_show(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int evcntr_del(int argc, char **argv, struct command *cmd,
-		       struct plugin *plugin)
+static int evcntr_del(int argc, char **argv)
 {
 	const char *desc = "Deconfigure an event counter counter";
 	struct switchtec_evcntr_setup setup = {};
@@ -1610,8 +1579,7 @@ static int evcntr_del(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-static int evcntr_wait(int argc, char **argv, struct command *cmd,
-		       struct plugin *plugin)
+static int evcntr_wait(int argc, char **argv)
 {
 	const char *desc = "Wait for an event counter to reach its threshold";
 	int ret, i;
@@ -1648,29 +1616,48 @@ static int evcntr_wait(int argc, char **argv, struct command *cmd,
 	return 0;
 }
 
-void register_extension(struct plugin *plugin)
-{
-	plugin->parent = &switchtec;
+static const struct cmd commands[] = {
+	CMD(list, "List all switchtec devices on this machine"),
+	CMD(gui, "Display a simple ncurses GUI for the switch"),
+	CMD(status, "Display status information"),
+	CMD(bw, "Measure the bandwidth for each port"),
+	CMD(latency, "Measure the latency of a port"),
+	CMD(events, "Display events that have occurred"),
+	CMD(event_wait, "Wait for an event to occur"),
+	CMD(log_dump, "Dump firmware log to a file"),
+	CMD(test, "Test if switchtec interface is working"),
+	CMD(temp, "Return the switchtec die temperature"),
+	CMD(hard_reset, "Perform a hard reset of the switch"),
+	CMD(fw_update, "Upload a new firmware image"),
+	CMD(fw_info, "Return information on currently flashed firmware"),
+	CMD(fw_toggle, "Toggle the active and inactive firmware partition"),
+	CMD(fw_read, "Read back firmware image from hardware"),
+	CMD(fw_img_info, "Display information for a firmware image"),
+	CMD(evcntr, "Display event counters"),
+	CMD(evcntr_setup, "Setup an event counter"),
+	CMD(evcntr_show, "Show an event counters setup info"),
+	CMD(evcntr_del, "Deconfigure an event counter"),
+	CMD(evcntr_wait, "Wait for an event counter to exceed its threshold"),
+	{},
+};
 
-	switchtec.extensions->tail->next = plugin;
-	switchtec.extensions->tail = plugin;
-}
+static struct subcommand subcmd = {
+	.cmds = commands,
+};
+
+REGISTER_SUBCMD(subcmd);
+
+static struct prog_info prog_info = {
+	.usage = "<command> [<device>] [OPTIONS]",
+	.desc = "The <device> must be a switchtec device "
+		"(ex: /dev/switchtec0)",
+};
 
 int main(int argc, char **argv)
 {
 	int ret;
 
-	switchtec.extensions->parent = &switchtec;
-	if (argc < 2) {
-		general_help(&builtin);
-		return 0;
-	}
-
-	setlocale(LC_ALL, "");
-
-	ret = handle_plugin(argc - 1, &argv[1], switchtec.extensions);
-	if (ret == -ENOTSUP)
-		general_help(&builtin);
+	ret = commands_handle(argc, argv, &prog_info);
 
 	switchtec_close(global_dev);
 
