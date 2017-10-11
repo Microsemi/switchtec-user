@@ -627,9 +627,6 @@ static void get_port_info(const char *searchpath, int port,
 	for (i = 0; i < paths.gl_pathc; i++) {
 		char *p = paths.gl_pathv[i];
 
-		if (strstr(p, "pcie"))
-			continue;
-
 		snprintf(syspath, sizeof(syspath), "%s/vendor", p);
 		status->vendor_id = sysfs_read_int(syspath, 16);
 		if (status->vendor_id < 0)
