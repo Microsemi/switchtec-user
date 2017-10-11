@@ -39,6 +39,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/sysmacros.h>
 
 #include <errno.h>
 #include <string.h>
