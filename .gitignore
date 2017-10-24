@@ -1,5 +1,8 @@
-build
+build*
 *.a
 *.so
 /switchtec
 *~
+*.dll
+*.exe
+*.lib
