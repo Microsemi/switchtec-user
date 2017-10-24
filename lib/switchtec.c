@@ -28,6 +28,7 @@
 #include "switchtec/mrpc.h"
 #include "switchtec/errors.h"
 #include "switchtec/log.h"
+#include "switchtec/endian.h"
 
 #include <unistd.h>
 #include <errno.h>

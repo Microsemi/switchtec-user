@@ -26,8 +26,7 @@
 #define LIBSWITCHTEC_SWITCHTEC_H
 
 #include "mrpc.h"
-
-#include <linux/limits.h>
+#include "portable.h"
 
 #include <stdlib.h>
 #include <stdint.h>

@@ -25,6 +25,7 @@
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/errors.h"
+#include "switchtec/endian.h"
 
 #include <unistd.h>
 
