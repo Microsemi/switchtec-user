@@ -43,16 +43,26 @@
 
 #include <errno.h>
 #include <string.h>
+#include <stddef.h>
 
 static const char *sys_path = "/sys/class/switchtec";
 
-static int dev_to_sysfs_path(struct switchtec_dev *dev, const char *suffix,
+struct switchtec_linux {
+	struct switchtec_dev dev;
+	int fd;
+};
+
+#define to_switchtec_linux(d)  \
+	((struct switchtec_linux *) \
+	 ((char *)d - offsetof(struct switchtec_linux, dev)))
+
+static int dev_to_sysfs_path(struct switchtec_linux *ldev, const char *suffix,
 			     char *buf, size_t buflen)
 {
 	int ret;
 	struct stat stat;
 
-	ret = fstat(dev->fd, &stat);
+	ret = fstat(ldev->fd, &stat);
 	if (ret < 0)
 		return ret;
 
@@ -91,12 +101,12 @@ static int sysfs_read_int(const char *path, int base)
 	return strtol(buf, NULL, base);
 }
 
-static int check_switchtec_device(struct switchtec_dev *dev)
+static int check_switchtec_device(struct switchtec_linux *ldev)
 {
 	int ret;
 	char syspath[PATH_MAX];
 
-	ret = dev_to_sysfs_path(dev, "device/switchtec", syspath,
+	ret = dev_to_sysfs_path(ldev, "device/switchtec", syspath,
 				sizeof(syspath));
 	if (ret)
 		return ret;
@@ -108,59 +118,61 @@ static int check_switchtec_device(struct switchtec_dev *dev)
 	return ret;
 }
 
-static int get_partition(struct switchtec_dev *dev)
+static int get_partition(struct switchtec_linux *ldev)
 {
 	int ret;
 	char syspath[PATH_MAX];
 
-	ret = dev_to_sysfs_path(dev, "partition", syspath,
+	ret = dev_to_sysfs_path(ldev, "partition", syspath,
 				sizeof(syspath));
 	if (ret)
 		return ret;
 
-	dev->partition = sysfs_read_int(syspath, 10);
-	if (dev->partition < 0)
-		return dev->partition;
+	ldev->dev.partition = sysfs_read_int(syspath, 10);
+	if (ldev->dev.partition < 0)
+		return ldev->dev.partition;
 
 	return 0;
 }
 
 struct switchtec_dev *switchtec_open(const char *path)
 {
-	struct switchtec_dev *dev;
+	struct switchtec_linux *ldev;
 
-	dev = malloc(sizeof(*dev));
-	if (!dev)
-		return dev;
+	ldev = malloc(sizeof(*ldev));
+	if (!ldev)
+		return NULL;
 
-	dev->fd = open(path, O_RDWR | O_CLOEXEC);
-	if (dev->fd < 0)
+	ldev->fd = open(path, O_RDWR | O_CLOEXEC);
+	if (ldev->fd < 0)
 		goto err_free;
 
-	if (check_switchtec_device(dev))
+	if (check_switchtec_device(ldev))
 		goto err_close_free;
 
-	if (get_partition(dev))
+	if (get_partition(ldev))
 		goto err_close_free;
 
-	snprintf(dev->name, sizeof(dev->name), "%s", path);
+	snprintf(ldev->dev.name, sizeof(ldev->dev.name), "%s", path);
 
-	return dev;
+	return &ldev->dev;
 
 err_close_free:
-	close(dev->fd);
+	close(ldev->fd);
 err_free:
-	free(dev);
+	free(ldev);
 	return NULL;
 }
 
 void switchtec_close(struct switchtec_dev *dev)
 {
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
+
 	if (!dev)
 		return;
 
-	close(dev->fd);
-	free(dev);
+	close(ldev->fd);
+	free(ldev);
 }
 
 static int scan_dev_filter(const struct dirent *d)
@@ -264,8 +276,9 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 	int ret;
 	uint32_t version;
 	char syspath[PATH_MAX];
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
-	ret = dev_to_sysfs_path(dev, "fw_version", syspath, sizeof(syspath));
+	ret = dev_to_sysfs_path(ldev, "fw_version", syspath, sizeof(syspath));
 	if (ret)
 		return ret;
 
@@ -278,7 +291,7 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 	return 0;
 }
 
-static int submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
+static int submit_cmd(struct switchtec_linux *ldev, uint32_t cmd,
 		      const void *payload, size_t payload_len)
 {
 	int ret;
@@ -288,7 +301,7 @@ static int submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	memcpy(buf, &cmd, sizeof(cmd));
 	memcpy(&buf[sizeof(cmd)], payload, payload_len);
 
-	ret = write(dev->fd, buf, sizeof(buf));
+	ret = write(ldev->fd, buf, sizeof(buf));
 
 	if (ret < 0)
 		return ret;
@@ -301,13 +314,13 @@ static int submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	return 0;
 }
 
-static int read_resp(struct switchtec_dev *dev, void *resp,
+static int read_resp(struct switchtec_linux *ldev, void *resp,
 		     size_t resp_len)
 {
 	int32_t ret;
 	char buf[sizeof(uint32_t) + resp_len];
 
-	ret = read(dev->fd, buf, sizeof(buf));
+	ret = read(ldev->fd, buf, sizeof(buf));
 
 	if (ret < 0)
 		return ret;
@@ -334,11 +347,12 @@ int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
 		  size_t resp_len)
 {
 	int ret;
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
 retry:
-	ret = submit_cmd(dev, cmd, payload, payload_len);
+	ret = submit_cmd(ldev, cmd, payload, payload_len);
 	if (errno == EBADE) {
-		read_resp(dev, NULL, 0);
+		read_resp(ldev, NULL, 0);
 		errno = 0;
 		goto retry;
 	}
@@ -346,7 +360,7 @@ retry:
 	if (ret < 0)
 		return ret;
 
-	return read_resp(dev, resp, resp_len);
+	return read_resp(ldev, resp, resp_len);
 }
 
 static int get_class_devices(const char *searchpath,
@@ -435,8 +449,9 @@ int switchtec_get_devices(struct switchtec_dev *dev,
 	int port;
 	char syspath[PATH_MAX];
 	char searchpath[PATH_MAX];
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
-	ret = dev_to_sysfs_path(dev, "device", syspath,
+	ret = dev_to_sysfs_path(ldev, "device", syspath,
 				sizeof(syspath));
 	if (ret)
 		return ret;
@@ -469,9 +484,10 @@ int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 {
 	int ret;
 	struct switchtec_ioctl_pff_port p;
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
 	p.pff = pff;
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_PFF_TO_PORT, &p);
+	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_PFF_TO_PORT, &p);
 	if (ret)
 		return ret;
 
@@ -488,11 +504,12 @@ int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 {
 	int ret;
 	struct switchtec_ioctl_pff_port p;
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
 	p.port = port;
 	p.partition = partition;
 
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_PORT_TO_PFF, &p);
+	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_PORT_TO_PFF, &p);
 	if (ret)
 		return ret;
 
@@ -517,8 +534,9 @@ void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
 	void *map;
 	char respath[PATH_MAX];
 	struct stat stat;
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
-	ret = dev_to_sysfs_path(dev, "device/resource0_wc", respath,
+	ret = dev_to_sysfs_path(ldev, "device/resource0_wc", respath,
 				sizeof(respath));
 
 	if (ret) {
@@ -557,6 +575,7 @@ int switchtec_flash_part(struct switchtec_dev *dev,
 			 struct switchtec_fw_image_info *info,
 			 enum switchtec_fw_image_type part)
 {
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 	struct switchtec_ioctl_flash_part_info ioctl_info = {0};
 	int ret;
 
@@ -580,7 +599,7 @@ int switchtec_flash_part(struct switchtec_dev *dev,
 		return -EINVAL;
 	}
 
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FLASH_PART_INFO, &ioctl_info);
+	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_FLASH_PART_INFO, &ioctl_info);
 	if (ret)
 		return ret;
 
@@ -647,11 +666,12 @@ int switchtec_event_summary(struct switchtec_dev *dev,
 {
 	int ret;
 	struct switchtec_ioctl_event_summary isum;
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
 	if (!sum)
 		return -EINVAL;
 
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
+	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
 	if (ret < 0)
 		return ret;
 
@@ -666,11 +686,12 @@ int switchtec_event_check(struct switchtec_dev *dev,
 {
 	int ret, i;
 	struct switchtec_ioctl_event_summary isum;
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
 	if (!check)
 		return -EINVAL;
 
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
+	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
 	if (ret < 0)
 		return ret;
 
@@ -706,6 +727,7 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
 {
 	int ret;
 	struct switchtec_ioctl_event_ctl ctl;
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
 	if (e > SWITCHTEC_MAX_EVENTS)
 		return -EINVAL;
@@ -733,7 +755,7 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
 		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_FATAL;
 
 	ctl.index = index;
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_CTL, &ctl);
+	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_EVENT_CTL, &ctl);
 
 	if (ret)
 		return ret;
@@ -747,8 +769,9 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 {
 	int ret;
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 	struct pollfd fds = {
-		.fd = dev->fd,
+		.fd = ldev->fd,
 		.events = POLLPRI,
 	};
 
