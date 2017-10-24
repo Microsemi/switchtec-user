@@ -99,12 +99,6 @@ int switchtec_list(struct switchtec_device_info **devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen);
 
-int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
-			 const void *payload, size_t payload_len);
-
-int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
-			size_t resp_len);
-
 int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		  const void *payload, size_t payload_len, void *resp,
 		  size_t resp_len);

@@ -294,8 +294,8 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 	return 0;
 }
 
-int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
-			 const void *payload, size_t payload_len)
+static int submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
+		      const void *payload, size_t payload_len)
 {
 	int ret;
 	char buf[payload_len + sizeof(cmd)];
@@ -317,8 +317,8 @@ int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	return 0;
 }
 
-int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
-			size_t resp_len)
+static int read_resp(struct switchtec_dev *dev, void *resp,
+		     size_t resp_len)
 {
 	int32_t ret;
 	char buf[sizeof(uint32_t) + resp_len];
@@ -352,9 +352,9 @@ int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
 	int ret;
 
 retry:
-	ret = switchtec_submit_cmd(dev, cmd, payload, payload_len);
+	ret = submit_cmd(dev, cmd, payload, payload_len);
 	if (errno == EBADE) {
-		switchtec_read_resp(dev, NULL, 0);
+		read_resp(dev, NULL, 0);
 		errno = 0;
 		goto retry;
 	}
@@ -362,7 +362,7 @@ retry:
 	if (ret < 0)
 		return ret;
 
-	return switchtec_read_resp(dev, resp, resp_len);
+	return read_resp(dev, resp, resp_len);
 }
 
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input,
