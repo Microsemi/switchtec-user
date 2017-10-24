@@ -360,13 +360,32 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
-static int get_part(struct switchtec_dev *dev,
-		    struct switchtec_fw_image_info *info, int part)
+int switchtec_flash_part(struct switchtec_dev *dev,
+			 struct switchtec_fw_image_info *info,
+			 enum switchtec_fw_image_type part)
 {
 	struct switchtec_ioctl_flash_part_info ioctl_info = {0};
 	int ret;
 
-	ioctl_info.flash_partition = part;
+	switch (part) {
+	case SWITCHTEC_FW_TYPE_IMG0:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_IMG0;
+		break;
+	case SWITCHTEC_FW_TYPE_IMG1:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_IMG1;
+		break;
+	case SWITCHTEC_FW_TYPE_DAT0:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_CFG0;
+		break;
+	case SWITCHTEC_FW_TYPE_DAT1:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_CFG1;
+		break;
+	case SWITCHTEC_FW_TYPE_NVLOG:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_NVLOG;
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FLASH_PART_INFO, &ioctl_info);
 	if (ret)
@@ -391,34 +410,16 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 	for (i = 0; i < nr_info; i++) {
 		struct switchtec_fw_image_info *inf = &info[i];
 
-		switch(info[i].type) {
-		case SWITCHTEC_FW_TYPE_IMG0:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_IMG0);
-			break;
-		case SWITCHTEC_FW_TYPE_IMG1:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_IMG1);
-			break;
-		case SWITCHTEC_FW_TYPE_DAT0:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_CFG0);
-			break;
-		case SWITCHTEC_FW_TYPE_DAT1:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_CFG1);
-			break;
-		case SWITCHTEC_FW_TYPE_NVLOG:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_NVLOG);
-			if (ret)
-				return ret;
-
-			info[i].version[0] = 0;
-			info[i].crc = 0;
-
-			continue;
-		default:
-			return -EINVAL;
-		}
-
+		ret = switchtec_flash_part(dev, inf, info[i].type);
 		if (ret)
 			return ret;
+
+
+		if (info[i].type == SWITCHTEC_FW_TYPE_NVLOG) {
+			info[i].version[0] = 0;
+			info[i].crc = 0;
+			continue;
+		}
 
 		ret = switchtec_fw_read_footer(dev, inf->image_addr,
 					       inf->image_len, &ftr,

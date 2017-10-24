@@ -88,6 +88,27 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_THRD,
 };
 
+enum switchtec_fw_image_type {
+	SWITCHTEC_FW_TYPE_BOOT = 0x0,
+	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
+	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
+	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
+	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
+	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
+	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
+	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
+};
+
+struct switchtec_fw_image_info {
+	enum switchtec_fw_image_type type;
+	char version[32];
+	size_t image_addr;
+	size_t image_len;
+	unsigned long crc;
+	int active;
+	int running;
+};
+
 struct switchtec_dev *switchtec_open(const char *path);
 void switchtec_close(struct switchtec_dev *dev);
 
@@ -102,6 +123,9 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		  const void *payload, size_t payload_len, void *resp,
 		  size_t resp_len);
+int switchtec_flash_part(struct switchtec_dev *dev,
+			 struct switchtec_fw_image_info *info,
+			 enum switchtec_fw_image_type part);
 
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
@@ -234,17 +258,6 @@ enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
 };
 
-enum switchtec_fw_image_type {
-	SWITCHTEC_FW_TYPE_BOOT = 0x0,
-	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
-	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
-	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
-	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
-	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
-	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
-	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
-};
-
 enum switchtec_fw_ro {
 	SWITCHTEC_FW_RW = 0,
 	SWITCHTEC_FW_RO = 1,
@@ -253,16 +266,6 @@ enum switchtec_fw_ro {
 enum switchtec_fw_active {
 	SWITCHTEC_FW_PART_ACTIVE = 1,
 	SWITCHTEC_FW_PART_RUNNING = 2,
-};
-
-struct switchtec_fw_image_info {
-	enum switchtec_fw_image_type type;
-	char version[32];
-	size_t image_addr;
-	size_t image_len;
-	unsigned long crc;
-	int active;
-	int running;
 };
 
 static inline int switchtec_fw_active(struct switchtec_fw_image_info *inf)
