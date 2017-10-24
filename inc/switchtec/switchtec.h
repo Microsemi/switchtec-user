@@ -93,7 +93,6 @@ void switchtec_close(struct switchtec_dev *dev);
 
 __attribute__ ((pure))
 const char *switchtec_name(struct switchtec_dev *dev);
-__attribute__ ((pure)) int switchtec_fd(struct switchtec_dev *dev);
 __attribute__ ((pure)) int switchtec_partition(struct switchtec_dev *dev);
 
 int switchtec_list(struct switchtec_device_info **devlist);

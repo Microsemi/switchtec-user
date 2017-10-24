@@ -173,12 +173,6 @@ const char *switchtec_name(struct switchtec_dev *dev)
 }
 
 __attribute__ ((pure))
-int switchtec_fd(struct switchtec_dev *dev)
-{
-	return dev->fd;
-}
-
-__attribute__ ((pure))
 int switchtec_partition(struct switchtec_dev *dev)
 {
 	return dev->partition;
