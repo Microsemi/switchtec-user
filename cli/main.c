@@ -852,7 +852,7 @@ static enum switchtec_fw_image_type check_and_print_fw_image(
 	printf("File:     %s\n", get_basename(img_filename));
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
-	printf("Img Len:  0x%zx\n", info.image_len);
+	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
 	printf("CRC:      0x%08lx\n", info.crc);
 
 	return info.type;
@@ -1331,7 +1331,7 @@ static int get_free_counter(struct switchtec_dev *dev, int stack)
 			return i;
 	}
 
-	errno = EUSERS;
+	errno = EBUSY;
 	return -errno;
 }
 
