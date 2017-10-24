@@ -552,4 +552,41 @@ void switchtec_gas_unmap(struct switchtec_dev *dev, void *map)
 	munmap(map, dev->gas_map_size);
 }
 
+int switchtec_flash_part(struct switchtec_dev *dev,
+			 struct switchtec_fw_image_info *info,
+			 enum switchtec_fw_image_type part)
+{
+	struct switchtec_ioctl_flash_part_info ioctl_info = {0};
+	int ret;
+
+	switch (part) {
+	case SWITCHTEC_FW_TYPE_IMG0:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_IMG0;
+		break;
+	case SWITCHTEC_FW_TYPE_IMG1:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_IMG1;
+		break;
+	case SWITCHTEC_FW_TYPE_DAT0:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_CFG0;
+		break;
+	case SWITCHTEC_FW_TYPE_DAT1:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_CFG1;
+		break;
+	case SWITCHTEC_FW_TYPE_NVLOG:
+		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_NVLOG;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FLASH_PART_INFO, &ioctl_info);
+	if (ret)
+		return ret;
+
+	info->image_addr = ioctl_info.address;
+	info->image_len = ioctl_info.length;
+	info->active = ioctl_info.active;
+	return 0;
+}
+
 #endif
