@@ -37,7 +37,7 @@ CFLAGS=-g -O2 -fPIC -Wall
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 LDLIBS=-lcurses -ltinfo
 
-LIB_SRCS=$(wildcard lib/*.c)
+LIB_SRCS=$(wildcard lib/*.c) $(wildcard lib/platform/*.c)
 CLI_SRCS=$(wildcard cli/*.c)
 
 LIB_OBJS=$(addprefix $(OBJDIR)/, $(patsubst %.c,%.o, $(LIB_SRCS)))
@@ -65,7 +65,7 @@ $(OBJDIR)/cli/main.o: $(OBJDIR)/version.h
 -include $(OBJDIR)/version.mk
 
 $(OBJDIR):
-	$(Q)mkdir -p $(OBJDIR)/cli $(OBJDIR)/lib
+	$(Q)mkdir -p $(OBJDIR)/cli $(OBJDIR)/lib $(OBJDIR)/lib/platform
 
 $(OBJDIR)/%.o: %.c | $(OBJDIR)
 	@$(NQ) echo "  CC    $<"
