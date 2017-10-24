@@ -39,6 +39,7 @@
 #include <sys/mman.h>
 #include <sys/sysmacros.h>
 #include <glob.h>
+#include <poll.h>
 
 #include <errno.h>
 #include <string.h>
@@ -586,6 +587,183 @@ int switchtec_flash_part(struct switchtec_dev *dev,
 	info->image_addr = ioctl_info.address;
 	info->image_len = ioctl_info.length;
 	info->active = ioctl_info.active;
+	return 0;
+}
+
+static void event_summary_copy(struct switchtec_event_summary *dst,
+			       struct switchtec_ioctl_event_summary *src)
+{
+	int i;
+
+	dst->global = src->global;
+	dst->part_bitmap = src->part_bitmap;
+	dst->local_part = src->local_part;
+
+	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
+		dst->part[i] = src->part[i];
+
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+		dst->pff[i] = src->pff[i];
+}
+
+#define EV(t, n)[SWITCHTEC_ ## t ## _EVT_ ## n] = \
+	SWITCHTEC_IOCTL_EVENT_ ## n
+
+static const int event_map[] = {
+	EV(GLOBAL, STACK_ERROR),
+	EV(GLOBAL, PPU_ERROR),
+	EV(GLOBAL, ISP_ERROR),
+	EV(GLOBAL, SYS_RESET),
+	EV(GLOBAL, FW_EXC),
+	EV(GLOBAL, FW_NMI),
+	EV(GLOBAL, FW_NON_FATAL),
+	EV(GLOBAL, FW_FATAL),
+	EV(GLOBAL, TWI_MRPC_COMP),
+	EV(GLOBAL, TWI_MRPC_COMP_ASYNC),
+	EV(GLOBAL, CLI_MRPC_COMP),
+	EV(GLOBAL, CLI_MRPC_COMP_ASYNC),
+	EV(GLOBAL, GPIO_INT),
+	EV(GLOBAL, GFMS),
+	EV(PART, PART_RESET),
+	EV(PART, MRPC_COMP),
+	EV(PART, MRPC_COMP_ASYNC),
+	EV(PART, DYN_PART_BIND_COMP),
+	EV(PFF, AER_IN_P2P),
+	EV(PFF, AER_IN_VEP),
+	EV(PFF, DPC),
+	EV(PFF, CTS),
+	EV(PFF, HOTPLUG),
+	EV(PFF, IER),
+	EV(PFF, THRESH),
+	EV(PFF, POWER_MGMT),
+	EV(PFF, TLP_THROTTLING),
+	EV(PFF, FORCE_SPEED),
+	EV(PFF, CREDIT_TIMEOUT),
+	EV(PFF, LINK_STATE),
+};
+
+int switchtec_event_summary(struct switchtec_dev *dev,
+			    struct switchtec_event_summary *sum)
+{
+	int ret;
+	struct switchtec_ioctl_event_summary isum;
+
+	if (!sum)
+		return -EINVAL;
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
+	if (ret < 0)
+		return ret;
+
+	event_summary_copy(sum, &isum);
+
+	return 0;
+}
+
+int switchtec_event_check(struct switchtec_dev *dev,
+			  struct switchtec_event_summary *check,
+			  struct switchtec_event_summary *res)
+{
+	int ret, i;
+	struct switchtec_ioctl_event_summary isum;
+
+	if (!check)
+		return -EINVAL;
+
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
+	if (ret < 0)
+		return ret;
+
+	ret = 0;
+
+	if (isum.global & check->global)
+		ret = 1;
+
+	if (isum.part_bitmap & check->part_bitmap)
+		ret = 1;
+
+	if (isum.local_part & check->local_part)
+		ret = 1;
+
+	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
+		if (isum.part[i] & check->part[i])
+			ret = 1;
+
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+		if (isum.pff[i] & check->pff[i])
+			ret = 1;
+
+	if (res)
+		event_summary_copy(res, &isum);
+
+	return ret;
+}
+
+int switchtec_event_ctl(struct switchtec_dev *dev,
+			enum switchtec_event_id e,
+			int index, int flags,
+			uint32_t data[5])
+{
+	int ret;
+	struct switchtec_ioctl_event_ctl ctl;
+
+	if (e > SWITCHTEC_MAX_EVENTS)
+		return -EINVAL;
+
+	ctl.event_id = event_map[e];
+	ctl.flags = 0;
+
+	if (flags & SWITCHTEC_EVT_FLAG_CLEAR)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_CLEAR;
+	if (flags & SWITCHTEC_EVT_FLAG_EN_POLL)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_EN_POLL;
+	if (flags & SWITCHTEC_EVT_FLAG_EN_LOG)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_EN_LOG;
+	if (flags & SWITCHTEC_EVT_FLAG_EN_CLI)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_EN_CLI;
+	if (flags & SWITCHTEC_EVT_FLAG_EN_FATAL)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_EN_FATAL;
+	if (flags & SWITCHTEC_EVT_FLAG_DIS_POLL)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_POLL;
+	if (flags & SWITCHTEC_EVT_FLAG_DIS_LOG)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_LOG;
+	if (flags & SWITCHTEC_EVT_FLAG_DIS_CLI)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_CLI;
+	if (flags & SWITCHTEC_EVT_FLAG_DIS_FATAL)
+		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_FATAL;
+
+	ctl.index = index;
+	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_CTL, &ctl);
+
+	if (ret)
+		return ret;
+
+	if (data)
+		memcpy(data, ctl.data, sizeof(ctl.data));
+
+	return ctl.count;
+}
+
+int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
+{
+	int ret;
+	struct pollfd fds = {
+		.fd = dev->fd,
+		.events = POLLPRI,
+	};
+
+	ret = poll(&fds, 1, timeout_ms);
+	if (ret <= 0)
+		return ret;
+
+	if (fds.revents & POLLERR) {
+		errno = ENODEV;
+		return -1;
+	}
+
+	if (fds.revents & POLLPRI)
+		return 1;
+
 	return 0;
 }
 
