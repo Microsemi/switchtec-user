@@ -23,7 +23,7 @@
 ##
 ########################################################################
 
-OBJDIR=build
+OBJDIR ?= build
 
 DESTDIR ?=
 PREFIX ?= /usr/local
@@ -32,7 +32,7 @@ BINDIR ?= $(DESTDIR)$(PREFIX)/bin
 LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
 SYSCONFDIR ?= $(DESTDIR)/etc
 
-CPPFLAGS=-Iinc -Ibuild -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
+CPPFLAGS=-Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
 CFLAGS=-g -O2 -fPIC -Wall
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 LDLIBS=-lcurses -ltinfo
@@ -43,6 +43,9 @@ CLI_SRCS=$(wildcard cli/*.c)
 LIB_OBJS=$(addprefix $(OBJDIR)/, $(patsubst %.c,%.o, $(LIB_SRCS)))
 CLI_OBJS=$(addprefix $(OBJDIR)/, $(patsubst %.c,%.o, $(CLI_SRCS)))
 
+EXENAME ?= switchtec
+SHLIBNAME ?= libswitchtec.so
+STLIBNAME ?= libswitchtec.a
 
 ifneq ($(V), 1)
 Q=@
@@ -54,10 +57,10 @@ ifeq ($(W), 1)
 CFLAGS += -Werror
 endif
 
-compile: libswitchtec.a libswitchtec.so switchtec
+compile: $(STLIBNAME) $(SHLIBNAME) $(EXENAME)
 
 clean:
-	$(Q)rm -rf libswitchtec.a libswitchtec.so switchtec build
+	$(Q)rm -rf $(STLIBNAME) $(SHLIBNAME) $(EXENAME) $(OBJDIR)
 
 $(OBJDIR)/version.h $(OBJDIR)/version.mk: FORCE $(OBJDIR)
 	@$(SHELL_PATH) ./VERSION-GEN
@@ -71,15 +74,15 @@ $(OBJDIR)/%.o: %.c | $(OBJDIR)
 	@$(NQ) echo "  CC    $<"
 	$(Q)$(COMPILE.c) $(DEPFLAGS) $< -o $@
 
-libswitchtec.a: $(LIB_OBJS)
+$(STLIBNAME): $(LIB_OBJS)
 	@$(NQ) echo "  AR    $@"
 	$(Q)$(AR) rDsc $@ $^
 
-libswitchtec.so: $(LIB_OBJS)
+$(SHLIBNAME): $(LIB_OBJS)
 	@$(NQ) echo "  LD    $@"
 	$(Q)$(LINK.o) -shared $^ -o $@
 
-switchtec: $(CLI_OBJS) libswitchtec.a
+$(EXENAME): $(CLI_OBJS) $(STLIBNAME)
 	@$(NQ) echo "  LD    $@"
 	$(Q)$(LINK.o) $^ $(LDLIBS) -o $@
 
@@ -92,15 +95,15 @@ install-bash-completion:
 install-bin: compile
 	$(Q)install -d $(BINDIR) $(LIBDIR)
 
-	@$(NQ) echo "  INSTALL  $(BINDIR)/switchtec"
+	@$(NQ) echo "  INSTALL  $(BINDIR)/$(EXENAME)"
 	$(Q)install -s switchtec $(BINDIR)
-	@$(NQ) echo "  INSTALL  $(LIBDIR)/libswitchtec.a"
+	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(STLIBNAME)"
 	$(Q)install -m 0664 libswitchtec.a $(LIBDIR)
-	@$(NQ) echo "  INSTALL  $(LIBDIR)/libswitchtec.so.$(VERSION)"
-	$(Q)install libswitchtec.so $(LIBDIR)/libswitchtec.so.$(VERSION)
+	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(SHLIBNAME).$(VERSION)"
+	$(Q)install $(SHLIBNAME) $(LIBDIR)/$(SHLIBNAME).$(VERSION)
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/libswitchtec.so"
-	$(Q)ln -fs $(LIBDIR)/libswitchtec.so.$(VERSION) \
-           $(LIBDIR)/libswitchtec.so
+	$(Q)ln -fs $(LIBDIR)/$(SHLIBNAME).$(VERSION) \
+           $(LIBDIR)/$(SHLIBNAME)
 
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)ldconfig
@@ -108,12 +111,12 @@ install-bin: compile
 install: install-bin install-bash-completion
 
 uninstall:
-	@$(NQ) echo "  UNINSTALL  $(BINDIR)/switchtec"
+	@$(NQ) echo "  UNINSTALL  $(BINDIR)/$(EXENAME)"
 	$(Q)rm -f $(BINDIR)/switchtec
-	@$(NQ) echo "  UNINSTALL  $(LIBDIR)/libswitchtec.a"
+	@$(NQ) echo "  UNINSTALL  $(LIBDIR)/$(STLIBNAME)"
 	$(Q)rm -f $(LIBDIR)/libswitchtec.a
-	@$(NQ) echo "  UNINSTALL  $(LIBDIR)/libswitchtec.so"
-	$(Q)rm -f $(LIBDIR)/libswitchtec.so*
+	@$(NQ) echo "  UNINSTALL  $(LIBDIR)/$(SHLIBNAME)"
+	$(Q)rm -f $(LIBDIR)/$(SHLIBNAME)*
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)ldconfig
 

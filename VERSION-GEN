@@ -26,8 +26,9 @@
 #
 ########################################################################
 
-GVF=build/version.h
-MVF=build/version.mk
+OBJDIR=${OBJDIR:-build}
+GVF=$OBJDIR/version.h
+MVF=$OBJDIR/version.mk
 DEF_VER=???
 
 LF='
