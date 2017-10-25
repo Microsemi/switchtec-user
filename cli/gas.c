@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <errno.h>
 
 #ifndef _WIN32
 #include <sys/mman.h>
