@@ -32,6 +32,7 @@ This program has build dependencies on the following libraries:
 Installation is simple, with:
 
 ~~~
+./configure
 make
 sudo make install
 ~~~~

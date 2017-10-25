@@ -22,13 +22,14 @@
  *
  */
 
+#include "config.h"
 #include "gui.h"
 #include <switchtec/switchtec.h>
 #include <switchtec/portable.h>
 #include <switchtec/utils.h>
 #include "suffix.h"
 
-#ifndef __WINDOWS__
+#ifdef HAVE_LIBCURSES
 
 #include <sys/time.h>
 
@@ -424,7 +425,7 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 	     unsigned refresh, int duration)
 {
-	printf("gui is not supported on windows\n");
+	printf("gui requires libcurses support when switchtec-user is built\n");
 	return 0;
 }
 

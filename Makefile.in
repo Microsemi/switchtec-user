@@ -1,3 +1,5 @@
+# @configure_input@
+
 ########################################################################
 ##
 ## Microsemi Switchtec(tm) PCIe Management Library
@@ -32,10 +34,12 @@ BINDIR ?= $(DESTDIR)$(PREFIX)/bin
 LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
 SYSCONFDIR ?= $(DESTDIR)/etc
 
-CPPFLAGS=-Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
-CFLAGS+=-g -O2 -fPIC -Wall
+CPPFLAGS+=@CPPFLAGS@
+CPPFLAGS+=-I. -Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
+CFLAGS+=-g -O2 -fPIC -Wall @CFLAGS@
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
-LDLIBS=-lcurses -ltinfo
+LDLIBS=@LIBS@
+LDFLAGS+=@LDFLAGS@
 
 LIB_SRCS=$(wildcard lib/*.c) $(wildcard lib/platform/*.c)
 CLI_SRCS=$(wildcard cli/*.c)
@@ -70,6 +74,10 @@ compile: $(STLIBNAME) $(SHLIBNAME) $(EXENAME)
 
 clean:
 	$(Q)rm -rf $(STLIBNAME) $(SHLIBNAME) $(EXENAME) $(OBJDIR)
+
+distclean: clean
+	$(Q)rm -rf config.log config.status *.lib *.exe *.so *.dll \
+		Makefile autom4te.cache
 
 $(OBJDIR)/version.h $(OBJDIR)/version.mk: FORCE $(OBJDIR)
 	@$(SHELL_PATH) ./VERSION-GEN
