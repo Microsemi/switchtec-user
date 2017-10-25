@@ -66,7 +66,11 @@ static int pipe_to_hd_less(void *map, size_t map_size)
 	int less_pid, hd_pid;
 	int ret;
 
-	pipe(less_fds);
+	ret = pipe(less_fds);
+	if (ret) {
+		perror("pipe");
+		return -1;
+	}
 
 	less_pid = spawn_proc(less_fds[0], STDOUT_FILENO, less_fds[1], "less");
 	if (less_pid < 0) {
@@ -76,7 +80,12 @@ static int pipe_to_hd_less(void *map, size_t map_size)
 	close(STDOUT_FILENO);
 	close(less_fds[0]);
 
-	pipe(hd_fds);
+	ret = pipe(hd_fds);
+	if (ret) {
+		perror("pipe");
+		return -1;
+	}
+
 	hd_pid = spawn_proc(hd_fds[0], less_fds[1], hd_fds[1], "hd");
 	if (hd_pid < 0) {
 		perror("hd");
