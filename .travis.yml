@@ -15,15 +15,6 @@ matrix:
       addons:
         apt:
           packages:
-            - libncurses5-dev:i386
-            - libtinfo-dev:i386
-      env:
-        - MATRIX_EVAL="CFLAGS=-m32 && LDFLAGS=-m32"
-
-    - os: linux
-      addons:
-        apt:
-          packages:
             - gcc-mingw-w64-x86-64
             - mingw-w64-x86-64-dev
       env:
