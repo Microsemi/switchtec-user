@@ -30,6 +30,7 @@ echo
 echo " ------------- Native -------------"
 echo
 
+./configure
 make "$@"
 
 echo
@@ -41,6 +42,7 @@ export OBJDIR=build_i686
 export CFLAGS=-m32
 export LDFLAGS=-m32
 
+./configure
 make "$@"
 
 unset CFLAGS
@@ -51,8 +53,8 @@ echo " --------- Windows 64bit ---------"
 echo
 
 export OBJDIR=build_win64
-export CC=x86_64-w64-mingw32-gcc
 
+./configure --host x86_64-w64-mingw32
 make "$@"
 
 echo
@@ -60,6 +62,6 @@ echo " --------- Windows 32bit ---------"
 echo
 
 export OBJDIR=build_win32
-export CC=i686-w64-mingw32-gcc
 
+./configure --host i686-w64-mingw32
 make "$@"
