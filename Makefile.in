@@ -37,7 +37,7 @@ SYSCONFDIR ?= $(DESTDIR)/etc
 CC=@CC@
 CPPFLAGS+=@CPPFLAGS@
 CPPFLAGS+=-I. -Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
-CFLAGS+=-g -O2 -fPIC -Wall @CFLAGS@
+CFLAGS+=-g -O2 -Wall @CFLAGS@
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 LDLIBS=@LIBS@
 LDFLAGS+=@LDFLAGS@
@@ -59,6 +59,7 @@ else
   EXENAME ?= switchtec
   SHLIBNAME ?= libswitchtec.so
   STLIBNAME ?= libswitchtec.a
+  CFLAGS += -fPIC
 endif
 
 ifneq ($(V), 1)
