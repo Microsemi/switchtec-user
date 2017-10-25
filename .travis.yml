@@ -8,6 +8,19 @@ matrix:
     - os: linux
 
     - os: linux
+      env:
+        - MATRIX_EVAL="CFLAGS=-m32 && LDFLAGS=-m32"
+
+    - os: linux
+      addons:
+        apt:
+          packages:
+            - libncurses5-dev:i386
+            - libtinfo-dev:i386
+      env:
+        - MATRIX_EVAL="CFLAGS=-m32 && LDFLAGS=-m32"
+
+    - os: linux
       addons:
         apt:
           packages:
