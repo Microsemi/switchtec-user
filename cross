@@ -24,9 +24,42 @@
 ##
 ########################################################################
 
-#This script builds windows executables using the mingw cross compiler
+#Cross complie on all arches
+
+echo
+echo " ------------- Native -------------"
+echo
+
+make "$@"
+
+echo
+echo " -------------- i686 --------------"
+echo
+
+
+export OBJDIR=build_i686
+export CFLAGS=-m32
+export LDFLAGS=-m32
+
+make "$@"
+
+unset CFLAGS
+unset LDFLAGS
+
+echo
+echo " --------- Windows 64bit ---------"
+echo
 
 export OBJDIR=build_win64
 export CC=x86_64-w64-mingw32-gcc
+
+make "$@"
+
+echo
+echo " --------- Windows 32bit ---------"
+echo
+
+export OBJDIR=build_win32
+export CC=i686-w64-mingw32-gcc
 
 make "$@"
