@@ -1,5 +1,5 @@
 language: c
-script: ./configure ${CONFIG_OPTS} && make
+script: ./configure ${CONFIG_OPTS} && make W=1
 dist: trusty
 compiler: gcc
 
