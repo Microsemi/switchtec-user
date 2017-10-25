@@ -26,9 +26,6 @@
 
 #This script builds windows executables using the mingw cross compiler
 
-export EXENAME=switchtec.exe
-export SHLIBNAME=switchtec.dll
-export STLIBNAME=switchtec_static.lib
 export OBJDIR=build_win64
 export CC=x86_64-w64-mingw32-gcc
 

@@ -33,7 +33,7 @@ LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
 SYSCONFDIR ?= $(DESTDIR)/etc
 
 CPPFLAGS=-Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
-CFLAGS=-g -O2 -fPIC -Wall
+CFLAGS+=-g -O2 -fPIC -Wall
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 LDLIBS=-lcurses -ltinfo
 
@@ -43,9 +43,18 @@ CLI_SRCS=$(wildcard cli/*.c)
 LIB_OBJS=$(addprefix $(OBJDIR)/, $(patsubst %.c,%.o, $(LIB_SRCS)))
 CLI_OBJS=$(addprefix $(OBJDIR)/, $(patsubst %.c,%.o, $(CLI_SRCS)))
 
-EXENAME ?= switchtec
-SHLIBNAME ?= libswitchtec.so
-STLIBNAME ?= libswitchtec.a
+MACHINE=$(shell $(CC) -dumpmachine)
+
+ifeq ($(findstring mingw,$(MACHINE)),mingw)
+  EXENAME ?= switchtec.exe
+  SHLIBNAME ?= switchtec.dll
+  STLIBNAME ?= switchtec_static.lib
+  LDFLAGS += -Wl,--out-implib,switchtec.lib
+else
+  EXENAME ?= switchtec
+  SHLIBNAME ?= libswitchtec.so
+  STLIBNAME ?= libswitchtec.a
+endif
 
 ifneq ($(V), 1)
 Q=@
