@@ -78,7 +78,7 @@ clean:
 	$(Q)rm -rf $(STLIBNAME) $(SHLIBNAME) $(EXENAME) $(OBJDIR)
 
 distclean: clean
-	$(Q)rm -rf config.log config.status *.lib *.exe *.so *.dll \
+	$(Q)rm -rf config.log config.status *.lib *.exe *.so *.dll build* \
 		Makefile autom4te.cache
 
 $(OBJDIR)/version.h $(OBJDIR)/version.mk: FORCE $(OBJDIR)
