@@ -569,7 +569,7 @@ static int event_wait(int argc, char **argv)
 	struct event_list elist[256];
 	struct switchtec_event_summary sum;
 	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
-	int index;
+	int index = 0;
 	int ret;
 
 	static struct {
