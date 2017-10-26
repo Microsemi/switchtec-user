@@ -984,6 +984,7 @@ static int fw_info(int argc, char **argv)
 static int fw_update(int argc, char **argv)
 {
 	int ret;
+	int type;
 	const char *desc = "Flash the firmware with a new image";
 
 	static struct {
@@ -1013,9 +1014,9 @@ static int fw_update(int argc, char **argv)
 	printf("Writing the following firmware image to %s.\n",
 	       switchtec_name(cfg.dev));
 
-	ret = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename);
-	if (ret < 0)
-		return ret;
+	type = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename);
+	if (type < 0)
+		return type;
 
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
@@ -1026,7 +1027,7 @@ static int fw_update(int argc, char **argv)
 	if (cfg.set_boot_rw && ret != SWITCHTEC_FW_TYPE_BOOT) {
 		fprintf(stderr, "The --set-boot-rw option only applies for BOOT images\n");
 		return -1;
-	} else if (ret == SWITCHTEC_FW_TYPE_BOOT) {
+	} else if (type == SWITCHTEC_FW_TYPE_BOOT) {
 		if (cfg.set_boot_rw)
 			switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
 
