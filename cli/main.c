@@ -1207,7 +1207,7 @@ static void create_type_choices(struct argconfig_choice *c)
 	c->help = 0;
 }
 
-static char *type_mask_to_string(int type_mask, char *buf, size_t buflen)
+static char *type_mask_to_string(int type_mask, char *buf, ssize_t buflen)
 {
 	int w;
 	char *ret = buf;
