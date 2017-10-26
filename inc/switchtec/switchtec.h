@@ -135,6 +135,7 @@ static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969};
 /*********** EVENT Handling ***********/
 
 enum switchtec_event_id {
+	SWITCHTEC_EVT_INVALID = -1,
 	SWITCHTEC_GLOBAL_EVT_STACK_ERROR,
 	SWITCHTEC_GLOBAL_EVT_PPU_ERROR,
 	SWITCHTEC_GLOBAL_EVT_ISP_ERROR,

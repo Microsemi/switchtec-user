@@ -468,7 +468,7 @@ static int get_events(struct switchtec_dev *dev,
 	local_part = switchtec_partition(dev);
 
 	while (switchtec_event_summary_iter(sum, &e->eid, &idx)) {
-		if (e->eid == -1)
+		if (e->eid == SWITCHTEC_EVT_INVALID)
 			continue;
 
 		type = switchtec_event_info(e->eid, NULL, NULL);
