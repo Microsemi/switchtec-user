@@ -89,7 +89,7 @@ static int sysfs_read_str(const char *path, char *buf, size_t buflen)
 	return ret;
 }
 
-static int sysfs_read_int(const char *path, int base)
+static long long sysfs_read_int(const char *path, int base)
 {
 	int ret;
 	char buf[64];
@@ -98,7 +98,7 @@ static int sysfs_read_int(const char *path, int base)
 	if (ret < 0)
 		return ret;
 
-	return strtol(buf, NULL, base);
+	return strtoll(buf, NULL, base);
 }
 
 static int check_switchtec_device(struct switchtec_linux *ldev)
@@ -274,7 +274,7 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen)
 {
 	int ret;
-	uint32_t version;
+	long long version;
 	char syspath[PATH_MAX];
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 

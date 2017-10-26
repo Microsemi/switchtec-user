@@ -562,7 +562,8 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	unsigned char buf[(MRPC_MAX_DATA_LEN-8)*4];
 	size_t read = 0;
 	size_t total_len = len;
-	size_t total_wrote, wrote;
+	size_t total_wrote;
+	ssize_t wrote;
 
 	while(len) {
 		size_t chunk_len = len;

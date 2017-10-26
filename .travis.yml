@@ -9,6 +9,10 @@ matrix:
 
     - os: linux
       env:
+        - MATRIX_EVAL="CC=clang"
+
+    - os: linux
+      env:
         - MATRIX_EVAL="CFLAGS=-m32 && LDFLAGS=-m32"
 
     - os: linux

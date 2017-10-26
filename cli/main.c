@@ -468,7 +468,7 @@ static int get_events(struct switchtec_dev *dev,
 	local_part = switchtec_partition(dev);
 
 	while (switchtec_event_summary_iter(sum, &e->eid, &idx)) {
-		if (e->eid == -1)
+		if (e->eid == SWITCHTEC_EVT_INVALID)
 			continue;
 
 		type = switchtec_event_info(e->eid, NULL, NULL);
@@ -569,7 +569,7 @@ static int event_wait(int argc, char **argv)
 	struct event_list elist[256];
 	struct switchtec_event_summary sum;
 	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
-	int index;
+	int index = 0;
 	int ret;
 
 	static struct {
@@ -1207,7 +1207,7 @@ static void create_type_choices(struct argconfig_choice *c)
 	c->help = 0;
 }
 
-static char *type_mask_to_string(int type_mask, char *buf, size_t buflen)
+static char *type_mask_to_string(int type_mask, char *buf, ssize_t buflen)
 {
 	int w;
 	char *ret = buf;
