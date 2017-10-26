@@ -25,12 +25,32 @@
 #include "progress.h"
 
 #include <sys/time.h>
-#include <sys/ioctl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
 
 static struct timeval start_time;
+
+#ifdef _WIN32
+#include <windows.h>
+static int get_columns(void)
+{
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+
+	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	return csbi.srWindow.Right - csbi.srWindow.Left + 1;
+}
+#else
+#include <sys/ioctl.h>
+static int get_columns(void)
+{
+	struct winsize w;
+
+	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+
+	return w.ws_col;
+}
+#endif
 
 static void timeval_subtract(struct timeval *result,
 			     struct timeval *x,
@@ -57,14 +77,11 @@ static void timeval_subtract(struct timeval *result,
 static void print_bar(int cur, int total)
 {
 	int bar_width;
-	struct winsize w;
 	int i;
 	float progress = cur * 100.0 / total;
 	int pos;
 
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-
-	bar_width = w.ws_col - 33;
+	bar_width = get_columns() - 33;
 	pos = bar_width * cur / total;
 
 	printf(" %3.0f%% [", progress);

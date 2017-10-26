@@ -27,11 +27,15 @@
 #include "common.h"
 
 #include <switchtec/switchtec.h>
+#include <switchtec/portable.h>
 
-#include <sys/mman.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <errno.h>
+
+#ifndef _WIN32
+#include <sys/mman.h>
 #include <sys/wait.h>
 
 static int spawn_proc(int fd_in, int fd_out, int fd_close,
@@ -66,7 +70,11 @@ static int pipe_to_hd_less(void *map, size_t map_size)
 	int less_pid, hd_pid;
 	int ret;
 
-	pipe(less_fds);
+	ret = pipe(less_fds);
+	if (ret) {
+		perror("pipe");
+		return -1;
+	}
 
 	less_pid = spawn_proc(less_fds[0], STDOUT_FILENO, less_fds[1], "less");
 	if (less_pid < 0) {
@@ -76,7 +84,12 @@ static int pipe_to_hd_less(void *map, size_t map_size)
 	close(STDOUT_FILENO);
 	close(less_fds[0]);
 
-	pipe(hd_fds);
+	ret = pipe(hd_fds);
+	if (ret) {
+		perror("pipe");
+		return -1;
+	}
+
 	hd_pid = spawn_proc(hd_fds[0], less_fds[1], hd_fds[1], "hd");
 	if (hd_pid < 0) {
 		perror("hd");
@@ -122,6 +135,16 @@ static int gas_dump(int argc, char **argv)
 	return pipe_to_hd_less(map, map_size);
 }
 
+#else
+
+static int gas_dump(int argc, char **argv)
+{
+	errno = ENOSYS;
+	return -errno;
+}
+
+#endif
+
 static int print_hex(void *addr, int offset, int bytes)
 {
 	unsigned long long x;
@@ -138,7 +161,7 @@ static int print_hex(void *addr, int offset, int bytes)
 		return -1;
 	}
 
-	printf("%06X - 0x%0*llX\n", offset, bytes * 2, x);
+	printf("%06X - 0x%0*" FMT_llX "\n", offset, bytes * 2, x);
 	return 0;
 }
 
@@ -158,7 +181,7 @@ static int print_dec(void *addr, int offset, int bytes)
 		return -1;
 	}
 
-	printf("%06X - %lld\n", offset, x);
+	printf("%06X - %" FMT_lld "\n", offset, x);
 	return 0;
 }
 

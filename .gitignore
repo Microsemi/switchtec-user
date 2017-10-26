@@ -1,5 +1,13 @@
-build
+build*
 *.a
 *.so
 /switchtec
 *~
+*.dll
+*.exe
+*.lib
+autom4te.cache/
+config.log
+config.status
+Makefile
+config.h

@@ -25,6 +25,7 @@
 #include "switchtec/pmon.h"
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
+#include "switchtec/endian.h"
 
 #include <stddef.h>
 #include <errno.h>
