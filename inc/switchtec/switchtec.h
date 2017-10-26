@@ -117,6 +117,7 @@ struct switchtec_event_summary {
 };
 
 enum switchtec_event_id {
+	SWITCHTEC_EVT_INVALID = -1,
 	SWITCHTEC_GLOBAL_EVT_STACK_ERROR,
 	SWITCHTEC_GLOBAL_EVT_PPU_ERROR,
 	SWITCHTEC_GLOBAL_EVT_ISP_ERROR,
