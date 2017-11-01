@@ -22,10 +22,9 @@ Currently the following features are supported:
 
 ## Dependencies
 
-This program has build dependencies on the following libraries:
+This program has an optional build dependencies on the following libraries:
 
-* libncurses5-dev
-* libtinfo-dev
+* libncurses5-dev (without it 'switchtec gui' will not work)
 
 ## Installation
 
