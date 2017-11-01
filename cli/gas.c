@@ -110,7 +110,7 @@ static int gas_dump(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{NULL}};
@@ -188,7 +188,7 @@ enum {
 	STR,
 };
 
-int (*print_funcs[])(void *addr, int offset, int bytes) = {
+static int (*print_funcs[])(void *addr, int offset, int bytes) = {
 	[HEX] = print_hex,
 	[DEC] = print_dec,
 	[STR] = print_str,
@@ -205,7 +205,7 @@ static int gas_read(int argc, char **argv)
 		{"hex", HEX, "print in hexadecimal"},
 		{"dec", DEC, "print in decimal"},
 		{"str", STR, "print as an ascii string"},
-		{0},
+		{},
 	};
 
 	static struct {
