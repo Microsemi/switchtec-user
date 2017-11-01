@@ -1,7 +1,8 @@
 language: c
-script: ./configure ${CONFIG_OPTS} && make W=1
+script: ./configure ${CONFIG_OPTS} && make -k W=1 ${MAKE_FLAGS}
 dist: trusty
 compiler: gcc
+sudo: required
 
 matrix:
   include:
@@ -34,6 +35,14 @@ matrix:
       env:
         - CONFIG_OPTS="--host i686-w64-mingw32"
         - MATRIX_EVAL="CC=i686-w64-mingw32-gcc"
+
+    - os: linux
+      install:
+        - git clone https://git.kernel.org/pub/scm/devel/sparse/sparse.git --branch v0.5.1
+        - pushd sparse && make HAVE_LLVM=no && sudo make install HAVE_LLVM=no && popd
+      env:
+        - MATRIX_EVAL="CC=cgcc"
+        - MAKE_FLAGS="CFLAGS=-Wsparse-error CFLAGS+=-Wno-vla CFLAGS+=-Wno-old-initializer"
 
 before_install:
     - eval "${MATRIX_EVAL}"

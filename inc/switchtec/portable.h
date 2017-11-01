@@ -50,8 +50,10 @@
 #define FMT_lld       "lld"
 #endif
 
+#ifdef __WINDOWS__
 #ifndef MAP_FAILED
 #define MAP_FAILED NULL
+#endif
 #endif
 
 #ifdef __MINGW32__

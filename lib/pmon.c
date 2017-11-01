@@ -164,7 +164,7 @@ int switchtec_evcntr_get_setup(struct switchtec_dev *dev, unsigned stack_id,
 
 	ret = evcntr_get(dev, MRPC_PMON_GET_EV_COUNTER_SETUP,
 			 stack_id, cntr_id, nr_cntrs, data,
-			 sizeof(data), 0);
+			 sizeof(*data) * nr_cntrs, 0);
 	if (ret)
 		return ret;
 
@@ -193,7 +193,7 @@ int switchtec_evcntr_get(struct switchtec_dev *dev, unsigned stack_id,
 
 	ret = evcntr_get(dev, MRPC_PMON_GET_EV_COUNTER,
 			 stack_id, cntr_id, nr_cntrs, data,
-			 sizeof(data), clear);
+			 sizeof(*data) * nr_cntrs, clear);
 	if (ret)
 		return ret;
 
@@ -373,7 +373,7 @@ int switchtec_lat_get_many(struct switchtec_dev *dev, int nr_ports,
 		sizeof(cmd.port_ids[0]) * nr_ports;
 
 	ret = switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, resp,
-			    sizeof(resp));
+			    sizeof(*resp) * nr_ports);
 
 	if (ret)
 		return -1;

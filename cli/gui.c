@@ -30,6 +30,16 @@
 #include "suffix.h"
 
 #ifdef HAVE_LIBCURSES
+#include <curses.h>
+#define HAVE_GUI
+#endif
+
+#ifdef HAVE_LIBNCURSES
+#include <ncurses.h>
+#define HAVE_GUI
+#endif
+
+#ifdef HAVE_GUI
 
 #include <sys/time.h>
 
@@ -37,7 +47,6 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-#include <curses.h>
 #include <signal.h>
 #include <math.h>
 
@@ -357,7 +366,7 @@ static int gui_init(struct switchtec_dev *dev, unsigned reset,
  * has any significance (resets counters).
  */
 
-static unsigned gui_keypress()
+static unsigned gui_keypress(void)
 {
 	int ch = getch();
 

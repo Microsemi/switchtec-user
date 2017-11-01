@@ -34,13 +34,13 @@ BINDIR ?= $(DESTDIR)$(PREFIX)/bin
 LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
 SYSCONFDIR ?= $(DESTDIR)/etc
 
-CC=@CC@
-CPPFLAGS+=@CPPFLAGS@
-CPPFLAGS+=-I. -Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
-CFLAGS+=-g -O2 -Wall -Wno-initializer-overrides @CFLAGS@
+CC?=@CC@
+override CPPFLAGS+=@CPPFLAGS@
+override CPPFLAGS+=-I. -Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
+override CFLAGS+=-g -Wall -Wno-initializer-overrides @CFLAGS@
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
 LDLIBS=@LIBS@
-LDFLAGS+=@LDFLAGS@
+override LDFLAGS+=@LDFLAGS@
 
 LIB_SRCS=$(wildcard lib/*.c) $(wildcard lib/platform/*.c)
 CLI_SRCS=$(wildcard cli/*.c)
@@ -54,12 +54,12 @@ ifeq ($(findstring mingw,$(MACHINE)),mingw)
   EXENAME ?= switchtec.exe
   SHLIBNAME ?= switchtec.dll
   STLIBNAME ?= switchtec_static.lib
-  LDFLAGS += -Wl,--out-implib,switchtec.lib
+  override LDFLAGS += -Wl,--out-implib,switchtec.lib
 else
   EXENAME ?= switchtec
   SHLIBNAME ?= libswitchtec.so
   STLIBNAME ?= libswitchtec.a
-  CFLAGS += -fPIC
+  override CFLAGS += -fPIC
 endif
 
 ifneq ($(V), 1)
