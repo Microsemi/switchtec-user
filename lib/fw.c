@@ -307,11 +307,12 @@ struct fw_image_header {
 	uint32_t rsvd[9];
 	uint32_t header_crc;
 	uint32_t image_crc;
-} hdr;
+};
 
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 {
 	int ret;
+    struct fw_image_header hdr = {};
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
