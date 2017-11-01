@@ -41,9 +41,9 @@
 #include <stdio.h>
 
 static struct {} empty_cfg;
-const struct argconfig_options empty_opts[] = {{NULL}};
+static const struct argconfig_options empty_opts[] = {{NULL}};
 
-struct switchtec_dev *global_dev = NULL;
+static struct switchtec_dev *global_dev = NULL;
 
 int switchtec_handler(const char *optarg, void *value_addr,
 		      const struct argconfig_options *opt)
