@@ -40,13 +40,13 @@
 	.desc = d, \
 }
 
+#define GLOBAL SWITCHTEC_EVT_GLOBAL
+#define PART SWITCHTEC_EVT_PART
+#define PFF SWITCHTEC_EVT_PFF
+
 static const struct {
 	enum switchtec_event_id id;
-	enum {
-		GLOBAL = SWITCHTEC_EVT_GLOBAL,
-		PART = SWITCHTEC_EVT_PART,
-		PFF = SWITCHTEC_EVT_PFF,
-	} type;
+	enum switchtec_event_type type;
 	uint64_t summary_bit;
 	const char *short_name;
 	const char *desc;
