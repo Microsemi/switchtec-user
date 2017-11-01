@@ -36,6 +36,22 @@ make
 sudo make install
 ~~~~
 
+## Building on Windows
+
+MSYS2 should be used to build switchtec-user on windows seeing it
+provides a reasonably compatible compiler. (Visual C++ still is
+missing full support of C99.) To setup an environment:
+
+1. Install MSYS2 by following the instructions at: http://www.msys2.org/
+2. In an MSYS2 shell, run the following:
+
+~~~
+pacman -S --needed base-devel mingw-w64-i686-toolchain mingw-w64-x86_64-toolchain git
+~~~
+
+3. Close the MSYS2 shell, open an MINGW64 shell, checkout the project
+and follow the above installation instructions as usual.
+
 ## TODO List
 
 * Documention: Library documentation needs to be written as well as
