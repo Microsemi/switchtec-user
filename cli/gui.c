@@ -357,7 +357,7 @@ static int gui_init(struct switchtec_dev *dev, unsigned reset,
  * has any significance (resets counters).
  */
 
-static unsigned gui_keypress()
+static unsigned gui_keypress(void)
 {
 	int ch = getch();
 

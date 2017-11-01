@@ -295,18 +295,19 @@ static int submit_cmd(struct switchtec_linux *ldev, uint32_t cmd,
 		      const void *payload, size_t payload_len)
 {
 	int ret;
-	char buf[payload_len + sizeof(cmd)];
+    size_t bufsize = payload_len + sizeof(cmd);
+	char buf[bufsize];
 
 	cmd = htole32(cmd);
 	memcpy(buf, &cmd, sizeof(cmd));
 	memcpy(&buf[sizeof(cmd)], payload, payload_len);
 
-	ret = write(ldev->fd, buf, sizeof(buf));
+	ret = write(ldev->fd, buf, bufsize);
 
 	if (ret < 0)
 		return ret;
 
-	if (ret != sizeof(buf)) {
+	if (ret != bufsize) {
 		errno = EIO;
 		return -errno;
 	}
@@ -318,14 +319,15 @@ static int read_resp(struct switchtec_linux *ldev, void *resp,
 		     size_t resp_len)
 {
 	int32_t ret;
-	char buf[sizeof(uint32_t) + resp_len];
+    size_t bufsize = sizeof(uint32_t) + resp_len;
+	char buf[bufsize];
 
-	ret = read(ldev->fd, buf, sizeof(buf));
+	ret = read(ldev->fd, buf, bufsize);
 
 	if (ret < 0)
 		return ret;
 
-	if (ret != sizeof(buf)) {
+	if (ret != bufsize) {
 		errno = EIO;
 		return -errno;
 	}

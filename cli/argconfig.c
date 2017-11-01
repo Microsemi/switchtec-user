@@ -702,7 +702,6 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_POSITIVE] = cfg_positive_handler,
 	[CFG_INCREMENT] = cfg_increment_handler,
 	[CFG_FILE_A] = cfg_file_handler,
-	[CFG_FILE_A] = cfg_file_handler,
 	[CFG_FILE_W] = cfg_file_handler,
 	[CFG_FILE_R] = cfg_file_handler,
 	[CFG_FILE_AP] = cfg_file_handler,
