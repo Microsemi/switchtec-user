@@ -175,8 +175,11 @@ int switchtec_list(struct switchtec_device_info **devlist)
 
 	while (SetupDiEnumDeviceInterfaces(devinfo, NULL,
 					   &SWITCHTEC_INTERFACE_GUID,
-					   idx++, &deviface))
+					   idx, &deviface))
 	{
+		snprintf(dl[cnt].name, sizeof(dl[cnt].name),
+			 "switchtec%ld", idx++);
+
 		status = get_path(devinfo, &deviface,  &devdata,
 				  dl[cnt].path, sizeof(dl[cnt].path));
 		if (!status)
