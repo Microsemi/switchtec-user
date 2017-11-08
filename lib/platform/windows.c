@@ -33,6 +33,22 @@
 #include <errno.h>
 #include <stdio.h>
 
+static void win_perror(const char *msg)
+{
+	char errmsg[500] = "";
+	int err = GetLastError();
+
+	FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM |
+		       FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err,
+		       MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		       errmsg, sizeof (errmsg), NULL);
+
+	if (!strlen(errmsg))
+		sprintf(errmsg, "Error %d", err);
+
+	fprintf(stderr, "%s: %s\n", msg, errmsg);
+}
+
 static int count_devices(void)
 {
 	HDEVINFO devinfo;
@@ -52,6 +68,77 @@ static int count_devices(void)
 	return count-1;
 }
 
+static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
+		     SP_DEVINFO_DATA *devdata, char *path, size_t path_size)
+{
+	DWORD size;
+	SP_DEVICE_INTERFACE_DETAIL_DATA *devdetail;
+	BOOL status = TRUE;
+
+	devdata->cbSize = sizeof(SP_DEVINFO_DATA);
+
+	SetupDiGetDeviceInterfaceDetail(devinfo, deviface, NULL, 0, &size,
+					NULL);
+
+	devdetail = malloc(size);
+	if (!devdetail) {
+		win_perror("Enumeration");
+		return FALSE;
+	}
+
+	devdetail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
+
+	status = SetupDiGetDeviceInterfaceDetail(devinfo, deviface, devdetail,
+						 size, NULL, devdata);
+	if (!status) {
+		win_perror("SetupDiGetDeviceInterfaceDetail");
+		goto out;
+	}
+
+	strcpy_s(path, path_size, devdetail->DevicePath);
+
+out:
+	free(devdetail);
+	return status;
+}
+
+static BOOL get_pci_address(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
+			    int *bus, int *dev, int *func)
+{
+	BOOL status;
+	int ret;
+	char loc[256];
+
+	status = SetupDiGetDeviceRegistryProperty(devinfo, devdata,
+			SPDRP_LOCATION_INFORMATION, NULL,
+			(BYTE *)loc, sizeof(loc), NULL);
+	if (!status) {
+		win_perror("SetupDiGetDeviceRegistryProperty (LOC)");
+		return FALSE;
+	}
+
+	ret = sscanf(loc, "PCI bus %d, device %d, function %d", bus, dev, func);
+	if (ret != 3) {
+		fprintf(stderr, "Error parsing PCI BUS: '%s'\n", loc);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static void get_pci_address_str(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
+				char *res, size_t res_size)
+{
+	BOOL status;
+	int bus, dev, func;
+
+	status = get_pci_address(devinfo, devdata, &bus, &dev, &func);
+	if (!status)
+		snprintf(res, res_size, "??:??.?");
+	else
+		snprintf(res, res_size, "%02x:%02x.%x", bus, dev, func);
+}
+
 struct switchtec_dev *switchtec_open(const char *path)
 {
 	errno = ENOSYS;
@@ -64,9 +151,46 @@ void switchtec_close(struct switchtec_dev *dev)
 
 int switchtec_list(struct switchtec_device_info **devlist)
 {
-	errno = ENOSYS;
-	printf("count: %d\n", count_devices());
-	return -errno;
+	HDEVINFO devinfo;
+	SP_DEVICE_INTERFACE_DATA deviface;
+	SP_DEVINFO_DATA devdata;
+	struct switchtec_device_info *dl;
+
+	BOOL status;
+	DWORD idx = 0;
+	DWORD cnt = 0;
+
+	dl = *devlist = calloc(count_devices(),
+			  sizeof(struct switchtec_device_info));
+	if (!dl) {
+		errno = ENOMEM;
+		return -errno;
+	}
+
+	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
+				      NULL, NULL, DIGCF_DEVICEINTERFACE |
+				      DIGCF_PRESENT);
+
+	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+	while (SetupDiEnumDeviceInterfaces(devinfo, NULL,
+					   &SWITCHTEC_INTERFACE_GUID,
+					   idx++, &deviface))
+	{
+		status = get_path(devinfo, &deviface,  &devdata,
+				  dl[cnt].path, sizeof(dl[cnt].path));
+		if (!status)
+			continue;
+
+		get_pci_address_str(devinfo, &devdata, dl[cnt].pci_dev,
+				    sizeof(dl[cnt].pci_dev));
+
+		cnt++;
+	}
+
+	SetupDiDestroyDeviceInfoList(devinfo);
+
+	return cnt;
 }
 
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
