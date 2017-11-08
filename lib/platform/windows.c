@@ -24,9 +24,33 @@
 
 #include "switchtec/switchtec.h"
 #include "switchtec/portable.h"
-#include <errno.h>
 
 #ifdef __WINDOWS__
+#include "windows/switchtec_public.h"
+
+#include <setupapi.h>
+
+#include <errno.h>
+#include <stdio.h>
+
+static int count_devices(void)
+{
+	HDEVINFO devinfo;
+	DWORD count = 0;
+	SP_DEVICE_INTERFACE_DATA deviface;
+
+	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
+				      NULL, NULL, DIGCF_DEVICEINTERFACE |
+				      DIGCF_PRESENT);
+
+	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+	while (SetupDiEnumDeviceInterfaces(devinfo, NULL,
+					   &SWITCHTEC_INTERFACE_GUID,
+					   count++, &deviface));
+
+	return count-1;
+}
 
 struct switchtec_dev *switchtec_open(const char *path)
 {
@@ -41,6 +65,7 @@ void switchtec_close(struct switchtec_dev *dev)
 int switchtec_list(struct switchtec_device_info **devlist)
 {
 	errno = ENOSYS;
+	printf("count: %d\n", count_devices());
 	return -errno;
 }
 
