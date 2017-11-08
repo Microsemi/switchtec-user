@@ -84,6 +84,8 @@ static int list(int argc, char **argv)
 		       devices[i].product_id, devices[i].product_rev,
 		       devices[i].fw_version, devices[i].pci_dev);
 		if (cfg.verbose) {
+			if (strlen(devices[i].desc))
+				printf("\t%s\n", devices[i].desc);
 			if (strlen(devices[i].path))
 				printf("\t%s\n", devices[i].path);
 		}

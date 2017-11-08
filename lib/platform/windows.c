@@ -139,6 +139,13 @@ static void get_pci_address_str(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 		snprintf(res, res_size, "%02x:%02x.%x", bus, dev, func);
 }
 
+static void get_description(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
+			    char *res, size_t res_size)
+{
+	SetupDiGetDeviceRegistryProperty(devinfo, devdata,
+			SPDRP_DEVICEDESC, NULL,(BYTE *)res, res_size, NULL);
+}
+
 struct switchtec_dev *switchtec_open(const char *path)
 {
 	errno = ENOSYS;
@@ -187,6 +194,8 @@ int switchtec_list(struct switchtec_device_info **devlist)
 
 		get_pci_address_str(devinfo, &devdata, dl[cnt].pci_dev,
 				    sizeof(dl[cnt].pci_dev));
+		get_description(devinfo, &devdata, dl[cnt].desc,
+				sizeof(dl[cnt].desc));
 
 		cnt++;
 	}
