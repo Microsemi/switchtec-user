@@ -55,6 +55,8 @@ ifeq ($(findstring mingw,$(MACHINE)),mingw)
   SHLIBNAME ?= switchtec.dll
   STLIBNAME ?= switchtec_static.lib
   override LDFLAGS += -Wl,--out-implib,switchtec.lib
+  SHLDLIBS = -lsetupapi
+  LDLIBS += -lsetupapi
 else
   EXENAME ?= switchtec
   SHLIBNAME ?= libswitchtec.so
@@ -98,7 +100,7 @@ $(STLIBNAME): $(LIB_OBJS)
 
 $(SHLIBNAME): $(LIB_OBJS)
 	@$(NQ) echo "  LD    $@"
-	$(Q)$(LINK.o) -shared $^ -o $@
+	$(Q)$(LINK.o) -shared $^ $(SHLDLIBS) -o $@
 
 $(EXENAME): $(CLI_OBJS) $(STLIBNAME)
 	@$(NQ) echo "  LD    $@"
