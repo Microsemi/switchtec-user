@@ -34,6 +34,15 @@
 #include <errno.h>
 #include <stdio.h>
 
+struct switchtec_windows {
+	struct switchtec_dev dev;
+	HANDLE hdl;
+};
+
+#define to_switchtec_windows(d)  \
+	((struct switchtec_windows *) \
+	 ((char *)d - offsetof(struct switchtec_windows, dev)))
+
 static void win_perror(const char *msg)
 {
 	char errmsg[500] = "";
@@ -194,9 +203,40 @@ static void get_fw_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 		version_to_string(fw_ver, res, res_size);
 }
 
+static void append_guid(const char *path, char *path_with_guid, size_t bufsize,
+			const GUID *guid)
+{
+	snprintf(path_with_guid, bufsize,
+		 "%s#{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+		 path, guid->Data1, guid->Data2, guid->Data3,
+		 guid->Data4[0], guid->Data4[1], guid->Data4[2],
+		 guid->Data4[3], guid->Data4[4], guid->Data4[5],
+		 guid->Data4[6], guid->Data4[7]);
+}
+
 struct switchtec_dev *switchtec_open_by_path(const char *path)
 {
-	errno = ENOSYS;
+	struct switchtec_windows *wdev;
+	char path_with_guid[MAX_PATH];
+
+	wdev = malloc(sizeof(*wdev));
+	if (!wdev)
+		return NULL;
+
+	append_guid(path, path_with_guid, sizeof(path_with_guid),
+		    &SWITCHTEC_INTERFACE_GUID);
+
+	wdev->hdl = CreateFile(path_with_guid, GENERIC_READ | GENERIC_WRITE,
+			       FILE_SHARE_READ | FILE_SHARE_WRITE,
+			       NULL, OPEN_EXISTING, 0, NULL);
+
+	if (wdev->hdl == INVALID_HANDLE_VALUE)
+		goto err_free;
+
+	return &wdev->dev;
+
+err_free:
+	free(wdev);
 	return NULL;
 }
 
@@ -215,6 +255,12 @@ struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
 
 void switchtec_close(struct switchtec_dev *dev)
 {
+	struct switchtec_windows *wdev = to_switchtec_windows(dev);
+
+	if (!dev)
+		return;
+
+	CloseHandle(wdev->hdl);
 }
 
 int switchtec_list(struct switchtec_device_info **devlist)
