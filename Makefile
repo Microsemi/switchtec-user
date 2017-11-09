@@ -30,6 +30,7 @@ PREFIX ?= /usr/local
 
 BINDIR ?= $(DESTDIR)$(PREFIX)/bin
 LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
+INCDIR ?= $(DESTDIR)$(PREFIX)/include
 SYSCONFDIR ?= $(DESTDIR)/etc
 
 CPPFLAGS=-Iinc -Ibuild -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
@@ -101,6 +102,9 @@ install-bin: compile
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/libswitchtec.so"
 	$(Q)ln -fs $(LIBDIR)/libswitchtec.so.$(VERSION) \
            $(LIBDIR)/libswitchtec.so
+	@$(NQ) echo "  INSTALL  $(INCDIR)/switchtec"
+	@$(Q)mkdir -p $(INCDIR)
+	@$(Q)cp -r inc/switchtec $(INCDIR)
 
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)ldconfig
@@ -114,6 +118,8 @@ uninstall:
 	$(Q)rm -f $(LIBDIR)/libswitchtec.a
 	@$(NQ) echo "  UNINSTALL  $(LIBDIR)/libswitchtec.so"
 	$(Q)rm -f $(LIBDIR)/libswitchtec.so*
+	@$(NQ) echo "  UNINSTALL  $(INCDIR)/switchtec"
+	@$(Q)rm -rf $(INCDIR)/switchtec
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)ldconfig
 
