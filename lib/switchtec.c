@@ -30,8 +30,37 @@
 #include "switchtec/log.h"
 #include "switchtec/endian.h"
 
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
+
+struct switchtec_dev *switchtec_open(const char *device)
+{
+	int idx;
+	int domain = 0;
+	int bus, dev, func;
+	char *endptr;
+
+	if (strchr(device, '/') || strchr(device, '\\'))
+		return switchtec_open_by_path(device);
+
+	if (sscanf(device, "%x:%x.%x", &bus, &dev, &func) == 3)
+		return switchtec_open_by_pci_addr(domain, bus, dev, func);
+
+	if (sscanf(device, "%x:%x:%x.%x", &domain, &bus, &dev, &func) == 4)
+		return switchtec_open_by_pci_addr(domain, bus, dev, func);
+
+	errno = 0;
+	idx = strtol(device, &endptr, 0);
+	if (!errno && endptr != device)
+		return switchtec_open_by_index(idx);
+
+	if (sscanf(device, "switchtec%d", &idx) == 1)
+		return switchtec_open_by_index(idx);
+
+	errno = ENODEV;
+	return NULL;
+}
 
 __attribute__ ((pure))
 const char *switchtec_name(struct switchtec_dev *dev)

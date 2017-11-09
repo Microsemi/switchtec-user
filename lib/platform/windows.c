@@ -188,7 +188,20 @@ static void get_fw_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 		version_to_string(fw_ver, res, res_size);
 }
 
-struct switchtec_dev *switchtec_open(const char *path)
+struct switchtec_dev *switchtec_open_by_path(const char *path)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_index(int index)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func)
 {
 	errno = ENOSYS;
 	return NULL;
