@@ -24,6 +24,7 @@
 
 #include "switchtec/switchtec.h"
 #include "switchtec/portable.h"
+#include "../switchtec_priv.h"
 
 #ifdef __WINDOWS__
 #include "windows/switchtec_public.h"
@@ -146,6 +147,47 @@ static void get_description(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 			SPDRP_DEVICEDESC, NULL,(BYTE *)res, res_size, NULL);
 }
 
+/*
+ * Sigh... Mingw doesn't define this API yet in it's header and the library
+ * only has the WCHAR version.
+ */
+#ifndef SetupDiGetDeviceProperty
+#define SetupDiGetDeviceProperty SetupDiGetDevicePropertyW
+WINSETUPAPI WINBOOL WINAPI SetupDiGetDeviceProperty(HDEVINFO DeviceInfoSet,
+	PSP_DEVINFO_DATA DeviceInfoData, const DEVPROPKEY *PropertyKey,
+	DEVPROPTYPE *PropertyType, PBYTE PropertyBuffer,
+	DWORD PropertyBufferSize, PDWORD RequiredSize,
+	DWORD Flags);
+#endif
+
+static void get_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
+			 const DEVPROPKEY *propkey, char *res, size_t res_size)
+{
+	DEVPROPTYPE ptype;
+	WCHAR buf[res_size];
+
+	SetupDiGetDeviceProperty(devinfo, devdata, propkey, &ptype,
+				 (PBYTE)buf, sizeof(buf), NULL, 0);
+	wcstombs(res, buf, res_size);
+}
+
+static void get_fw_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
+			    char *res, size_t res_size)
+{
+	char buf[16];
+	long fw_ver;
+
+	get_property(devinfo, devdata, &SWITCHTEC_PROP_FW_VERSION,
+		     buf, sizeof(buf));
+
+	fw_ver = strtol(buf, NULL, 16);
+
+	if (fw_ver < 0)
+		snprintf(res, res_size, "unknown");
+	else
+		version_to_string(fw_ver, res, res_size);
+}
+
 struct switchtec_dev *switchtec_open(const char *path)
 {
 	errno = ENOSYS;
@@ -197,6 +239,12 @@ int switchtec_list(struct switchtec_device_info **devlist)
 		get_description(devinfo, &devdata, dl[cnt].desc,
 				sizeof(dl[cnt].desc));
 
+		get_property(devinfo, &devdata, &SWITCHTEC_PROP_PRODUCT_ID,
+			     dl[cnt].product_id, sizeof(dl[cnt].product_id));
+		get_property(devinfo, &devdata, &SWITCHTEC_PROP_PRODUCT_REV,
+			     dl[cnt].product_rev, sizeof(dl[cnt].product_rev));
+		get_fw_property(devinfo, &devdata, dl[cnt].fw_version,
+				sizeof(dl[cnt].fw_version));
 		cnt++;
 	}
 
