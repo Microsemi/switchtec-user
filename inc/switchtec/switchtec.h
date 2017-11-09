@@ -250,6 +250,7 @@ enum switchtec_fw_image_type {
 	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
 	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
 	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
+	SWITCHTEC_FW_TYPE_SEEPROM = 0xFE,
 };
 
 enum switchtec_fw_ro {

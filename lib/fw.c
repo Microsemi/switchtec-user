@@ -349,6 +349,7 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	case SWITCHTEC_FW_TYPE_DAT0: return "DAT";
 	case SWITCHTEC_FW_TYPE_DAT1: return "DAT";
 	case SWITCHTEC_FW_TYPE_NVLOG: return "NVLOG";
+	case SWITCHTEC_FW_TYPE_SEEPROM: return "SEEPROM";
 
 	//Legacy
 	case 0xa8000000: return "BOOT (LEGACY)";
