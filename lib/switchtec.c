@@ -40,26 +40,43 @@ struct switchtec_dev *switchtec_open(const char *device)
 	int domain = 0;
 	int bus, dev, func;
 	char *endptr;
+	struct switchtec_dev *ret;
 
-	if (strchr(device, '/') || strchr(device, '\\'))
-		return switchtec_open_by_path(device);
+	if (strchr(device, '/') || strchr(device, '\\')) {
+		ret = switchtec_open_by_path(device);
+		goto found;
+	}
 
-	if (sscanf(device, "%x:%x.%x", &bus, &dev, &func) == 3)
-		return switchtec_open_by_pci_addr(domain, bus, dev, func);
+	if (sscanf(device, "%x:%x.%x", &bus, &dev, &func) == 3) {
+		ret = switchtec_open_by_pci_addr(domain, bus, dev, func);
+		goto found;
+	}
 
-	if (sscanf(device, "%x:%x:%x.%x", &domain, &bus, &dev, &func) == 4)
-		return switchtec_open_by_pci_addr(domain, bus, dev, func);
+	if (sscanf(device, "%x:%x:%x.%x", &domain, &bus, &dev, &func) == 4) {
+		ret = switchtec_open_by_pci_addr(domain, bus, dev, func);
+		goto found;
+	}
 
 	errno = 0;
 	idx = strtol(device, &endptr, 0);
-	if (!errno && endptr != device)
-		return switchtec_open_by_index(idx);
+	if (!errno && endptr != device) {
+		ret = switchtec_open_by_index(idx);
+		goto found;
+	}
 
-	if (sscanf(device, "switchtec%d", &idx) == 1)
-		return switchtec_open_by_index(idx);
+	if (sscanf(device, "switchtec%d", &idx) == 1) {
+		ret = switchtec_open_by_index(idx);
+		goto found;
+	}
 
 	errno = ENODEV;
 	return NULL;
+
+found:
+	if (ret)
+		snprintf(ret->name, sizeof(ret->name), "%s", device);
+
+	return ret;
 }
 
 __attribute__ ((pure))

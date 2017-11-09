@@ -153,8 +153,6 @@ struct switchtec_dev *switchtec_open_by_path(const char *path)
 	if (get_partition(ldev))
 		goto err_close_free;
 
-	snprintf(ldev->dev.name, sizeof(ldev->dev.name), "%s", path);
-
 	return &ldev->dev;
 
 err_close_free:
