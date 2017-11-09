@@ -355,7 +355,7 @@ static int submit_cmd(struct switchtec_linux *ldev, uint32_t cmd,
 		      const void *payload, size_t payload_len)
 {
 	int ret;
-    size_t bufsize = payload_len + sizeof(cmd);
+	size_t bufsize = payload_len + sizeof(cmd);
 	char buf[bufsize];
 
 	cmd = htole32(cmd);
