@@ -75,7 +75,7 @@ static int count_devices(void)
 					   &SWITCHTEC_INTERFACE_GUID,
 					   count++, &deviface));
 
-	return count-1;
+	return count - 1;
 }
 
 static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
