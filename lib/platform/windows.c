@@ -277,8 +277,44 @@ out:
 struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
 						 int device, int func)
 {
-	errno = ENOSYS;
-	return NULL;
+	HDEVINFO devinfo;
+	SP_DEVICE_INTERFACE_DATA deviface;
+	SP_DEVINFO_DATA devdata;
+	char path[MAX_PATH];
+	struct switchtec_dev *dev = NULL;
+	BOOL status;
+	int dbus, ddevice, dfunc;
+	int idx = 0;
+
+	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
+				      NULL, NULL, DIGCF_DEVICEINTERFACE |
+				      DIGCF_PRESENT);
+	if (devinfo == INVALID_HANDLE_VALUE)
+		return NULL;
+
+	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+	while (SetupDiEnumDeviceInterfaces(devinfo, NULL,
+					   &SWITCHTEC_INTERFACE_GUID,
+					   idx++, &deviface))
+	{
+		status = get_path(devinfo, &deviface,  &devdata,
+				  path, sizeof(path));
+		if (!status)
+			continue;
+
+		get_pci_address(devinfo, &devdata, &dbus, &ddevice, &dfunc);
+		if (dbus == bus && ddevice == device && dfunc == func) {
+			dev = switchtec_open_by_path(path);
+			break;
+		}
+	}
+
+	if (!dev)
+		errno = ENODEV;
+
+	SetupDiDestroyDeviceInfoList(devinfo);
+	return dev;
 }
 
 void switchtec_close(struct switchtec_dev *dev)
