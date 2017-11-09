@@ -135,7 +135,7 @@ static int get_partition(struct switchtec_linux *ldev)
 	return 0;
 }
 
-struct switchtec_dev *switchtec_open(const char *path)
+struct switchtec_dev *switchtec_open_by_path(const char *path)
 {
 	struct switchtec_linux *ldev;
 
@@ -161,6 +161,19 @@ err_close_free:
 	close(ldev->fd);
 err_free:
 	free(ldev);
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_index(int index)
+{
+	errno = ENOSYS;
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func)
+{
+	errno = ENOSYS;
 	return NULL;
 }
 

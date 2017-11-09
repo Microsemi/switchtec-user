@@ -154,7 +154,11 @@ enum switchtec_event_id {
 
 /*********** Platform Functions ***********/
 
-struct switchtec_dev *switchtec_open(const char *path);
+struct switchtec_dev *switchtec_open(const char *device);
+struct switchtec_dev *switchtec_open_by_path(const char *path);
+struct switchtec_dev *switchtec_open_by_index(int index);
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func);
 void switchtec_close(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
