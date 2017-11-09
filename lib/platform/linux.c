@@ -166,14 +166,61 @@ err_free:
 
 struct switchtec_dev *switchtec_open_by_index(int index)
 {
-	errno = ENOSYS;
-	return NULL;
+	char path[PATH_MAX];
+	struct switchtec_dev *dev;
+
+	snprintf(path, sizeof(path), "/dev/switchtec%d", index);
+
+	dev = switchtec_open_by_path(path);
+
+	if (errno == ENOENT)
+		errno = ENODEV;
+
+	return dev;
 }
 
 struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
 						 int device, int func)
 {
-	errno = ENOSYS;
+	char path[PATH_MAX];
+	struct switchtec_dev *dev;
+	struct dirent *dirent;
+	DIR *dir;
+
+	snprintf(path, sizeof(path),
+		 "/sys/bus/pci/devices/%04x:%02x:%02x.%x/switchtec",
+		 domain, bus, device, func);
+
+	dir = opendir(path);
+	if (!dir)
+		goto err_out;
+
+	while ((dirent = readdir(dir))) {
+		if (dirent->d_name[0] != '.')
+			break;
+	}
+
+	if (!dirent)
+		goto err_close;
+
+	/*
+	 * Should only be one switchtec device, if there are
+	 * more then something is wrong
+	 */
+	if (readdir(dir))
+		goto err_close;
+
+	snprintf(path, sizeof(path), "/dev/%s", dirent->d_name);
+	printf("%s\n", path);
+	dev = switchtec_open(path);
+
+	closedir(dir);
+	return dev;
+
+err_close:
+	closedir(dir);
+err_out:
+	errno = ENODEV;
 	return NULL;
 }
 
