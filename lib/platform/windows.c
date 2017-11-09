@@ -75,6 +75,7 @@ static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
 	DWORD size;
 	SP_DEVICE_INTERFACE_DETAIL_DATA *devdetail;
 	BOOL status = TRUE;
+	char *hash;
 
 	devdata->cbSize = sizeof(SP_DEVINFO_DATA);
 
@@ -97,6 +98,11 @@ static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
 	}
 
 	strcpy_s(path, path_size, devdetail->DevicePath);
+
+	/* Chop off the GUID */
+	hash = strrchr(path, '#');
+	if (hash)
+		*hash = 0;
 
 out:
 	free(devdetail);
