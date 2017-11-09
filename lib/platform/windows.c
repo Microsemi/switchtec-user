@@ -166,14 +166,11 @@ static void get_description(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
  * Sigh... Mingw doesn't define this API yet in it's header and the library
  * only has the WCHAR version.
  */
-#ifndef SetupDiGetDeviceProperty
-#define SetupDiGetDeviceProperty SetupDiGetDevicePropertyW
-WINSETUPAPI WINBOOL WINAPI SetupDiGetDeviceProperty(HDEVINFO DeviceInfoSet,
+WINSETUPAPI WINBOOL WINAPI SetupDiGetDevicePropertyW(HDEVINFO DeviceInfoSet,
 	PSP_DEVINFO_DATA DeviceInfoData, const DEVPROPKEY *PropertyKey,
 	DEVPROPTYPE *PropertyType, PBYTE PropertyBuffer,
 	DWORD PropertyBufferSize, PDWORD RequiredSize,
 	DWORD Flags);
-#endif
 
 static void get_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 			 const DEVPROPKEY *propkey, char *res, size_t res_size)
@@ -181,7 +178,7 @@ static void get_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 	DEVPROPTYPE ptype;
 	WCHAR buf[res_size];
 
-	SetupDiGetDeviceProperty(devinfo, devdata, propkey, &ptype,
+	SetupDiGetDevicePropertyW(devinfo, devdata, propkey, &ptype,
 				 (PBYTE)buf, sizeof(buf), NULL, 0);
 	wcstombs(res, buf, res_size);
 }
