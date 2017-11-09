@@ -312,6 +312,8 @@ int switchtec_list(struct switchtec_device_info **devlist)
 	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
 				      NULL, NULL, DIGCF_DEVICEINTERFACE |
 				      DIGCF_PRESENT);
+	if (devinfo == INVALID_HANDLE_VALUE)
+		return 0;
 
 	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 
