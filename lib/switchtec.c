@@ -314,6 +314,9 @@ void switchtec_perror(const char *str)
 	const char *msg;
 
 	switch (errno) {
+	case 0:
+		platform_perror(str);
+		return;
 
 	case ERR_NO_AVAIL_MRPC_THREAD:
 		msg = "No available MRPC handler thread"; break;

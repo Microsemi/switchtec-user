@@ -43,7 +43,7 @@ struct switchtec_windows {
 	((struct switchtec_windows *) \
 	 ((char *)d - offsetof(struct switchtec_windows, dev)))
 
-static void win_perror(const char *msg)
+void platform_perror(const char *msg)
 {
 	char errmsg[500] = "";
 	int err = GetLastError();
@@ -56,7 +56,7 @@ static void win_perror(const char *msg)
 	if (!strlen(errmsg))
 		sprintf(errmsg, "Error %d", err);
 
-	fprintf(stderr, "%s: %s\n", msg, errmsg);
+	fprintf(stderr, "%s: %s", msg, errmsg);
 }
 
 static int count_devices(void)
@@ -93,7 +93,7 @@ static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
 
 	devdetail = malloc(size);
 	if (!devdetail) {
-		win_perror("Enumeration");
+		perror("Enumeration");
 		return FALSE;
 	}
 
@@ -102,7 +102,7 @@ static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
 	status = SetupDiGetDeviceInterfaceDetail(devinfo, deviface, devdetail,
 						 size, NULL, devdata);
 	if (!status) {
-		win_perror("SetupDiGetDeviceInterfaceDetail");
+		platform_perror("SetupDiGetDeviceInterfaceDetail");
 		goto out;
 	}
 
@@ -129,7 +129,7 @@ static BOOL get_pci_address(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 			SPDRP_LOCATION_INFORMATION, NULL,
 			(BYTE *)loc, sizeof(loc), NULL);
 	if (!status) {
-		win_perror("SetupDiGetDeviceRegistryProperty (LOC)");
+		platform_perror("SetupDiGetDeviceRegistryProperty (LOC)");
 		return FALSE;
 	}
 
