@@ -239,8 +239,39 @@ err_free:
 
 struct switchtec_dev *switchtec_open_by_index(int index)
 {
-	errno = ENOSYS;
-	return NULL;
+	HDEVINFO devinfo;
+	SP_DEVICE_INTERFACE_DATA deviface;
+	SP_DEVINFO_DATA devdata;
+	char path[MAX_PATH];
+	struct switchtec_dev *dev = NULL;
+	BOOL status;
+
+	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
+				      NULL, NULL, DIGCF_DEVICEINTERFACE |
+				      DIGCF_PRESENT);
+	if (devinfo == INVALID_HANDLE_VALUE)
+		return NULL;
+
+	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+	status = SetupDiEnumDeviceInterfaces(devinfo, NULL,
+					     &SWITCHTEC_INTERFACE_GUID,
+					     index, &deviface);
+	if (!status) {
+		errno = ENODEV;
+		goto out;
+	}
+
+	status = get_path(devinfo, &deviface,  &devdata,
+			  path, sizeof(path));
+	if (!status)
+		goto out;
+
+	dev = switchtec_open_by_path(path);
+
+out:
+	SetupDiDestroyDeviceInfoList(devinfo);
+	return dev;
 }
 
 struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
