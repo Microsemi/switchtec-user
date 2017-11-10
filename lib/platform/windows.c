@@ -395,8 +395,46 @@ int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		  const void *payload, size_t payload_len, void *resp,
 		  size_t resp_len)
 {
-	errno = ENOSYS;
-	return -errno;
+	struct switchtec_windows *wdev = to_switchtec_windows(dev);
+	BOOL status;
+	int ret;
+
+	struct switchtec_mrpc_cmd *mcmd;
+	struct switchtec_mrpc_result *mres;
+	size_t mcmd_len, mres_len;
+
+	mcmd_len = offsetof(struct switchtec_mrpc_cmd, data) + payload_len;
+	mres_len = offsetof(struct switchtec_mrpc_result, data) + resp_len;
+
+	mcmd = calloc(1, mcmd_len);
+	if (!mcmd)
+		return -errno;
+
+	mres = calloc(1, mres_len);
+	if (!mres) {
+		free(mcmd);
+		return -errno;
+	}
+
+	mcmd->cmd = cmd;
+	memcpy(mcmd->data, payload, payload_len);
+
+	status = DeviceIoControl(wdev->hdl, IOCTL_SWITCHTEC_MRPC,
+				 mcmd, (DWORD)mcmd_len,
+				 mres, (DWORD)mres_len,
+				 NULL, NULL);
+	if (!status) {
+		ret = -EIO;
+		goto free_and_exit;
+	}
+
+	memcpy(resp, mres->data, resp_len);
+	ret = mres->status;
+
+free_and_exit:
+	free(mres);
+	free(mcmd);
+	return ret;
 }
 
 int switchtec_get_devices(struct switchtec_dev *dev,
