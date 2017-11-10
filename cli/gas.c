@@ -34,6 +34,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <ctype.h>
 
 #ifndef _WIN32
 #include <sys/mman.h>
@@ -105,6 +106,72 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 	waitpid(less_pid, NULL, 0);
 	return ret;
 }
+#else /* _WIN32 defined */
+
+static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
+{
+	int i;
+
+	printf("%08lx ", addr);
+	for (i = 0; i < n; i++) {
+		printf(" %02x", bytes[i]);
+		if (i == 8)
+			printf(" ");
+	}
+
+	for (; i < 16; i++) {
+		printf("   ");
+	}
+
+	printf("  |");
+
+	for (i = 0; i < 16; i++) {
+		if (isprint(bytes[i]))
+			printf("%c", bytes[i]);
+		else
+			printf(".");
+	}
+
+	printf("|\n");
+}
+
+static void hexdump_data(void __gas *map, size_t map_size)
+{
+	uint8_t line[16];
+	uint8_t last_line[16];
+	unsigned long addr = 0;
+	size_t bytes;
+	int last_match = 0;
+
+	while (map_size) {
+		bytes = map_size > sizeof(line) ? sizeof(line) : map_size;
+		memcpy_from_gas(line, map, bytes);
+
+		if (bytes != sizeof(line) ||
+		    memcmp(last_line, line, sizeof(last_line))) {
+			print_line(addr, line, bytes);
+			last_match = 0;
+		} else if (!last_match) {
+			printf("*\n");
+			last_match = 1;
+		}
+
+		map += bytes;
+		map_size -= bytes;
+		addr += bytes;
+		memcpy(last_line, line, sizeof(last_line));
+	}
+
+	printf("%08lx\n", addr);
+}
+
+static int pipe_to_hd_less(gasptr_t map, size_t map_size)
+{
+	hexdump_data(map, map_size);
+	return 0;
+}
+
+#endif
 
 static int gas_dump(int argc, char **argv)
 {
@@ -135,16 +202,6 @@ static int gas_dump(int argc, char **argv)
 
 	return pipe_to_hd_less(map, map_size);
 }
-
-#else
-
-static int gas_dump(int argc, char **argv)
-{
-	errno = ENOSYS;
-	return -errno;
-}
-
-#endif
 
 static int print_hex(void __gas *addr, int offset, int bytes)
 {
