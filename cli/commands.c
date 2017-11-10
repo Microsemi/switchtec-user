@@ -102,10 +102,11 @@ static void usage(const struct subcommand *subcmd,
 		  const struct prog_info *prog_info)
 {
 	if (subcmd->name)
-		printf("usage: %s %s %s\n", prog_info->exe, subcmd->name,
-		       prog_info->usage);
+		printf("%s %s %s %s\n", argconfig_usage_text(), prog_info->exe,
+	               subcmd->name, prog_info->usage);
 	else
-		printf("usage: %s %s\n", prog_info->exe, prog_info->usage);
+		printf("%s %s %s\n", argconfig_usage_text(), prog_info->exe,
+		       prog_info->usage);
 }
 
 static void general_help(const struct subcommand *subcmd,

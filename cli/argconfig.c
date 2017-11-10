@@ -273,10 +273,19 @@ static void show_choices(const struct argconfig_options *option)
 	fprintf(stderr, "\n");
 }
 
+const char *argconfig_usage_text(void)
+{
+	if (have_decent_term())
+		return "\033[1mUsage:\033[0m";
+	else
+		return "Usage:";
+}
+
 void argconfig_print_usage(const struct argconfig_options *options)
 {
 	const struct argconfig_options *s;
-	printf("\033[1mUsage:\033[0m %s", append_usage_str);
+
+	printf("%s %s", argconfig_usage_text(), append_usage_str);
 
 	for (s = options; (s->option != NULL) && (s != NULL); s++) {
 		if (!is_positional(s) && !s->require_in_usage)
@@ -1049,4 +1058,9 @@ int argconfig_parse_comma_range(const char *str, int *res, int max_nums)
 	}
 
 	return cnt;
+}
+
+int have_decent_term(void)
+{
+	return getenv("TERM") != NULL;
 }
