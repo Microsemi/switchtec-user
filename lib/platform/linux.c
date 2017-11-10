@@ -584,6 +584,12 @@ int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 	return 0;
 }
 
+#ifdef __CHECKER__
+#define __force __attribute__((force))
+#else
+#define __force
+#endif
+
 /*
  * GAS map maps the hardware registers into user memory space.
  * Needless to say, this can be very dangerous and should only
@@ -591,8 +597,8 @@ int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
  * that use this will remain unsupported by Microsemi unless it's
  * done within the switchtec user project or otherwise specified.
  */
-void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
-			size_t *map_size)
+gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
+                           size_t *map_size)
 {
 	int ret;
 	int fd;
@@ -606,34 +612,37 @@ void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
 
 	if (ret) {
 		errno = ret;
-		return MAP_FAILED;
+		return SWITCHTEC_MAP_FAILED;
 	}
 
 	fd = open(respath, writeable ? O_RDWR : O_RDONLY);
 	if (fd < 0)
-		return MAP_FAILED;
+		return SWITCHTEC_MAP_FAILED;
 
 	ret = fstat(fd, &stat);
 	if (ret < 0)
-		return MAP_FAILED;
+		return SWITCHTEC_MAP_FAILED;
 
 	map = mmap(NULL, stat.st_size,
 		   (writeable ? PROT_WRITE : 0) | PROT_READ,
 		   MAP_SHARED, fd, 0);
 	close(fd);
 
+	if (map == MAP_FAILED)
+		return SWITCHTEC_MAP_FAILED;
+
 	if (map_size)
 		*map_size = stat.st_size;
 
-	dev->gas_map = map;
+	dev->gas_map = (gasptr_t __force)map;
 	dev->gas_map_size = stat.st_size;
 
-	return map;
+	return (gasptr_t __force)map;
 }
 
-void switchtec_gas_unmap(struct switchtec_dev *dev, void *map)
+void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
 {
-	munmap(map, dev->gas_map_size);
+	munmap((void __force *)map, dev->gas_map_size);
 }
 
 int switchtec_flash_part(struct switchtec_dev *dev,

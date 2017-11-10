@@ -497,14 +497,14 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 	return -errno;
 }
 
-void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
-			size_t *map_size)
+gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
+                           size_t *map_size)
 {
 	errno = ENOSYS;
 	return MAP_FAILED;
 }
 
-void switchtec_gas_unmap(struct switchtec_dev *dev, void *map)
+void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
 {
 }
 
