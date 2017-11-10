@@ -110,9 +110,12 @@ static int gas_dump(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
+		int count;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
+		 "number of bytes to dump(default is the entire gas space)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -123,12 +126,15 @@ static int gas_dump(int argc, char **argv)
 		return 1;
 	}
 
+	if (!cfg.count)
+		cfg.count = map_size;
+
 	if (!isatty(STDOUT_FILENO)) {
 		ret = write(STDOUT_FILENO, map, map_size);
 		return ret > 0;
 	}
 
-	return pipe_to_hd_less(map, map_size);
+	return pipe_to_hd_less(map, cfg.count);
 }
 
 static int print_hex(void *addr, int offset, int bytes)
