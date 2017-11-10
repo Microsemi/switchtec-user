@@ -25,6 +25,8 @@
 #ifndef LIBSWITCHTEC_SWITCHTEC_PRIV_H
 #define LIBSWITCHTEC_SWITCHTEC_PRIV_H
 
+#include "switchtec/switchtec.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -34,7 +36,7 @@ struct switchtec_dev {
 	int partition;
 	char name[PATH_MAX];
 
-	void *gas_map;
+	gasptr_t gas_map;
 	size_t gas_map_size;
 };
 
