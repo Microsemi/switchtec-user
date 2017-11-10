@@ -36,6 +36,63 @@
 #include <errno.h>
 #include <ctype.h>
 
+static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
+{
+	int i;
+
+	printf("%08lx ", addr);
+	for (i = 0; i < n; i++) {
+		printf(" %02x", bytes[i]);
+		if (i == 8)
+			printf(" ");
+	}
+
+	for (; i < 16; i++) {
+		printf("   ");
+	}
+
+	printf("  |");
+
+	for (i = 0; i < 16; i++) {
+		if (isprint(bytes[i]))
+			printf("%c", bytes[i]);
+		else
+			printf(".");
+	}
+
+	printf("|\n");
+}
+
+static void hexdump_data(void __gas *map, size_t map_size)
+{
+	uint8_t line[16];
+	uint8_t last_line[16];
+	unsigned long addr = 0;
+	size_t bytes;
+	int last_match = 0;
+
+	while (map_size) {
+		bytes = map_size > sizeof(line) ? sizeof(line) : map_size;
+		memcpy_from_gas(line, map, bytes);
+
+		if (bytes != sizeof(line) ||
+		    memcmp(last_line, line, sizeof(last_line))) {
+			print_line(addr, line, bytes);
+			last_match = 0;
+		} else if (!last_match) {
+			printf("*\n");
+			last_match = 1;
+		}
+
+		map += bytes;
+		map_size -= bytes;
+		addr += bytes;
+		memcpy(last_line, line, sizeof(last_line));
+	}
+
+	printf("%08lx\n", addr);
+}
+
 #ifndef _WIN32
 #include <sys/mman.h>
 #include <sys/wait.h>
@@ -109,63 +166,6 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 #else /* _WIN32 defined */
 
 #include <fcntl.h>
-
-static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
-{
-	int i;
-
-	printf("%08lx ", addr);
-	for (i = 0; i < n; i++) {
-		printf(" %02x", bytes[i]);
-		if (i == 8)
-			printf(" ");
-	}
-
-	for (; i < 16; i++) {
-		printf("   ");
-	}
-
-	printf("  |");
-
-	for (i = 0; i < 16; i++) {
-		if (isprint(bytes[i]))
-			printf("%c", bytes[i]);
-		else
-			printf(".");
-	}
-
-	printf("|\n");
-}
-
-static void hexdump_data(void __gas *map, size_t map_size)
-{
-	uint8_t line[16];
-	uint8_t last_line[16];
-	unsigned long addr = 0;
-	size_t bytes;
-	int last_match = 0;
-
-	while (map_size) {
-		bytes = map_size > sizeof(line) ? sizeof(line) : map_size;
-		memcpy_from_gas(line, map, bytes);
-
-		if (bytes != sizeof(line) ||
-		    memcmp(last_line, line, sizeof(last_line))) {
-			print_line(addr, line, bytes);
-			last_match = 0;
-		} else if (!last_match) {
-			printf("*\n");
-			last_match = 1;
-		}
-
-		map += bytes;
-		map_size -= bytes;
-		addr += bytes;
-		memcpy(last_line, line, sizeof(last_line));
-	}
-
-	printf("%08lx\n", addr);
-}
 
 static int spawn(char *exe, int fd_in, int fd_out, int fd_err,
 		  PROCESS_INFORMATION *pi)
@@ -250,11 +250,16 @@ static int gas_dump(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		int count;
+		int text;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
-		 "number of bytes to dump(default is the entire gas space)"},
+		 "number of bytes to dump (default is the entire gas space)"},
+		{"text", 't', "", CFG_NONE, &cfg.text, no_argument,
+		 "force outputing data in text format, default is to output in "
+		 "text unless the output is a pipe, in which case binary is "
+		 "output"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -267,6 +272,11 @@ static int gas_dump(int argc, char **argv)
 
 	if (!cfg.count)
 		cfg.count = map_size;
+
+	if (cfg.text) {
+		hexdump_data(map, cfg.count);
+		return 0;
+	}
 
 	if (!isatty(STDOUT_FILENO)) {
 		ret = write_from_gas(STDOUT_FILENO, map, cfg.count);
