@@ -108,6 +108,8 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 }
 #else /* _WIN32 defined */
 
+#include <fcntl.h>
+
 static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 {
 	int i;
@@ -165,9 +167,74 @@ static void hexdump_data(void __gas *map, size_t map_size)
 	printf("%08lx\n", addr);
 }
 
+static int spawn(char *exe, int fd_in, int fd_out, int fd_err,
+		  PROCESS_INFORMATION *pi)
+{
+	BOOL status;
+
+	STARTUPINFO si = {
+		.cb = sizeof(si),
+		.hStdInput = (HANDLE)_get_osfhandle(fd_in),
+		.hStdOutput = (HANDLE)_get_osfhandle(fd_out),
+		.hStdError = (HANDLE)_get_osfhandle(fd_err),
+		.dwFlags = STARTF_USESTDHANDLES,
+	};
+
+	status = CreateProcess(NULL, exe, NULL, NULL, TRUE, 0, NULL,
+			       NULL, &si, pi);
+	if (!status)
+		return -1;
+
+	close(fd_in);
+	close(fd_out);
+
+	return 0;
+}
+
 static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 {
+	int ret;
+	int fd_stdout;
+	PROCESS_INFORMATION pi;
+	int more_fds[2];
+
+	ret = _pipe(more_fds, 256, _O_TEXT);
+	if (ret) {
+		perror("pipe");
+		return -1;
+	}
+
+	fd_stdout = _dup(STDOUT_FILENO);
+	_dup2(more_fds[1], STDOUT_FILENO);
+	close(more_fds[1]);
+
+	/*
+	 * Set the new stdout to not be inheritable. If it is, then the child
+	 * process will inherit it and we will no longer be able to close it.
+	 */
+	ret = SetHandleInformation((HANDLE)_get_osfhandle(STDOUT_FILENO),
+				   HANDLE_FLAG_INHERIT, 0);
+	if (!ret) {
+		fprintf(stderr, "SetHandleInformation Failed: %ld\n",
+			GetLastError());
+		return -1;
+	}
+
+	ret = spawn("less", more_fds[0], fd_stdout, STDERR_FILENO, &pi);
+	if (ret) {
+		_dup2(fd_stdout, STDOUT_FILENO);
+		hexdump_data(map, map_size);
+		return 0;
+	}
+
 	hexdump_data(map, map_size);
+	fclose(stdout);
+	close(STDOUT_FILENO);
+
+	WaitForSingleObject(pi.hProcess, INFINITE);
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+
 	return 0;
 }
 
