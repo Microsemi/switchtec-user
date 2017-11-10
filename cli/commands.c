@@ -83,7 +83,7 @@ static const char *dash_to_underscore(const char *str)
 
 static int print_version(void)
 {
-	printf("switchtec cli version %s\n", VERSION);
+	fprintf(stderr, "switchtec cli version %s\n", VERSION);
 	return 0;
 }
 
@@ -93,8 +93,8 @@ static void print_completions(const struct cmd *cmds)
 		return;
 
 	for (; cmds->name; cmds++)
-		printf(" %s", underscore_to_dash(cmds->name));
-	printf(" version help\n");
+		fprintf(stderr, " %s", underscore_to_dash(cmds->name));
+	fprintf(stderr, " version help\n");
 	exit(0);
 }
 
@@ -102,11 +102,11 @@ static void usage(const struct subcommand *subcmd,
 		  const struct prog_info *prog_info)
 {
 	if (subcmd->name)
-		printf("%s %s %s %s\n", argconfig_usage_text(), prog_info->exe,
-	               subcmd->name, prog_info->usage);
+		fprintf(stderr, "%s %s %s %s\n", argconfig_usage_text(),
+			prog_info->exe, subcmd->name, prog_info->usage);
 	else
-		printf("%s %s %s\n", argconfig_usage_text(), prog_info->exe,
-		       prog_info->usage);
+		fprintf(stderr, "%s %s %s\n", argconfig_usage_text(),
+			prog_info->exe, prog_info->usage);
 }
 
 static void general_help(const struct subcommand *subcmd,
@@ -117,53 +117,54 @@ static void general_help(const struct subcommand *subcmd,
 
 	print_completions(subcmd->cmds);
 
-	printf("switchtec-%s\n", VERSION);
+	fprintf(stderr, "switchtec-%s\n", VERSION);
 
 	usage(subcmd, prog_info);
 
-	printf("\n");
+	fprintf(stderr, "\n");
 	print_word_wrapped(prog_info->desc, 0, 0);
-	printf("\n");
+	fprintf(stderr, "\n");
 
 	if (subcmd->desc) {
-		printf("\n");
+		fprintf(stderr, "\n");
 		print_word_wrapped(subcmd->desc, 0, 0);
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
 	if (subcmd->long_desc) {
-		printf("\n");
+		fprintf(stderr, "\n");
 		print_word_wrapped(subcmd->long_desc, 0, 0);
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
-	printf("\nThe following are all implemented sub-commands:\n");
+	fprintf(stderr, "\nThe following are all implemented sub-commands:\n");
 
 	for (i = 0; subcmd->cmds[i].name; i++)
-		printf("  %-15s %s\n", underscore_to_dash(subcmd->cmds[i].name),
-		       subcmd->cmds[i].help);
+		fprintf(stderr, "  %-15s %s\n",
+			underscore_to_dash(subcmd->cmds[i].name),
+			subcmd->cmds[i].help);
 
-	printf("  %-15s %s\n", "version", "Shows the program version");
-	printf("  %-15s %s\n", "help", "Display this help");
-	printf("\n");
+	fprintf(stderr, "  %-15s %s\n", "version", "Shows the program version");
+	fprintf(stderr, "  %-15s %s\n", "help", "Display this help");
+	fprintf(stderr, "\n");
 
 	if (subcmd->name)
-		printf("See '%s %s help <command>' for more information on a specific command\n",
+		fprintf(stderr, "See '%s %s help <command>' for more information on a specific command\n",
 		       prog_info->exe, subcmd->name);
 	else
-		printf("See '%s help <command>' for more information on a specific command\n",
+		fprintf(stderr, "See '%s help <command>' for more information on a specific command\n",
 		       prog_info->exe);
 
 	if (subcmd->name)
 		return;
 
-	printf("\nThe following are all installed extensions:\n");
+	fprintf(stderr, "\nThe following are all installed extensions:\n");
 	while (ext) {
-		printf("  %-15s %s\n", underscore_to_dash(ext->name),
+		fprintf(stderr, "  %-15s %s\n", underscore_to_dash(ext->name),
 		       ext->desc);
 		ext = ext->next;
 	}
-	printf("\nSee '%s <extension> help' for more information on a extension\n",
+	fprintf(stderr, "\nSee '%s <extension> help' for more information on a extension\n",
 	       prog_info->exe);
 }
 
@@ -229,7 +230,7 @@ static int do_command(int argc, char **argv, struct subcommand *subcmd,
 	}
 
 	if (subcmd->name) {
-		printf("ERROR: Invalid sub-command '%s' for command '%s'\n",
+		fprintf(stderr, "ERROR: Invalid sub-command '%s' for command '%s'\n",
 		       cmd, subcmd->name);
 		return -ENOTSUP;
 	}
@@ -242,7 +243,7 @@ static int do_command(int argc, char **argv, struct subcommand *subcmd,
 	}
 
 	print_completions(subcmd->cmds);
-	printf("ERROR: Invalid command '%s'\n", cmd);
+	fprintf(stderr, "ERROR: Invalid command '%s'\n", cmd);
 	return -ENOTSUP;
 }
 

@@ -254,7 +254,7 @@ static void show_choices(const struct argconfig_options *option)
 	if (!option->choices)
 		return;
 
-	printf("\033[1mChoices for %s:\033[0m\n", option->meta);
+	fprintf(stderr, "\033[1mChoices for %s:\033[0m\n", option->meta);
 
 	for (c = option->choices; c->name; c++) {
 		char buffer[0x1000];
@@ -285,25 +285,25 @@ void argconfig_print_usage(const struct argconfig_options *options)
 {
 	const struct argconfig_options *s;
 
-	printf("%s %s", argconfig_usage_text(), append_usage_str);
+	fprintf(stderr, "%s %s", argconfig_usage_text(), append_usage_str);
 
 	for (s = options; (s->option != NULL) && (s != NULL); s++) {
 		if (!is_positional(s) && !s->require_in_usage)
 			continue;
 
 		if (s->argument_type == optional_positional)
-			printf(" [<%s>]", s->option);
+			fprintf(stderr, " [<%s>]", s->option);
 		else if (s->argument_type == required_positional)
-			printf(" <%s>", s->option);
+			fprintf(stderr, " <%s>", s->option);
 		else
-			printf(" --%s=<%s>", s->option, s->meta);
+			fprintf(stderr, " --%s=<%s>", s->option, s->meta);
 
 	}
 
 	if (num_options(options))
-		printf(" [OPTIONS]");
+		fprintf(stderr, " [OPTIONS]");
 
-	printf("\n");
+	fprintf(stderr, "\n");
 }
 
 void argconfig_print_help(const char *program_desc,
@@ -315,36 +315,36 @@ void argconfig_print_help(const char *program_desc,
 	int num_env = num_env_variables(options);
 
 	argconfig_print_usage(options);
-	printf("\n");
+	fprintf(stderr, "\n");
 
 	print_word_wrapped(program_desc, 0, 0);
-	printf("\n\n");
+	fprintf(stderr, "\n\n");
 
 	if (num_pos) {
-		printf("\n\033[1mPositional Arguments:\033[0m\n");
+		fprintf(stderr, "\n\033[1mPositional Arguments:\033[0m\n");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_positional(s);
 
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
 	if (num_env) {
-		printf("\n\033[1mEnvironment Variables:\033[0m\n");
+		fprintf(stderr, "\n\033[1mEnvironment Variables:\033[0m\n");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_env(s);
 
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
 	if (num_opt) {
-		printf("\n\033[1mOptions:\033[0m\n");
+		fprintf(stderr, "\n\033[1mOptions:\033[0m\n");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_option(s);
 
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
 
