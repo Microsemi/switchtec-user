@@ -254,7 +254,11 @@ static void show_choices(const struct argconfig_options *option)
 	if (!option->choices)
 		return;
 
-	fprintf(stderr, "\033[1mChoices for %s:\033[0m\n", option->meta);
+	if (have_decent_term())
+		fprintf(stderr, "\033[1mChoices for %s:\033[0m\n",
+			option->meta);
+	else
+		fprintf(stderr, "Choices for %s:\n", option->meta);
 
 	for (c = option->choices; c->name; c++) {
 		char buffer[0x1000];
@@ -306,6 +310,14 @@ void argconfig_print_usage(const struct argconfig_options *options)
 	fprintf(stderr, "\n");
 }
 
+static void print_bold(const char *str)
+{
+	if (have_decent_term())
+		fprintf(stderr,	"\n\033[1m%s\033[0m\n", str);
+	else
+		fprintf(stderr, "\n%s\n", str);
+}
+
 void argconfig_print_help(const char *program_desc,
 			  const struct argconfig_options *options)
 {
@@ -321,7 +333,7 @@ void argconfig_print_help(const char *program_desc,
 	fprintf(stderr, "\n\n");
 
 	if (num_pos) {
-		fprintf(stderr, "\n\033[1mPositional Arguments:\033[0m\n");
+		print_bold("Positional Arguments:");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_positional(s);
@@ -330,7 +342,7 @@ void argconfig_print_help(const char *program_desc,
 	}
 
 	if (num_env) {
-		fprintf(stderr, "\n\033[1mEnvironment Variables:\033[0m\n");
+		print_bold("Environment Variables:");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_env(s);
@@ -339,7 +351,7 @@ void argconfig_print_help(const char *program_desc,
 	}
 
 	if (num_opt) {
-		fprintf(stderr, "\n\033[1mOptions:\033[0m\n");
+		print_bold("Options:");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_option(s);
