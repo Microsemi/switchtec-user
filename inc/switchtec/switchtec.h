@@ -27,6 +27,7 @@
 
 #include "mrpc.h"
 #include "portable.h"
+#include "registers.h"
 
 #include <stdlib.h>
 #include <stdint.h>
