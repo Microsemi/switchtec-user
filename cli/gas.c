@@ -304,7 +304,7 @@ static int gas_read(int argc, char **argv)
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to read per access (default 4)"},
 		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
-		 "number of accesses to performe (default 1)"},
+		 "number of accesses to perform (default 1)"},
 		{"print", 'p', "STYLE", CFG_CHOICES, &cfg.print_style, required_argument,
 		 "printing style", .choices=print_choices},
 		{NULL}};
