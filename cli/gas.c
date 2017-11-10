@@ -285,7 +285,7 @@ static int gas_write(int argc, char **argv)
 		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
 		 "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
-		 "number of bytes to read per access (default 4)"},
+		 "number of bytes to write (default 4)"},
 		{"value", 'v', "ADDR", CFG_LONG_SUFFIX, &cfg.value, required_argument,
 		 "value to write"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
