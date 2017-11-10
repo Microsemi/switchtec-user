@@ -34,7 +34,16 @@
 #include <errno.h>
 #include <stdio.h>
 
-static void win_perror(const char *msg)
+struct switchtec_windows {
+	struct switchtec_dev dev;
+	HANDLE hdl;
+};
+
+#define to_switchtec_windows(d)  \
+	((struct switchtec_windows *) \
+	 ((char *)d - offsetof(struct switchtec_windows, dev)))
+
+void platform_perror(const char *msg)
 {
 	char errmsg[500] = "";
 	int err = GetLastError();
@@ -47,7 +56,7 @@ static void win_perror(const char *msg)
 	if (!strlen(errmsg))
 		sprintf(errmsg, "Error %d", err);
 
-	fprintf(stderr, "%s: %s\n", msg, errmsg);
+	fprintf(stderr, "%s: %s", msg, errmsg);
 }
 
 static int count_devices(void)
@@ -66,7 +75,7 @@ static int count_devices(void)
 					   &SWITCHTEC_INTERFACE_GUID,
 					   count++, &deviface));
 
-	return count-1;
+	return count - 1;
 }
 
 static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
@@ -75,6 +84,7 @@ static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
 	DWORD size;
 	SP_DEVICE_INTERFACE_DETAIL_DATA *devdetail;
 	BOOL status = TRUE;
+	char *hash;
 
 	devdata->cbSize = sizeof(SP_DEVINFO_DATA);
 
@@ -83,7 +93,7 @@ static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
 
 	devdetail = malloc(size);
 	if (!devdetail) {
-		win_perror("Enumeration");
+		perror("Enumeration");
 		return FALSE;
 	}
 
@@ -92,11 +102,16 @@ static BOOL get_path(HDEVINFO devinfo, SP_DEVICE_INTERFACE_DATA *deviface,
 	status = SetupDiGetDeviceInterfaceDetail(devinfo, deviface, devdetail,
 						 size, NULL, devdata);
 	if (!status) {
-		win_perror("SetupDiGetDeviceInterfaceDetail");
+		platform_perror("SetupDiGetDeviceInterfaceDetail");
 		goto out;
 	}
 
 	strcpy_s(path, path_size, devdetail->DevicePath);
+
+	/* Chop off the GUID */
+	hash = strrchr(path, '#');
+	if (hash)
+		*hash = 0;
 
 out:
 	free(devdetail);
@@ -114,7 +129,7 @@ static BOOL get_pci_address(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 			SPDRP_LOCATION_INFORMATION, NULL,
 			(BYTE *)loc, sizeof(loc), NULL);
 	if (!status) {
-		win_perror("SetupDiGetDeviceRegistryProperty (LOC)");
+		platform_perror("SetupDiGetDeviceRegistryProperty (LOC)");
 		return FALSE;
 	}
 
@@ -151,14 +166,11 @@ static void get_description(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
  * Sigh... Mingw doesn't define this API yet in it's header and the library
  * only has the WCHAR version.
  */
-#ifndef SetupDiGetDeviceProperty
-#define SetupDiGetDeviceProperty SetupDiGetDevicePropertyW
-WINSETUPAPI WINBOOL WINAPI SetupDiGetDeviceProperty(HDEVINFO DeviceInfoSet,
+WINSETUPAPI WINBOOL WINAPI SetupDiGetDevicePropertyW(HDEVINFO DeviceInfoSet,
 	PSP_DEVINFO_DATA DeviceInfoData, const DEVPROPKEY *PropertyKey,
 	DEVPROPTYPE *PropertyType, PBYTE PropertyBuffer,
 	DWORD PropertyBufferSize, PDWORD RequiredSize,
 	DWORD Flags);
-#endif
 
 static void get_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 			 const DEVPROPKEY *propkey, char *res, size_t res_size)
@@ -166,7 +178,7 @@ static void get_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 	DEVPROPTYPE ptype;
 	WCHAR buf[res_size];
 
-	SetupDiGetDeviceProperty(devinfo, devdata, propkey, &ptype,
+	SetupDiGetDevicePropertyW(devinfo, devdata, propkey, &ptype,
 				 (PBYTE)buf, sizeof(buf), NULL, 0);
 	wcstombs(res, buf, res_size);
 }
@@ -188,14 +200,131 @@ static void get_fw_property(HDEVINFO devinfo, SP_DEVINFO_DATA *devdata,
 		version_to_string(fw_ver, res, res_size);
 }
 
-struct switchtec_dev *switchtec_open(const char *path)
+static void append_guid(const char *path, char *path_with_guid, size_t bufsize,
+			const GUID *guid)
 {
-	errno = ENOSYS;
+	snprintf(path_with_guid, bufsize,
+		 "%s#{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+		 path, guid->Data1, guid->Data2, guid->Data3,
+		 guid->Data4[0], guid->Data4[1], guid->Data4[2],
+		 guid->Data4[3], guid->Data4[4], guid->Data4[5],
+		 guid->Data4[6], guid->Data4[7]);
+}
+
+struct switchtec_dev *switchtec_open_by_path(const char *path)
+{
+	struct switchtec_windows *wdev;
+	char path_with_guid[MAX_PATH];
+
+	wdev = malloc(sizeof(*wdev));
+	if (!wdev)
+		return NULL;
+
+	append_guid(path, path_with_guid, sizeof(path_with_guid),
+		    &SWITCHTEC_INTERFACE_GUID);
+
+	wdev->hdl = CreateFile(path_with_guid, GENERIC_READ | GENERIC_WRITE,
+			       FILE_SHARE_READ | FILE_SHARE_WRITE,
+			       NULL, OPEN_EXISTING, 0, NULL);
+
+	if (wdev->hdl == INVALID_HANDLE_VALUE)
+		goto err_free;
+
+	return &wdev->dev;
+
+err_free:
+	free(wdev);
 	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_index(int index)
+{
+	HDEVINFO devinfo;
+	SP_DEVICE_INTERFACE_DATA deviface;
+	SP_DEVINFO_DATA devdata;
+	char path[MAX_PATH];
+	struct switchtec_dev *dev = NULL;
+	BOOL status;
+
+	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
+				      NULL, NULL, DIGCF_DEVICEINTERFACE |
+				      DIGCF_PRESENT);
+	if (devinfo == INVALID_HANDLE_VALUE)
+		return NULL;
+
+	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+	status = SetupDiEnumDeviceInterfaces(devinfo, NULL,
+					     &SWITCHTEC_INTERFACE_GUID,
+					     index, &deviface);
+	if (!status) {
+		errno = ENODEV;
+		goto out;
+	}
+
+	status = get_path(devinfo, &deviface,  &devdata,
+			  path, sizeof(path));
+	if (!status)
+		goto out;
+
+	dev = switchtec_open_by_path(path);
+
+out:
+	SetupDiDestroyDeviceInfoList(devinfo);
+	return dev;
+}
+
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func)
+{
+	HDEVINFO devinfo;
+	SP_DEVICE_INTERFACE_DATA deviface;
+	SP_DEVINFO_DATA devdata;
+	char path[MAX_PATH];
+	struct switchtec_dev *dev = NULL;
+	BOOL status;
+	int dbus, ddevice, dfunc;
+	int idx = 0;
+
+	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
+				      NULL, NULL, DIGCF_DEVICEINTERFACE |
+				      DIGCF_PRESENT);
+	if (devinfo == INVALID_HANDLE_VALUE)
+		return NULL;
+
+	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+	while (SetupDiEnumDeviceInterfaces(devinfo, NULL,
+					   &SWITCHTEC_INTERFACE_GUID,
+					   idx++, &deviface))
+	{
+		status = get_path(devinfo, &deviface,  &devdata,
+				  path, sizeof(path));
+		if (!status)
+			continue;
+
+		get_pci_address(devinfo, &devdata, &dbus, &ddevice, &dfunc);
+		if (dbus == bus && ddevice == device && dfunc == func) {
+			dev = switchtec_open_by_path(path);
+			break;
+		}
+	}
+
+	if (!dev)
+		errno = ENODEV;
+
+	SetupDiDestroyDeviceInfoList(devinfo);
+	return dev;
 }
 
 void switchtec_close(struct switchtec_dev *dev)
 {
+	struct switchtec_windows *wdev = to_switchtec_windows(dev);
+
+	if (!dev)
+		return;
+
+	CloseHandle(wdev->hdl);
 }
 
 int switchtec_list(struct switchtec_device_info **devlist)
@@ -219,6 +348,8 @@ int switchtec_list(struct switchtec_device_info **devlist)
 	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
 				      NULL, NULL, DIGCF_DEVICEINTERFACE |
 				      DIGCF_PRESENT);
+	if (devinfo == INVALID_HANDLE_VALUE)
+		return 0;
 
 	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 

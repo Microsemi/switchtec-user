@@ -56,6 +56,11 @@ struct switchtec_linux {
 	((struct switchtec_linux *) \
 	 ((char *)d - offsetof(struct switchtec_linux, dev)))
 
+void platform_perror(const char *str)
+{
+	perror(str);
+}
+
 static int dev_to_sysfs_path(struct switchtec_linux *ldev, const char *suffix,
 			     char *buf, size_t buflen)
 {
@@ -135,7 +140,7 @@ static int get_partition(struct switchtec_linux *ldev)
 	return 0;
 }
 
-struct switchtec_dev *switchtec_open(const char *path)
+struct switchtec_dev *switchtec_open_by_path(const char *path)
 {
 	struct switchtec_linux *ldev;
 
@@ -153,14 +158,72 @@ struct switchtec_dev *switchtec_open(const char *path)
 	if (get_partition(ldev))
 		goto err_close_free;
 
-	snprintf(ldev->dev.name, sizeof(ldev->dev.name), "%s", path);
-
 	return &ldev->dev;
 
 err_close_free:
 	close(ldev->fd);
 err_free:
 	free(ldev);
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_index(int index)
+{
+	char path[PATH_MAX];
+	struct switchtec_dev *dev;
+
+	snprintf(path, sizeof(path), "/dev/switchtec%d", index);
+
+	dev = switchtec_open_by_path(path);
+
+	if (errno == ENOENT)
+		errno = ENODEV;
+
+	return dev;
+}
+
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func)
+{
+	char path[PATH_MAX];
+	struct switchtec_dev *dev;
+	struct dirent *dirent;
+	DIR *dir;
+
+	snprintf(path, sizeof(path),
+		 "/sys/bus/pci/devices/%04x:%02x:%02x.%x/switchtec",
+		 domain, bus, device, func);
+
+	dir = opendir(path);
+	if (!dir)
+		goto err_out;
+
+	while ((dirent = readdir(dir))) {
+		if (dirent->d_name[0] != '.')
+			break;
+	}
+
+	if (!dirent)
+		goto err_close;
+
+	/*
+	 * Should only be one switchtec device, if there are
+	 * more then something is wrong
+	 */
+	if (readdir(dir))
+		goto err_close;
+
+	snprintf(path, sizeof(path), "/dev/%s", dirent->d_name);
+	printf("%s\n", path);
+	dev = switchtec_open(path);
+
+	closedir(dir);
+	return dev;
+
+err_close:
+	closedir(dir);
+err_out:
+	errno = ENODEV;
 	return NULL;
 }
 
@@ -295,7 +358,7 @@ static int submit_cmd(struct switchtec_linux *ldev, uint32_t cmd,
 		      const void *payload, size_t payload_len)
 {
 	int ret;
-    size_t bufsize = payload_len + sizeof(cmd);
+	size_t bufsize = payload_len + sizeof(cmd);
 	char buf[bufsize];
 
 	cmd = htole32(cmd);
