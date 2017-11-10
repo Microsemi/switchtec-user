@@ -211,6 +211,38 @@ static void append_guid(const char *path, char *path_with_guid, size_t bufsize,
 		 guid->Data4[6], guid->Data4[7]);
 }
 
+#ifdef __CHECKER__
+#define __force __attribute__((force))
+#else
+#define __force
+#endif
+
+static BOOL map_gas(struct switchtec_windows *wdev)
+{
+	BOOL status;
+	struct switchtec_gas_map map;
+
+	status = DeviceIoControl(wdev->hdl, IOCTL_SWITCHTEC_GAS_MAP, NULL, 0,
+				 &map, sizeof(map), NULL, NULL);
+	if (!status)
+		return status;
+
+	wdev->dev.gas_map = (gasptr_t __force)map.gas;
+	wdev->dev.gas_map_size = map.length;
+	return TRUE;
+}
+
+static void unmap_gas(struct switchtec_windows *wdev)
+{
+	struct switchtec_gas_map map = {
+		.gas = (void * __force)wdev->dev.gas_map,
+		.length = wdev->dev.gas_map_size,
+	};
+
+	DeviceIoControl(wdev->hdl, IOCTL_SWITCHTEC_GAS_UNMAP, &map, sizeof(map),
+			NULL, 0, NULL, NULL);
+}
+
 struct switchtec_dev *switchtec_open_by_path(const char *path)
 {
 	struct switchtec_windows *wdev;
@@ -230,8 +262,13 @@ struct switchtec_dev *switchtec_open_by_path(const char *path)
 	if (wdev->hdl == INVALID_HANDLE_VALUE)
 		goto err_free;
 
+	if (!map_gas(wdev))
+		goto err_close;
+
 	return &wdev->dev;
 
+err_close:
+	CloseHandle(wdev->hdl);
 err_free:
 	free(wdev);
 	return NULL;
@@ -324,6 +361,7 @@ void switchtec_close(struct switchtec_dev *dev)
 	if (!dev)
 		return;
 
+	unmap_gas(wdev);
 	CloseHandle(wdev->hdl);
 }
 
@@ -500,8 +538,10 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
                            size_t *map_size)
 {
-	errno = ENOSYS;
-	return MAP_FAILED;
+	if (map_size)
+		*map_size = dev->gas_map_size;
+
+	return dev->gas_map;
 }
 
 void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
