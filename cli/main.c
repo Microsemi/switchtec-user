@@ -1024,7 +1024,7 @@ static int fw_update(int argc, char **argv)
 		return ret;
 	}
 
-	if (cfg.set_boot_rw && ret != SWITCHTEC_FW_TYPE_BOOT) {
+	if (cfg.set_boot_rw && type != SWITCHTEC_FW_TYPE_BOOT) {
 		fprintf(stderr, "The --set-boot-rw option only applies for BOOT images\n");
 		return -1;
 	} else if (type == SWITCHTEC_FW_TYPE_BOOT) {
