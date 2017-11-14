@@ -763,46 +763,6 @@ int switchtec_event_summary(struct switchtec_dev *dev,
 	return 0;
 }
 
-int switchtec_event_check(struct switchtec_dev *dev,
-			  struct switchtec_event_summary *check,
-			  struct switchtec_event_summary *res)
-{
-	int ret, i;
-	struct switchtec_ioctl_event_summary isum;
-	struct switchtec_linux *ldev = to_switchtec_linux(dev);
-
-	if (!check)
-		return -EINVAL;
-
-	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
-	if (ret < 0)
-		return ret;
-
-	ret = 0;
-
-	if (isum.global & check->global)
-		ret = 1;
-
-	if (isum.part_bitmap & check->part_bitmap)
-		ret = 1;
-
-	if (isum.local_part & check->local_part)
-		ret = 1;
-
-	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
-		if (isum.part[i] & check->part[i])
-			ret = 1;
-
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
-		if (isum.pff[i] & check->pff[i])
-			ret = 1;
-
-	if (res)
-		event_summary_copy(res, &isum);
-
-	return ret;
-}
-
 int switchtec_event_ctl(struct switchtec_dev *dev,
 			enum switchtec_event_id e,
 			int index, int flags,

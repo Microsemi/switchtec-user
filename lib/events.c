@@ -238,6 +238,41 @@ int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
 	return 0;
 }
 
+int switchtec_event_check(struct switchtec_dev *dev,
+			  struct switchtec_event_summary *chk,
+			  struct switchtec_event_summary *res)
+{
+	struct switchtec_event_summary res_tmp;
+	int i;
+	int ret;
+
+	if (!chk)
+		return -EINVAL;
+
+	if (!res)
+		res = &res_tmp;
+
+	ret = switchtec_event_summary(dev, res);
+	if (ret)
+		return ret;
+
+	if (chk->global & res->global)
+		return 1;
+
+	if (chk->part_bitmap & res->part_bitmap)
+		return 1;
+
+	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
+		if (chk->part[i] & res->part[i])
+			return 1;
+
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+		if (chk->pff[i] & res->pff[i])
+			return 1;
+
+	return 0;
+}
+
 enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
 					       const char **name,
 					       const char **desc)

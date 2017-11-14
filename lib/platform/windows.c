@@ -667,14 +667,6 @@ int switchtec_event_summary(struct switchtec_dev *dev,
 	return 0;
 }
 
-int switchtec_event_check(struct switchtec_dev *dev,
-			  struct switchtec_event_summary *check,
-			  struct switchtec_event_summary *res)
-{
-	errno = ENOSYS;
-	return -errno;
-}
-
 int switchtec_event_ctl(struct switchtec_dev *dev,
 			enum switchtec_event_id e,
 			int index, int flags,
