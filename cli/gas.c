@@ -42,9 +42,9 @@ static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 
 	printf("%08lx ", addr);
 	for (i = 0; i < n; i++) {
-		printf(" %02x", bytes[i]);
 		if (i == 8)
 			printf(" ");
+		printf(" %02x", bytes[i]);
 	}
 
 	for (; i < 16; i++) {
