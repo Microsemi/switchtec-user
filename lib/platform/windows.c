@@ -428,7 +428,7 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 {
 	long long ver;
 
-	ver = gas_read32(&dev->gas_map->sys_info.firmware_version);
+	ver = gas_reg_read32(dev, sys_info.firmware_version);
 	version_to_string(ver, buf, buflen);
 
 	return 0;
