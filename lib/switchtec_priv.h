@@ -33,7 +33,7 @@
 #include <limits.h>
 
 struct switchtec_dev {
-	int partition;
+	int partition, partition_count;
 	char name[PATH_MAX];
 
 	gasptr_t gas_map;

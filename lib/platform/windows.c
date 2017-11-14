@@ -244,6 +244,12 @@ static void unmap_gas(struct switchtec_windows *wdev)
 			NULL, 0, NULL, NULL);
 }
 
+static void set_partition_info(struct switchtec_dev *dev)
+{
+	dev->partition = gas_reg_read8(dev, top.partition_id);
+	dev->partition_count = gas_reg_read8(dev, top.partition_count);
+}
+
 struct switchtec_dev *switchtec_open_by_path(const char *path)
 {
 	struct switchtec_windows *wdev;
@@ -265,6 +271,8 @@ struct switchtec_dev *switchtec_open_by_path(const char *path)
 
 	if (!map_gas(wdev))
 		goto err_close;
+
+	set_partition_info(&wdev->dev);
 
 	return &wdev->dev;
 

@@ -72,6 +72,15 @@ enum mrpc_status {
 	SWITCHTEC_MRPC_STATUS_INTERRUPTED = 0x100,
 };
 
+struct top_regs {
+	uint8_t bifur_valid;
+	uint8_t stack_valid[6];
+	uint8_t partition_count;
+	uint8_t partition_id;
+	uint8_t pff_count;
+	uint8_t pff_port[255];
+};
+
 struct sw_event_regs {
 	uint64_t event_report_ctrl;
 	uint64_t reserved1;
@@ -359,6 +368,7 @@ struct switchtec_gas {
 	};
 
 	union {
+		struct top_regs top;
 		uint8_t __pad_top_cfg[SWITCHTEC_GAS_SW_EVENT_OFFSET -
 				      SWITCHTEC_GAS_TOP_CFG_OFFSET];
 	};

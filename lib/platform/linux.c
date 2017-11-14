@@ -137,6 +137,15 @@ static int get_partition(struct switchtec_linux *ldev)
 	if (ldev->dev.partition < 0)
 		return ldev->dev.partition;
 
+	ret = dev_to_sysfs_path(ldev, "partition_count", syspath,
+				sizeof(syspath));
+	if (ret)
+		return ret;
+
+	ldev->dev.partition_count = sysfs_read_int(syspath, 10);
+	if (ldev->dev.partition_count < 1)
+		return -1;
+
 	return 0;
 }
 
