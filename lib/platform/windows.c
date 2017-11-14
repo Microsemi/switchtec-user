@@ -25,6 +25,7 @@
 #include "switchtec/switchtec.h"
 #include "switchtec/portable.h"
 #include "switchtec/gas.h"
+#include "switchtec/utils.h"
 #include "../switchtec_priv.h"
 
 #ifdef __WINDOWS__
@@ -499,8 +500,43 @@ int switchtec_get_devices(struct switchtec_dev *dev,
 int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 			  int *partition, int *port)
 {
-	errno = ENOSYS;
-	return -errno;
+	int i, part;
+	uint32_t reg;
+	struct part_cfg_regs *pcfg;
+
+	*port = -1;
+
+	for (part = 0; part < dev->partition_count; part++) {
+		pcfg = &dev->gas_map->part_cfg[part];
+		*partition = part;
+
+		reg = gas_read32(&pcfg->usp_pff_inst_id);
+		if (reg == pff) {
+			*port = 0;
+			return 0;
+		}
+
+		reg = gas_read32(&pcfg->vep_pff_inst_id);
+		if (reg == pff) {
+			*port = SWITCHTEC_PFF_PORT_VEP;
+			return 0;
+		}
+
+		for (i = 0; i < ARRAY_SIZE(pcfg->dsp_pff_inst_id); i++) {
+			reg = gas_read32(&pcfg->dsp_pff_inst_id[i]);
+			if (reg != pff)
+				continue;
+
+			*port = i + 1;
+			break;
+		}
+
+		if (*port != -1)
+			return 0;
+	}
+
+	errno = EINVAL;
+	return -EINVAL;
 }
 
 int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
