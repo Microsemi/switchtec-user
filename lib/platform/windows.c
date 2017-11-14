@@ -484,8 +484,8 @@ int switchtec_get_devices(struct switchtec_dev *dev,
 			  struct switchtec_status *status,
 			  int ports)
 {
-	errno = ENOSYS;
-	return -errno;
+	/* I don't see any easy way of implementing this on windows */
+	return 0;
 }
 
 int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
