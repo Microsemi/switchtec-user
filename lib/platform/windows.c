@@ -667,12 +667,169 @@ int switchtec_event_summary(struct switchtec_dev *dev,
 	return 0;
 }
 
+static uint32_t __gas *global_ev_reg(struct switchtec_dev *dev,
+				  size_t offset, int index)
+{
+	return (void __gas *)&dev->gas_map->sw_event + offset;
+}
+
+static uint32_t __gas *part_ev_reg(struct switchtec_dev *dev,
+				size_t offset, int index)
+{
+	return (void __gas *)&dev->gas_map->part_cfg[index] + offset;
+}
+
+static uint32_t __gas *pff_ev_reg(struct switchtec_dev *dev,
+			       size_t offset, int index)
+{
+	return (void __gas *)&dev->gas_map->pff_csr[index] + offset;
+}
+
+#define EV_GLB(i, r)[SWITCHTEC_GLOBAL_EVT_ ## i] = \
+	{offsetof(struct sw_event_regs, r), global_ev_reg}
+#define EV_PAR(i, r)[SWITCHTEC_PART_EVT_ ## i] = \
+	{offsetof(struct part_cfg_regs, r), part_ev_reg}
+#define EV_PFF(i, r)[SWITCHTEC_PFF_EVT_ ## i] = \
+	{offsetof(struct pff_csr_regs, r), pff_ev_reg}
+
+static const struct event_reg {
+	size_t offset;
+	uint32_t __gas *(*map_reg)(struct switchtec_dev *stdev,
+				size_t offset, int index);
+} event_regs[] = {
+	EV_GLB(STACK_ERROR, stack_error_event_hdr),
+	EV_GLB(PPU_ERROR, ppu_error_event_hdr),
+	EV_GLB(ISP_ERROR, isp_error_event_hdr),
+	EV_GLB(SYS_RESET, sys_reset_event_hdr),
+	EV_GLB(FW_EXC, fw_exception_hdr),
+	EV_GLB(FW_NMI, fw_nmi_hdr),
+	EV_GLB(FW_NON_FATAL, fw_non_fatal_hdr),
+	EV_GLB(FW_FATAL, fw_fatal_hdr),
+	EV_GLB(TWI_MRPC_COMP, twi_mrpc_comp_hdr),
+	EV_GLB(TWI_MRPC_COMP_ASYNC, twi_mrpc_comp_async_hdr),
+	EV_GLB(CLI_MRPC_COMP, cli_mrpc_comp_hdr),
+	EV_GLB(CLI_MRPC_COMP_ASYNC, cli_mrpc_comp_async_hdr),
+	EV_GLB(GPIO_INT, gpio_interrupt_hdr),
+	EV_GLB(GFMS, gfms_event_hdr),
+	EV_PAR(PART_RESET, part_reset_hdr),
+	EV_PAR(MRPC_COMP, mrpc_comp_hdr),
+	EV_PAR(MRPC_COMP_ASYNC, mrpc_comp_async_hdr),
+	EV_PAR(DYN_PART_BIND_COMP, dyn_binding_hdr),
+	EV_PFF(AER_IN_P2P, aer_in_p2p_hdr),
+	EV_PFF(AER_IN_VEP, aer_in_vep_hdr),
+	EV_PFF(DPC, dpc_hdr),
+	EV_PFF(CTS, cts_hdr),
+	EV_PFF(HOTPLUG, hotplug_hdr),
+	EV_PFF(IER, ier_hdr),
+	EV_PFF(THRESH, threshold_hdr),
+	EV_PFF(POWER_MGMT, power_mgmt_hdr),
+	EV_PFF(TLP_THROTTLING, tlp_throttling_hdr),
+	EV_PFF(FORCE_SPEED, force_speed_hdr),
+	EV_PFF(CREDIT_TIMEOUT, credit_timeout_hdr),
+	EV_PFF(LINK_STATE, link_state_hdr),
+};
+
+static uint32_t __gas *event_hdr_addr(struct switchtec_dev *dev,
+				      enum switchtec_event_id e,
+				      int index)
+{
+	size_t off;
+
+	if (e < 0 || e >= SWITCHTEC_MAX_EVENTS)
+		return NULL;
+
+	off = event_regs[e].offset;
+
+	if (event_regs[e].map_reg == part_ev_reg) {
+		if (index < 0)
+			index = dev->partition;
+		else if (index >= dev->partition_count)
+			return NULL;
+	} else if (event_regs[e].map_reg == pff_ev_reg) {
+		if (index < 0 || index >= SWITCHTEC_MAX_PFF_CSR)
+			return NULL;
+	}
+
+	return event_regs[e].map_reg(dev, off, index);
+}
+
+static int event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
+		     int index, int flags, uint32_t data[5])
+{
+	int i;
+	uint32_t __gas *reg;
+	uint32_t hdr;
+
+	reg = event_hdr_addr(dev, e, index);
+	if (!reg) {
+		errno = EINVAL;
+		return -errno;
+	}
+
+	hdr = gas_read32(reg);
+	if (data)
+		for (i = 0; i < 5; i++)
+			data[i] = gas_read32(&reg[i + 1]);
+
+	if (!(flags & SWITCHTEC_EVT_FLAG_CLEAR))
+		hdr &= ~SWITCHTEC_EVENT_CLEAR;
+	if (flags & SWITCHTEC_EVT_FLAG_EN_POLL)
+		hdr |= SWITCHTEC_EVENT_EN_IRQ;
+	if (flags & SWITCHTEC_EVT_FLAG_EN_LOG)
+		hdr |= SWITCHTEC_EVENT_EN_IRQ;
+	if (flags & SWITCHTEC_EVT_FLAG_EN_CLI)
+		hdr |= SWITCHTEC_EVENT_EN_CLI;
+	if (flags & SWITCHTEC_EVT_FLAG_EN_FATAL)
+		hdr |= SWITCHTEC_EVENT_FATAL;
+	if (flags & SWITCHTEC_EVT_FLAG_DIS_POLL)
+		hdr &= ~SWITCHTEC_EVENT_EN_IRQ;
+	if (flags & SWITCHTEC_EVT_FLAG_DIS_LOG)
+		hdr &= ~SWITCHTEC_EVENT_EN_LOG;
+	if (flags & SWITCHTEC_EVT_FLAG_DIS_CLI)
+		hdr &= ~SWITCHTEC_EVENT_EN_CLI;
+	if (flags & SWITCHTEC_EVT_FLAG_DIS_FATAL)
+		hdr &= ~SWITCHTEC_EVENT_FATAL;
+
+	if (flags)
+		gas_write32(hdr, reg);
+
+	return (hdr >> 5) & 0xFF;
+}
+
 int switchtec_event_ctl(struct switchtec_dev *dev,
 			enum switchtec_event_id e,
 			int index, int flags,
 			uint32_t data[5])
 {
-	errno = ENOSYS;
+	int nr_idxs;
+	int ret = 0;
+
+	if (e >= SWITCHTEC_MAX_EVENTS)
+		goto einval;
+
+	if (index == SWITCHTEC_EVT_IDX_ALL) {
+		if (event_regs[e].map_reg == global_ev_reg)
+			nr_idxs = 1;
+		else if (event_regs[e].map_reg == part_ev_reg)
+			nr_idxs = dev->partition_count;
+		else if (event_regs[e].map_reg == pff_ev_reg)
+			nr_idxs = gas_reg_read8(dev, top.pff_count);
+		else
+			goto einval;
+
+		for (index = 0; index < nr_idxs; index++) {
+			ret = event_ctl(dev, e, index, flags, data);
+			if (ret < 0)
+				return ret;
+		}
+	} else {
+		ret = event_ctl(dev, e, index, flags, data);
+	}
+
+	return ret;
+
+einval:
+	errno = EINVAL;
 	return -errno;
 }
 
