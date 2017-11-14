@@ -57,6 +57,7 @@ ifeq ($(findstring mingw,$(MACHINE)),mingw)
   override LDFLAGS += -Wl,--out-implib,switchtec.lib
   SHLDLIBS = -lsetupapi
   LDLIBS += -lsetupapi
+  override CPPFLAGS += -DNTDDI_VERSION=NTDDI_VISTA -D_WIN32_WINNT=_WIN32_WINNT_VISTA
 else
   EXENAME ?= switchtec
   SHLIBNAME ?= libswitchtec.so

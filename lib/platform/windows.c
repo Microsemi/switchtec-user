@@ -265,7 +265,7 @@ struct switchtec_dev *switchtec_open_by_path(const char *path)
 
 	wdev->hdl = CreateFile(path_with_guid, GENERIC_READ | GENERIC_WRITE,
 			       FILE_SHARE_READ | FILE_SHARE_WRITE,
-			       NULL, OPEN_EXISTING, 0, NULL);
+			       NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 
 	if (wdev->hdl == INVALID_HANDLE_VALUE)
 		goto err_free;
@@ -835,8 +835,37 @@ einval:
 
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 {
-	errno = ENOSYS;
-	return -errno;
+	struct switchtec_windows *wdev = to_switchtec_windows(dev);
+	OVERLAPPED overlap = {
+		.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL),
+	};
+	DWORD ret;
+	DWORD transferred;
+	BOOL error;
+
+	errno = 0;
+
+	if (!overlap.hEvent)
+		return -1;
+
+	DeviceIoControl(wdev->hdl, IOCTL_SWITCHTEC_WAIT_FOR_EVENT, NULL, 0,
+			NULL, 0, NULL, &overlap);
+	if (GetLastError() != ERROR_IO_PENDING)
+		return -1;
+
+	ret = WaitForSingleObject(overlap.hEvent, timeout_ms);
+	if (ret == WAIT_TIMEOUT) {
+		CancelIoEx(wdev->hdl, &overlap);
+		return 0;
+	} else if (ret) {
+		return -1;
+	}
+
+	error = GetOverlappedResult(wdev->hdl, &overlap, &transferred, FALSE);
+	if (!error)
+		return -1;
+
+	return 1;
 }
 
 gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
