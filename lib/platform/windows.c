@@ -641,8 +641,30 @@ int switchtec_flash_part(struct switchtec_dev *dev,
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum)
 {
-	errno = ENOSYS;
-	return -errno;
+	int i;
+	uint32_t reg;
+
+	memset(sum, 0, sizeof(*sum));
+
+	sum->global = gas_reg_read32(dev, sw_event.global_summary);
+	sum->part_bitmap = gas_reg_read64(dev, sw_event.part_event_bitmap);
+
+	for (i = 0; i < dev->partition_count; i++) {
+		reg = gas_reg_read32(dev, part_cfg[i].part_event_summary);
+		sum->part[i] = reg;
+		if (i == dev->partition)
+			sum->local_part = reg;
+	}
+
+	for (i = 0; i < SWITCHTEC_MAX_PFF_CSR; i++) {
+		reg = gas_reg_read16(dev, pff_csr[i].vendor_id);
+		if (reg != MICROSEMI_VENDOR_ID)
+			break;
+
+		sum->pff[i] = gas_reg_read32(dev, pff_csr[i].pff_event_summary);
+	}
+
+	return 0;
 }
 
 int switchtec_event_check(struct switchtec_dev *dev,
