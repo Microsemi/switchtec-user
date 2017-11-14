@@ -502,12 +502,69 @@ int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 	return -errno;
 }
 
+static void set_fw_info_part(struct switchtec_fw_image_info *info,
+			     struct partition_info __gas *pi)
+{
+	info->image_addr = gas_read32(&pi->address);
+	info->image_len = gas_read32(&pi->length);
+}
+
 int switchtec_flash_part(struct switchtec_dev *dev,
 			 struct switchtec_fw_image_info *info,
 			 enum switchtec_fw_image_type part)
 {
-	errno = ENOSYS;
-	return -errno;
+	struct flash_info_regs __gas *fi = &dev->gas_map->flash_info;
+	struct sys_info_regs __gas *si = &dev->gas_map->sys_info;
+	uint32_t active_addr = -1;
+
+	memset(info, 0, sizeof(*info));
+
+	switch (part) {
+	case SWITCHTEC_FW_TYPE_IMG0:
+		active_addr = gas_read32(&fi->active_img.address);
+		set_fw_info_part(info, &fi->img0);
+
+		if (gas_read16(&si->img_running) == SWITCHTEC_IMG0_RUNNING)
+			info->active |= SWITCHTEC_FW_PART_RUNNING;
+		break;
+
+	case SWITCHTEC_FW_TYPE_IMG1:
+		active_addr = gas_read32(&fi->active_img.address);
+		set_fw_info_part(info, &fi->img1);
+
+		if (gas_read16(&si->img_running) == SWITCHTEC_IMG1_RUNNING)
+			info->active |= SWITCHTEC_FW_PART_RUNNING;
+		break;
+
+	case SWITCHTEC_FW_TYPE_DAT0:
+		active_addr = gas_read32(&fi->active_cfg.address);
+		set_fw_info_part(info, &fi->cfg0);
+
+		if (gas_read16(&si->cfg_running) == SWITCHTEC_CFG0_RUNNING)
+			info->active |= SWITCHTEC_FW_PART_RUNNING;
+		break;
+
+
+	case SWITCHTEC_FW_TYPE_DAT1:
+		active_addr = gas_read32(&fi->active_cfg.address);
+		set_fw_info_part(info, &fi->cfg0);
+
+		if (gas_read16(&si->cfg_running) == SWITCHTEC_CFG1_RUNNING)
+			info->active |= SWITCHTEC_FW_PART_RUNNING;
+		break;
+
+	case SWITCHTEC_FW_TYPE_NVLOG:
+		set_fw_info_part(info, &fi->nvlog);
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	if (info->image_addr == active_addr)
+		info->active |= SWITCHTEC_FW_PART_ACTIVE;
+
+	return 0;
 }
 
 int switchtec_event_summary(struct switchtec_dev *dev,
