@@ -542,8 +542,35 @@ int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 			  int port, int *pff)
 {
-	errno = ENOSYS;
-	return -errno;
+	struct part_cfg_regs *pcfg;
+
+	if (partition < 0) {
+		partition = dev->partition;
+	} else if (partition >= dev->partition_count) {
+		errno = EINVAL;
+		return -errno;
+	}
+
+	pcfg = &dev->gas_map->part_cfg[partition];
+
+	switch(port) {
+	case 0:
+		*pff = gas_read32(&pcfg->usp_pff_inst_id);
+		break;
+	case SWITCHTEC_PFF_PORT_VEP:
+		*pff = gas_read32(&pcfg->vep_pff_inst_id);
+		break;
+	default:
+		if (port > ARRAY_SIZE(pcfg->dsp_pff_inst_id)) {
+			errno = EINVAL;
+			return -errno;
+		}
+
+		*pff = gas_read32(&pcfg->dsp_pff_inst_id[port - 1]);
+		break;
+	}
+
+	return 0;
 }
 
 static void set_fw_info_part(struct switchtec_fw_image_info *info,
