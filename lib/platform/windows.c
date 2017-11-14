@@ -24,6 +24,7 @@
 
 #include "switchtec/switchtec.h"
 #include "switchtec/portable.h"
+#include "switchtec/gas.h"
 #include "../switchtec_priv.h"
 
 #ifdef __WINDOWS__
@@ -425,8 +426,12 @@ int switchtec_list(struct switchtec_device_info **devlist)
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen)
 {
-	errno = ENOSYS;
-	return -errno;
+	long long ver;
+
+	ver = gas_read32(&dev->gas_map->sys_info.firmware_version);
+	version_to_string(ver, buf, buflen);
+
+	return 0;
 }
 
 int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
