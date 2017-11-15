@@ -93,8 +93,8 @@ static void print_completions(const struct cmd *cmds)
 		return;
 
 	for (; cmds->name; cmds++)
-		fprintf(stderr, " %s", underscore_to_dash(cmds->name));
-	fprintf(stderr, " version help\n");
+		printf(" %s", underscore_to_dash(cmds->name));
+	printf(" version help\n");
 	exit(0);
 }
 
