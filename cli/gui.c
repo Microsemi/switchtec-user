@@ -64,18 +64,6 @@ struct portloc {
 	unsigned starty;
 };
 
-static void gui_timer(unsigned duration)
-{
-	struct itimerval it;
-
-	timerclear(&it.it_interval);
-	timerclear(&it.it_value);
-
-	it.it_interval.tv_sec = duration;
-	it.it_value.tv_sec = duration;
-	setitimer(ITIMER_REAL, &it, NULL);
-}
-
 static void cleanup(void)
 {
 	delwin(mainwin);
@@ -105,7 +93,6 @@ static void gui_handler(int signum)
 
 	case SIGTERM:
 	case SIGINT:
-	case SIGALRM:
 		cleanup_and_exit();
 	}
 }
@@ -127,7 +114,6 @@ static void gui_signals(void)
 
 	sigaction(SIGTERM, &sa, NULL);
 	sigaction(SIGINT, &sa, NULL);
-	sigaction(SIGALRM, &sa, NULL);
 	signal(SIGUSR1, sigusr1_handler);
 }
 
@@ -389,6 +375,7 @@ static unsigned gui_keypress(void)
 int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 	     unsigned refresh, int duration)
 {
+	struct timeval endtime, now;
 
 	if ((mainwin = initscr()) == NULL) {
 		fprintf(stderr, "Error initialising ncurses.\n");
@@ -397,8 +384,6 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 	wborder(mainwin, WINBORDER);
 	wrefresh(mainwin);
 	gui_signals();
-	if (duration >= 0)
-		gui_timer(duration);
 	nodelay(stdscr, TRUE);
 	noecho();
 	cbreak();
@@ -413,6 +398,11 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 	}
 	usleep(GUI_INIT_TIME);
 
+	ret = gettimeofday(&endtime, NULL);
+	if (ret)
+		cleanup_and_error("gettimeofday");
+	endtime.tv_sec += duration;
+
 	while (1) {
 		int do_reset;
 
@@ -423,6 +413,13 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 
 		if (!ret && do_reset)
 			reset_signal = 0;
+
+		ret = gettimeofday(&now, NULL);
+		if (ret)
+			cleanup_and_error("gettimeofday");
+
+		if (duration > 0 && timercmp(&now, &endtime, >))
+			cleanup_and_exit();
 	}
 
 	return 0;
