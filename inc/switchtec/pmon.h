@@ -28,6 +28,8 @@
 #include <stdint.h>
 #include <switchtec/switchtec.h>
 
+#pragma pack(push, 1)
+
 struct pmon_event_counter_setup {
 	uint8_t sub_cmd_id;
 	uint8_t stack_id;
@@ -35,19 +37,17 @@ struct pmon_event_counter_setup {
 	uint8_t num_counters;
 
 	struct {
-		uint8_t  port_mask;
-		uint32_t type_mask:24;
+		uint32_t mask;
 		uint8_t  ieg;
 		uint32_t thresh;
-	} __attribute__(( packed )) counters[63];
+	} counters[63];
 };
 
 struct pmon_event_counter_get_setup_result {
-	uint8_t  port_mask;
-	uint32_t type_mask:24;
+	uint32_t mask;
 	uint8_t  ieg;
 	uint32_t thresh;
-} __attribute__(( packed ));
+};
 
 struct pmon_event_counter_get {
 	uint8_t sub_cmd_id;
@@ -91,5 +91,7 @@ struct pmon_lat_data {
 	uint16_t cur_ns;
 	uint16_t max_ns;
 };
+
+#pragma pack(pop)
 
 #endif

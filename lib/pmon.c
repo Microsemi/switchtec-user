@@ -97,8 +97,8 @@ int switchtec_evcntr_setup(struct switchtec_dev *dev, unsigned stack_id,
 
 		.counters = {
 			[0] = {
-				.port_mask = setup->port_mask,
-				.type_mask = htole32(setup->type_mask),
+				.mask = htole32((setup->type_mask << 8) |
+						(setup->port_mask & 0xFF)),
 				.ieg = setup->egress,
 				.thresh = htole32(setup->threshold),
 			},
@@ -168,8 +168,8 @@ int switchtec_evcntr_get_setup(struct switchtec_dev *dev, unsigned stack_id,
 		return ret;
 
 	for (i = 0; i < nr_cntrs; i++) {
-		res[i].port_mask = data[i].port_mask;
-		res[i].type_mask = le32toh(data[i].type_mask);
+		res[i].port_mask = le32toh(data[i].mask) & 0xFF;
+		res[i].type_mask = le32toh(data[i].mask) >> 8;
 		res[i].egress = data[i].ieg;
 		res[i].threshold = le32toh(data[i].thresh);
 	}
