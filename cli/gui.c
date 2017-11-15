@@ -105,15 +105,8 @@ static void sigusr1_handler(int sig)
 
 static void gui_signals(void)
 {
-
-	struct sigaction sa;
-
-	sa.sa_handler = gui_handler;
-	sa.sa_flags = 0;
-	sigemptyset(&sa.sa_mask);
-
-	sigaction(SIGTERM, &sa, NULL);
-	sigaction(SIGINT, &sa, NULL);
+	signal(SIGINT, gui_handler);
+	signal(SIGTERM, gui_handler);
 	signal(SIGUSR1, sigusr1_handler);
 }
 
