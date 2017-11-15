@@ -35,6 +35,7 @@
 
 #include <unistd.h>
 #include <stdint.h>
+#include <string.h>
 
 static inline void memcpy_to_gas(void __gas *dest, const void *src, size_t n)
 {
