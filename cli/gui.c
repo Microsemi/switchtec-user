@@ -98,16 +98,31 @@ static void gui_handler(int signum)
 }
 
 static int reset_signal;
+
+#ifdef SIGUSR1
 static void sigusr1_handler(int sig)
 {
 	reset_signal = 1;
 }
 
+static void setup_sigusr1(void)
+{
+	signal(SIGUSR1, sigusr1_handler);
+}
+
+#else
+
+static void setup_sigusr1(void)
+{
+}
+
+#endif
+
 static void gui_signals(void)
 {
 	signal(SIGINT, gui_handler);
 	signal(SIGTERM, gui_handler);
-	signal(SIGUSR1, sigusr1_handler);
+	setup_sigusr1();
 }
 
   /* Generate a port based string for the port windows */
