@@ -66,7 +66,6 @@ struct portloc {
 
 static void gui_timer(unsigned duration)
 {
-
 	struct itimerval it;
 
 	timerclear(&it.it_interval);

@@ -47,6 +47,10 @@
 #include <inttypes.h>
 #include <unistd.h>
 
+#ifndef O_BINARY
+#define O_BINARY 0;
+#endif
+
 static argconfig_help_func *help_funcs[MAX_HELP_FUNC] = { NULL };
 
 static char append_usage_str[100] = "";
@@ -586,8 +590,8 @@ static int cfg_fd_handler(const char *optarg, void *value_addr,
 	}
 
 	switch(opt->cfg_type) {
-	case CFG_FD_WR: flags = O_CREAT | O_TRUNC | O_WRONLY; break;
-	case CFG_FD_RD: flags = O_RDONLY; break;
+	case CFG_FD_WR: flags = O_CREAT | O_TRUNC | O_WRONLY | O_BINARY; break;
+	case CFG_FD_RD: flags = O_RDONLY | O_BINARY; break;
 	default: return 1;
 	}
 
