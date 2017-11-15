@@ -409,6 +409,23 @@ static int cfg_long_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
+static int cfg_long_long_handler(const char *optarg, void *value_addr,
+                       const struct argconfig_options *opt)
+{
+	char *endptr;
+
+	*((unsigned long long *)value_addr) = strtoull(optarg, &endptr, 0);
+	if (errno || optarg == endptr) {
+		fprintf(stderr,
+			"Expected long long integer argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+
+	return 0;
+}
+
 static int cfg_long_suffix_handler(const char *optarg, void *value_addr,
 				   const struct argconfig_options *opt)
 {
@@ -694,6 +711,7 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_INT] = cfg_int_handler,
 	[CFG_SIZE] = cfg_size_handler,
 	[CFG_LONG] = cfg_long_handler,
+	[CFG_LONG_LONG] = cfg_long_long_handler,
 	[CFG_LONG_SUFFIX] = cfg_long_suffix_handler,
 	[CFG_DOUBLE] = cfg_double_handler,
 	[CFG_BOOL] = cfg_bool_handler,
@@ -1001,7 +1019,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 	free(long_opts);
 
 	return 0;
- exit:
+exit:
 	free(short_opts);
 	free(long_opts);
 	exit(1);
