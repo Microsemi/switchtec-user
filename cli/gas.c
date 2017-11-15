@@ -210,8 +210,8 @@ static int gas_read(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-		unsigned long addr;
-		unsigned long count;
+		uint64_t addr;
+		unsigned count;
 		unsigned bytes;
 		unsigned print_style;
 	} cfg = {
@@ -221,11 +221,11 @@ static int gas_read(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
+		{"addr", 'a', "ADDR", CFG_LONG_LONG, &cfg.addr, required_argument,
 		 "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to read per access (default 4)"},
-		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
+		{"count", 'n', "NUM", CFG_POSITIVE, &cfg.count, required_argument,
 		 "number of accesses to performe (default 1)"},
 		{"print", 'p', "STYLE", CFG_CHOICES, &cfg.print_style, required_argument,
 		 "printing style", .choices=print_choices},
@@ -258,20 +258,20 @@ static int gas_write(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-		unsigned long addr;
+		uint64_t addr;
 		unsigned bytes;
-		unsigned long value;
+		uint64_t value;
 		int assume_yes;
 	} cfg = {
 		.bytes=4,
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
+		{"addr", 'a', "ADDR", CFG_LONG_LONG, &cfg.addr, required_argument,
 		 "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to read per access (default 4)"},
-		{"value", 'v', "ADDR", CFG_LONG_SUFFIX, &cfg.value, required_argument,
+		{"value", 'v', "ADDR", CFG_LONG_LONG, &cfg.value, required_argument,
 		 "value to write"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
