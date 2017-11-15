@@ -610,12 +610,13 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 
 	ret = switchtec_fw_read(dev, addr, sizeof(struct switchtec_fw_footer),
 				ftr);
-
 	if (ret < 0)
 		return ret;
 
-	if (strcmp(ftr->magic, "PMC") != 0)
-		return -ENOEXEC;
+	if (strcmp(ftr->magic, "PMC") != 0) {
+		errno = ENOEXEC;
+		return -errno;
+	}
 
 	if (version)
 		version_to_string(ftr->version, version, version_len);

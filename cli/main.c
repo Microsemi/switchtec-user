@@ -990,7 +990,12 @@ static int fw_info(int argc, char **argv)
 	printf("Currently Running:\n");
 	printf("  IMG Version: %s\n", version);
 
-	print_fw_part_info(cfg.dev);
+	ret = print_fw_part_info(cfg.dev);
+	if (ret) {
+		switchtec_perror("print fw info");
+		return ret;
+	}
+
 
 	return 0;
 }
