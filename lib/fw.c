@@ -373,14 +373,14 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 	for (i = 0; i < nr_info; i++) {
 		struct switchtec_fw_image_info *inf = &info[i];
 
-		ret = switchtec_flash_part(dev, inf, info[i].type);
+		ret = switchtec_flash_part(dev, inf, inf->type);
 		if (ret)
 			return ret;
 
 
 		if (info[i].type == SWITCHTEC_FW_TYPE_NVLOG) {
-			info[i].version[0] = 0;
-			info[i].crc = 0;
+			inf->version[0] = 0;
+			inf->crc = 0;
 			continue;
 		}
 
@@ -388,10 +388,12 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 					       inf->image_len, &ftr,
 					       inf->version,
 					       sizeof(inf->version));
-		if (ret < 0)
-			return ret;
-
-		info[i].crc = ftr.image_crc;
+		if (ret < 0) {
+			inf->version[0] = 0;
+			inf->crc = 0xFFFFFFFF;
+		} else {
+			inf->crc = ftr.image_crc;
+		}
 	}
 
 	return nr_info;
@@ -610,12 +612,13 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 
 	ret = switchtec_fw_read(dev, addr, sizeof(struct switchtec_fw_footer),
 				ftr);
-
 	if (ret < 0)
 		return ret;
 
-	if (strcmp(ftr->magic, "PMC") != 0)
-		return -ENOEXEC;
+	if (strcmp(ftr->magic, "PMC") != 0) {
+		errno = ENOEXEC;
+		return -errno;
+	}
 
 	if (version)
 		version_to_string(ftr->version, version, version_len);
