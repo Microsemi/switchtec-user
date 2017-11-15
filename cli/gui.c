@@ -29,17 +29,13 @@
 #include <switchtec/utils.h>
 #include "suffix.h"
 
-#ifdef HAVE_LIBCURSES
+#if defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES)
+
+#if defined(HAVE_CURSES_H)
 #include <curses.h>
-#define HAVE_GUI
+#elif defined(HAVE_NCURSES_CURSES_H)
+#include <ncurses/curses.h>
 #endif
-
-#ifdef HAVE_LIBNCURSES
-#include <ncurses.h>
-#define HAVE_GUI
-#endif
-
-#ifdef HAVE_GUI
 
 #include <sys/time.h>
 

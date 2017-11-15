@@ -16,6 +16,8 @@ AS_IF([test "x$with_curses" != xno &&
        [AC_CHECK_LIB([tinfo], [tigetstr], [], [], [])
         AC_CHECK_LIB([curses], [initscr], [], [], [-ltinfo])])
 
+AC_CHECK_HEADERS([curses.h ncurses/curses.h])
+
 AC_CONFIG_FILES([Makefile])
 
 AC_CONFIG_HEADER([config.h])
