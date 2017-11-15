@@ -25,6 +25,8 @@
 #ifndef LIBSWITCHTEC_GAS_H
 #define LIBSWITCHTEC_GAS_H
 
+#include <switchtec/switchtec.h>
+
 #ifdef __CHECKER__
 #define __force __attribute__((force))
 #else
@@ -74,6 +76,16 @@ create_gas_write(uint8_t, 8);
 create_gas_write(uint16_t, 16);
 create_gas_write(uint32_t, 32);
 create_gas_write(uint64_t, 64);
+
+#define gas_reg_read8(dev, reg)  gas_read8(&dev->gas_map->reg)
+#define gas_reg_read16(dev, reg) gas_read16(&dev->gas_map->reg)
+#define gas_reg_read32(dev, reg) gas_read32(&dev->gas_map->reg)
+#define gas_reg_read64(dev, reg) gas_read64(&dev->gas_map->reg)
+
+#define gas_reg_write8(dev, val, reg)  gas_write8(val, &dev->gas_map->reg)
+#define gas_reg_write16(dev, val, reg) gas_write16(val, &dev->gas_map->reg)
+#define gas_reg_write32(dev, val, reg) gas_write32(val, &dev->gas_map->reg)
+#define gas_reg_write64(dev, val, reg) gas_write64(val, &dev->gas_map->reg)
 
 #undef __force
 
