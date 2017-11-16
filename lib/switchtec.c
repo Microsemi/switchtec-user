@@ -365,15 +365,16 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 {
 	int ret;
 	uint32_t version;
-	char syspath[PATH_MAX];
+	uint32_t offset;
 
-	ret = dev_to_sysfs_path(dev, "fw_version", syspath, sizeof(syspath));
+	offset = SWITCHTEC_GAS_SYS_INFO_OFFSET +
+		offsetof(struct sys_info_regs, firmware_version);
+
+	ret = switchtec_gas_read(dev,
+			(uint8_t *)&(version), offset, 4);
+
 	if (ret)
 		return ret;
-
-	version = sysfs_read_int(syspath, 16);
-	if (version < 0)
-		return version;
 
 	version_to_string(version, buf, buflen);
 
