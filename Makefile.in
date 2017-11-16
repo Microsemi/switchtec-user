@@ -88,10 +88,11 @@ ifeq ($(W), 1)
 CFLAGS += -Werror
 endif
 
-compile: $(STLIBNAME) $(SHLIBNAME) $(EXENAME)
+compile: $(STLIBNAME) $(SHLIBNAME) $(EXENAME) examples/temp
 
 clean:
-	$(Q)rm -rf $(STLIBNAME) $(SHLIBNAME) $(EXENAME) $(OBJDIR) *.a
+	$(Q)rm -rf $(STLIBNAME) $(SHLIBNAME) $(EXENAME) $(OBJDIR) *.a \
+		examples/temp examples/*.o
 
 distclean: clean
 	$(Q)rm -rf config.log config.status *.lib *.exe *.so *.dll build* \
@@ -123,6 +124,14 @@ $(SHLIBNAME): $(LIB_OBJS)
 $(EXENAME): $(CLI_OBJS) $(STLIBNAME)
 	@$(NQ) echo "  LD    $@"
 	$(Q)$(LINK.o) $^ $(LDLIBS) -o $@
+
+examples/%.o: examples/%.c
+	@$(NQ) echo "  CC    $<"
+	$(Q)$(COMPILE.c) $(DEPFLAGS) $< -o $@
+
+examples/%: examples/%.o | $(SHLIBNAME)
+	@$(NQ) echo "  LD    $@"
+	$(Q)$(LINK.o) $^ $(IMPLIBNAME) -o $@
 
 install-bash-completion:
 	@$(NQ) echo "  INSTALL  $(SYSCONFDIR)/bash_completion.d/bash-switchtec-completion.sh"
