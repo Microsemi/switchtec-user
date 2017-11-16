@@ -258,7 +258,6 @@ static int gas_read(int argc, char **argv)
 static int gas_write(int argc, char **argv)
 {
 	const char *desc = "Write a gas register";
-	void *map;
 	int ret = 0;
 
 	static struct {
@@ -284,32 +283,29 @@ static int gas_write(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	map = switchtec_gas_map(cfg.dev, 1, NULL);
-	if (map == MAP_FAILED) {
-		switchtec_perror("gas_map");
-		return 1;
+	if ((1 != cfg.bytes)
+			&& (2 != cfg.bytes)
+			&& (4 != cfg.bytes)
+			&& (8 != cfg.bytes)) {
+		fprintf(stderr, "invalid access width\n");
+		return -1;
 	}
 
 	if (!cfg.assume_yes)
 		fprintf(stderr,
-			"Writing 0x%lx to %06lx (%d bytes).\n",
-			cfg.value, cfg.addr, cfg.bytes);
+				"Writing 0x%llx to %06llx (%d bytes).\n",
+				(unsigned long long)cfg.value, (unsigned long long)cfg.addr, cfg.bytes);
 
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret)
 		return ret;
 
-	switch (cfg.bytes) {
-	case 1: *((uint8_t *)(map + cfg.addr)) = cfg.value;  break;
-	case 2: *((uint16_t *)(map + cfg.addr)) = cfg.value; break;
-	case 4: *((uint32_t *)(map + cfg.addr)) = cfg.value; break;
-	case 8: *((uint64_t *)(map + cfg.addr)) = cfg.value; break;
-	default:
-		fprintf(stderr, "invalid access width\n");
-		return -1;
-	}
+	ret = switchtec_gas_write(cfg.dev, (uint8_t *)&cfg.value,
+			cfg.addr, cfg.bytes);
 
-	switchtec_gas_unmap(cfg.dev, map);
+	if (ret)
+		fprintf(stderr, "Write failed.\n");
+
 	return ret;
 }
 
