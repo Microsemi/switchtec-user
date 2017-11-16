@@ -6,8 +6,10 @@ build*
 *.dll
 *.exe
 *.lib
+*.o
 autom4te.cache/
 config.log
 config.status
 Makefile
 config.h
+examples/temp
