@@ -30,11 +30,18 @@
 #include <stdio.h>
 #include <limits.h>
 
+enum {
+	SWITCHTEC_GAS_CHAN_INBAND = 0,
+	SWITCHTEC_GAS_CHAN_TWI = 1,
+};
+
 struct switchtec_dev {
 	int fd;
 	int partition;
 	char name[PATH_MAX];
 
+	int gas_chan;
+	uint8_t twi_slave;
 	void *gas_map;
 	size_t gas_map_size;
 };
