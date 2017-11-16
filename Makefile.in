@@ -32,6 +32,7 @@ PREFIX ?= /usr/local
 
 BINDIR ?= $(DESTDIR)$(PREFIX)/bin
 LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
+INCDIR ?= $(DESTDIR)$(PREFIX)/include
 SYSCONFDIR ?= $(DESTDIR)/etc
 
 CC?=@CC@
@@ -141,6 +142,9 @@ install-bin: compile
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(IMPLIBNAME)"
 	$(Q)ln -fs $(LIBDIR)/$(IMPLIBNAME).$(VERSION) \
            $(LIBDIR)/$(IMPLIBNAME)
+	@$(NQ) echo "  INSTALL  $(INCDIR)/switchtec"
+	@$(Q)mkdir -p $(INCDIR)
+	@$(Q)cp -r inc/switchtec $(INCDIR)
 
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)$(LDCONFIG)
@@ -154,6 +158,9 @@ uninstall:
 	$(Q)rm -f $(LIBDIR)/$(STLIBNAME)
 	@$(NQ) echo "  UNINSTALL  $(LIBDIR)/$(IMPLIBNAME)"
 	$(Q)rm -f $(LIBDIR)/$(IMPLIBNAME)*
+	@$(NQ) echo "  UNINSTALL  $(INCDIR)/switchtec"
+	@$(Q)rm -rf $(INCDIR)/switchtec
+
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)$(LDCONFIG)
 
