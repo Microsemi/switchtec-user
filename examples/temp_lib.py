@@ -37,7 +37,10 @@ import time
 import struct
 import ctypes as c
 
-swlib = c.cdll.LoadLibrary("libswitchtec.so")
+if os.name == 'nt':
+	swlib = c.cdll.LoadLibrary("libswitchtec.so")
+else:
+	swlib = c.cdll.LoadLibrary("switchtec.dll")
 
 swlib.switchtec_open.argtypes = [c.c_char_p]
 swlib.switchtec_open.restype = c.c_void_p
