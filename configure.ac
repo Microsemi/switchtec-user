@@ -1,6 +1,7 @@
 AC_INIT(VERSION-GEN)
 
 AC_PROG_CC
+AC_CHECK_TOOL([WINDRES], [windres])
 
 AC_ARG_WITH([curses],
              [AS_HELP_STRING([--with-curses],
