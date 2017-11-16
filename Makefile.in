@@ -66,6 +66,11 @@ else
   override CFLAGS += -fPIC
 endif
 
+ifneq ($(WINDRES), )
+  CLI_OBJS += $(OBJDIR)/cli/cli.o
+  LIB_OBJS += $(OBJDIR)/lib/lib.o
+endif
+
 ifneq ($(V), 1)
 Q=@
 else
@@ -95,6 +100,10 @@ $(OBJDIR):
 $(OBJDIR)/%.o: %.c | $(OBJDIR)
 	@$(NQ) echo "  CC    $<"
 	$(Q)$(COMPILE.c) $(DEPFLAGS) $< -o $@
+
+$(OBJDIR)/%.o: %.rc $(OBJDIR)/version.h | $(OBJDIR)
+	@$(NQ) echo "  RC    $<"
+	$(Q)$(WINDRES) $(CPPFLAGS) $< $@
 
 $(STLIBNAME): $(LIB_OBJS)
 	@$(NQ) echo "  AR    $@"
