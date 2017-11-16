@@ -255,6 +255,10 @@ struct switchtec_dev *switchtec_open_by_path(const char *path)
 {
 	struct switchtec_windows *wdev;
 	char path_with_guid[MAX_PATH];
+	int idx;
+
+	if (sscanf(path, "/dev/switchtec%d", &idx) == 1)
+		return switchtec_open_by_index(idx);
 
 	wdev = malloc(sizeof(*wdev));
 	if (!wdev)
