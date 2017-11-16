@@ -35,8 +35,8 @@ LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
 INCDIR ?= $(DESTDIR)$(PREFIX)/include
 SYSCONFDIR ?= $(DESTDIR)/etc
 
-CC?=@CC@
-WINDRES?=@WINDRES@
+CC=@CC@
+WINDRES=@WINDRES@
 override CPPFLAGS+=@CPPFLAGS@
 override CPPFLAGS+=-I. -Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
 override CFLAGS+=-g -Wall -Wno-initializer-overrides @CFLAGS@
