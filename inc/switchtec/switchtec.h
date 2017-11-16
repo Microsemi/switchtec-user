@@ -451,6 +451,10 @@ int switchtec_lat_get(struct switchtec_dev *dev, int clear,
 void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
 			size_t *map_size);
 void switchtec_gas_unmap(struct switchtec_dev *dev, void *map);
+int switchtec_gas_read(struct switchtec_dev *dev, uint8_t *data,
+			uint32_t offset, uint32_t size);
+int switchtec_gas_write(struct switchtec_dev *dev, uint8_t *data,
+			uint32_t offset, uint32_t size);
 
 #ifdef __cplusplus
 }

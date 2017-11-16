@@ -28,6 +28,7 @@
 #include "switchtec/mrpc.h"
 #include "switchtec/errors.h"
 #include "switchtec/log.h"
+#include "switchtec/gas.h"
 
 #include <linux/switchtec_ioctl.h>
 
@@ -926,4 +927,26 @@ void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
 void switchtec_gas_unmap(struct switchtec_dev *dev, void *map)
 {
 	munmap(map, dev->gas_map_size);
+}
+
+int switchtec_gas_read(struct switchtec_dev *dev, uint8_t *data,
+		uint32_t offset, uint32_t size)
+{
+	if (SWITCHTEC_GAS_CHAN_TWI == dev->gas_chan)
+		return switchtec_twi_gas_read(dev, offset, data, size);
+	else if (SWITCHTEC_GAS_CHAN_INBAND == dev->gas_chan)
+		return switchtec_inband_gas_read(dev, offset, data, size);
+
+	return -1;
+}
+
+int switchtec_gas_write(struct switchtec_dev *dev, uint8_t *data,
+		uint32_t offset, uint32_t size)
+{
+	if (SWITCHTEC_GAS_CHAN_TWI == dev->gas_chan)
+		return switchtec_twi_gas_write(dev, offset, data, size);
+	else if (SWITCHTEC_GAS_CHAN_INBAND == dev->gas_chan)
+		return switchtec_inband_gas_write(dev, offset, data, size);
+
+	return -1;
 }
