@@ -47,6 +47,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <glob.h>
+#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
 
 static const char *sys_path = "/sys/class/switchtec";
 
@@ -99,32 +101,103 @@ static int check_switchtec_device(struct switchtec_dev *dev)
 {
 	int ret;
 	char syspath[PATH_MAX];
+	char *p;
 
-	ret = dev_to_sysfs_path(dev, "device/switchtec", syspath,
+	ret = 0;
+	p = strstr(dev->name, "/dev/i2c-");
+	if (p) {
+		char delims[] = ":";
+		char *result = NULL;
+		result = strtok(dev->name, delims);
+		while(result != NULL)
+			result = strtok( NULL, delims );
+
+		dev->gas_chan = SWITCHTEC_GAS_CHAN_TWI;
+		ret = dev_to_sysfs_path(dev, "device", syspath,
 				sizeof(syspath));
-	if (ret)
+		if (ret)
+			return ret;
+
+		ret = access(syspath, F_OK);
+		if (ret)
+			errno = ENOTTY;
+
 		return ret;
+	}
 
-	ret = access(syspath, F_OK);
-	if (ret)
-		errno = ENOTTY;
+	p = strstr(dev->name, "/dev/switchtec");
+	if (p) {
+		dev->gas_chan = SWITCHTEC_GAS_CHAN_INBAND;
+		ret = dev_to_sysfs_path(dev, "device/switchtec", syspath,
+				sizeof(syspath));
+		if (ret)
+			return ret;
 
-	return ret;
+		ret = access(syspath, F_OK);
+		if (ret)
+			errno = ENOTTY;
+
+		return ret;
+	}
+
+	errno = ENOTTY;
+	return -1;
 }
 
 static int get_partition(struct switchtec_dev *dev)
 {
 	int ret;
-	char syspath[PATH_MAX];
+	uint32_t offset;
 
-	ret = dev_to_sysfs_path(dev, "partition", syspath,
-				sizeof(syspath));
+	offset = SWITCHTEC_GAS_SYS_INFO_OFFSET +
+		offsetof(struct sys_info_regs, partition_id);
+
+	ret = switchtec_gas_read(dev,
+			(uint8_t *)&(dev->partition), offset, 4);
+
 	if (ret)
 		return ret;
 
-	dev->partition = sysfs_read_int(syspath, 10);
-	if (dev->partition < 0)
-		return dev->partition;
+	return 0;
+}
+
+int switchtec_dev_prepare(struct switchtec_dev *dev, const char *path, char *real_path)
+{
+	char *slave;
+	uint8_t twi_slave;
+	int ret;
+	char *p;
+
+	p = strstr(path, "/dev/i2c-");
+	if (p) {
+		char delims[] = ":";
+		p = strtok((char *)path, delims);
+		if (p != NULL) {
+			slave = strtok(NULL,delims);
+			if (slave == NULL) {
+				errno = EINVAL;
+				return -1;
+			}
+			ret = sscanf(slave, "%hhx", &twi_slave);
+			if ((ret == 0) || (ret == EOF)) {
+				errno = EINVAL;
+				return -1;
+			}
+		} else {
+			errno = EINVAL;
+			return -1;
+		}
+
+		dev->gas_chan = SWITCHTEC_GAS_CHAN_TWI;
+		dev->twi_slave = twi_slave;
+		strcpy(real_path, p);
+	}
+
+	p = strstr(path, "/dev/switchtec");
+	if (p) {
+		dev->gas_chan = SWITCHTEC_GAS_CHAN_INBAND;
+		strcpy(real_path, path);
+	}
 
 	return 0;
 }
@@ -132,22 +205,28 @@ static int get_partition(struct switchtec_dev *dev)
 struct switchtec_dev *switchtec_open(const char * path)
 {
 	struct switchtec_dev *dev;
+	char real_path[64];
+	int ret;
 
 	dev = malloc(sizeof(*dev));
 	if (dev == NULL)
 		return dev;
 
-	dev->fd = open(path, O_RDWR | O_CLOEXEC);
+	ret = switchtec_dev_prepare(dev, path, real_path);
+	if (ret)
+		goto err_free;
+
+	dev->fd = open(real_path, O_RDWR | O_CLOEXEC);
 	if (dev->fd < 0)
 		goto err_free;
+
+	snprintf(dev->name, sizeof(dev->name), "%s", path);
 
 	if (check_switchtec_device(dev))
 		goto err_close_free;
 
 	if (get_partition(dev))
 		goto err_close_free;
-
-	snprintf(dev->name, sizeof(dev->name), "%s", path);
 
 	return dev;
 
@@ -301,7 +380,7 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 	return 0;
 }
 
-int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
+int switchtec_submit_cmd_inband(struct switchtec_dev *dev, uint32_t cmd,
 			 const void *payload, size_t payload_len)
 {
 	int ret;
@@ -324,7 +403,7 @@ int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	return 0;
 }
 
-int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
+int switchtec_read_resp_inband(struct switchtec_dev *dev, void *resp,
 			size_t resp_len)
 {
 	int32_t ret;
@@ -350,6 +429,95 @@ int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
 	memcpy(resp, &buf[sizeof(ret)], resp_len);
 
 	return ret;
+}
+
+int switchtec_submit_cmd_twi(struct switchtec_dev *dev, uint32_t cmd,
+		const void *payload, size_t payload_len)
+{
+	uint32_t offset;
+	int ret;
+
+	offset = SWITCHTC_GAS_MRPC_INPUT_DATA_OFFSET;
+	ret = switchtec_twi_gas_write(dev, offset, payload, payload_len);
+	if (ret) {
+		return ret;
+	}
+
+	offset = SWITCHTC_GAS_MRPC_COMMAND_OFFSET;
+	ret = switchtec_twi_gas_write(dev, offset, &cmd, sizeof(cmd));
+	if (ret) {
+		return ret;
+	}
+
+	return 0;
+}
+
+int switchtec_read_resp_twi(struct switchtec_dev *dev, void *resp,
+		size_t resp_len)
+{
+	int max_retry = 1000;
+	int i = 0;
+	int ret;
+	uint32_t offset;
+	uint32_t cmd_status;
+	uint32_t cmd_ret;
+
+	while (i++ < max_retry) {
+		offset = SWITCHTC_GAS_MRPC_STATUS_OFFSET;
+		ret = switchtec_twi_gas_read(dev, offset,
+				&cmd_status, sizeof(cmd_status));
+		if (ret)
+			return ret;
+
+		if (cmd_status == MRPC_BG_STAT_DONE)
+			break;
+
+		if (cmd_status == MRPC_BG_STAT_ERROR)
+			return cmd_status;
+
+		usleep(10000);
+	}
+
+	offset = SWITCHTC_GAS_MRPC_COMMAND_RETURN_VALUE_OFFSET;
+	ret = switchtec_twi_gas_read(dev, offset,
+			&cmd_ret, sizeof(cmd_ret));
+	if (ret)
+		return ret;
+
+	if (cmd_ret)
+		return cmd_ret;
+
+	offset = SWITCHTC_GAS_MRPC_OUTPUT_DATA_OFFSET;
+	ret = switchtec_twi_gas_read(dev, offset, resp, resp_len);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
+		const void *payload, size_t payload_len)
+{
+	if (SWITCHTEC_GAS_CHAN_INBAND == dev->gas_chan)
+		return switchtec_submit_cmd_inband(dev, cmd,
+				payload, payload_len);
+	else if (SWITCHTEC_GAS_CHAN_TWI == dev->gas_chan)
+		return switchtec_submit_cmd_twi(dev, cmd,
+				payload, payload_len);
+
+	return -1;
+}
+
+
+int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
+		size_t resp_len)
+{
+	if (SWITCHTEC_GAS_CHAN_INBAND == dev->gas_chan)
+		return switchtec_read_resp_inband(dev, resp, resp_len);
+	if (SWITCHTEC_GAS_CHAN_TWI == dev->gas_chan)
+		return switchtec_read_resp_twi(dev, resp, resp_len);
+
+	return -1;
 }
 
 int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,

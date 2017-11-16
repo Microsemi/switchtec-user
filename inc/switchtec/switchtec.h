@@ -456,6 +456,37 @@ int switchtec_gas_read(struct switchtec_dev *dev, uint8_t *data,
 int switchtec_gas_write(struct switchtec_dev *dev, uint8_t *data,
 			uint32_t offset, uint32_t size);
 
+enum {
+	SWITCHTEC_GAS_MRPC_OFFSET       = 0x0000,
+	SWITCHTEC_GAS_TOP_CFG_OFFSET    = 0x1000,
+	SWITCHTEC_GAS_SW_EVENT_OFFSET   = 0x1800,
+	SWITCHTEC_GAS_SYS_INFO_OFFSET   = 0x2000,
+	SWITCHTEC_GAS_FLASH_INFO_OFFSET = 0x2200,
+	SWITCHTEC_GAS_PART_CFG_OFFSET   = 0x4000,
+	SWITCHTEC_GAS_NTB_OFFSET        = 0x10000,
+	SWITCHTEC_GAS_PFF_CSR_OFFSET    = 0x134000,
+};
+
+struct sys_info_regs {
+	uint32_t device_id;
+	uint32_t device_version;
+	uint32_t firmware_version;
+	uint32_t reserved1;
+	uint32_t vendor_table_revision;
+	uint32_t table_format_version;
+	uint32_t partition_id;
+	uint32_t cfg_file_fmt_version;
+	uint16_t cfg_running;
+	uint16_t img_running;
+	uint32_t reserved2[57];
+	char vendor_id[8];
+	char product_id[16];
+	char product_revision[4];
+	char component_vendor[8];
+	uint16_t component_id;
+	uint8_t component_revision;
+} __attribute__(( packed ));
+
 #ifdef __cplusplus
 }
 #endif
