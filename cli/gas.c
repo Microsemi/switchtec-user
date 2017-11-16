@@ -197,7 +197,6 @@ int (*print_funcs[])(void *addr, int offset, int bytes) = {
 static int gas_read(int argc, char **argv)
 {
 	const char *desc = "Read a gas register";
-	void *map;
 	int i;
 	int ret = 0;
 
@@ -233,20 +232,26 @@ static int gas_read(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	map = switchtec_gas_map(cfg.dev, 0, NULL);
-	if (map == MAP_FAILED) {
-		switchtec_perror("gas_map");
-		return 1;
+	if ((1 != cfg.bytes)
+			&& (2 != cfg.bytes)
+			&& (4 != cfg.bytes)
+			&& (8 != cfg.bytes)) {
+		fprintf(stderr, "invalid access width\n");
+		return -1;
 	}
 
 	for (i = 0; i < cfg.count; i++) {
-		ret = print_funcs[cfg.print_style](map, cfg.addr, cfg.bytes);
+		uint32_t offset;
+		uint8_t buf[8];
+		offset = cfg.addr & ~(cfg.bytes - 1);
+		ret = switchtec_gas_read(cfg.dev, buf, offset, cfg.bytes);
+
+		ret = print_funcs[cfg.print_style](buf, 0, cfg.bytes);
 		cfg.addr += cfg.bytes;
 		if (ret)
 			break;
 	}
 
-	switchtec_gas_unmap(cfg.dev, map);
 	return ret;
 }
 
