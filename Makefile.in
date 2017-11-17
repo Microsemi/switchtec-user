@@ -66,7 +66,7 @@ ifeq ($(findstring mingw,$(MACHINE)),mingw)
   override CPPFLAGS += -DNTDDI_VERSION=NTDDI_VISTA -D_WIN32_WINNT=_WIN32_WINNT_VISTA
 else
   EXENAME ?= switchtec
-  INSTEXENAME ?= EXENAME
+  INSTEXENAME ?= $(EXENAME)
   SHLIBNAME ?= libswitchtec.so
   IMPLIBNAME ?= $(SHLIBNAME)
   LDCONFIG=ldconfig
