@@ -47,6 +47,10 @@
 #include <inttypes.h>
 #include <unistd.h>
 
+#ifndef O_BINARY
+#define O_BINARY 0;
+#endif
+
 static argconfig_help_func *help_funcs[MAX_HELP_FUNC] = { NULL };
 
 static char append_usage_str[100] = "";
@@ -254,7 +258,11 @@ static void show_choices(const struct argconfig_options *option)
 	if (!option->choices)
 		return;
 
-	printf("\033[1mChoices for %s:\033[0m\n", option->meta);
+	if (have_decent_term())
+		fprintf(stderr, "\033[1mChoices for %s:\033[0m\n",
+			option->meta);
+	else
+		fprintf(stderr, "Choices for %s:\n", option->meta);
 
 	for (c = option->choices; c->name; c++) {
 		char buffer[0x1000];
@@ -273,28 +281,45 @@ static void show_choices(const struct argconfig_options *option)
 	fprintf(stderr, "\n");
 }
 
+const char *argconfig_usage_text(void)
+{
+	if (have_decent_term())
+		return "\033[1mUsage:\033[0m";
+	else
+		return "Usage:";
+}
+
 void argconfig_print_usage(const struct argconfig_options *options)
 {
 	const struct argconfig_options *s;
-	printf("\033[1mUsage:\033[0m %s", append_usage_str);
+
+	fprintf(stderr, "%s %s", argconfig_usage_text(), append_usage_str);
 
 	for (s = options; (s->option != NULL) && (s != NULL); s++) {
 		if (!is_positional(s) && !s->require_in_usage)
 			continue;
 
 		if (s->argument_type == optional_positional)
-			printf(" [<%s>]", s->option);
+			fprintf(stderr, " [<%s>]", s->option);
 		else if (s->argument_type == required_positional)
-			printf(" <%s>", s->option);
+			fprintf(stderr, " <%s>", s->option);
 		else
-			printf(" --%s=<%s>", s->option, s->meta);
+			fprintf(stderr, " --%s=<%s>", s->option, s->meta);
 
 	}
 
 	if (num_options(options))
-		printf(" [OPTIONS]");
+		fprintf(stderr, " [OPTIONS]");
 
-	printf("\n");
+	fprintf(stderr, "\n");
+}
+
+static void print_bold(const char *str)
+{
+	if (have_decent_term())
+		fprintf(stderr,	"\n\033[1m%s\033[0m\n", str);
+	else
+		fprintf(stderr, "\n%s\n", str);
 }
 
 void argconfig_print_help(const char *program_desc,
@@ -306,36 +331,36 @@ void argconfig_print_help(const char *program_desc,
 	int num_env = num_env_variables(options);
 
 	argconfig_print_usage(options);
-	printf("\n");
+	fprintf(stderr, "\n");
 
 	print_word_wrapped(program_desc, 0, 0);
-	printf("\n\n");
+	fprintf(stderr, "\n\n");
 
 	if (num_pos) {
-		printf("\n\033[1mPositional Arguments:\033[0m\n");
+		print_bold("Positional Arguments:");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_positional(s);
 
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
 	if (num_env) {
-		printf("\n\033[1mEnvironment Variables:\033[0m\n");
+		print_bold("Environment Variables:");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_env(s);
 
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
 	if (num_opt) {
-		printf("\n\033[1mOptions:\033[0m\n");
+		print_bold("Options:");
 
 		for (s = options; (s->option != NULL) && (s != NULL); s++)
 			show_option(s);
 
-		printf("\n");
+		fprintf(stderr, "\n");
 	}
 
 
@@ -565,8 +590,8 @@ static int cfg_fd_handler(const char *optarg, void *value_addr,
 	}
 
 	switch(opt->cfg_type) {
-	case CFG_FD_WR: flags = O_CREAT | O_TRUNC | O_WRONLY; break;
-	case CFG_FD_RD: flags = O_RDONLY; break;
+	case CFG_FD_WR: flags = O_CREAT | O_TRUNC | O_WRONLY | O_BINARY; break;
+	case CFG_FD_RD: flags = O_RDONLY | O_BINARY; break;
 	default: return 1;
 	}
 
@@ -1049,4 +1074,9 @@ int argconfig_parse_comma_range(const char *str, int *res, int max_nums)
 	}
 
 	return cnt;
+}
+
+int have_decent_term(void)
+{
+	return getenv("TERM") != NULL;
 }

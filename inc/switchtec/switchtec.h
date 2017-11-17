@@ -27,6 +27,7 @@
 
 #include "mrpc.h"
 #include "portable.h"
+#include "registers.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -45,8 +46,18 @@ struct switchtec_dev;
 #define SWITCHTEC_UNBOUND_PORT 255
 #define SWITCHTEC_PFF_PORT_VEP 100
 
+#ifdef __CHECKER__
+#define __gas __attribute__((noderef, address_space(1)))
+#else
+#define __gas
+#endif
+
+typedef __gas struct switchtec_gas *gasptr_t;
+#define SWITCHTEC_MAP_FAILED ((gasptr_t) -1)
+
 struct switchtec_device_info {
 	char name[256];
+	char desc[256];
 	char pci_dev[256];
 	char product_id[32];
 	char product_rev[8];
@@ -153,7 +164,11 @@ enum switchtec_event_id {
 
 /*********** Platform Functions ***********/
 
-struct switchtec_dev *switchtec_open(const char *path);
+struct switchtec_dev *switchtec_open(const char *device);
+struct switchtec_dev *switchtec_open_by_path(const char *path);
+struct switchtec_dev *switchtec_open_by_index(int index);
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func);
 void switchtec_close(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
@@ -445,9 +460,9 @@ int switchtec_lat_get(struct switchtec_dev *dev, int clear,
  * done within the switchtec user project or otherwise specified.
  */
 
-void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
-			size_t *map_size);
-void switchtec_gas_unmap(struct switchtec_dev *dev, void *map);
+gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
+                           size_t *map_size);
+void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map);
 
 #ifdef __cplusplus
 }

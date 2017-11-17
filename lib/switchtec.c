@@ -30,8 +30,54 @@
 #include "switchtec/log.h"
 #include "switchtec/endian.h"
 
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
+
+struct switchtec_dev *switchtec_open(const char *device)
+{
+	int idx;
+	int domain = 0;
+	int bus, dev, func;
+	char *endptr;
+	struct switchtec_dev *ret;
+
+	if (strchr(device, '/') || strchr(device, '\\')) {
+		ret = switchtec_open_by_path(device);
+		goto found;
+	}
+
+	if (sscanf(device, "%x:%x.%x", &bus, &dev, &func) == 3) {
+		ret = switchtec_open_by_pci_addr(domain, bus, dev, func);
+		goto found;
+	}
+
+	if (sscanf(device, "%x:%x:%x.%x", &domain, &bus, &dev, &func) == 4) {
+		ret = switchtec_open_by_pci_addr(domain, bus, dev, func);
+		goto found;
+	}
+
+	errno = 0;
+	idx = strtol(device, &endptr, 0);
+	if (!errno && endptr != device) {
+		ret = switchtec_open_by_index(idx);
+		goto found;
+	}
+
+	if (sscanf(device, "switchtec%d", &idx) == 1) {
+		ret = switchtec_open_by_index(idx);
+		goto found;
+	}
+
+	errno = ENODEV;
+	return NULL;
+
+found:
+	if (ret)
+		snprintf(ret->name, sizeof(ret->name), "%s", device);
+
+	return ret;
+}
 
 __attribute__ ((pure))
 const char *switchtec_name(struct switchtec_dev *dev)
@@ -268,6 +314,9 @@ void switchtec_perror(const char *str)
 	const char *msg;
 
 	switch (errno) {
+	case 0:
+		platform_perror(str);
+		return;
 
 	case ERR_NO_AVAIL_MRPC_THREAD:
 		msg = "No available MRPC handler thread"; break;

@@ -28,11 +28,70 @@
 
 #include <switchtec/switchtec.h>
 #include <switchtec/portable.h>
+#include <switchtec/gas.h>
 
 #include <unistd.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <errno.h>
+#include <ctype.h>
+
+static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
+{
+	int i;
+
+	printf("%08lx ", addr);
+	for (i = 0; i < n; i++) {
+		if (i == 8)
+			printf(" ");
+		printf(" %02x", bytes[i]);
+	}
+
+	for (; i < 16; i++) {
+		printf("   ");
+	}
+
+	printf("  |");
+
+	for (i = 0; i < 16; i++) {
+		if (isprint(bytes[i]))
+			printf("%c", bytes[i]);
+		else
+			printf(".");
+	}
+
+	printf("|\n");
+}
+
+static void hexdump_data(void __gas *map, size_t map_size)
+{
+	uint8_t line[16];
+	uint8_t last_line[16];
+	unsigned long addr = 0;
+	size_t bytes;
+	int last_match = 0;
+
+	while (map_size) {
+		bytes = map_size > sizeof(line) ? sizeof(line) : map_size;
+		memcpy_from_gas(line, map, bytes);
+
+		if (bytes != sizeof(line) ||
+		    memcmp(last_line, line, sizeof(last_line))) {
+			print_line(addr, line, bytes);
+			last_match = 0;
+		} else if (!last_match) {
+			printf("*\n");
+			last_match = 1;
+		}
+
+		map += bytes;
+		map_size -= bytes;
+		addr += bytes;
+		memcpy(last_line, line, sizeof(last_line));
+	}
+
+	printf("%08lx\n", addr);
+}
 
 #ifndef _WIN32
 #include <sys/mman.h>
@@ -63,7 +122,7 @@ static int spawn_proc(int fd_in, int fd_out, int fd_close,
 	return execlp(cmd, cmd, NULL);
 }
 
-static int pipe_to_hd_less(void *map, size_t map_size)
+static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 {
 	int hd_fds[2];
 	int less_fds[2];
@@ -99,63 +158,145 @@ static int pipe_to_hd_less(void *map, size_t map_size)
 	close(hd_fds[0]);
 	close(less_fds[1]);
 
-	ret = write(hd_fds[1], map, map_size);
+	ret = write_from_gas(hd_fds[1], map, map_size);
 	close(hd_fds[1]);
 	waitpid(less_pid, NULL, 0);
 	return ret;
 }
+#else /* _WIN32 defined */
+
+#include <fcntl.h>
+
+static int spawn(char *exe, int fd_in, int fd_out, int fd_err,
+		  PROCESS_INFORMATION *pi)
+{
+	BOOL status;
+
+	STARTUPINFO si = {
+		.cb = sizeof(si),
+		.hStdInput = (HANDLE)_get_osfhandle(fd_in),
+		.hStdOutput = (HANDLE)_get_osfhandle(fd_out),
+		.hStdError = (HANDLE)_get_osfhandle(fd_err),
+		.dwFlags = STARTF_USESTDHANDLES,
+	};
+
+	status = CreateProcess(NULL, exe, NULL, NULL, TRUE, 0, NULL,
+			       NULL, &si, pi);
+	if (!status)
+		return -1;
+
+	close(fd_in);
+	close(fd_out);
+
+	return 0;
+}
+
+static int pipe_to_hd_less(gasptr_t map, size_t map_size)
+{
+	int ret;
+	int fd_stdout;
+	PROCESS_INFORMATION pi;
+	int more_fds[2];
+
+	ret = _pipe(more_fds, 256, _O_TEXT);
+	if (ret) {
+		perror("pipe");
+		return -1;
+	}
+
+	fd_stdout = _dup(STDOUT_FILENO);
+	_dup2(more_fds[1], STDOUT_FILENO);
+	close(more_fds[1]);
+
+	/*
+	 * Set the new stdout to not be inheritable. If it is, then the child
+	 * process will inherit it and we will no longer be able to close it.
+	 */
+	ret = SetHandleInformation((HANDLE)_get_osfhandle(STDOUT_FILENO),
+				   HANDLE_FLAG_INHERIT, 0);
+	if (!ret) {
+		fprintf(stderr, "SetHandleInformation Failed: %ld\n",
+			GetLastError());
+		return -1;
+	}
+
+	ret = spawn("less", more_fds[0], fd_stdout, STDERR_FILENO, &pi);
+	if (ret) {
+		_dup2(fd_stdout, STDOUT_FILENO);
+		hexdump_data(map, map_size);
+		return 0;
+	}
+
+	hexdump_data(map, map_size);
+	fclose(stdout);
+	close(STDOUT_FILENO);
+
+	WaitForSingleObject(pi.hProcess, INFINITE);
+	CloseHandle(pi.hProcess);
+	CloseHandle(pi.hThread);
+
+	return 0;
+}
+
+#endif
 
 static int gas_dump(int argc, char **argv)
 {
 	const char *desc = "Dump all gas registers";
-	void *map;
+	gasptr_t map;
 	size_t map_size;
 	int ret;
 
 	static struct {
 		struct switchtec_dev *dev;
+		int count;
+		int text;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
+		 "number of bytes to dump (default is the entire gas space)"},
+		{"text", 't', "", CFG_NONE, &cfg.text, no_argument,
+		 "force outputing data in text format, default is to output in "
+		 "text unless the output is a pipe, in which case binary is "
+		 "output"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	map = switchtec_gas_map(cfg.dev, 0, &map_size);
-	if (map == MAP_FAILED) {
+	if (map == SWITCHTEC_MAP_FAILED) {
 		switchtec_perror("gas_map");
 		return 1;
 	}
 
+	if (!cfg.count)
+		cfg.count = map_size;
+
+	if (cfg.text) {
+		hexdump_data(map, cfg.count);
+		return 0;
+	}
+
 	if (!isatty(STDOUT_FILENO)) {
-		ret = write(STDOUT_FILENO, map, map_size);
+		ret = write_from_gas(STDOUT_FILENO, map, cfg.count);
 		return ret > 0;
 	}
 
-	return pipe_to_hd_less(map, map_size);
+	return pipe_to_hd_less(map, cfg.count);
 }
 
-#else
-
-static int gas_dump(int argc, char **argv)
-{
-	errno = ENOSYS;
-	return -errno;
-}
-
-#endif
-
-static int print_hex(void *addr, int offset, int bytes)
+static int print_hex(void __gas *addr, int offset, int bytes)
 {
 	unsigned long long x;
 
 	offset = offset & ~(bytes - 1);
 
 	switch (bytes) {
-	case 1: x = *((uint8_t *)(addr + offset));  break;
-	case 2: x = *((uint16_t *)(addr + offset)); break;
-	case 4: x = *((uint32_t *)(addr + offset)); break;
-	case 8: x = *((uint64_t *)(addr + offset)); break;
+	case 1: x = gas_read8(addr + offset);  break;
+	case 2: x = gas_read16(addr + offset); break;
+	case 4: x = gas_read32(addr + offset); break;
+	case 8: x = gas_read64(addr + offset); break;
 	default:
 		fprintf(stderr, "invalid access width\n");
 		return -1;
@@ -165,17 +306,17 @@ static int print_hex(void *addr, int offset, int bytes)
 	return 0;
 }
 
-static int print_dec(void *addr, int offset, int bytes)
+static int print_dec(void __gas *addr, int offset, int bytes)
 {
 	unsigned long long x;
 
 	offset = offset & ~(bytes - 1);
 
 	switch (bytes) {
-	case 1: x = *((uint8_t *)(addr + offset));  break;
-	case 2: x = *((uint16_t *)(addr + offset)); break;
-	case 4: x = *((uint32_t *)(addr + offset)); break;
-	case 8: x = *((uint64_t *)(addr + offset)); break;
+	case 1: x = gas_read8(addr + offset);  break;
+	case 2: x = gas_read16(addr + offset); break;
+	case 4: x = gas_read32(addr + offset); break;
+	case 8: x = gas_read64(addr + offset); break;
 	default:
 		fprintf(stderr, "invalid access width\n");
 		return -1;
@@ -185,12 +326,12 @@ static int print_dec(void *addr, int offset, int bytes)
 	return 0;
 }
 
-static int print_str(void *addr, int offset, int bytes)
+static int print_str(void __gas *addr, int offset, int bytes)
 {
 	char buf[bytes + 1];
 
 	memset(buf, 0, bytes + 1);
-	memcpy(buf, addr + offset, bytes);
+	memcpy_from_gas(buf, addr + offset, bytes);
 
 	printf("%06X - %s\n", offset, buf);
 	return 0;
@@ -202,7 +343,7 @@ enum {
 	STR,
 };
 
-static int (*print_funcs[])(void *addr, int offset, int bytes) = {
+static int (*print_funcs[])(void __gas *addr, int offset, int bytes) = {
 	[HEX] = print_hex,
 	[DEC] = print_dec,
 	[STR] = print_str,
@@ -211,7 +352,7 @@ static int (*print_funcs[])(void *addr, int offset, int bytes) = {
 static int gas_read(int argc, char **argv)
 {
 	const char *desc = "Read a gas register";
-	void *map;
+	gasptr_t map;
 	int i;
 	int ret = 0;
 
@@ -240,7 +381,7 @@ static int gas_read(int argc, char **argv)
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to read per access (default 4)"},
 		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
-		 "number of accesses to performe (default 1)"},
+		 "number of accesses to perform (default 1)"},
 		{"print", 'p', "STYLE", CFG_CHOICES, &cfg.print_style, required_argument,
 		 "printing style", .choices=print_choices},
 		{NULL}};
@@ -248,7 +389,7 @@ static int gas_read(int argc, char **argv)
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	map = switchtec_gas_map(cfg.dev, 0, NULL);
-	if (map == MAP_FAILED) {
+	if (map == SWITCHTEC_MAP_FAILED) {
 		switchtec_perror("gas_map");
 		return 1;
 	}
@@ -267,7 +408,7 @@ static int gas_read(int argc, char **argv)
 static int gas_write(int argc, char **argv)
 {
 	const char *desc = "Write a gas register";
-	void *map;
+	void __gas *map;
 	int ret = 0;
 
 	static struct {
@@ -284,7 +425,7 @@ static int gas_write(int argc, char **argv)
 		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
 		 "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
-		 "number of bytes to read per access (default 4)"},
+		 "number of bytes to write (default 4)"},
 		{"value", 'v', "ADDR", CFG_LONG_SUFFIX, &cfg.value, required_argument,
 		 "value to write"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
@@ -294,7 +435,7 @@ static int gas_write(int argc, char **argv)
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	map = switchtec_gas_map(cfg.dev, 1, NULL);
-	if (map == MAP_FAILED) {
+	if (map == SWITCHTEC_MAP_FAILED) {
 		switchtec_perror("gas_map");
 		return 1;
 	}
@@ -309,10 +450,10 @@ static int gas_write(int argc, char **argv)
 		return ret;
 
 	switch (cfg.bytes) {
-	case 1: *((uint8_t *)(map + cfg.addr)) = cfg.value;  break;
-	case 2: *((uint16_t *)(map + cfg.addr)) = cfg.value; break;
-	case 4: *((uint32_t *)(map + cfg.addr)) = cfg.value; break;
-	case 8: *((uint64_t *)(map + cfg.addr)) = cfg.value; break;
+	case 1: gas_write8(cfg.value, map + cfg.addr);  break;
+	case 2: gas_write16(cfg.value, map + cfg.addr); break;
+	case 4: gas_write32(cfg.value, map + cfg.addr); break;
+	case 8: gas_write64(cfg.value, map + cfg.addr); break;
 	default:
 		fprintf(stderr, "invalid access width\n");
 		return -1;

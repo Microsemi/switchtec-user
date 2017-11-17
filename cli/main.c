@@ -40,9 +40,6 @@
 #include <errno.h>
 #include <stdio.h>
 
-static struct {} empty_cfg;
-static const struct argconfig_options empty_opts[] = {{NULL}};
-
 static struct switchtec_dev *global_dev = NULL;
 
 int switchtec_handler(const char *optarg, void *value_addr,
@@ -67,17 +64,32 @@ static int list(int argc, char **argv)
 	int i, n;
 	const char *desc = "List all the switchtec devices on this machine";
 
-	argconfig_parse(argc, argv, desc, empty_opts, &empty_cfg,
-			sizeof(empty_cfg));
+	static struct {
+		int verbose;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
+		 "print additional information about devices"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	n = switchtec_list(&devices);
 	if (n < 0)
 		return n;
 
-	for (i = 0; i < n; i++)
-		printf("%-20s\t%-15s\t%-5s\t%-10s\t%s\n", devices[i].path,
+	for (i = 0; i < n; i++) {
+		printf("%-20s\t%-15s\t%-5s\t%-10s\t%s\n", devices[i].name,
 		       devices[i].product_id, devices[i].product_rev,
 		       devices[i].fw_version, devices[i].pci_dev);
+		if (cfg.verbose) {
+			if (strlen(devices[i].desc))
+				printf("\t%s\n", devices[i].desc);
+			if (strlen(devices[i].path))
+				printf("\t%s\n", devices[i].path);
+		}
+	}
 
 	free(devices);
 	return 0;
@@ -761,8 +773,10 @@ static int temp(int argc, char **argv)
 		return 1;
 	}
 
-	printf("%.3g °C\n", ret);
-
+	if (have_decent_term())
+		printf("%.3g °C\n", ret);
+	else
+		printf("%.3g degC\n", ret);
 	return 0;
 }
 
@@ -976,7 +990,12 @@ static int fw_info(int argc, char **argv)
 	printf("Currently Running:\n");
 	printf("  IMG Version: %s\n", version);
 
-	print_fw_part_info(cfg.dev);
+	ret = print_fw_part_info(cfg.dev);
+	if (ret) {
+		switchtec_perror("print fw info");
+		return ret;
+	}
+
 
 	return 0;
 }
