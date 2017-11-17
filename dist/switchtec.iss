@@ -10,7 +10,7 @@ Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 OutputDir=.
-OutputBaseFilename=switchtec-installer
+OutputBaseFilename=switchtec-user-{#AppVersionStr}
 ChangesEnvironment=true
 DisableWelcomePage=no
 
