@@ -40,10 +40,7 @@
 #include <errno.h>
 #include <stdio.h>
 
-static struct {} empty_cfg;
-const struct argconfig_options empty_opts[] = {{NULL}};
-
-struct switchtec_dev *global_dev = NULL;
+static struct switchtec_dev *global_dev = NULL;
 
 int switchtec_handler(const char *optarg, void *value_addr,
 		      const struct argconfig_options *opt)
@@ -67,17 +64,32 @@ static int list(int argc, char **argv)
 	int i, n;
 	const char *desc = "List all the switchtec devices on this machine";
 
-	argconfig_parse(argc, argv, desc, empty_opts, &empty_cfg,
-			sizeof(empty_cfg));
+	static struct {
+		int verbose;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
+		 "print additional information about devices"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	n = switchtec_list(&devices);
 	if (n < 0)
 		return n;
 
-	for (i = 0; i < n; i++)
-		printf("%-20s\t%-15s\t%-5s\t%-10s\t%s\n", devices[i].path,
+	for (i = 0; i < n; i++) {
+		printf("%-20s\t%-15s\t%-5s\t%-10s\t%s\n", devices[i].name,
 		       devices[i].product_id, devices[i].product_rev,
 		       devices[i].fw_version, devices[i].pci_dev);
+		if (cfg.verbose) {
+			if (strlen(devices[i].desc))
+				printf("\t%s\n", devices[i].desc);
+			if (strlen(devices[i].path))
+				printf("\t%s\n", devices[i].path);
+		}
+	}
 
 	free(devices);
 	return 0;
@@ -161,7 +173,7 @@ static int status(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		int reset_bytes;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
@@ -468,7 +480,7 @@ static int get_events(struct switchtec_dev *dev,
 	local_part = switchtec_partition(dev);
 
 	while (switchtec_event_summary_iter(sum, &e->eid, &idx)) {
-		if (e->eid == -1)
+		if (e->eid == SWITCHTEC_EVT_INVALID)
 			continue;
 
 		type = switchtec_event_info(e->eid, NULL, NULL);
@@ -569,7 +581,7 @@ static int event_wait(int argc, char **argv)
 	struct event_list elist[256];
 	struct switchtec_event_summary sum;
 	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
-	int index;
+	int index = 0;
 	int ret;
 
 	static struct {
@@ -670,7 +682,7 @@ static int log_dump(int argc, char **argv)
 		 "Dump the system stack info from Flash in last fatal error handing dump"},
 		{"THRDS", SWITCHTEC_LOG_THRD,
 		 "Dump all thread info from Flash in last fatal error handing dump"},
-		{0}
+		{}
 	};
 
 	static struct {
@@ -713,7 +725,7 @@ static int test(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{NULL}};
@@ -748,7 +760,7 @@ static int temp(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{NULL}};
@@ -761,8 +773,10 @@ static int temp(int argc, char **argv)
 		return 1;
 	}
 
-	printf("%.3g °C\n", ret);
-
+	if (have_decent_term())
+		printf("%.3g °C\n", ret);
+	else
+		printf("%.3g degC\n", ret);
 	return 0;
 }
 
@@ -797,7 +811,7 @@ static int hard_reset(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		int assume_yes;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
@@ -852,7 +866,7 @@ static enum switchtec_fw_image_type check_and_print_fw_image(
 	printf("File:     %s\n", get_basename(img_filename));
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
-	printf("Img Len:  0x%zx\n", info.image_len);
+	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
 	printf("CRC:      0x%08lx\n", info.crc);
 
 	return info.type;
@@ -960,7 +974,7 @@ static int fw_info(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{NULL}};
@@ -976,7 +990,12 @@ static int fw_info(int argc, char **argv)
 	printf("Currently Running:\n");
 	printf("  IMG Version: %s\n", version);
 
-	print_fw_part_info(cfg.dev);
+	ret = print_fw_part_info(cfg.dev);
+	if (ret) {
+		switchtec_perror("print fw info");
+		return ret;
+	}
+
 
 	return 0;
 }
@@ -994,7 +1013,7 @@ static int fw_update(int argc, char **argv)
 		int assume_yes;
 		int dont_activate;
 		int set_boot_rw;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
@@ -1071,7 +1090,7 @@ static int fw_toggle(int argc, char **argv)
 		struct switchtec_dev *dev;
 		int firmware;
 		int config;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"firmware", 'f', "", CFG_NONE, &cfg.firmware, no_argument,
@@ -1116,7 +1135,7 @@ static int fw_read(int argc, char **argv)
 		const char *out_filename;
 		int inactive;
 		int data;
-	} cfg = {0};
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
@@ -1205,10 +1224,10 @@ static void create_type_choices(struct argconfig_choice *c)
 
 	c->name = NULL;
 	c->value = 0;
-	c->help = 0;
+	c->help = NULL;
 }
 
-static char *type_mask_to_string(int type_mask, char *buf, size_t buflen)
+static char *type_mask_to_string(int type_mask, char *buf, ssize_t buflen)
 {
 	int w;
 	char *ret = buf;
@@ -1332,7 +1351,7 @@ static int get_free_counter(struct switchtec_dev *dev, int stack)
 			return i;
 	}
 
-	errno = EUSERS;
+	errno = EBUSY;
 	return -errno;
 }
 
@@ -1463,7 +1482,7 @@ static int evcntr(int argc, char **argv)
 		 "reset counters back to zero"},
 		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in"},
-		{0}};
+		{}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 

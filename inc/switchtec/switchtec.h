@@ -26,8 +26,8 @@
 #define LIBSWITCHTEC_SWITCHTEC_H
 
 #include "mrpc.h"
-
-#include <linux/limits.h>
+#include "portable.h"
+#include "registers.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -46,8 +46,18 @@ struct switchtec_dev;
 #define SWITCHTEC_UNBOUND_PORT 255
 #define SWITCHTEC_PFF_PORT_VEP 100
 
+#ifdef __CHECKER__
+#define __gas __attribute__((noderef, address_space(1)))
+#else
+#define __gas
+#endif
+
+typedef __gas struct switchtec_gas *gasptr_t;
+#define SWITCHTEC_MAP_FAILED ((gasptr_t) -1)
+
 struct switchtec_device_info {
 	char name[256];
+	char desc[256];
 	char pci_dev[256];
 	char product_id[32];
 	char product_rev[8];
@@ -88,53 +98,38 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_THRD,
 };
 
-struct switchtec_dev *switchtec_open(const char *path);
-void switchtec_close(struct switchtec_dev *dev);
+enum switchtec_fw_image_type {
+	SWITCHTEC_FW_TYPE_BOOT = 0x0,
+	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
+	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
+	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
+	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
+	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
+	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
+	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
+	SWITCHTEC_FW_TYPE_SEEPROM = 0xFE,
+};
 
-__attribute__ ((pure))
-const char *switchtec_name(struct switchtec_dev *dev);
-__attribute__ ((pure)) int switchtec_fd(struct switchtec_dev *dev);
-__attribute__ ((pure)) int switchtec_partition(struct switchtec_dev *dev);
+struct switchtec_fw_image_info {
+	enum switchtec_fw_image_type type;
+	char version[32];
+	size_t image_addr;
+	size_t image_len;
+	unsigned long crc;
+	int active;
+	int running;
+};
 
-int switchtec_list(struct switchtec_device_info **devlist);
-int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
-			     size_t buflen);
-
-int switchtec_submit_cmd(struct switchtec_dev *dev, uint32_t cmd,
-			 const void *payload, size_t payload_len);
-
-int switchtec_read_resp(struct switchtec_dev *dev, void *resp,
-			size_t resp_len);
-
-int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
-		  const void *payload, size_t payload_len, void *resp,
-		  size_t resp_len);
-
-int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
-int switchtec_hard_reset(struct switchtec_dev *dev);
-int switchtec_status(struct switchtec_dev *dev,
-		     struct switchtec_status **status);
-int switchtec_get_devices(struct switchtec_dev *dev,
-			  struct switchtec_status *status,
-			  int ports);
-void switchtec_status_free(struct switchtec_status *status, int ports);
-
-void switchtec_perror(const char *str);
-int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
-			  int *partition, int *port);
-int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
-			  int port, int *pff);
-int switchtec_log_to_file(struct switchtec_dev *dev,
-			  enum switchtec_log_type type,
-			  int fd);
-float switchtec_die_temp(struct switchtec_dev *dev);
-
-static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16};
-static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969};
-
-/*********** EVENT Handling ***********/
+struct switchtec_event_summary {
+	uint64_t global;
+	uint64_t part_bitmap;
+	unsigned local_part;
+	unsigned part[SWITCHTEC_MAX_PARTS];
+	unsigned pff[SWITCHTEC_MAX_PORTS];
+};
 
 enum switchtec_event_id {
+	SWITCHTEC_EVT_INVALID = -1,
 	SWITCHTEC_GLOBAL_EVT_STACK_ERROR,
 	SWITCHTEC_GLOBAL_EVT_PPU_ERROR,
 	SWITCHTEC_GLOBAL_EVT_ISP_ERROR,
@@ -168,6 +163,63 @@ enum switchtec_event_id {
 	SWITCHTEC_MAX_EVENTS,
 };
 
+/*********** Platform Functions ***********/
+
+struct switchtec_dev *switchtec_open(const char *device);
+struct switchtec_dev *switchtec_open_by_path(const char *path);
+struct switchtec_dev *switchtec_open_by_index(int index);
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func);
+void switchtec_close(struct switchtec_dev *dev);
+int switchtec_list(struct switchtec_device_info **devlist);
+int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
+			     size_t buflen);
+int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
+		  const void *payload, size_t payload_len, void *resp,
+		  size_t resp_len);
+int switchtec_get_devices(struct switchtec_dev *dev,
+			  struct switchtec_status *status,
+			  int ports);
+int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
+			  int *partition, int *port);
+int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
+			  int port, int *pff);
+int switchtec_flash_part(struct switchtec_dev *dev,
+			 struct switchtec_fw_image_info *info,
+			 enum switchtec_fw_image_type part);
+int switchtec_event_summary(struct switchtec_dev *dev,
+			    struct switchtec_event_summary *sum);
+int switchtec_event_check(struct switchtec_dev *dev,
+			  struct switchtec_event_summary *check,
+			  struct switchtec_event_summary *res);
+int switchtec_event_ctl(struct switchtec_dev *dev,
+			enum switchtec_event_id e,
+			int index, int flags,
+			uint32_t data[5]);
+int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
+
+/*********** Generic Accessors ***********/
+
+__attribute__ ((pure))
+const char *switchtec_name(struct switchtec_dev *dev);
+__attribute__ ((pure)) int switchtec_partition(struct switchtec_dev *dev);
+int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
+int switchtec_hard_reset(struct switchtec_dev *dev);
+int switchtec_status(struct switchtec_dev *dev,
+		     struct switchtec_status **status);
+void switchtec_status_free(struct switchtec_status *status, int ports);
+
+void switchtec_perror(const char *str);
+int switchtec_log_to_file(struct switchtec_dev *dev,
+			  enum switchtec_log_type type,
+			  int fd);
+float switchtec_die_temp(struct switchtec_dev *dev);
+
+static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16};
+static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969};
+
+/*********** EVENT Handling ***********/
+
 enum switchtec_event_flags {
 	SWITCHTEC_EVT_FLAG_CLEAR = 1 << 0,
 	SWITCHTEC_EVT_FLAG_EN_POLL = 1 << 1,
@@ -191,15 +243,6 @@ enum switchtec_event_type {
 	SWITCHTEC_EVT_PFF,
 };
 
-struct switchtec_event_summary {
-	uint64_t global;
-	uint64_t part_bitmap;
-	unsigned local_part;
-	unsigned part[SWITCHTEC_MAX_PARTS];
-	unsigned pff[SWITCHTEC_MAX_PORTS];
-};
-
-int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
 int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 				enum switchtec_event_id e,
 				int index);
@@ -212,19 +255,10 @@ int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
 enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
 					       const char **name,
 					       const char **desc);
-int switchtec_event_summary(struct switchtec_dev *dev,
-			    struct switchtec_event_summary *sum);
-int switchtec_event_check(struct switchtec_dev *dev,
-			  struct switchtec_event_summary *check,
-			  struct switchtec_event_summary *res);
 int switchtec_event_wait_for(struct switchtec_dev *dev,
 			     enum switchtec_event_id e, int index,
 			     struct switchtec_event_summary *res,
 			     int timeout_ms);
-int switchtec_event_ctl(struct switchtec_dev *dev,
-			enum switchtec_event_id e,
-			int index, int flags,
-			uint32_t data[5]);
 
 /******** FIRMWARE Management ********/
 
@@ -241,18 +275,6 @@ enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
 };
 
-enum switchtec_fw_image_type {
-	SWITCHTEC_FW_TYPE_BOOT = 0x0,
-	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
-	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
-	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
-	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
-	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
-	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
-	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
-	SWITCHTEC_FW_TYPE_SEEPROM = 0xFE,
-};
-
 enum switchtec_fw_ro {
 	SWITCHTEC_FW_RW = 0,
 	SWITCHTEC_FW_RO = 1,
@@ -261,16 +283,6 @@ enum switchtec_fw_ro {
 enum switchtec_fw_active {
 	SWITCHTEC_FW_PART_ACTIVE = 1,
 	SWITCHTEC_FW_PART_RUNNING = 2,
-};
-
-struct switchtec_fw_image_info {
-	enum switchtec_fw_image_type type;
-	char version[32];
-	size_t image_addr;
-	size_t image_len;
-	unsigned long crc;
-	int active;
-	int running;
 };
 
 static inline int switchtec_fw_active(struct switchtec_fw_image_info *inf)
@@ -449,9 +461,9 @@ int switchtec_lat_get(struct switchtec_dev *dev, int clear,
  * done within the switchtec user project or otherwise specified.
  */
 
-void *switchtec_gas_map(struct switchtec_dev *dev, int writeable,
-			size_t *map_size);
-void switchtec_gas_unmap(struct switchtec_dev *dev, void *map);
+gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
+                           size_t *map_size);
+void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map);
 
 #ifdef __cplusplus
 }

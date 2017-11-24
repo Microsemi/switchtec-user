@@ -25,10 +25,9 @@
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/errors.h"
+#include "switchtec/endian.h"
 
 #include <unistd.h>
-#include <sys/ioctl.h>
-#include <linux/switchtec_ioctl.h>
 
 #include <errno.h>
 #include <stdio.h>
@@ -307,11 +306,12 @@ struct fw_image_header {
 	uint32_t rsvd[9];
 	uint32_t header_crc;
 	uint32_t image_crc;
-} hdr;
+};
 
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 {
 	int ret;
+	struct fw_image_header hdr = {};
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
@@ -361,24 +361,6 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
-static int get_part(struct switchtec_dev *dev,
-		    struct switchtec_fw_image_info *info, int part)
-{
-	struct switchtec_ioctl_flash_part_info ioctl_info = {0};
-	int ret;
-
-	ioctl_info.flash_partition = part;
-
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FLASH_PART_INFO, &ioctl_info);
-	if (ret)
-		return ret;
-
-	info->image_addr = ioctl_info.address;
-	info->image_len = ioctl_info.length;
-	info->active = ioctl_info.active;
-	return 0;
-}
-
 int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			   struct switchtec_fw_image_info *info)
 {
@@ -392,43 +374,27 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 	for (i = 0; i < nr_info; i++) {
 		struct switchtec_fw_image_info *inf = &info[i];
 
-		switch(info[i].type) {
-		case SWITCHTEC_FW_TYPE_IMG0:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_IMG0);
-			break;
-		case SWITCHTEC_FW_TYPE_IMG1:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_IMG1);
-			break;
-		case SWITCHTEC_FW_TYPE_DAT0:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_CFG0);
-			break;
-		case SWITCHTEC_FW_TYPE_DAT1:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_CFG1);
-			break;
-		case SWITCHTEC_FW_TYPE_NVLOG:
-			ret = get_part(dev, inf, SWITCHTEC_IOCTL_PART_NVLOG);
-			if (ret)
-				return ret;
-
-			info[i].version[0] = 0;
-			info[i].crc = 0;
-
-			continue;
-		default:
-			return -EINVAL;
-		}
-
+		ret = switchtec_flash_part(dev, inf, inf->type);
 		if (ret)
 			return ret;
+
+
+		if (info[i].type == SWITCHTEC_FW_TYPE_NVLOG) {
+			inf->version[0] = 0;
+			inf->crc = 0;
+			continue;
+		}
 
 		ret = switchtec_fw_read_footer(dev, inf->image_addr,
 					       inf->image_len, &ftr,
 					       inf->version,
 					       sizeof(inf->version));
-		if (ret < 0)
-			return ret;
-
-		info[i].crc = ftr.image_crc;
+		if (ret < 0) {
+			inf->version[0] = 0;
+			inf->crc = 0xFFFFFFFF;
+		} else {
+			inf->crc = ftr.image_crc;
+		}
 	}
 
 	return nr_info;
@@ -600,7 +566,8 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	unsigned char buf[(MRPC_MAX_DATA_LEN-8)*4];
 	size_t read = 0;
 	size_t total_len = len;
-	size_t total_wrote, wrote;
+	size_t total_wrote;
+	ssize_t wrote;
 
 	while(len) {
 		size_t chunk_len = len;
@@ -646,12 +613,13 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 
 	ret = switchtec_fw_read(dev, addr, sizeof(struct switchtec_fw_footer),
 				ftr);
-
 	if (ret < 0)
 		return ret;
 
-	if (strcmp(ftr->magic, "PMC") != 0)
-		return -ENOEXEC;
+	if (strcmp(ftr->magic, "PMC") != 0) {
+		errno = ENOEXEC;
+		return -errno;
+	}
 
 	if (version)
 		version_to_string(ftr->version, version, version_len);

@@ -22,33 +22,42 @@
  *
  */
 
-#ifndef LIBSWITCHTEC_SWITCHTEC_PRIV_H
-#define LIBSWITCHTEC_SWITCHTEC_PRIV_H
+#ifndef LIBSWITCHTEC_PORTABLE_H
+#define LIBSWITCHTEC_PORTABLE_H
 
-#include "switchtec/switchtec.h"
+#if (defined(_WIN16) || defined(_WIN32) || defined(_WIN64)) \
+	&& !defined(__WINDOWS__)
+# define __WINDOWS__
+#endif
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <limits.h>
+#if defined(__linux__)
+# include <linux/limits.h>
+#elif defined(__WINDOWS__)
+# include <winsock2.h>
+# include <windows.h>
+# ifndef PATH_MAX
+#  define PATH_MAX MAX_PATH
+# endif
+#endif
 
-struct switchtec_dev {
-	int partition, partition_count;
-	char name[PATH_MAX];
+#ifdef __WINDOWS__
+#define FMT_SIZE_T_x  "Ix"
+#define FMT_llX       "I64X"
+#define FMT_lld       "I64d"
+#else
+#define FMT_SIZE_T_x  "zx"
+#define FMT_llX       "llX"
+#define FMT_lld       "lld"
+#endif
 
-	gasptr_t gas_map;
-	size_t gas_map_size;
-};
+#ifdef __WINDOWS__
+#ifndef MAP_FAILED
+#define MAP_FAILED NULL
+#endif
+#endif
 
-static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
-{
-	int major = version >> 24;
-	int minor = (version >> 16) & 0xFF;
-	int build = version & 0xFFFF;
-
-	snprintf(buf, buflen, "%x.%02x B%03X", major, minor, build);
-}
-
-void platform_perror(const char *str);
+#ifdef __MINGW32__
+#define ffs __builtin_ffs
+#endif
 
 #endif

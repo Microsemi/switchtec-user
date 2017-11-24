@@ -1,0 +1,72 @@
+/*
+* Microsemi Switchtec(tm) PCIe Management Library
+* Copyright (c) 2017, Microsemi Corporation
+*
+* Permission is hereby granted, free of charge, to any person obtaining a
+* copy of this software and associated documentation files (the "Software"),
+* to deal in the Software without restriction, including without limitation
+* the rights to use, copy, modify, merge, publish, distribute, sublicense,
+* and/or sell copies of the Software, and to permit persons to whom the
+* Software is furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included
+* in all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+* OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+* THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+* OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+* ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+* OTHER DEALINGS IN THE SOFTWARE.
+*
+*/
+
+#include "version.h"
+#include <winver.h>
+
+#define VER_FILEFLAGSMASK	VS_FFI_FILEFLAGSMASK
+#define VER_FILEOS		VOS__WINDOWS32
+
+#if SINCE_TAG == 0
+#define VER_FILEFLAGS		0
+#else
+#define VER_FILEFLAGS		(VS_FF_PRIVATEBUILD | VS_FF_PRERELEASE)
+#endif
+
+#define VER_COMPANYNAME_STR		"Microsemi Corporation"
+#define VER_LEGALCOPYRIGHT_STR		L"\251 Microsemi Corporation. All rights reserved."
+
+#define VER_PRODUCTVERSION		MAJOR,MINOR,0,SINCE_TAG
+#define VER_PRODUCTVERSION_STR		VERSION
+
+//------
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION    VER_PRODUCTVERSION
+PRODUCTVERSION VER_PRODUCTVERSION
+FILEFLAGSMASK  VER_FILEFLAGSMASK
+FILEFLAGS      VER_FILEFLAGS
+FILEOS	       VER_FILEOS
+FILETYPE       VER_FILETYPE
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904E4" // Lang=US English, CharSet=Windows Multilual
+		BEGIN
+		 	VALUE "CompanyName", VER_COMPANYNAME_STR
+			VALUE "FileDescription", VER_PRODUCTNAME_STR
+			VALUE "FileVersion", VER_PRODUCTVERSION_STR
+			VALUE "InternalName", VER_INTERNALNAME_STR
+			VALUE "LegalCopyright", VER_LEGALCOPYRIGHT_STR
+			VALUE "OriginalFilename", VER_INTERNALNAME_STR
+			VALUE "ProductName", VER_PRODUCTNAME_STR
+			VALUE "ProductVersion", VER_PRODUCTVERSION_STR
+		END
+	END
+
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x409, 1252
+	END
+END

@@ -1,0 +1,54 @@
+language: c
+script: ./configure ${CONFIG_OPTS} && make -k W=1 ${MAKE_FLAGS}
+dist: trusty
+compiler: gcc
+sudo: required
+
+matrix:
+  include:
+    - os: linux
+
+    - os: linux
+      env:
+        - MATRIX_EVAL="CC=clang"
+
+    - os: linux
+      env:
+        - MATRIX_EVAL="CFLAGS=-m32 && LDFLAGS=-m32"
+
+    - os: linux
+      addons:
+        apt:
+          packages:
+            - gcc-mingw-w64-x86-64
+            - mingw-w64-x86-64-dev
+      env:
+        - CONFIG_OPTS="--host x86_64-w64-mingw32"
+        - MATRIX_EVAL="CC=x86_64-w64-mingw32-gcc"
+
+    - os: linux
+      addons:
+        apt:
+          packages:
+            - gcc-mingw-w64-i686
+            - mingw-w64-i686-dev
+      env:
+        - CONFIG_OPTS="--host i686-w64-mingw32"
+        - MATRIX_EVAL="CC=i686-w64-mingw32-gcc"
+
+    - os: linux
+      install:
+        - git clone https://git.kernel.org/pub/scm/devel/sparse/sparse.git --branch v0.5.1
+        - pushd sparse && make HAVE_LLVM=no && sudo make install HAVE_LLVM=no && popd
+      env:
+        - MATRIX_EVAL="CC=cgcc"
+        - MAKE_FLAGS="CFLAGS=-Wsparse-error CFLAGS+=-Wno-vla CFLAGS+=-Wno-old-initializer"
+
+before_install:
+    - eval "${MATRIX_EVAL}"
+
+
+notifications:
+  email:
+    recipients:
+      - logang@deltatee.com

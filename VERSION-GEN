@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 ########################################################################
 #
 # Copyright 2016 Keith Busch
@@ -26,8 +26,9 @@
 #
 ########################################################################
 
-GVF=build/version.h
-MVF=build/version.mk
+OBJDIR=${OBJDIR:-build}
+GVF=$OBJDIR/version.h
+MVF=$OBJDIR/version.mk
 DEF_VER=???
 
 LF='
@@ -50,9 +51,23 @@ fi
 VN=$(expr "$VN" : v*'\(.*\)')
 MVN=$(expr "$VN" : v*'\([0-9.]*\)')
 
+VN_RE='^([0-9]+)\.([0-9]+)(-rc[0-9]+)?(-([0-9]+)-g([A-Za-z0-9]+))?'
+if [[ $VN =~ $VN_RE ]]; then
+    MAJOR=${BASH_REMATCH[1]}
+    MINOR=${BASH_REMATCH[2]}
+    SINCE_TAG=${BASH_REMATCH[5]}
+    if [[ "$SINCE_TAG" -eq "" ]]; then
+        SINCE_TAG=0
+    fi
+else
+    MAJOR=0
+    MINOR=0
+    SINCE_TAG=0
+fi
+
 if test -r $GVF
 then
-	VC=$(sed -e 's/^#define VERSION //' <$GVF)
+	VC=$(head -n1 $GVF | sed -e 's/^#define VERSION //')
 	VC="${VC%\"}"
 	VC="${VC#\"}"
 else
@@ -62,6 +77,10 @@ fi
 test "$VN" = "$VC" || {
 	echo "  VER   $VN"
 	echo "#define VERSION \"$VN\"" >$GVF
+	echo "#define MAJOR $MAJOR" >>$GVF
+	echo "#define MINOR $MINOR" >>$GVF
+	echo "#define SINCE_TAG $SINCE_TAG" >>$GVF
+
 	echo "VERSION=$MVN" >$MVF
 	echo "FULL_VERSION=$VN" >>$MVF
 }

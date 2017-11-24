@@ -25,6 +25,7 @@
 #include "switchtec/pmon.h"
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
+#include "switchtec/endian.h"
 
 #include <stddef.h>
 #include <errno.h>
@@ -97,8 +98,8 @@ int switchtec_evcntr_setup(struct switchtec_dev *dev, unsigned stack_id,
 
 		.counters = {
 			[0] = {
-				.port_mask = setup->port_mask,
-				.type_mask = htole32(setup->type_mask),
+				.mask = htole32((setup->type_mask << 8) |
+						(setup->port_mask & 0xFF)),
 				.ieg = setup->egress,
 				.thresh = htole32(setup->threshold),
 			},
@@ -163,13 +164,13 @@ int switchtec_evcntr_get_setup(struct switchtec_dev *dev, unsigned stack_id,
 
 	ret = evcntr_get(dev, MRPC_PMON_GET_EV_COUNTER_SETUP,
 			 stack_id, cntr_id, nr_cntrs, data,
-			 sizeof(data), 0);
+			 sizeof(*data) * nr_cntrs, 0);
 	if (ret)
 		return ret;
 
 	for (i = 0; i < nr_cntrs; i++) {
-		res[i].port_mask = data[i].port_mask;
-		res[i].type_mask = le32toh(data[i].type_mask);
+		res[i].port_mask = le32toh(data[i].mask) & 0xFF;
+		res[i].type_mask = le32toh(data[i].mask) >> 8;
 		res[i].egress = data[i].ieg;
 		res[i].threshold = le32toh(data[i].thresh);
 	}
@@ -192,7 +193,7 @@ int switchtec_evcntr_get(struct switchtec_dev *dev, unsigned stack_id,
 
 	ret = evcntr_get(dev, MRPC_PMON_GET_EV_COUNTER,
 			 stack_id, cntr_id, nr_cntrs, data,
-			 sizeof(data), clear);
+			 sizeof(*data) * nr_cntrs, clear);
 	if (ret)
 		return ret;
 
@@ -372,7 +373,7 @@ int switchtec_lat_get_many(struct switchtec_dev *dev, int nr_ports,
 		sizeof(cmd.port_ids[0]) * nr_ports;
 
 	ret = switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, resp,
-			    sizeof(resp));
+			    sizeof(*resp) * nr_ports);
 
 	if (ret)
 		return -1;

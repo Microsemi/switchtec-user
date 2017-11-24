@@ -27,10 +27,6 @@
 #include "switchtec/switchtec.h"
 #include "switchtec/utils.h"
 
-#include <linux/switchtec_ioctl.h>
-
-#include <poll.h>
-#include <sys/ioctl.h>
 #include <sys/time.h>
 
 #include <errno.h>
@@ -40,20 +36,18 @@
 #define EV(t, n, s, d)[SWITCHTEC_ ## t ## _EVT_ ## n] = {\
 	.type = t, \
 	.summary_bit = (1 << (s)), \
-	.ioctl_id = SWITCHTEC_IOCTL_EVENT_ ## n, \
 	.short_name = #n, \
 	.desc = d, \
 }
 
+#define GLOBAL SWITCHTEC_EVT_GLOBAL
+#define PART SWITCHTEC_EVT_PART
+#define PFF SWITCHTEC_EVT_PFF
+
 static const struct {
 	enum switchtec_event_id id;
-	enum {
-		GLOBAL = SWITCHTEC_EVT_GLOBAL,
-		PART = SWITCHTEC_EVT_PART,
-		PFF = SWITCHTEC_EVT_PFF,
-	} type;
+	enum switchtec_event_type type;
 	uint64_t summary_bit;
-	int ioctl_id;
 	const char *short_name;
 	const char *desc;
 } events[] = {
@@ -131,29 +125,6 @@ static const enum switchtec_event_id pff_event_bits[64] = {
 	EVBIT(PFF, CREDIT_TIMEOUT, 11),
 	EVBIT(PFF, LINK_STATE, 12),
 };
-
-int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
-{
-	int ret;
-	struct pollfd fds = {
-		.fd = dev->fd,
-		.events = POLLPRI,
-	};
-
-	ret = poll(&fds, 1, timeout_ms);
-	if (ret <= 0)
-		return ret;
-
-	if (fds.revents & POLLERR) {
-		errno = ENODEV;
-		return -1;
-	}
-
-	if (fds.revents & POLLPRI)
-		return 1;
-
-	return 0;
-}
 
 static void set_all_parts(struct switchtec_event_summary *sum, uint64_t bit)
 {
@@ -267,6 +238,41 @@ int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
 	return 0;
 }
 
+int switchtec_event_check(struct switchtec_dev *dev,
+			  struct switchtec_event_summary *chk,
+			  struct switchtec_event_summary *res)
+{
+	struct switchtec_event_summary res_tmp;
+	int i;
+	int ret;
+
+	if (!chk)
+		return -EINVAL;
+
+	if (!res)
+		res = &res_tmp;
+
+	ret = switchtec_event_summary(dev, res);
+	if (ret)
+		return ret;
+
+	if (chk->global & res->global)
+		return 1;
+
+	if (chk->part_bitmap & res->part_bitmap)
+		return 1;
+
+	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
+		if (chk->part[i] & res->part[i])
+			return 1;
+
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+		if (chk->pff[i] & res->pff[i])
+			return 1;
+
+	return 0;
+}
+
 enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
 					       const char **name,
 					       const char **desc)
@@ -278,79 +284,6 @@ enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
 		*desc = events[e].desc;
 
 	return events[e].type;
-}
-
-static void event_summary_copy(struct switchtec_event_summary *dst,
-			       struct switchtec_ioctl_event_summary *src)
-{
-	int i;
-
-	dst->global = src->global;
-	dst->part_bitmap = src->part_bitmap;
-	dst->local_part = src->local_part;
-
-	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
-		dst->part[i] = src->part[i];
-
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
-		dst->pff[i] = src->pff[i];
-}
-
-int switchtec_event_summary(struct switchtec_dev *dev,
-			    struct switchtec_event_summary *sum)
-{
-	int ret;
-	struct switchtec_ioctl_event_summary isum;
-
-	if (!sum)
-		return -EINVAL;
-
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
-	if (ret < 0)
-		return ret;
-
-	event_summary_copy(sum, &isum);
-
-	return 0;
-}
-
-int switchtec_event_check(struct switchtec_dev *dev,
-			  struct switchtec_event_summary *check,
-			  struct switchtec_event_summary *res)
-{
-	int ret, i;
-	struct switchtec_ioctl_event_summary isum;
-
-	if (!check)
-		return -EINVAL;
-
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
-	if (ret < 0)
-		return ret;
-
-	ret = 0;
-
-	if (isum.global & check->global)
-		ret = 1;
-
-	if (isum.part_bitmap & check->part_bitmap)
-		ret = 1;
-
-	if (isum.local_part & check->local_part)
-		ret = 1;
-
-	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
-		if (isum.part[i] & check->part[i])
-			ret = 1;
-
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
-		if (isum.pff[i] & check->pff[i])
-			ret = 1;
-
-	if (res)
-		event_summary_copy(res, &isum);
-
-	return ret;
 }
 
 int switchtec_event_wait_for(struct switchtec_dev *dev,
@@ -406,49 +339,4 @@ next:
 		if (timeout_ms > 0 && now - start >= timeout_ms)
 			return 0;
 	}
-}
-
-int switchtec_event_ctl(struct switchtec_dev *dev,
-			enum switchtec_event_id e,
-			int index, int flags,
-			uint32_t data[5])
-{
-	int ret;
-	struct switchtec_ioctl_event_ctl ctl;
-
-	if (e > SWITCHTEC_MAX_EVENTS)
-		return -EINVAL;
-
-	ctl.event_id = events[e].ioctl_id;
-	ctl.flags = 0;
-
-	if (flags & SWITCHTEC_EVT_FLAG_CLEAR)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_CLEAR;
-	if (flags & SWITCHTEC_EVT_FLAG_EN_POLL)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_EN_POLL;
-	if (flags & SWITCHTEC_EVT_FLAG_EN_LOG)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_EN_LOG;
-	if (flags & SWITCHTEC_EVT_FLAG_EN_CLI)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_EN_CLI;
-	if (flags & SWITCHTEC_EVT_FLAG_EN_FATAL)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_EN_FATAL;
-	if (flags & SWITCHTEC_EVT_FLAG_DIS_POLL)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_POLL;
-	if (flags & SWITCHTEC_EVT_FLAG_DIS_LOG)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_LOG;
-	if (flags & SWITCHTEC_EVT_FLAG_DIS_CLI)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_CLI;
-	if (flags & SWITCHTEC_EVT_FLAG_DIS_FATAL)
-		ctl.flags |= SWITCHTEC_IOCTL_EVENT_FLAG_DIS_FATAL;
-
-	ctl.index = index;
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_EVENT_CTL, &ctl);
-
-	if (ret)
-		return ret;
-
-	if (data)
-		memcpy(data, ctl.data, sizeof(ctl.data));
-
-	return ctl.count;
 }
