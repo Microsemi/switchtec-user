@@ -51,11 +51,15 @@ fi
 VN=$(expr "$VN" : v*'\(.*\)')
 MVN=$(expr "$VN" : v*'\([0-9.]*\)')
 
-VN_RE='^([0-9]+)\.([0-9]+)(-rc[0-9]+)?(-([0-9]+)-g([A-Za-z0-9]+))?'
+VN_RE='^([0-9]+)\.([0-9]+)(.([0-9]+))?(-rc[0-9]+)?(-([0-9]+)-g([A-Za-z0-9]+))?'
 if [[ $VN =~ $VN_RE ]]; then
     MAJOR=${BASH_REMATCH[1]}
     MINOR=${BASH_REMATCH[2]}
-    SINCE_TAG=${BASH_REMATCH[5]}
+    PATCH=${BASH_REMATCH[4]}
+    if [[ "$PATCH" -eq "" ]]; then
+        PATCH=0
+    fi
+    SINCE_TAG=${BASH_REMATCH[7]}
     if [[ "$SINCE_TAG" -eq "" ]]; then
         SINCE_TAG=0
     fi
@@ -79,6 +83,7 @@ test "$VN" = "$VC" || {
 	echo "#define VERSION \"$VN\"" >$GVF
 	echo "#define MAJOR $MAJOR" >>$GVF
 	echo "#define MINOR $MINOR" >>$GVF
+	echo "#define PATCH $PATCH" >>$GVF
 	echo "#define SINCE_TAG $SINCE_TAG" >>$GVF
 
 	echo "VERSION=$MVN" >$MVF
