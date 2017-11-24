@@ -110,9 +110,12 @@ static int gas_dump(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-	} cfg = {0};
+		int count;
+	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
+		 "number of bytes to dump(default is the entire gas space)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -123,12 +126,15 @@ static int gas_dump(int argc, char **argv)
 		return 1;
 	}
 
+	if (!cfg.count)
+		cfg.count = map_size;
+
 	if (!isatty(STDOUT_FILENO)) {
 		ret = write(STDOUT_FILENO, map, map_size);
 		return ret > 0;
 	}
 
-	return pipe_to_hd_less(map, map_size);
+	return pipe_to_hd_less(map, cfg.count);
 }
 
 static int print_hex(void *addr, int offset, int bytes)
@@ -188,7 +194,7 @@ enum {
 	STR,
 };
 
-int (*print_funcs[])(void *addr, int offset, int bytes) = {
+static int (*print_funcs[])(void *addr, int offset, int bytes) = {
 	[HEX] = print_hex,
 	[DEC] = print_dec,
 	[STR] = print_str,
@@ -205,7 +211,7 @@ static int gas_read(int argc, char **argv)
 		{"hex", HEX, "print in hexadecimal"},
 		{"dec", DEC, "print in decimal"},
 		{"str", STR, "print as an ascii string"},
-		{0},
+		{},
 	};
 
 	static struct {
@@ -226,7 +232,7 @@ static int gas_read(int argc, char **argv)
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to read per access (default 4)"},
 		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
-		 "number of accesses to performe (default 1)"},
+		 "number of accesses to perform (default 1)"},
 		{"print", 'p', "STYLE", CFG_CHOICES, &cfg.print_style, required_argument,
 		 "printing style", .choices=print_choices},
 		{NULL}};
@@ -270,7 +276,7 @@ static int gas_write(int argc, char **argv)
 		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
 		 "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
-		 "number of bytes to read per access (default 4)"},
+		 "number of bytes to write (default 4)"},
 		{"value", 'v', "ADDR", CFG_LONG_SUFFIX, &cfg.value, required_argument,
 		 "value to write"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,

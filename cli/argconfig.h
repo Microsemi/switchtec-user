@@ -114,6 +114,7 @@ int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		    const struct argconfig_options *options,
 		    void *config_out, size_t config_size);
 
+const char *argconfig_usage_text(void);
 void argconfig_print_usage(const struct argconfig_options *options);
 void argconfig_print_help(const char *program_desc,
 			  const struct argconfig_options *options);
@@ -122,6 +123,8 @@ void argconfig_register_help_func(argconfig_help_func * f);
 void print_word_wrapped(const char *s, int indent, int start);
 
 int argconfig_parse_comma_range(const char *str, int *res, int max_nums);
+
+int have_decent_term(void);
 
 #ifdef __cplusplus
 }

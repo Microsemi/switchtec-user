@@ -62,7 +62,6 @@ clean:
 
 $(OBJDIR)/version.h $(OBJDIR)/version.mk: FORCE $(OBJDIR)
 	@$(SHELL_PATH) ./VERSION-GEN
-$(OBJDIR)/cli/main.o: $(OBJDIR)/version.h
 -include $(OBJDIR)/version.mk
 
 $(OBJDIR):
@@ -135,4 +134,4 @@ dist:
 .PHONY: FORCE
 
 
--include $(patsubst %.o,%.d,$(LIB_OBJS))
+-include $(patsubst %.o,%.d,$(LIB_OBJS) $(CLI_OBJS))

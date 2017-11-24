@@ -307,11 +307,12 @@ struct fw_image_header {
 	uint32_t rsvd[9];
 	uint32_t header_crc;
 	uint32_t image_crc;
-} hdr;
+};
 
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 {
 	int ret;
+	struct fw_image_header hdr = {};
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
@@ -425,10 +426,12 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 					       inf->image_len, &ftr,
 					       inf->version,
 					       sizeof(inf->version));
-		if (ret < 0)
-			return ret;
-
-		info[i].crc = ftr.image_crc;
+		if (ret < 0) {
+			inf->version[0] = 0;
+			inf->crc = 0xFFFFFFFF;
+		} else {
+			inf->crc = ftr.image_crc;
+		}
 	}
 
 	return nr_info;
@@ -600,7 +603,8 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	unsigned char buf[(MRPC_MAX_DATA_LEN-8)*4];
 	size_t read = 0;
 	size_t total_len = len;
-	size_t total_wrote, wrote;
+	size_t total_wrote;
+	ssize_t wrote;
 
 	while(len) {
 		size_t chunk_len = len;
@@ -646,12 +650,13 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 
 	ret = switchtec_fw_read(dev, addr, sizeof(struct switchtec_fw_footer),
 				ftr);
-
 	if (ret < 0)
 		return ret;
 
-	if (strcmp(ftr->magic, "PMC") != 0)
-		return -ENOEXEC;
+	if (strcmp(ftr->magic, "PMC") != 0) {
+		errno = ENOEXEC;
+		return -errno;
+	}
 
 	if (version)
 		version_to_string(ftr->version, version, version_len);
