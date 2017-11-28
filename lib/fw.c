@@ -341,7 +341,10 @@ void switchtec_fw_perror(const char *s, int ret)
 {
 	const char *msg;
 
-	if (ret <= 0) {
+	if (ret == 0) {
+		platform_perror(s);
+		return;
+	} else if (ret < 0) {
 		perror(s);
 		return;
 	}
