@@ -22,6 +22,11 @@
  *
  */
 
+/**
+ * @file
+ * @brief Switchtec core library functions for basic device operations
+ */
+
 #include "switchtec_priv.h"
 
 #include "switchtec/switchtec.h"
@@ -34,6 +39,16 @@
 #include <unistd.h>
 #include <errno.h>
 
+/**
+ * @brief Open a Switchtec device by string
+ * @param[in] device A string representing the device to open
+ * @return A switchtec_dev structure for use in other library functions
+ *	or NULL if an error occurred.
+ *
+ * The string can be specified as a path to the device (/dev/switchtec0),
+ * an index (0, 1, etc), an index with a 'switchtec' prefix (switchtec0)
+ * or a BDF (bus, device function) string (3:00.1).
+ */
 struct switchtec_dev *switchtec_open(const char *device)
 {
 	int idx;
@@ -79,18 +94,38 @@ found:
 	return ret;
 }
 
-__attribute__ ((pure))
-const char *switchtec_name(struct switchtec_dev *dev)
+/**
+ * @brief Get the string that was used to open the deviec
+ * @param[in] dev Switchtec device handle
+ * @return The name of the device as a string
+ *
+ * This is only valid if the device was opend with switchtec_open().
+ */
+PURE const char *switchtec_name(struct switchtec_dev *dev)
 {
 	return dev->name;
 }
 
-__attribute__ ((pure))
-int switchtec_partition(struct switchtec_dev *dev)
+/**
+ * @brief Get the partiton number of the device that was opened
+ * @param[in] dev Switchtec device handle
+ * @return The partition number
+ */
+PURE int switchtec_partition(struct switchtec_dev *dev)
 {
 	return dev->partition;
 }
 
+/**
+ * @brief Perform an MRPC echo command
+ * @param[in]  dev    Switchtec device handle
+ * @param[in]  input  The input data for the echo command
+ * @param[out] output The result of the echo command
+ * @return 0 on success, error code on failure
+ *
+ * The echo command takes 4 bytes and returns the bitwise-not of those
+ * bytes.
+ */
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input,
 		   uint32_t *output)
 {
@@ -98,6 +133,15 @@ int switchtec_echo(struct switchtec_dev *dev, uint32_t input,
 			     output, sizeof(output));
 }
 
+/**
+ * @brief Perform an MRPC hard reset command
+ * @param[in] dev Switchtec device handle
+ * @return 0 on success, error code on failure
+ *
+ * Note: if your system does not support hotplug this may leave
+ * the Switchtec device in an unusable state. A reboot would be
+ * required to fix this.
+ */
 int switchtec_hard_reset(struct switchtec_dev *dev)
 {
 	uint32_t subcmd = 0;
@@ -226,6 +270,17 @@ static int compare_status(const void *aa, const void *bb)
 	return compare_port_id(&a->port, &b->port);
 }
 
+/**
+ * @brief Get the status of all the ports on a switchtec device
+ * @param[in]  dev    Switchtec device handle
+ * @param[out] status A pointer to an allocated list of port statuses
+ * @return The number of ports in the status list or a negative value
+ *	on failure
+ *
+ * This function a allocates memory for the number of ports in the
+ * system. The returned \p status structure should be freed with the
+ * switchtec_status_free() function.
+ */
 int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status)
 {
@@ -294,6 +349,12 @@ int switchtec_status(struct switchtec_dev *dev,
 	return nr_ports;
 }
 
+/**
+ * @brief Free a list of status structures allocated by switchtec_status()
+ * @param[in] status Status structure list
+ * @param[in] ports Number of ports in the list (as returned by
+ *	switchtec_status())
+ */
 void switchtec_status_free(struct switchtec_status *status, int ports)
 {
 	int i;
@@ -309,6 +370,13 @@ void switchtec_status_free(struct switchtec_status *status, int ports)
 	free(status);
 }
 
+/**
+ * @brief Print an error string to stdout
+ * @param[in] str String that will be prefixed to the error message
+ *
+ * This can be called after another switchtec function returned an error
+ * to find out what caused the problem.
+ */
 void switchtec_perror(const char *str)
 {
 	const char *msg;
@@ -402,6 +470,13 @@ static int log_b_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 	return read;
 }
 
+/**
+ * @brief Dump the Switchtec log data to a file
+ * @param[in]  dev    Switchtec device handle
+ * @param[in]  type   Type of log data to dump
+ * @param[in]  fd     File descriptor to dump the data to
+ * @return 0 on success, error code on failure
+ */
 int switchtec_log_to_file(struct switchtec_dev *dev,
 			  enum switchtec_log_type type,
 			  int fd)
@@ -427,6 +502,12 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 	return -errno;
 }
 
+/**
+ * @brief Get the die temperature of the switchtec device
+ * @param[in]  dev    Switchtec device handle
+ * @return The die temperature (in degrees celsius) or a negative value
+ *	on failure
+ */
 float switchtec_die_temp(struct switchtec_dev *dev)
 {
 	int ret;
@@ -436,13 +517,13 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 	ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
 			    sizeof(sub_cmd_id), NULL, 0);
 	if (ret)
-		return -1.0;
+		return -100.0;
 
 	sub_cmd_id = MRPC_DIETEMP_GET;
 	ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
 			    sizeof(sub_cmd_id), &temp, sizeof(temp));
 	if (ret)
-		return -1.0;
+		return -100.0;
 
 	return temp / 100.;
 }
