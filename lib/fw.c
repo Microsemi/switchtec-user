@@ -33,6 +33,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
@@ -360,22 +361,130 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
-static int get_part(struct switchtec_dev *dev,
+static int get_flash_part_info(struct switchtec_dev *dev,
 		    struct switchtec_fw_image_info *info, int part)
 {
-	struct switchtec_ioctl_flash_part_info ioctl_info = {0};
 	int ret;
+	uint32_t offset;
+	uint32_t active_addr = -1;
+	uint16_t running;
+	struct partition_info pi;
 
-	ioctl_info.flash_partition = part;
+	switch (part) {
+	case SWITCHTEC_IOCTL_PART_CFG0:
+		offset = SWITCHTEC_GAS_SYS_INFO_OFFSET +
+			offsetof(struct sys_info_regs, cfg_running);
+		ret = switchtec_gas_read(dev,
+				(uint8_t *)&(running), offset, 2);
+		if (ret)
+			return ret;
 
-	ret = ioctl(dev->fd, SWITCHTEC_IOCTL_FLASH_PART_INFO, &ioctl_info);
+		if (running == SWITCHTEC_CFG0_RUNNING)
+			info->active |= SWITCHTEC_IOCTL_PART_RUNNING;
+
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, active_cfg);
+		ret = switchtec_gas_read(dev,
+				(uint8_t *)&(active_addr), offset, 4);
+		if (ret)
+			return ret;
+
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, cfg0);
+
+		break;
+	case SWITCHTEC_IOCTL_PART_CFG1:
+		offset = SWITCHTEC_GAS_SYS_INFO_OFFSET +
+			offsetof(struct sys_info_regs, cfg_running);
+		ret = switchtec_gas_read(dev,
+				(uint8_t *)&(running), offset, 2);
+		if (ret)
+			return ret;
+
+		if (running == SWITCHTEC_CFG1_RUNNING)
+			info->active |= SWITCHTEC_IOCTL_PART_RUNNING;
+
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, active_cfg);
+		ret = switchtec_gas_read(dev,
+				(uint8_t *)&(active_addr), offset, 4);
+		if (ret)
+			return ret;
+
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, cfg1);
+		break;
+	case SWITCHTEC_IOCTL_PART_IMG0:
+		offset = SWITCHTEC_GAS_SYS_INFO_OFFSET +
+			offsetof(struct sys_info_regs, img_running);
+		ret = switchtec_gas_read(dev,
+				(uint8_t *)&(running), offset, 2);
+		if (ret)
+			return ret;
+
+		if (running == SWITCHTEC_IMG0_RUNNING)
+			info->active |= SWITCHTEC_IOCTL_PART_RUNNING;
+
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, active_img);
+		ret = switchtec_gas_read(dev,
+				(uint8_t *)&(active_addr), offset, 4);
+		if (ret)
+			return ret;
+
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, img0);
+		break;
+	case SWITCHTEC_IOCTL_PART_IMG1:
+		offset = SWITCHTEC_GAS_SYS_INFO_OFFSET +
+			offsetof(struct sys_info_regs, img_running);
+		ret = switchtec_gas_read(dev,
+				(uint8_t *)&(running), offset, 2);
+		if (ret)
+			return ret;
+
+		if (running == SWITCHTEC_IMG1_RUNNING)
+			info->active |= SWITCHTEC_IOCTL_PART_RUNNING;
+
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, active_img);
+		ret = switchtec_gas_read(dev,
+				(uint8_t *)&(active_addr), offset, 4);
+		if (ret)
+			return ret;
+
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, img1);
+		break;
+	case SWITCHTEC_IOCTL_PART_NVLOG:
+		offset = SWITCHTEC_GAS_FLASH_INFO_OFFSET +
+			offsetof(struct flash_info_regs, nvlog);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = switchtec_gas_read(dev,
+			(uint8_t *)&(pi), offset, sizeof(pi));
 	if (ret)
 		return ret;
 
-	info->image_addr = ioctl_info.address;
-	info->image_len = ioctl_info.length;
-	info->active = ioctl_info.active;
+	if (active_addr == pi.address)
+		info->active |= SWITCHTEC_IOCTL_PART_ACTIVE;
+
+	info->image_addr = pi.address;
+	info->image_len = pi.length;
 	return 0;
+}
+
+static int get_part(struct switchtec_dev *dev,
+		    struct switchtec_fw_image_info *info, int part)
+{
+	int ret;
+
+	ret = get_flash_part_info(dev, info, part);
+
+	return ret;
 }
 
 int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,

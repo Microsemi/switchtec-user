@@ -467,6 +467,13 @@ enum {
 	SWITCHTEC_GAS_PFF_CSR_OFFSET    = 0x134000,
 };
 
+enum {
+	SWITCHTEC_CFG0_RUNNING = 0x04,
+	SWITCHTEC_CFG1_RUNNING = 0x05,
+	SWITCHTEC_IMG0_RUNNING = 0x03,
+	SWITCHTEC_IMG1_RUNNING = 0x07,
+};
+
 struct sys_info_regs {
 	uint32_t device_id;
 	uint32_t device_version;
@@ -485,6 +492,33 @@ struct sys_info_regs {
 	char component_vendor[8];
 	uint16_t component_id;
 	uint8_t component_revision;
+} __attribute__(( packed ));
+
+struct flash_info_regs {
+	uint32_t flash_part_map_upd_idx;
+
+	struct active_partition_info {
+		uint32_t address;
+		uint32_t build_version;
+		uint32_t build_string;
+	} __attribute__(( packed )) active_img;
+
+	struct active_partition_info active_cfg;
+	struct active_partition_info inactive_img;
+	struct active_partition_info inactive_cfg;
+
+	uint32_t flash_length;
+
+	struct partition_info {
+		uint32_t address;
+		uint32_t length;
+	} __attribute__(( packed )) cfg0;
+
+	struct partition_info cfg1;
+	struct partition_info img0;
+	struct partition_info img1;
+	struct partition_info nvlog;
+	struct partition_info vendor[8];
 } __attribute__(( packed ));
 
 #ifdef __cplusplus
