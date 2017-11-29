@@ -22,6 +22,11 @@
  *
  */
 
+/**
+ * @file
+ * @brief Switchtec core library functions for performance monitoring
+ */
+
 #include "switchtec/pmon.h"
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
@@ -61,6 +66,10 @@ const struct switchtec_evcntr_type_list switchtec_evcntr_type_list[] = {
 	ENTRY(NON_POSTED_TLP, "Non-Posted TLP"),
 	{0}};
 
+/**
+ * @brief Get the number of event counter types
+ * @return The number of types
+ */
 int switchtec_evcntr_type_count(void)
 {
 	const struct switchtec_evcntr_type_list *t;
@@ -71,6 +80,17 @@ int switchtec_evcntr_type_count(void)
 	return i;
 }
 
+/**
+ * @brief Get a string for the event indicated by
+ *	lowest bit set in the type_mask
+ * @param[in,out] type_mask	Bitmask of types
+ * @return Name string
+ *
+ * Clears the lowest bit in \p type_mask and returns the string
+ * corresponding to that type. Thus, this function can be used in
+ * a loop to print a list of strings representing a bit mask of
+ * types.
+ */
 const char *switchtec_evcntr_type_str(int *type_mask)
 {
 	const struct switchtec_evcntr_type_list *t;
@@ -86,6 +106,14 @@ const char *switchtec_evcntr_type_str(int *type_mask)
 	return NULL;
 }
 
+/**
+ * @brief Setup an event counter performance monitor
+ * @param[in] dev	Switchtec device handle
+ * @param[in] stack_id	Stack to setup this counter in
+ * @param[in] cntr_id   Counter ID to setup
+ * @param[in] setup	Event counter setup structure
+ * @return 0 on success, error code on failure
+ */
 int switchtec_evcntr_setup(struct switchtec_dev *dev, unsigned stack_id,
 			   unsigned cntr_id,
 			   struct switchtec_evcntr_setup *setup)
@@ -149,6 +177,18 @@ static int evcntr_get(struct switchtec_dev *dev, int sub_cmd,
 	return 0;
 }
 
+/**
+ * @brief Retrieve the setup information for one or more event counters
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  stack_id	Stack to setup this counter in
+ * @param[in]  cntr_id  First counter ID to retrieve
+ * @param[in]  nr_cntrs	Number of counters to retrieve
+ * @param[out] res	List of event counter setup structures
+ *	(at least \p nr_cntrs elements)
+ * @return 0 on success, error code on failure
+ *
+ * Retrieves \p nr_cntrs setup structures sequentially starting at \p cntr_id
+ */
 int switchtec_evcntr_get_setup(struct switchtec_dev *dev, unsigned stack_id,
 			       unsigned cntr_id, unsigned nr_cntrs,
 			       struct switchtec_evcntr_setup *res)
@@ -178,6 +218,20 @@ int switchtec_evcntr_get_setup(struct switchtec_dev *dev, unsigned stack_id,
 	return nr_cntrs;
 }
 
+/**
+ * @brief Retrieve the current counts for one or more event counters
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  stack_id	Stack to setup this counter in
+ * @param[in]  cntr_id   Counter ID to setup
+ * @param[in]  nr_cntrs	Number of counters to retrieve
+ * @param[out] res	List of unsigned values to return the
+ *	current counts in (at least \p nr_cntrs elements)
+ * @param[in]  clear	If non-zero, clear all the retrieved counters
+ *	to zero
+ * @return 0 on success, error code on failure
+ *
+ * Retrieves \p nr_cntrs counter values sequentially starting at \p cntr_id
+ */
 int switchtec_evcntr_get(struct switchtec_dev *dev, unsigned stack_id,
 			 unsigned cntr_id, unsigned nr_cntrs, unsigned *res,
 			 int clear)
@@ -203,6 +257,25 @@ int switchtec_evcntr_get(struct switchtec_dev *dev, unsigned stack_id,
 	return nr_cntrs;
 }
 
+/**
+ * @brief Retrieve the current counts and setup information for one
+ * 	or more event counters
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  stack_id	Stack to setup this counter in
+ * @param[in]  cntr_id   Counter ID to setup
+ * @param[in]  nr_cntrs	Number of counters to retrieve
+ * @param[out] setup	List of event counter setup structures
+ *	(at least \p nr_cntrs elements)
+ * @param[out] counts	List of unsigned values to return the
+ *	current counts in (at least \p nr_cntrs elements)
+ * @param[in]  clear	If non-zero, clear all the retrieved counters
+ *	to zero
+ * @return 0 on success, error code on failure
+ *
+ * Retrieves \p nr_cntrs counter values and setup structures sequentially
+ * starting at \p cntr_id. This is equivalent to calling switchtec_evcntr_get()
+ * and switchtec_evcntr_get_setup().
+ */
 int switchtec_evcntr_get_both(struct switchtec_dev *dev, unsigned stack_id,
 			      unsigned cntr_id, unsigned nr_cntrs,
 			      struct switchtec_evcntr_setup *setup,
@@ -219,6 +292,14 @@ int switchtec_evcntr_get_both(struct switchtec_dev *dev, unsigned stack_id,
 				    counts, clear);
 }
 
+/**
+ * @brief Block until any event counter has reached its threshold
+ * @param[in] dev		Switchtec device handle
+ * @param[in] timeout_ms	Stop waiting after the specified number
+ * 	of milliseconds
+ * @return 1 if the event occurred, 0 if a timeout occurred, a negative
+ * 	value if an error occurred
+ */
 int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms)
 {
 	return switchtec_event_wait_for(dev, SWITCHTEC_PFF_EVT_THRESH,
@@ -226,6 +307,13 @@ int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms)
 					NULL, timeout_ms);
 }
 
+/**
+ * @brief Subtract all the values between two bwcntr result structures
+ * @param[in,out] new
+ * @param[in] old
+ *
+ * \p new will have it's original values minus all the values in \p old
+ */
 void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
 			  struct switchtec_bwcntr_res *old)
 {
@@ -238,6 +326,18 @@ void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
 	new->ingress.comp -= old->ingress.comp;
 }
 
+/**
+ * @brief Retrieve the bandwidth counter results for a number of ports
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  nr_ports		Number of ports to retrieve
+ * @param[in]  phys_port_ids	The physical ids for each port to retrieve
+ * @param[in]  clear		If non-zero, clear all the retrieved
+ *	counters o zero
+ * @param[out] res	List of bandwidth counter results structures
+ *	(at least \p nr_ports elements)
+ * @return number of ports retrieved on success, negative error
+ *	code on failure
+ */
 int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 			  int *phys_port_ids, int clear,
 			  struct switchtec_bwcntr_res *res)
@@ -276,6 +376,18 @@ int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 	return nr_ports;
 }
 
+/**
+ * @brief Retrieve the bandwidth counter results for all the
+ *	ports in the system
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  clear	If non-zero, clear all the retrieved counters
+ * @param[out] ports	Allocated array of ports retrieved
+ * @param[out] res	Allocated array of bandwidth counter results
+ * @return 0 on success, error code on failure
+ *
+ * \p ports and \p res should be freed with free() once they are finished
+ * with.
+ */
 int switchtec_bwcntr_all(struct switchtec_dev *dev, int clear,
 			 struct switchtec_port_id **ports,
 			 struct switchtec_bwcntr_res **res)
@@ -311,11 +423,25 @@ int switchtec_bwcntr_all(struct switchtec_dev *dev, int clear,
 	return ret;
 }
 
+/**
+ * @brief Get the total
+ * @param[in] d Bandwidth counter direction result
+ * @return The total number for posted, non-posted and completions
+ */
 uint64_t switchtec_bwcntr_tot(struct switchtec_bwcntr_dir *d)
 {
 	return d->posted + d->nonposted + d->comp;
 }
 
+/**
+ * @brief Setup a number of latency counters
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  nr_ports		Number of latency counters to setup
+ * @param[in]  egress_port_ids	A list of port ids for the egress of the TLP
+ * @param[in]  ingress_port_ids	A list of port ids for the ingress of the TLP
+ *	(may be SWITCHTEC_LAT_ALL_INGRESS for all ports)
+ * @return 0 on success, error code on failure
+ */
 int switchtec_lat_setup_many(struct switchtec_dev *dev, int nr_ports,
 			     int *egress_port_ids, int *ingress_port_ids)
 {
@@ -337,6 +463,15 @@ int switchtec_lat_setup_many(struct switchtec_dev *dev, int nr_ports,
 	return switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, NULL, 0);
 }
 
+/**
+ * @brief Setup a latency counter
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  egress_port_id	The port id for the egress of the TLP
+ * @param[in]  ingress_port_id	The port id for the ingress of the TLP
+ *	(may be SWITCHTEC_LAT_ALL_INGRESS for all ports)
+ * @param[in]  clear		If non-zero, clear the latency counter
+ * @return 0 on success, error code on failure
+ */
 int switchtec_lat_setup(struct switchtec_dev *dev, int egress_port_id,
 			int ingress_port_id, int clear)
 {
@@ -353,6 +488,18 @@ int switchtec_lat_setup(struct switchtec_dev *dev, int egress_port_id,
 	return switchtec_lat_get(dev, 1, egress_port_id, NULL, NULL);
 }
 
+/**
+ * @brief Get a number of latency counter results
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  nr_ports		Number of latency counters to retrieve
+ * @param[in]  clear		If non-zero, clear the latency counters
+ * @param[in]  egress_port_ids	A list of port ids for the counters to return
+ * @param[out] cur_ns		A list of current latency values
+ * @param[out] max_ns		A list of maximum latency values
+ * @return 0 on success, error code on failure
+ *
+ * Results are reported in nanoseconds.
+ */
 int switchtec_lat_get_many(struct switchtec_dev *dev, int nr_ports,
 			   int clear, int *egress_port_ids,
 			   int *cur_ns, int *max_ns)
@@ -389,6 +536,18 @@ int switchtec_lat_get_many(struct switchtec_dev *dev, int nr_ports,
 	return nr_ports;
 }
 
+/**
+ * @brief Get a single latency counter result
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  clear		If non-zero, clear the latency counter
+ * @param[in]  egress_port_ids	The egress port of the latency counter
+ *	to retrieve
+ * @param[out] cur_ns		The current latency value
+ * @param[out] max_ns		The maximum latency value
+ * @return 0 on success, error code on failure
+ *
+ * Results are reported in nanoseconds.
+ */
 int switchtec_lat_get(struct switchtec_dev *dev, int clear,
 		      int egress_port_ids, int *cur_ns,
 		      int *max_ns)
