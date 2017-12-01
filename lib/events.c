@@ -38,6 +38,20 @@
 #include <string.h>
 #include <strings.h>
 
+/**
+ * @defgroup Event Event Management
+ * @brief List and wait for switch events
+ *
+ * switchtec_event_info() provides an interface to list all possible switch
+ * events. switchtec_event_summary() gives a bitmask of events that have
+ * occured since they were last cleared. switchtec_event_ctl() can be used
+ * to clear and event or manage what happens when an event occurs.
+ * switchtec_event_wait_for() may be used to block until a specific event
+ * occurs.
+ *
+ * @{
+ */
+
 #define EV(t, n, s, d)[SWITCHTEC_ ## t ## _EVT_ ## n] = {\
 	.type = t, \
 	.summary_bit = (1 << (s)), \
@@ -396,3 +410,5 @@ next:
 			return 0;
 	}
 }
+
+/**@}*/

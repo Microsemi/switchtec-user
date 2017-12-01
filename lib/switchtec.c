@@ -40,6 +40,20 @@
 #include <errno.h>
 
 /**
+ * @defgroup Device Switchtec Management
+ * @brief Functions to list, open and perform basic operations on Switchtec devices
+ *
+ * switchtec_list() may be used to list all the devices in the system. The
+ * devices may then be opened using switchtec_open(). There are a number of
+ * other functions to open devices by more specific information but
+ * switchtec_open() is prefered and covers all cases.
+ *
+ * MRPC commands may be submitted to an open switch handle with switchtec_cmd() and
+ * port status information may be retrieved with switchtec_status().
+ * @{
+ */
+
+/**
  * @brief Open a Switchtec device by string
  * @param[in] device A string representing the device to open
  * @return A switchtec_dev structure for use in other library functions
@@ -114,40 +128,6 @@ PURE const char *switchtec_name(struct switchtec_dev *dev)
 PURE int switchtec_partition(struct switchtec_dev *dev)
 {
 	return dev->partition;
-}
-
-/**
- * @brief Perform an MRPC echo command
- * @param[in]  dev    Switchtec device handle
- * @param[in]  input  The input data for the echo command
- * @param[out] output The result of the echo command
- * @return 0 on success, error code on failure
- *
- * The echo command takes 4 bytes and returns the bitwise-not of those
- * bytes.
- */
-int switchtec_echo(struct switchtec_dev *dev, uint32_t input,
-		   uint32_t *output)
-{
-	return switchtec_cmd(dev, MRPC_ECHO, &input, sizeof(input),
-			     output, sizeof(output));
-}
-
-/**
- * @brief Perform an MRPC hard reset command
- * @param[in] dev Switchtec device handle
- * @return 0 on success, error code on failure
- *
- * Note: if your system does not support hotplug this may leave
- * the Switchtec device in an unusable state. A reboot would be
- * required to fix this.
- */
-int switchtec_hard_reset(struct switchtec_dev *dev)
-{
-	uint32_t subcmd = 0;
-
-	return switchtec_cmd(dev, MRPC_RESET, &subcmd, sizeof(subcmd),
-			     NULL, 0);
 }
 
 static const char *ltssm_str(int ltssm, int show_minor)
@@ -411,6 +391,48 @@ void switchtec_perror(const char *str)
 	fprintf(stderr, "%s: %s\n", str, msg);
 }
 
+/**@}*/
+
+/**
+ * @defgroup Misc Miscellaneous Commands
+ * @brief Various functions that fit don't fit into other categories
+ * @{
+ */
+
+/**
+ * @brief Perform an MRPC echo command
+ * @param[in]  dev    Switchtec device handle
+ * @param[in]  input  The input data for the echo command
+ * @param[out] output The result of the echo command
+ * @return 0 on success, error code on failure
+ *
+ * The echo command takes 4 bytes and returns the bitwise-not of those
+ * bytes.
+ */
+int switchtec_echo(struct switchtec_dev *dev, uint32_t input,
+		   uint32_t *output)
+{
+	return switchtec_cmd(dev, MRPC_ECHO, &input, sizeof(input),
+			     output, sizeof(output));
+}
+
+/**
+ * @brief Perform an MRPC hard reset command
+ * @param[in] dev Switchtec device handle
+ * @return 0 on success, error code on failure
+ *
+ * Note: if your system does not support hotplug this may leave
+ * the Switchtec device in an unusable state. A reboot would be
+ * required to fix this.
+ */
+int switchtec_hard_reset(struct switchtec_dev *dev)
+{
+	uint32_t subcmd = 0;
+
+	return switchtec_cmd(dev, MRPC_RESET, &subcmd, sizeof(subcmd),
+			     NULL, 0);
+}
+
 static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 {
 	int ret;
@@ -527,3 +549,5 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 
 	return temp / 100.;
 }
+
+/**@}*/

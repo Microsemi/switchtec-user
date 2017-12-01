@@ -39,6 +39,17 @@
 #include <string.h>
 
 /**
+ * @defgroup Firmware Firmware Management
+ * @brief Retrieve firmware information and update or retrieve images
+ *
+ * switchtec_fw_write_fd() may be used to update a Switchtec firmware
+ * image. switchtec_fw_read_fd() can retrieve a firmware image into a
+ * local file. switchtec_fw_img_info() and switchtec_fw_cfg_info() may
+ * be used to query information about the currently programmed images.
+ * @{
+ */
+
+/**
  * @brief Perform an MRPC echo command
  * @param[in]  dev      Switchtec device handle
  * @param[out] status   The current download status
@@ -833,3 +844,5 @@ int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 	return switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
 			     NULL, 0);
 }
+
+/**@}*/

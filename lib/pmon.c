@@ -35,6 +35,26 @@
 #include <stddef.h>
 #include <errno.h>
 
+/**
+ * @defgroup PMON Performance Monitor
+ * @brief Setup and query performance monitors in the switch
+ *
+ * switchtec_evcntr_setup() and switchtec_evcntr_get() may be used to
+ * setup and query switch event counters which can count errors or
+ * TLP packets through different ports.
+ *
+ * switchtec_bwcntr_many() and switchtec_bwcntr_all() may be used to
+ * retrieve byte counts through one or more ports in the system. When
+ * divided by time, these values provide the bandwidth through the
+ * switch ports.
+ *
+ * switchtec_lat_setup() and switchtec_lat_get() may be used to setup
+ * and query latency counter measurements to find out how long packets
+ * take to traverse the switch.
+ *
+ * @{
+ */
+
 #define ENTRY(x, h) {.mask=x, .name=#x, .help=h}
 
 const struct switchtec_evcntr_type_list switchtec_evcntr_type_list[] = {
@@ -555,3 +575,5 @@ int switchtec_lat_get(struct switchtec_dev *dev, int clear,
 	return switchtec_lat_get_many(dev, 1, clear, &egress_port_ids,
 				      cur_ns, max_ns);
 }
+
+/**@}*/

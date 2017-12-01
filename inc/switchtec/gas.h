@@ -28,12 +28,27 @@
 /**
  * @file
  * @brief GAS Accessor functions
+ */
+
+/**
+ * @defgroup GAS Global Address Space
+ * @brief Functions to access the Global Address Space (GAS)
+ *
+ * switchtec_gas_map() and switchtec_gas_unmap() map and unmap the GAS
+ * into the processes address space. Once mapped, the various gas_read and
+ * gas_write functions may be used to access the addresspace.
+ *
+ * Although on Linux and Windows, switchtec_gas_map() returns an addressable
+ * pointer, the data should not be accessed directly. Instead the accessor
+ * functions should be used. This will allow for support on systems that
+ * do not have direct access to the address space (ie. I2C or Ethernet).
  *
  * Note: these functions should _only_ be used in client code between
  * calls of switchtec_gas_map() and switchtec_gas_unmap(). This implies
  * the code will require full root priviliges in Linux. The functions may
  * also be used in platform specific code on platforms that have full
  * access to the GAS.
+ * @{
  */
 
 #include <switchtec/switchtec.h>
@@ -180,5 +195,7 @@ create_gas_write(uint64_t, 64);
 #define gas_reg_write64(dev, val, reg) gas_write64(val, &dev->gas_map->reg)
 
 #undef __force
+
+/**@}*/
 
 #endif
