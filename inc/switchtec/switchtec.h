@@ -119,7 +119,6 @@ struct switchtec_fw_image_info {
 	size_t image_len;
 	unsigned long crc;
 	int active;
-	int running;
 };
 
 struct switchtec_event_summary {
