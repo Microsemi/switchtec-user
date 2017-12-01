@@ -25,6 +25,11 @@
 #ifndef LIBSWITCHTEC_SWITCHTEC_H
 #define LIBSWITCHTEC_SWITCHTEC_H
 
+/**
+ * @file
+ * @brief Main Switchtec header
+ */
+
 #include "mrpc.h"
 #include "portable.h"
 #include "registers.h"
@@ -57,39 +62,57 @@ struct switchtec_dev;
 typedef __gas struct switchtec_gas *gasptr_t;
 #define SWITCHTEC_MAP_FAILED ((gasptr_t) -1)
 
+/**
+ * @brief Represents a Switchtec device in the switchtec_list() function
+ */
 struct switchtec_device_info {
-	char name[256];
-	char desc[256];
-	char pci_dev[256];
-	char product_id[32];
-	char product_rev[8];
-	char fw_version[32];
-	char path[PATH_MAX];
+	char name[256];		//!< Device name, eg. switchtec0
+	char desc[256];		//!< Device description, if available
+	char pci_dev[256];	//!< PCI BDF string
+	char product_id[32];	//!< Product ID
+	char product_rev[8];	//!< Product revision
+	char fw_version[32];	//!< Firmware version
+	char path[PATH_MAX];	//!< Path to the device
 };
 
+/**
+ * @brief Port identification
+ */
 struct switchtec_port_id {
-	unsigned char partition;
-	unsigned char stack;
-	unsigned char upstream;
-	unsigned char stk_id;
-	unsigned char phys_id;
-	unsigned char log_id;
+	unsigned char partition;	//!< Partition the port is in.
+					/*!< May be SWITCHTEC_UNBOUND_PORT. */
+	unsigned char stack;		//!< Stack number
+	unsigned char upstream;		//!< 1 if this is an upstream port
+	unsigned char stk_id;		//!< Port number within the stack
+	unsigned char phys_id;		//!< Physical port number
+	unsigned char log_id;		//!< Logical port number
 };
 
+/**
+ * @brief Port status structure
+ *
+ * \p pci_dev, \p vendor_id, \p device_id and \p class_devices are populated by
+ * switchtec_get_devices(). These are only available in Linux.
+ */
 struct switchtec_status {
-	struct switchtec_port_id port;
-	unsigned char cfg_lnk_width;
-	unsigned char neg_lnk_width;
-	unsigned char link_up;
-	unsigned char link_rate;
-	unsigned char ltssm;
-	const char *ltssm_str;
-	char *pci_dev;
-	int vendor_id;
-	int device_id;
-	char *class_devices;
+	struct switchtec_port_id port;	//!< Port ID
+	unsigned char cfg_lnk_width;	//!< Configured link width
+	unsigned char neg_lnk_width;	//!< Negotiated link width
+	unsigned char link_up;		//!< 1 if the link is up
+	unsigned char link_rate;	//!< Link rate/gen
+	unsigned char ltssm;		//!< Link state
+	const char *ltssm_str;		//!< Link state as a string
+
+	char *pci_dev;			//!< PCI BDF of the port
+	int vendor_id;			//!< Vendor ID
+	int device_id;			//!< Device ID
+	char *class_devices;		//!< Comma seperated list of classes
 };
 
+/**
+ * @brief Describe the type of logs too dump
+ * @see switchtec_log_to_file()
+ */
 enum switchtec_log_type {
 	SWITCHTEC_LOG_RAM,
 	SWITCHTEC_LOG_FLASH,
@@ -100,6 +123,9 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_THRD,
 };
 
+/**
+ * @brief The types of fw partitions
+ */
 enum switchtec_fw_image_type {
 	SWITCHTEC_FW_TYPE_BOOT = 0x0,
 	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
@@ -112,23 +138,43 @@ enum switchtec_fw_image_type {
 	SWITCHTEC_FW_TYPE_SEEPROM = 0xFE,
 };
 
+/**
+ * @brief Information about a firmware image or partition
+ */
 struct switchtec_fw_image_info {
-	enum switchtec_fw_image_type type;
-	char version[32];
-	size_t image_addr;
-	size_t image_len;
-	unsigned long crc;
+	enum switchtec_fw_image_type type;	//!< Image type
+	char version[32];			//!< Firmware/Config version
+	size_t image_addr;			//!< Address of the image
+	size_t image_len;			//!< Length of the image
+	unsigned long crc;			//!< CRC checksum of the image
+
+	/**
+	 * @brief Flags indicating if an image is active and/or running
+	 * @see switchtec_fw_active_flags
+	 * @see switchtec_fw_active()
+	 * @see switchtec_fw_running()
+	 */
 	int active;
 };
 
+/**
+ * @brief Event summary bitmaps
+ */
 struct switchtec_event_summary {
-	uint64_t global;
-	uint64_t part_bitmap;
-	unsigned local_part;
+	uint64_t global;	//!< Bitmap of global events
+	uint64_t part_bitmap;	//!< Bitmap of partitions with active events
+	unsigned local_part;	//!< Bitmap of events in the local partition
+
+	/** @brief Bitmap of events in each partition */
 	unsigned part[SWITCHTEC_MAX_PARTS];
+
+	/** @brief Bitmap of events in each port function */
 	unsigned pff[SWITCHTEC_MAX_PORTS];
 };
 
+/**
+ * @brief Enumeration of all possible events
+ */
 enum switchtec_event_id {
 	SWITCHTEC_EVT_INVALID = -1,
 	SWITCHTEC_GLOBAL_EVT_STACK_ERROR,
@@ -215,11 +261,17 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  int fd);
 float switchtec_die_temp(struct switchtec_dev *dev);
 
+/** @brief Number of GT/s capable for each PCI generation or \p link_rate */
 static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16};
+/** @brief Number of GB/s capable for each PCI generation or \p link_rate */
 static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969};
 
 /*********** EVENT Handling ***********/
 
+/**
+ * @brief Event control flags
+ * @see switchtec_event_ctl()
+ */
 enum switchtec_event_flags {
 	SWITCHTEC_EVT_FLAG_CLEAR = 1 << 0,
 	SWITCHTEC_EVT_FLAG_EN_POLL = 1 << 1,
@@ -232,11 +284,22 @@ enum switchtec_event_flags {
 	SWITCHTEC_EVT_FLAG_DIS_FATAL = 1 << 8,
 };
 
-enum {
+/**
+ * @brief Special event indexes numbers.
+ *
+ * For specifying the local partition or all partitions/ports.
+ *
+ * @see switchtec_event_ctl()
+ */
+enum switchtec_event_special {
 	SWITCHTEC_EVT_IDX_LOCAL = -1,
 	SWITCHTEC_EVT_IDX_ALL = -2,
 };
 
+/**
+ * @brief There are three event types indicated by this enumeration:
+ * 	global, partition and port function
+ */
 enum switchtec_event_type {
 	SWITCHTEC_EVT_GLOBAL,
 	SWITCHTEC_EVT_PART,
@@ -262,6 +325,10 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 
 /******** FIRMWARE Management ********/
 
+/**
+ * @brief Firmware update status.
+ * @see switchtec_fw_dlstatus()
+ */
 enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_READY = 0,
 	SWITCHTEC_DLSTAT_INPROGRESS = 1,
@@ -275,26 +342,50 @@ enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
 };
 
+/**
+ * @brief Flag which indicates if a partition is read-only or not
+ */
 enum switchtec_fw_ro {
 	SWITCHTEC_FW_RW = 0,
 	SWITCHTEC_FW_RO = 1,
 };
 
-enum switchtec_fw_active {
+/**
+ * @brief Flags which indicates if a partition is active or running.
+ */
+enum switchtec_fw_active_flags {
 	SWITCHTEC_FW_PART_ACTIVE = 1,
 	SWITCHTEC_FW_PART_RUNNING = 2,
 };
 
+/**
+ * @brief Get whether a firmware partition is active.
+ *
+ * An active partition implies that it will be used the next
+ * time the switch is rebooted.
+ */
 static inline int switchtec_fw_active(struct switchtec_fw_image_info *inf)
 {
 	return inf->active & SWITCHTEC_FW_PART_ACTIVE;
 }
 
+/**
+ * @brief Get whether a firmware partition is active.
+ *
+ * An active partition implies that it will be used the next
+ * time the switch is rebooted.
+ */
 static inline int switchtec_fw_running(struct switchtec_fw_image_info *inf)
 {
 	return inf->active & SWITCHTEC_FW_PART_RUNNING;
 }
 
+
+/**
+ * @brief Raw firmware image header/footer
+ *
+ * Avoid using this directly
+ */
 struct switchtec_fw_footer {
 	char magic[4];
 	uint32_t image_len;
@@ -349,30 +440,37 @@ int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 
 /********** EVENT COUNTER *********/
 
+/**
+ * @brief Event counter type mask (may be or-d together)
+ */
 enum switchtec_evcntr_type_mask {
-	UNSUP_REQ_ERR = 1 << 0,
-	ECRC_ERR = 1 << 1,
-	MALFORM_TLP_ERR = 1 << 2,
-	RCVR_OFLOW_ERR = 1 << 3,
-	CMPLTR_ABORT_ERR = 1 << 4,
-	POISONED_TLP_ERR = 1 << 5,
-	SURPRISE_DOWN_ERR = 1 << 6,
-	DATA_LINK_PROTO_ERR = 1 << 7,
-	HDR_LOG_OFLOW_ERR = 1 << 8,
-	UNCOR_INT_ERR = 1 << 9,
-	REPLAY_TMR_TIMEOUT = 1 << 10,
-	REPLAY_NUM_ROLLOVER = 1 << 11,
-	BAD_DLPP = 1 << 12,
-	BAD_TLP = 1 << 13,
-	RCVR_ERR = 1 << 14,
-	RCV_FATAL_MSG = 1 << 15,
-	RCV_NON_FATAL_MSG = 1 << 16,
-	RCV_CORR_MSG = 1 << 17,
-	NAK_RCVD = 1 << 18,
-	RULE_TABLE_HIT = 1 << 19,
-	POSTED_TLP = 1 << 20,
-	COMP_TLP = 1 << 21,
-	NON_POSTED_TLP = 1 << 22,
+	UNSUP_REQ_ERR = 1 << 0,		//!< Unsupported Request Error
+	ECRC_ERR = 1 << 1,		//!< ECRC Error
+	MALFORM_TLP_ERR = 1 << 2,	//!< Malformed TLP Error
+	RCVR_OFLOW_ERR = 1 << 3,	//!< Receiver Overflow Error
+	CMPLTR_ABORT_ERR = 1 << 4,	//!< Completer Abort Error
+	POISONED_TLP_ERR = 1 << 5,	//!< Poisoned TLP Error
+	SURPRISE_DOWN_ERR = 1 << 6,	//!< Surprise Down Error
+	DATA_LINK_PROTO_ERR = 1 << 7,	//!< Data Link Protocol Error
+	HDR_LOG_OFLOW_ERR = 1 << 8,	//!< Header Log Overflow Error
+	UNCOR_INT_ERR = 1 << 9,		//!< Uncorrectable Internal Error
+	REPLAY_TMR_TIMEOUT = 1 << 10,	//!< Replay Timer Timeout
+	REPLAY_NUM_ROLLOVER = 1 << 11,	//!< Replay Number Rollover
+	BAD_DLPP = 1 << 12,		//!< Bad DLPP
+	BAD_TLP = 1 << 13,		//!< Bad TLP
+	RCVR_ERR = 1 << 14,		//!< Receiver Error
+	RCV_FATAL_MSG = 1 << 15,	//!< Receive FATAL Error Message
+	RCV_NON_FATAL_MSG = 1 << 16,	//!< Receive Non-FATAL Error Message
+	RCV_CORR_MSG = 1 << 17,		//!< Receive Correctable Error Message
+	NAK_RCVD = 1 << 18,		//!< NAK Received
+	RULE_TABLE_HIT = 1 << 19,	//!< Rule Search Table Rule Hit
+	POSTED_TLP = 1 << 20,		//!< Posted TLP
+	COMP_TLP = 1 << 21,		//!< Completion TLP
+	NON_POSTED_TLP = 1 << 22,	//!< Non-Posted TLP
+
+	/**
+	 * @brief Mask indicating all possible errors
+	 */
 	ALL_ERRORS = (UNSUP_REQ_ERR | ECRC_ERR | MALFORM_TLP_ERR |
 		      RCVR_OFLOW_ERR | CMPLTR_ABORT_ERR | POISONED_TLP_ERR |
 		      SURPRISE_DOWN_ERR | DATA_LINK_PROTO_ERR |
@@ -380,20 +478,41 @@ enum switchtec_evcntr_type_mask {
 		      REPLAY_TMR_TIMEOUT | REPLAY_NUM_ROLLOVER |
 		      BAD_DLPP | BAD_TLP | RCVR_ERR | RCV_FATAL_MSG |
 		      RCV_NON_FATAL_MSG | RCV_CORR_MSG | NAK_RCVD),
+	/**
+	 * @brief Mask indicating all TLP types
+	 */
 	ALL_TLPS = (POSTED_TLP | COMP_TLP | NON_POSTED_TLP),
+
+	/**
+	 * @brief Mask indicating all event types
+	 */
 	ALL = (1 << 23) - 1,
 };
 
+/**
+ * @brief Null-terminated list of all event counter types with a
+ *	name and help text.
+ */
 extern const struct switchtec_evcntr_type_list {
 	enum switchtec_evcntr_type_mask mask;
 	const char *name;
 	const char *help;
 } switchtec_evcntr_type_list[];
 
+/**
+ * @brief Structure used to setup an event counter
+ */
 struct switchtec_evcntr_setup {
-	unsigned port_mask;
+	unsigned port_mask;	//<! Mask of ports this counter counts
+
+	/** @brief Event counter types to count */
 	enum switchtec_evcntr_type_mask type_mask;
-	int egress;
+	int egress;		//<! If 1, count egress, otherwise on ingress
+
+	/**
+	 * @brief Threshold to count to before generating an interrupt
+	 * @see switchtec_evcntr_wait()
+	 */
 	unsigned threshold;
 };
 
@@ -416,13 +535,17 @@ int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms);
 
 /********** BANDWIDTH COUNTER *********/
 
+/**
+ * @brief Bandwidth counter result struct
+ */
 struct switchtec_bwcntr_res {
-	uint64_t time_us;
+	uint64_t time_us;		//!< Time (in microseconds)
 	struct switchtec_bwcntr_dir {
-		uint64_t posted;
-		uint64_t comp;
-		uint64_t nonposted;
-	} egress, ingress;
+		uint64_t posted;	//!< Posted TLP bytes
+		uint64_t comp;		//!< Completion TLP bytes
+		uint64_t nonposted;	//!< Non-Posted TLP bytes
+	} egress, 			//!< Bandwidth out of the port
+	  ingress;			//!< Bandwidth into the port
 };
 
 void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
