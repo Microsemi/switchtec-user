@@ -59,6 +59,9 @@ struct switchtec_dev;
 
 #define PURE __attribute__ ((pure))
 
+/**
+ * @brief Shortform for a pointer to the GAS register space
+ */
 typedef __gas struct switchtec_gas *gasptr_t;
 #define SWITCHTEC_MAP_FAILED ((gasptr_t) -1)
 
