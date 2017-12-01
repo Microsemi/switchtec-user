@@ -22,6 +22,11 @@
  *
  */
 
+/**
+ * @file
+ * @brief Switchtec core library functions for event management
+ */
+
 #include "switchtec_priv.h"
 
 #include "switchtec/switchtec.h"
@@ -142,6 +147,13 @@ static void set_all_pffs(struct switchtec_event_summary *sum, uint64_t bit)
 		sum->pff[i] |= bit;
 }
 
+/**
+ * @brief Set a bit corresponding to an event in a summary structure
+ * @param[in] sum	Summary structure to set the bit in
+ * @param[in] e		Event ID to set
+ * @param[in] index	Event index (partition or port, depending on event)
+ * @return 0 on success, or -EINVAL if the index was invalid
+ */
 int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 				enum switchtec_event_id e,
 				int index)
@@ -179,6 +191,13 @@ int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 	return 0;
 }
 
+/**
+ * @brief Test if a bit corresponding to an event is set in a summary structure
+ * @param[in] sum	Summary structure to set the bit in
+ * @param[in] e		Event ID to test
+ * @param[in] index	Event index (partition or port, depending on event)
+ * @return 1 if the bit is set, 0 otherwise
+ */
 int switchtec_event_summary_test(struct switchtec_event_summary *sum,
 				 enum switchtec_event_id e,
 				 int index)
@@ -197,6 +216,17 @@ int switchtec_event_summary_test(struct switchtec_event_summary *sum,
 	return 0;
 }
 
+/**
+ * @brief Iterate through all set bits in an event summary structure
+ * @param[in]  sum	Summary structure to set the bit in
+ * @param[out] e	Event ID which was set
+ * @param[out] idx	Event index (partition or port, depending on event)
+ * @return 1 if a bit is set, 0 otherwise
+ *
+ * This function is meant to be called in a loop. It finds the lowest
+ * bit set and returns the corresponding event id and index. It then
+ * clears that bit in the structure.
+ */
 int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
 				 enum switchtec_event_id *e,
 				 int *idx)
@@ -238,6 +268,14 @@ int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
 	return 0;
 }
 
+/**
+ * @brief Check if one or more events have occurred
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  chk	Summary structure with events to check
+ * @param[out] res	Returned current events summary, (may be NULL)
+ * @return 1 if one of the events in chk occurred, 0 otherwise or a
+ * 	negative value if an error occurred.
+ */
 int switchtec_event_check(struct switchtec_dev *dev,
 			  struct switchtec_event_summary *chk,
 			  struct switchtec_event_summary *res)
@@ -273,6 +311,14 @@ int switchtec_event_check(struct switchtec_dev *dev,
 	return 0;
 }
 
+/**
+ * @brief Get the name and description strings as well as the type (global,
+ *     partition or pff) for a specific event ID.
+ * @param[in]  e	Event ID to get the strings for
+ * @param[out] name	Name string of the event
+ * @param[out] desc	Description string of the event
+ * @return The event type
+ */
 enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
 					       const char **name,
 					       const char **desc)
@@ -286,6 +332,16 @@ enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
 	return events[e].type;
 }
 
+/**
+ * @brief Block until a specific event occurs
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  e		Event ID to wait for
+ * @param[in]  index		Event index (partition or port)
+ * @param[out] res		Current event summary set, after waiting
+ * @param[in]  timeout_ms	Timeout of this many milliseconds
+ * @return 1 if the event occurred, 0 on a timeout and a negative number
+ *	an error.
+ */
 int switchtec_event_wait_for(struct switchtec_dev *dev,
 			     enum switchtec_event_id e, int index,
 			     struct switchtec_event_summary *res,
