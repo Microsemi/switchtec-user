@@ -53,6 +53,15 @@
 
 #include <switchtec/switchtec.h>
 
+#ifdef SWITCHTEC_LIB_CORE
+#error "You should not be using GAS access functions in the core library."
+#endif
+
+#ifdef SWITCHTEC_LIB_LINUX
+#error "GAS Access functions should not be used on the Linux platform " \
+	"as the require full root access."
+#endif
+
 #ifdef __CHECKER__
 #define __force __attribute__((force))
 #else

@@ -27,6 +27,8 @@
  * @brief Switchtec core library functions for firmware operations
  */
 
+#define SWITCHTEC_LIB_CORE
+
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/errors.h"

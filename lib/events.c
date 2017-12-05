@@ -27,6 +27,8 @@
  * @brief Switchtec core library functions for event management
  */
 
+#define SWITCHTEC_LIB_CORE
+
 #include "switchtec_priv.h"
 
 #include "switchtec/switchtec.h"

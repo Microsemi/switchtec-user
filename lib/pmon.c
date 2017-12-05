@@ -27,6 +27,8 @@
  * @brief Switchtec core library functions for performance monitoring
  */
 
+#define SWITCHTEC_LIB_CORE
+
 #include "switchtec/pmon.h"
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
