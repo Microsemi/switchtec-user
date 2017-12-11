@@ -1,0 +1,42 @@
+
+div.header, div.contents, .textblock {
+    max-width: 60em;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+div.header {
+    border: none;
+    background-image: none;
+    background-color: inherit;
+}
+
+div.headertitle {
+    padding: 0px;
+}
+
+.title {
+    font-size: 2em;
+    -webkit-margin-before: 0.67em;
+    -webkit-margin-after: 0.67em;
+    -webkit-margin-start: 0px;
+    -webkit-margin-end: 0px;
+    font-weight: bold;
+}
+
+h1 {
+    margin-top: 1.5em;
+}
+
+hr.footer {
+    margin-top: 5em;
+}
+
+div.summary {
+    width: 30%;
+}
+
+.memItemRight {
+     padding-left: 5em;
+     text-indent: -5em;
+}

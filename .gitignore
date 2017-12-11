@@ -13,3 +13,4 @@ config.status
 Makefile
 config.h
 examples/temp
+doc/doxygen/
