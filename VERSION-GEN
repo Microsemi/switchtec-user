@@ -26,7 +26,9 @@
 #
 ########################################################################
 
+ROOTDIR=$(dirname "$0")
 OBJDIR=${OBJDIR:-build}
+DOCDIR=${DOCDIR:-$ROOTDIR/doc}
 GVF=$OBJDIR/version.h
 MVF=$OBJDIR/version.mk
 DEF_VER=???
@@ -36,9 +38,9 @@ LF='
 
 # First see if there is a version file (included in release tarballs),
 # then try git-describe, then default.
-if test -f version; then
+if test -f $ROOTDIR/version; then
 	VN=$(cat version) || VN="$DEF_VER"
-elif test -d .git -o -f .git; then
+elif test -d $ROOTDIR/.git -o -f $ROOTDIR/.git; then
     VN=$(git describe --always --tags --match "v[0-9]*" HEAD 2>/dev/null)
 
     git update-index -q --refresh
@@ -51,11 +53,15 @@ fi
 VN=$(expr "$VN" : v*'\(.*\)')
 MVN=$(expr "$VN" : v*'\([0-9.]*\)')
 
-VN_RE='^([0-9]+)\.([0-9]+)(-rc[0-9]+)?(-([0-9]+)-g([A-Za-z0-9]+))?'
+VN_RE='^([0-9]+)\.([0-9]+)(.([0-9]+))?(-rc[0-9]+)?(-([0-9]+)-g([A-Za-z0-9]+))?'
 if [[ $VN =~ $VN_RE ]]; then
     MAJOR=${BASH_REMATCH[1]}
     MINOR=${BASH_REMATCH[2]}
-    SINCE_TAG=${BASH_REMATCH[5]}
+    PATCH=${BASH_REMATCH[4]}
+    if [[ "$PATCH" -eq "" ]]; then
+        PATCH=0
+    fi
+    SINCE_TAG=${BASH_REMATCH[7]}
     if [[ "$SINCE_TAG" -eq "" ]]; then
         SINCE_TAG=0
     fi
@@ -65,22 +71,28 @@ else
     SINCE_TAG=0
 fi
 
-if test -r $GVF
-then
-	VC=$(head -n1 $GVF | sed -e 's/^#define VERSION //')
-	VC="${VC%\"}"
-	VC="${VC#\"}"
-else
-	VC=unset
+
+if test -d $OBJDIR; then
+
+	if test -r $GVF; then
+		VC=$(head -n1 $GVF | sed -e 's/^#define VERSION //')
+		VC="${VC%\"}"
+		VC="${VC#\"}"
+	else
+		VC=unset
+	fi
+
+	test "$VN" = "$VC" || {
+		echo "  VER   $VN"
+		echo "#define VERSION \"$VN\"" >$GVF
+		echo "#define MAJOR $MAJOR" >>$GVF
+		echo "#define MINOR $MINOR" >>$GVF
+		echo "#define PATCH $PATCH" >>$GVF
+		echo "#define SINCE_TAG $SINCE_TAG" >>$GVF
+
+		echo "VERSION=$MVN" >$MVF
+		echo "FULL_VERSION=$VN" >>$MVF
+	}
 fi
 
-test "$VN" = "$VC" || {
-	echo "  VER   $VN"
-	echo "#define VERSION \"$VN\"" >$GVF
-	echo "#define MAJOR $MAJOR" >>$GVF
-	echo "#define MINOR $MINOR" >>$GVF
-	echo "#define SINCE_TAG $SINCE_TAG" >>$GVF
-
-	echo "VERSION=$MVN" >$MVF
-	echo "FULL_VERSION=$VN" >>$MVF
-}
+echo "PROJECT_NUMBER = \"$VN\"" > $DOCDIR/version
