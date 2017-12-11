@@ -20,7 +20,7 @@ Currently the following features are supported:
 * A simple ncurses GUI that shows salient information for the switch
 
 Detailed documentation for the project can be found on the [Github
-Pages] site for this project.
+Pages] site.
 
 [switchtec-kernel]: https://github.com/Microsemi/switchtec-kernel
 [github pages]: https://microsemi.github.io/switchtec-user/
