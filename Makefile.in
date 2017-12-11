@@ -1,3 +1,4 @@
+
 # @configure_input@
 
 ########################################################################
@@ -181,7 +182,10 @@ dist:
 	xz -f $(PKG).tar
 	rm -f version
 
-.PHONY: clean compile install unintsall install-bin install-bash-completion
+doc:
+	make -C doc
+
+.PHONY: clean compile install unintsall install-bin install-bash-completion doc
 .PHONY: FORCE
 
 

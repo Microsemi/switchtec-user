@@ -16,3 +16,4 @@ examples/temp
 doc/doxygen/
 doc/*.log
 doc/gh-pages
+doc/version

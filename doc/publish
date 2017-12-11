@@ -3,7 +3,7 @@
 DOC_DIR=doxygen/html
 REPO=git@github.com:Microsemi/switchtec-user.git
 
-doxygen > doxygen.log 2>&1
+make
 
 git clone -b gh-pages $REPO gh-pages
 
