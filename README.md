@@ -5,8 +5,7 @@
 The code hosted here provides an easy to use CLI and C library for
 communicating with Microsemi's Switchtec management interface. It
 utilizes the switchtec kernel module which, with luck, will be upstream
-for 4.11. Otherwise it can be obtained from the
-[switchtec-kernel](https://github.com/sbates130272/switchtec-kernel)
+for 4.11. Otherwise it can be obtained from the [switchtec-kernel]
 github repository and compiled for other supported kernels.
 
 Currently the following features are supported:
@@ -19,6 +18,12 @@ Currently the following features are supported:
 * Send a hard reset command to the switch
 * Update and readback firmware as well as display image version and CRC info
 * A simple ncurses GUI that shows salient information for the switch
+
+Detailed documentation for the project can be found on the [Github
+Pages] site for this project.
+
+[switchtec-kernel]: https://github.com/Microsemi/switchtec-kernel
+[github pages]: https://microsemi.github.io/switchtec-user/
 
 ## Dependencies
 
@@ -51,12 +56,6 @@ pacman -S --needed base-devel mingw-w64-i686-toolchain mingw-w64-x86_64-toolchai
 
 3. Close the MSYS2 shell, open an MINGW64 shell, checkout the project
 and follow the above installation instructions as usual.
-
-## TODO List
-
-* Documention: Library documentation needs to be written as well as
-man pages for the commands.
-* Optional JSON output for various data based commands
 
 ## Demos
 

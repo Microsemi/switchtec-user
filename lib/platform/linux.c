@@ -24,6 +24,8 @@
 
 #ifdef __linux__
 
+#define SWITCHTEC_LIB_LINUX
+
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
 

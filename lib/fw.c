@@ -22,6 +22,13 @@
  *
  */
 
+/**
+ * @file
+ * @brief Switchtec core library functions for firmware operations
+ */
+
+#define SWITCHTEC_LIB_CORE
+
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/errors.h"
@@ -33,6 +40,24 @@
 #include <stdio.h>
 #include <string.h>
 
+/**
+ * @defgroup Firmware Firmware Management
+ * @brief Retrieve firmware information and update or retrieve images
+ *
+ * switchtec_fw_write_fd() may be used to update a Switchtec firmware
+ * image. switchtec_fw_read_fd() can retrieve a firmware image into a
+ * local file. switchtec_fw_img_info() and switchtec_fw_cfg_info() may
+ * be used to query information about the currently programmed images.
+ * @{
+ */
+
+/**
+ * @brief Perform an MRPC echo command
+ * @param[in]  dev      Switchtec device handle
+ * @param[out] status   The current download status
+ * @param[out] bgstatus The current MRPC background status
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus)
@@ -60,6 +85,15 @@ int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 	return 0;
 }
 
+/**
+ * @brief Wait for a firmware download chunk to complete
+ * @param[in]  dev      Switchtec device handle
+ * @param[out] status   The current download status
+ * @return 0 on success, error code on failure
+ *
+ * Polls the firmware download status waiting until it no longer
+ * indicates it's INPROGRESS. Sleeps 5ms between each poll.
+ */
 int switchtec_fw_wait(struct switchtec_dev *dev,
 		      enum switchtec_fw_dlstatus *status)
 {
@@ -81,6 +115,14 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 	return 0;
 }
 
+/**
+ * @brief Toggle the active firmware partition for the main or configuration
+ *	images.
+ * @param[in] dev        Switchtec device handle
+ * @param[in] toggle_fw  Set to 1 to toggle the main FW image
+ * @param[in] toggle_cfg Set to 1 to toggle the config FW image
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_fw, int toggle_cfg)
 {
@@ -110,6 +152,15 @@ struct cmd_fwdl {
 	uint8_t data[MRPC_MAX_DATA_LEN - sizeof(struct cmd_fwdl_hdr)];
 };
 
+/**
+ * @brief Write a firmware file to the switchtec device
+ * @param[in] dev		Switchtec device handle
+ * @param[in] img_fd		File descriptor for the image file to write
+ * @param[in] dont_activate	If 1, the new image will not be activated
+ * @param[in] progress_callback If not NULL, this function will be called to
+ * 	indicate the progress.
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate,
 			  void (*progress_callback)(int cur, int tot))
@@ -189,6 +240,15 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 	return status;
 }
 
+/**
+ * @brief Write a firmware file to the switchtec device
+ * @param[in] dev		Switchtec device handle
+ * @param[in] fimg		FILE pointer for the image file to write
+ * @param[in] dont_activate	If 1, the new image will not be activated
+ * @param[in] progress_callback If not NULL, this function will be called to
+ * 	indicate the progress.
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 			    int dont_activate,
 			    void (*progress_callback)(int cur, int tot))
@@ -269,6 +329,14 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 	return status;
 }
 
+/**
+ * @brief Print an error string to stdout
+ * @param[in] s		String that will be prefixed to the error message
+ * @param[in] ret 	The value returned by the firmware function
+ *
+ * This can be called after Switchtec firmware function returned an error
+ * to find out what caused the problem.
+ */
 void switchtec_fw_perror(const char *s, int ret)
 {
 	const char *msg;
@@ -308,6 +376,12 @@ struct fw_image_header {
 	uint32_t image_crc;
 };
 
+/**
+ * @brief Retrieve information about a firmware image file
+ * @param[in]  fd	File descriptor for the image file to inspect
+ * @param[out] info	Structure populated with information about the file
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 {
 	int ret;
@@ -338,6 +412,11 @@ invalid_file:
 	return -errno;
 }
 
+/**
+ * @brief Return a string describing the type of a firmware image
+ * @param[out] info Information structure to return the type string for
+ * @return Type string
+ */
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 {
 	switch((unsigned long)info->type) {
@@ -361,6 +440,15 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
+/**
+ * @brief Return firmware information structures for a number of firmware
+ *	partitions.
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  nr_info 	Number of partitions to retrieve the info for
+ * @param[out] info	Pointer to a list of info structs of at least
+ *	\p nr_info entries
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			   struct switchtec_fw_image_info *info)
 {
@@ -460,6 +548,17 @@ static int get_multicfg(struct switchtec_dev *dev,
 	return 0;
 }
 
+/**
+ * @brief Return firmware information structures for the active, inactive
+ *	and multi configuration partitions
+ * @param[in]  dev		Switchtec device handle
+ * @param[out] act_cfg		Info structure for the active partition
+ * @param[out] inact_cfg	Info structure for the inactive partition
+ * @param[out] mult_cfg		List of info structure for the multi-configs
+ * @param[in,out] nr_mult	Maximum number of multi-config structures to
+ * 	populate, on return the number actually populated.
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_cfg_info(struct switchtec_dev *dev,
 			  struct switchtec_fw_image_info *act_cfg,
 			  struct switchtec_fw_image_info *inact_cfg,
@@ -495,6 +594,14 @@ int switchtec_fw_cfg_info(struct switchtec_dev *dev,
 	return get_multicfg(dev, mult_cfg, nr_mult);
 }
 
+/**
+ * @brief Return firmware information structures for the active and inactive
+ *	image partitions
+ * @param[in]  dev		Switchtec device handle
+ * @param[out] act_img		Info structure for the active partition
+ * @param[out] inact_img	Info structure for the inactive partition
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_img_info(struct switchtec_dev *dev,
 			  struct switchtec_fw_image_info *act_img,
 			  struct switchtec_fw_image_info *inact_img)
@@ -525,6 +632,14 @@ int switchtec_fw_img_info(struct switchtec_dev *dev,
 	return 0;
 }
 
+/**
+ * @brief Read a Switchtec device's flash data
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  addr	Address to read from
+ * @param[in]  len	Number of bytes to read
+ * @param[out] buf	Destination buffer to read the data to
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf)
 {
@@ -558,6 +673,17 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 	return read;
 }
 
+/**
+ * @brief Read a Switchtec device's flash data into a file
+ * @param[in] dev	Switchtec device handle
+ * @param[in] fd	File descriptor of the file to save the firmware
+ *	data to
+ * @param[in] addr	Address to read from
+ * @param[in] len	Number of bytes to read
+ * @param[in] progress_callback This function is called periodically to
+ *	indicate the progress of the read. May be NULL.
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 			 unsigned long addr, size_t len,
 			 void (*progress_callback)(int cur, int tot))
@@ -598,6 +724,17 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	return read;
 }
 
+/**
+ * @brief Read a Switchtec device's firmware partition footer
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  partition_start	Partition start address
+ * @param[in]  partition_len	Partition length
+ * @param[out] ftr		The footer structure to populate
+ * @param[out] version		Optional pointer to a string which will
+ *	be populated with a human readable string of the version
+ * @param[in]  version_len	Maximum length of the version string
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_read_footer(struct switchtec_dev *dev,
 			     unsigned long partition_start,
 			     size_t partition_len,
@@ -627,6 +764,13 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 	return 0;
 }
 
+/**
+ * @brief Write the header for a Switchtec firmware image file
+ * @param[in]  fd	File descriptor for image file to write
+ * @param[in]  ftr	Footer information to include in the header
+ * @param[in]  type	File type to record in the header
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type)
 {
@@ -650,6 +794,12 @@ struct switchtec_boot_ro {
 	uint8_t reserved;
 };
 
+/**
+ * @brief Check if the boot partition is marked as read-only
+ * @param[in]  dev	Switchtec device handle
+ * @return 1 if the partition is read-only, 0 if it's not or
+ * 	a negative value if an error occurred
+ */
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev)
 {
 	struct switchtec_boot_ro subcmd = {
@@ -678,6 +828,12 @@ int switchtec_fw_is_boot_ro(struct switchtec_dev *dev)
 	return result.status;
 }
 
+/**
+ * @brief Set or clear a boot partition's read-only flag
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  ro	Whether to set or clear the read-only flag
+ * @return 0 on success, error code on failure
+ */
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro)
 {
@@ -690,3 +846,5 @@ int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 	return switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
 			     NULL, 0);
 }
+
+/**@}*/
