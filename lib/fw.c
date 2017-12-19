@@ -576,7 +576,7 @@ int switchtec_fw_cfg_info(struct switchtec_dev *dev,
 	if (ret < 0)
 		return ret;
 
-	if (info[0].active) {
+	if (switchtec_fw_active(&info[0])) {
 		if (act_cfg)
 			memcpy(act_cfg, &info[0], sizeof(*act_cfg));
 		if (inact_cfg)
@@ -617,7 +617,7 @@ int switchtec_fw_img_info(struct switchtec_dev *dev,
 	if (ret < 0)
 		return ret;
 
-	if (info[0].active) {
+	if (switchtec_fw_active(&info[0])) {
 		if (act_img)
 			memcpy(act_img, &info[0], sizeof(*act_img));
 		if (inact_img)
