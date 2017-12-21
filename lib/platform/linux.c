@@ -294,7 +294,7 @@ int switchtec_list(struct switchtec_device_info **devlist)
 	struct dirent **devices;
 	int i, n;
 	char link_path[PATH_MAX];
-	char pci_path[PATH_MAX];
+	char pci_path[PATH_MAX] = "";
 	struct switchtec_device_info *dl;
 
 	n = scandir(sys_path, &devices, scan_dev_filter, alphasort);
