@@ -622,7 +622,7 @@ int switchtec_flash_part(struct switchtec_dev *dev,
 
 	case SWITCHTEC_FW_TYPE_DAT1:
 		active_addr = gas_read32(&fi->active_cfg.address);
-		set_fw_info_part(info, &fi->cfg0);
+		set_fw_info_part(info, &fi->cfg1);
 
 		if (gas_read16(&si->cfg_running) == SWITCHTEC_CFG1_RUNNING)
 			info->active |= SWITCHTEC_FW_PART_RUNNING;
