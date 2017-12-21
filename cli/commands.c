@@ -179,7 +179,7 @@ static int help(int argc, char **argv, struct subcommand *subcmd,
 	if (getenv(COMPLETE_ENV))
 		print_completions(subcmd->cmds);
 
-	if (argc == 1) {
+	if (argc == 1 || !strcmp(argv[1], "help")) {
 		general_help(subcmd, prog_info);
 		return 0;
 	}
