@@ -166,6 +166,7 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 #else /* _WIN32 defined */
 
 #include <fcntl.h>
+#include <signal.h>
 
 static int spawn(char *exe, int fd_in, int fd_out, int fd_err,
 		  PROCESS_INFORMATION *pi)
@@ -191,11 +192,28 @@ static int spawn(char *exe, int fd_in, int fd_out, int fd_err,
 	return 0;
 }
 
+static PROCESS_INFORMATION proc_info;
+
+static void wait_for_less(void)
+{
+	if (!proc_info.hProcess)
+		return;
+
+	WaitForSingleObject(proc_info.hProcess, INFINITE);
+	CloseHandle(proc_info.hProcess);
+	CloseHandle(proc_info.hThread);
+}
+
+static void int_handler(int sig)
+{
+	wait_for_less();
+	exit(0);
+}
+
 static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 {
 	int ret;
 	int fd_stdout;
-	PROCESS_INFORMATION pi;
 	int more_fds[2];
 
 	ret = _pipe(more_fds, 256, _O_TEXT);
@@ -207,6 +225,8 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 	fd_stdout = _dup(STDOUT_FILENO);
 	_dup2(more_fds[1], STDOUT_FILENO);
 	close(more_fds[1]);
+
+	signal(SIGINT, int_handler);
 
 	/*
 	 * Set the new stdout to not be inheritable. If it is, then the child
@@ -220,7 +240,7 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 		return -1;
 	}
 
-	ret = spawn("less", more_fds[0], fd_stdout, STDERR_FILENO, &pi);
+	ret = spawn("less", more_fds[0], fd_stdout, STDERR_FILENO, &proc_info);
 	if (ret) {
 		_dup2(fd_stdout, STDOUT_FILENO);
 		hexdump_data(map, map_size);
@@ -231,9 +251,7 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 	fclose(stdout);
 	close(STDOUT_FILENO);
 
-	WaitForSingleObject(pi.hProcess, INFINITE);
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
+	wait_for_less();
 
 	return 0;
 }
