@@ -294,7 +294,7 @@ int switchtec_list(struct switchtec_device_info **devlist)
 	struct dirent **devices;
 	int i, n;
 	char link_path[PATH_MAX];
-	char pci_path[PATH_MAX];
+	char pci_path[PATH_MAX] = "";
 	struct switchtec_device_info *dl;
 
 	n = scandir(sys_path, &devices, scan_dev_filter, alphasort);
@@ -305,7 +305,7 @@ int switchtec_list(struct switchtec_device_info **devlist)
 
 	if (!dl) {
 		for (i = 0; i < n; i++)
-			free(devices[n]);
+			free(devices[i]);
 		free(devices);
 		errno = ENOMEM;
 		return -errno;
@@ -337,7 +337,7 @@ int switchtec_list(struct switchtec_device_info **devlist)
 		get_fw_version(link_path, dl[i].fw_version,
 			       sizeof(dl[i].fw_version));
 
-		free(devices[n]);
+		free(devices[i]);
 	}
 
 	free(devices);
