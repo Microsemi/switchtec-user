@@ -117,7 +117,7 @@ found:
  *
  * This is only valid if the device was opend with switchtec_open().
  */
-PURE const char *switchtec_name(struct switchtec_dev *dev)
+_PURE const char *switchtec_name(struct switchtec_dev *dev)
 {
 	return dev->name;
 }
@@ -127,7 +127,7 @@ PURE const char *switchtec_name(struct switchtec_dev *dev)
  * @param[in] dev Switchtec device handle
  * @return The partition number
  */
-PURE int switchtec_partition(struct switchtec_dev *dev)
+_PURE int switchtec_partition(struct switchtec_dev *dev)
 {
 	return dev->partition;
 }
