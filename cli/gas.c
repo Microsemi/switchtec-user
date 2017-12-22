@@ -63,7 +63,7 @@ static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 	printf("|\n");
 }
 
-static void hexdump_data(void __gas *map, size_t map_size)
+static void hexdump_data(void __gas *map, size_t map_size, int (*is_alive)(void))
 {
 	uint8_t line[16];
 	uint8_t last_line[16];
@@ -72,6 +72,9 @@ static void hexdump_data(void __gas *map, size_t map_size)
 	int last_match = 0;
 
 	while (map_size) {
+		if (is_alive && !is_alive())
+			return;
+
 		bytes = map_size > sizeof(line) ? sizeof(line) : map_size;
 		memcpy_from_gas(line, map, bytes);
 
@@ -204,6 +207,15 @@ static void wait_for_less(void)
 	CloseHandle(proc_info.hThread);
 }
 
+static int is_less_alive(void)
+{
+	DWORD exit_code;
+
+	GetExitCodeProcess(proc_info.hProcess, &exit_code);
+
+	return exit_code == STILL_ACTIVE;
+}
+
 static void int_handler(int sig)
 {
 	wait_for_less();
@@ -243,11 +255,11 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 	ret = spawn("less", more_fds[0], fd_stdout, STDERR_FILENO, &proc_info);
 	if (ret) {
 		_dup2(fd_stdout, STDOUT_FILENO);
-		hexdump_data(map, map_size);
+		hexdump_data(map, map_size, NULL);
 		return 0;
 	}
 
-	hexdump_data(map, map_size);
+	hexdump_data(map, map_size, is_less_alive);
 	fclose(stdout);
 	close(STDOUT_FILENO);
 
@@ -292,7 +304,7 @@ static int gas_dump(int argc, char **argv)
 		cfg.count = map_size;
 
 	if (cfg.text) {
-		hexdump_data(map, cfg.count);
+		hexdump_data(map, cfg.count, NULL);
 		return 0;
 	}
 
