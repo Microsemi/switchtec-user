@@ -178,7 +178,7 @@ int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 
 	switch (events[e].type) {
 	case GLOBAL:
-		sum->global &= bit;
+		sum->global |= bit;
 		break;
 	case PART:
 		if (index == SWITCHTEC_EVT_IDX_LOCAL) {
