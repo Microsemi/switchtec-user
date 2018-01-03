@@ -180,7 +180,7 @@ static int help(int argc, char **argv, struct subcommand *subcmd,
 		print_completions(subcmd->cmds);
 
 	if (argc == 1 || !strcmp(argv[1], "help") ||
-	    !strcmp(argv[1], "version")) {
+	    !strcmp(argv[1], "--help") || !strcmp(argv[1], "version")) {
 		general_help(subcmd, prog_info);
 		return 0;
 	}
