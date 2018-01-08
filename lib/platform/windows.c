@@ -484,7 +484,9 @@ int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		goto free_and_exit;
 	}
 
-	memcpy(resp, mres->data, resp_len);
+	if (resp)
+		memcpy(resp, mres->data, resp_len);
+
 	ret = mres->status;
 
 free_and_exit:

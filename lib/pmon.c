@@ -392,7 +392,9 @@ int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 
 		remain -= cmd.count;
 		phys_port_ids += cmd.count;
-		res += cmd.count;
+
+		if (res)
+			res += cmd.count;
 	}
 
 	return nr_ports;

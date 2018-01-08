@@ -57,7 +57,7 @@ struct switchtec_dev;
 #define __gas
 #endif
 
-#define PURE __attribute__ ((pure))
+#define _PURE __attribute__ ((pure))
 
 /**
  * @brief Shortform for a pointer to the GAS register space
@@ -250,8 +250,8 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
 
 /*********** Generic Accessors ***********/
 
-PURE const char *switchtec_name(struct switchtec_dev *dev);
-PURE int switchtec_partition(struct switchtec_dev *dev);
+_PURE const char *switchtec_name(struct switchtec_dev *dev);
+_PURE int switchtec_partition(struct switchtec_dev *dev);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,

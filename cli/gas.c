@@ -63,7 +63,7 @@ static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 	printf("|\n");
 }
 
-static void hexdump_data(void __gas *map, size_t map_size)
+static void hexdump_data(void __gas *map, size_t map_size, int (*is_alive)(void))
 {
 	uint8_t line[16];
 	uint8_t last_line[16];
@@ -72,6 +72,9 @@ static void hexdump_data(void __gas *map, size_t map_size)
 	int last_match = 0;
 
 	while (map_size) {
+		if (is_alive && !is_alive())
+			return;
+
 		bytes = map_size > sizeof(line) ? sizeof(line) : map_size;
 		memcpy_from_gas(line, map, bytes);
 
@@ -166,6 +169,7 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 #else /* _WIN32 defined */
 
 #include <fcntl.h>
+#include <signal.h>
 
 static int spawn(char *exe, int fd_in, int fd_out, int fd_err,
 		  PROCESS_INFORMATION *pi)
@@ -191,11 +195,37 @@ static int spawn(char *exe, int fd_in, int fd_out, int fd_err,
 	return 0;
 }
 
+static PROCESS_INFORMATION proc_info;
+
+static void wait_for_less(void)
+{
+	if (!proc_info.hProcess)
+		return;
+
+	WaitForSingleObject(proc_info.hProcess, INFINITE);
+	CloseHandle(proc_info.hProcess);
+	CloseHandle(proc_info.hThread);
+}
+
+static int is_less_alive(void)
+{
+	DWORD exit_code;
+
+	GetExitCodeProcess(proc_info.hProcess, &exit_code);
+
+	return exit_code == STILL_ACTIVE;
+}
+
+static void int_handler(int sig)
+{
+	wait_for_less();
+	exit(0);
+}
+
 static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 {
 	int ret;
 	int fd_stdout;
-	PROCESS_INFORMATION pi;
 	int more_fds[2];
 
 	ret = _pipe(more_fds, 256, _O_TEXT);
@@ -207,6 +237,8 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 	fd_stdout = _dup(STDOUT_FILENO);
 	_dup2(more_fds[1], STDOUT_FILENO);
 	close(more_fds[1]);
+
+	signal(SIGINT, int_handler);
 
 	/*
 	 * Set the new stdout to not be inheritable. If it is, then the child
@@ -220,20 +252,18 @@ static int pipe_to_hd_less(gasptr_t map, size_t map_size)
 		return -1;
 	}
 
-	ret = spawn("less", more_fds[0], fd_stdout, STDERR_FILENO, &pi);
+	ret = spawn("less", more_fds[0], fd_stdout, STDERR_FILENO, &proc_info);
 	if (ret) {
 		_dup2(fd_stdout, STDOUT_FILENO);
-		hexdump_data(map, map_size);
+		hexdump_data(map, map_size, NULL);
 		return 0;
 	}
 
-	hexdump_data(map, map_size);
+	hexdump_data(map, map_size, is_less_alive);
 	fclose(stdout);
 	close(STDOUT_FILENO);
 
-	WaitForSingleObject(pi.hProcess, INFINITE);
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
+	wait_for_less();
 
 	return 0;
 }
@@ -274,7 +304,7 @@ static int gas_dump(int argc, char **argv)
 		cfg.count = map_size;
 
 	if (cfg.text) {
-		hexdump_data(map, cfg.count);
+		hexdump_data(map, cfg.count, NULL);
 		return 0;
 	}
 

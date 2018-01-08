@@ -654,7 +654,7 @@ static int event_wait(int argc, char **argv)
 	}
 
 	ret = get_events(cfg.dev, &sum, elist, ARRAY_SIZE(elist),
-			 1 << cfg.event_id, 0, 0, index);
+			 0, 1, 0, index);
 	if (ret < 0)
 		return ret;
 

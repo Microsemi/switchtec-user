@@ -178,7 +178,7 @@ int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 
 	switch (events[e].type) {
 	case GLOBAL:
-		sum->global &= bit;
+		sum->global |= bit;
 		break;
 	case PART:
 		if (index == SWITCHTEC_EVT_IDX_LOCAL) {
@@ -376,7 +376,7 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 				  SWITCHTEC_EVT_FLAG_CLEAR |
 				  SWITCHTEC_EVT_FLAG_EN_POLL,
 				  NULL);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	ret = gettimeofday(&tv, NULL);
