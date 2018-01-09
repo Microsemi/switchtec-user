@@ -1,10 +1,10 @@
-<map id="/home/logang/switchtec&#45;user/inc/switchtec/switchtec.h" name="/home/logang/switchtec&#45;user/inc/switchtec/switchtec.h">
-<area shape="rect" id="node2" href="$events_8c.html" title="Switchtec core library functions for event management. " alt="" coords="5,95,176,136"/>
-<area shape="rect" id="node3" href="$fw_8c.html" title="Switchtec core library functions for firmware operations. " alt="" coords="200,95,371,136"/>
-<area shape="rect" id="node4" href="$pmon_8c.html" title="Switchtec core library functions for performance monitoring. " alt="" coords="555,184,725,225"/>
-<area shape="rect" id="node5" href="$switchtec_8c.html" title="Switchtec core library functions for basic device operations. " alt="" coords="445,95,616,136"/>
-<area shape="rect" id="node6" href="$platform_8c.html" title="Switchtec platform specific functions. " alt="" coords="641,95,831,136"/>
-<area shape="rect" id="node7" href="$windows_8c_source.html" title="/home/logang/switchtec\l&#45;user/lib/platform/windows.c" alt="" coords="1046,184,1239,225"/>
-<area shape="rect" id="node8" href="$gas_8h.html" title="GAS Accessor functions. " alt="" coords="1118,95,1293,136"/>
-<area shape="rect" id="node9" href="$pmon_8h_source.html" title="/home/logang/switchtec\l&#45;user/inc/switchtec/pmon.h" alt="" coords="856,95,1043,136"/>
+<map id="/home/gunthorp/switchtec/user/inc/switchtec/switchtec.h" name="/home/gunthorp/switchtec/user/inc/switchtec/switchtec.h">
+<area shape="rect" id="node2" href="$events_8c.html" title="Switchtec core library functions for event management. " alt="" coords="5,95,177,136"/>
+<area shape="rect" id="node3" href="$fw_8c.html" title="Switchtec core library functions for firmware operations. " alt="" coords="201,95,373,136"/>
+<area shape="rect" id="node4" href="$pmon_8c.html" title="Switchtec core library functions for performance monitoring. " alt="" coords="552,184,724,225"/>
+<area shape="rect" id="node5" href="$switchtec_8c.html" title="Switchtec core library functions for basic device operations. " alt="" coords="449,95,621,136"/>
+<area shape="rect" id="node6" href="$platform_8c.html" title="Switchtec platform specific functions. " alt="" coords="646,95,827,136"/>
+<area shape="rect" id="node7" href="$windows_8c_source.html" title="/home/gunthorp/switchtec\l/user/lib/platform/windows.c" alt="" coords="1036,184,1221,225"/>
+<area shape="rect" id="node8" href="$gas_8h.html" title="GAS Accessor functions. " alt="" coords="1105,95,1277,136"/>
+<area shape="rect" id="node9" href="$pmon_8h_source.html" title="/home/gunthorp/switchtec\l/user/inc/switchtec/pmon.h" alt="" coords="851,95,1030,136"/>
 </map>

@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Switchtec Userspace: /home/logang/switchtec-user/lib/switchtec.c File Reference</title>
+<title>Switchtec Userspace: /home/gunthorp/switchtec/user/lib/switchtec.c File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -23,7 +23,7 @@
  <tr style="height: 56px;">
   <td id="projectalign" style="padding-left: 0.5em;">
    <div id="projectname">Switchtec Userspace
-   &#160;<span id="projectnumber">0.9-rc1-33-g834e762</span>
+   &#160;<span id="projectnumber">0.9-rc2</span>
    </div>
   </td>
  </tr>
@@ -85,15 +85,15 @@ $(function() {
 </div><div class="textblock"><div class="dynheader">
 Include dependency graph for switchtec.c:</div>
 <div class="dyncontent">
-<div class="center"><img src="switchtec_8c__incl.png" border="0" usemap="#_2home_2logang_2switchtec-user_2lib_2switchtec_8c" alt=""/></div>
-<map name="_2home_2logang_2switchtec-user_2lib_2switchtec_8c" id="_2home_2logang_2switchtec-user_2lib_2switchtec_8c">
-<area shape="rect" id="node3" href="switchtec_8h.html" title="Main Switchtec header. " alt="" coords="342,95,495,121"/>
-<area shape="rect" id="node4" href="mrpc_8h_source.html" title="mrpc.h" alt="" coords="205,169,269,196"/>
-<area shape="rect" id="node10" href="errors_8h_source.html" title="switchtec/errors.h" alt="" coords="683,95,816,121"/>
-<area shape="rect" id="node11" href="log_8h_source.html" title="switchtec/log.h" alt="" coords="152,95,267,121"/>
-<area shape="rect" id="node13" href="endian_8h_source.html" title="switchtec/endian.h" alt="" coords="520,95,659,121"/>
-<area shape="rect" id="node5" href="portable_8h_source.html" title="portable.h" alt="" coords="633,169,717,196"/>
-<area shape="rect" id="node6" href="registers_8h_source.html" title="registers.h" alt="" coords="293,169,381,196"/>
+<div class="center"><img src="switchtec_8c__incl.png" border="0" usemap="#_2home_2gunthorp_2switchtec_2user_2lib_2switchtec_8c" alt=""/></div>
+<map name="_2home_2gunthorp_2switchtec_2user_2lib_2switchtec_8c" id="_2home_2gunthorp_2switchtec_2user_2lib_2switchtec_8c">
+<area shape="rect" id="node3" href="switchtec_8h.html" title="Main Switchtec header. " alt="" coords="333,95,483,121"/>
+<area shape="rect" id="node4" href="mrpc_8h_source.html" title="mrpc.h" alt="" coords="201,169,263,196"/>
+<area shape="rect" id="node10" href="errors_8h_source.html" title="switchtec/errors.h" alt="" coords="662,95,789,121"/>
+<area shape="rect" id="node11" href="log_8h_source.html" title="switchtec/log.h" alt="" coords="147,95,258,121"/>
+<area shape="rect" id="node13" href="endian_8h_source.html" title="switchtec/endian.h" alt="" coords="507,95,637,121"/>
+<area shape="rect" id="node5" href="portable_8h_source.html" title="portable.h" alt="" coords="619,169,698,196"/>
+<area shape="rect" id="node6" href="registers_8h_source.html" title="registers.h" alt="" coords="288,169,371,196"/>
 </map>
 </div>
 </div>
@@ -104,12 +104,12 @@ Functions</h2></td></tr>
 <tr class="memitem:ga83afb2d537f84e6d2e7f76ce05ec6a84"><td class="memItemLeft" align="right" valign="top">struct switchtec_dev *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__Device.html#ga83afb2d537f84e6d2e7f76ce05ec6a84">switchtec_open</a> (const char *device)</td></tr>
 <tr class="memdesc:ga83afb2d537f84e6d2e7f76ce05ec6a84"><td class="mdescLeft">&#160;</td><td class="mdescRight">Open a Switchtec device by string.  <a href="group__Device.html#ga83afb2d537f84e6d2e7f76ce05ec6a84">More...</a><br /></td></tr>
 <tr class="separator:ga83afb2d537f84e6d2e7f76ce05ec6a84"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga450240a0a7d3db4c902cc5ebb82d6e2c"><td class="memItemLeft" align="right" valign="top">PURE const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__Device.html#ga450240a0a7d3db4c902cc5ebb82d6e2c">switchtec_name</a> (struct switchtec_dev *dev)</td></tr>
-<tr class="memdesc:ga450240a0a7d3db4c902cc5ebb82d6e2c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the string that was used to open the deviec.  <a href="group__Device.html#ga450240a0a7d3db4c902cc5ebb82d6e2c">More...</a><br /></td></tr>
-<tr class="separator:ga450240a0a7d3db4c902cc5ebb82d6e2c"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gae6a4b9b5eae53b46e1edc313726c525f"><td class="memItemLeft" align="right" valign="top">PURE int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__Device.html#gae6a4b9b5eae53b46e1edc313726c525f">switchtec_partition</a> (struct switchtec_dev *dev)</td></tr>
-<tr class="memdesc:gae6a4b9b5eae53b46e1edc313726c525f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the partiton number of the device that was opened.  <a href="group__Device.html#gae6a4b9b5eae53b46e1edc313726c525f">More...</a><br /></td></tr>
-<tr class="separator:gae6a4b9b5eae53b46e1edc313726c525f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga8d416a587f5e37e818ee937bd0c0dab1"><td class="memItemLeft" align="right" valign="top">_PURE const char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__Device.html#ga8d416a587f5e37e818ee937bd0c0dab1">switchtec_name</a> (struct switchtec_dev *dev)</td></tr>
+<tr class="memdesc:ga8d416a587f5e37e818ee937bd0c0dab1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the string that was used to open the deviec.  <a href="group__Device.html#ga8d416a587f5e37e818ee937bd0c0dab1">More...</a><br /></td></tr>
+<tr class="separator:ga8d416a587f5e37e818ee937bd0c0dab1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gac70f47bb86ac6ba1666446f27673cdcf"><td class="memItemLeft" align="right" valign="top">_PURE int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__Device.html#gac70f47bb86ac6ba1666446f27673cdcf">switchtec_partition</a> (struct switchtec_dev *dev)</td></tr>
+<tr class="memdesc:gac70f47bb86ac6ba1666446f27673cdcf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the partiton number of the device that was opened.  <a href="group__Device.html#gac70f47bb86ac6ba1666446f27673cdcf">More...</a><br /></td></tr>
+<tr class="separator:gac70f47bb86ac6ba1666446f27673cdcf"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga780a757b81a704c19217aca00f42b50e"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__Device.html#ga780a757b81a704c19217aca00f42b50e">switchtec_status</a> (struct switchtec_dev *dev, struct <a class="el" href="structswitchtec__status.html">switchtec_status</a> **status)</td></tr>
 <tr class="memdesc:ga780a757b81a704c19217aca00f42b50e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the status of all the ports on a switchtec device.  <a href="group__Device.html#ga780a757b81a704c19217aca00f42b50e">More...</a><br /></td></tr>
 <tr class="separator:ga780a757b81a704c19217aca00f42b50e"><td class="memSeparator" colspan="2">&#160;</td></tr>

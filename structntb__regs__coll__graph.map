@@ -1,5 +1,5 @@
 <map id="ntb_regs" name="ntb_regs">
-<area shape="rect" id="node2" href="$structntb__ctrl__regs.html" title="ntb_ctrl_regs" alt="" coords="5,5,109,32"/>
-<area shape="rect" id="node3" href="$structntb__info__regs.html" title="ntb_info_regs" alt="" coords="134,5,242,32"/>
-<area shape="rect" id="node4" href="$structntb__dbmsg__regs.html" title="ntb_dbmsg_regs" alt="" coords="266,5,393,32"/>
+<area shape="rect" id="node2" href="$structntb__ctrl__regs.html" title="ntb_ctrl_regs" alt="" coords="5,5,103,32"/>
+<area shape="rect" id="node3" href="$structntb__info__regs.html" title="ntb_info_regs" alt="" coords="127,5,227,32"/>
+<area shape="rect" id="node4" href="$structntb__dbmsg__regs.html" title="ntb_dbmsg_regs" alt="" coords="251,5,369,32"/>
 </map>

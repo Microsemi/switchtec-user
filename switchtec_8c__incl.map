@@ -1,9 +1,9 @@
-<map id="/home/logang/switchtec&#45;user/lib/switchtec.c" name="/home/logang/switchtec&#45;user/lib/switchtec.c">
-<area shape="rect" id="node3" href="$switchtec_8h.html" title="Main Switchtec header. " alt="" coords="342,95,495,121"/>
-<area shape="rect" id="node4" href="$mrpc_8h_source.html" title="mrpc.h" alt="" coords="205,169,269,196"/>
-<area shape="rect" id="node10" href="$errors_8h_source.html" title="switchtec/errors.h" alt="" coords="683,95,816,121"/>
-<area shape="rect" id="node11" href="$log_8h_source.html" title="switchtec/log.h" alt="" coords="152,95,267,121"/>
-<area shape="rect" id="node13" href="$endian_8h_source.html" title="switchtec/endian.h" alt="" coords="520,95,659,121"/>
-<area shape="rect" id="node5" href="$portable_8h_source.html" title="portable.h" alt="" coords="633,169,717,196"/>
-<area shape="rect" id="node6" href="$registers_8h_source.html" title="registers.h" alt="" coords="293,169,381,196"/>
+<map id="/home/gunthorp/switchtec/user/lib/switchtec.c" name="/home/gunthorp/switchtec/user/lib/switchtec.c">
+<area shape="rect" id="node3" href="$switchtec_8h.html" title="Main Switchtec header. " alt="" coords="333,95,483,121"/>
+<area shape="rect" id="node4" href="$mrpc_8h_source.html" title="mrpc.h" alt="" coords="201,169,263,196"/>
+<area shape="rect" id="node10" href="$errors_8h_source.html" title="switchtec/errors.h" alt="" coords="662,95,789,121"/>
+<area shape="rect" id="node11" href="$log_8h_source.html" title="switchtec/log.h" alt="" coords="147,95,258,121"/>
+<area shape="rect" id="node13" href="$endian_8h_source.html" title="switchtec/endian.h" alt="" coords="507,95,637,121"/>
+<area shape="rect" id="node5" href="$portable_8h_source.html" title="portable.h" alt="" coords="619,169,698,196"/>
+<area shape="rect" id="node6" href="$registers_8h_source.html" title="registers.h" alt="" coords="288,169,371,196"/>
 </map>
