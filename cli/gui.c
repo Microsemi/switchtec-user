@@ -397,7 +397,7 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 
 	ret = gui_init(dev, reset, bw_data);
 	if (ret < 0) {
-		switchtec_perror("gui_main");
+		cleanup_and_error("gui_init");
 		return ret;
 	}
 	usleep(GUI_INIT_TIME);
