@@ -274,10 +274,10 @@ static int gas_write(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
-		 "address to read"},
+		 "address to write"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to write (default 4)"},
-		{"value", 'v', "ADDR", CFG_LONG_SUFFIX, &cfg.value, required_argument,
+		{"value", 'v', "VAL", CFG_LONG_SUFFIX, &cfg.value, required_argument,
 		 "value to write"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
