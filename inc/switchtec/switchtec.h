@@ -351,7 +351,7 @@ enum switchtec_evcntr_type_mask {
 	UNCOR_INT_ERR = 1 << 9,
 	REPLAY_TMR_TIMEOUT = 1 << 10,
 	REPLAY_NUM_ROLLOVER = 1 << 11,
-	BAD_DLPP = 1 << 12,
+	BAD_DLLP = 1 << 12,
 	BAD_TLP = 1 << 13,
 	RCVR_ERR = 1 << 14,
 	RCV_FATAL_MSG = 1 << 15,
@@ -367,7 +367,7 @@ enum switchtec_evcntr_type_mask {
 		      SURPRISE_DOWN_ERR | DATA_LINK_PROTO_ERR |
 		      HDR_LOG_OFLOW_ERR | UNCOR_INT_ERR |
 		      REPLAY_TMR_TIMEOUT | REPLAY_NUM_ROLLOVER |
-		      BAD_DLPP | BAD_TLP | RCVR_ERR | RCV_FATAL_MSG |
+		      BAD_DLLP | BAD_TLP | RCVR_ERR | RCV_FATAL_MSG |
 		      RCV_NON_FATAL_MSG | RCV_CORR_MSG | NAK_RCVD),
 	ALL_TLPS = (POSTED_TLP | COMP_TLP | NON_POSTED_TLP),
 	ALL = (1 << 23) - 1,
