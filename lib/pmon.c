@@ -75,7 +75,7 @@ const struct switchtec_evcntr_type_list switchtec_evcntr_type_list[] = {
 	ENTRY(UNCOR_INT_ERR, "Uncorrectable Internal error"),
 	ENTRY(REPLAY_TMR_TIMEOUT, "Replay timer timeout"),
 	ENTRY(REPLAY_NUM_ROLLOVER, "Replay number rollover"),
-	ENTRY(BAD_DLPP, "Bad DLLP"),
+	ENTRY(BAD_DLLP, "Bad DLLP"),
 	ENTRY(BAD_TLP, "Bad TLP"),
 	ENTRY(RCVR_ERR, "Receiver error"),
 	ENTRY(RCV_FATAL_MSG, "Receive FATAL error message"),
