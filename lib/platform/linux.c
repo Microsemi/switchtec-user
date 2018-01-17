@@ -151,93 +151,6 @@ static int get_partition(struct switchtec_linux *ldev)
 	return 0;
 }
 
-struct switchtec_dev *switchtec_open_by_path(const char *path)
-{
-	struct switchtec_linux *ldev;
-
-	ldev = malloc(sizeof(*ldev));
-	if (!ldev)
-		return NULL;
-
-	ldev->fd = open(path, O_RDWR | O_CLOEXEC);
-	if (ldev->fd < 0)
-		goto err_free;
-
-	if (check_switchtec_device(ldev))
-		goto err_close_free;
-
-	if (get_partition(ldev))
-		goto err_close_free;
-
-	return &ldev->dev;
-
-err_close_free:
-	close(ldev->fd);
-err_free:
-	free(ldev);
-	return NULL;
-}
-
-struct switchtec_dev *switchtec_open_by_index(int index)
-{
-	char path[PATH_MAX];
-	struct switchtec_dev *dev;
-
-	snprintf(path, sizeof(path), "/dev/switchtec%d", index);
-
-	dev = switchtec_open_by_path(path);
-
-	if (errno == ENOENT)
-		errno = ENODEV;
-
-	return dev;
-}
-
-struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
-						 int device, int func)
-{
-	char path[PATH_MAX];
-	struct switchtec_dev *dev;
-	struct dirent *dirent;
-	DIR *dir;
-
-	snprintf(path, sizeof(path),
-		 "/sys/bus/pci/devices/%04x:%02x:%02x.%x/switchtec",
-		 domain, bus, device, func);
-
-	dir = opendir(path);
-	if (!dir)
-		goto err_out;
-
-	while ((dirent = readdir(dir))) {
-		if (dirent->d_name[0] != '.')
-			break;
-	}
-
-	if (!dirent)
-		goto err_close;
-
-	/*
-	 * Should only be one switchtec device, if there are
-	 * more then something is wrong
-	 */
-	if (readdir(dir))
-		goto err_close;
-
-	snprintf(path, sizeof(path), "/dev/%s", dirent->d_name);
-	printf("%s\n", path);
-	dev = switchtec_open(path);
-
-	closedir(dir);
-	return dev;
-
-err_close:
-	closedir(dir);
-err_out:
-	errno = ENODEV;
-	return NULL;
-}
-
 void switchtec_close(struct switchtec_dev *dev)
 {
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
@@ -833,6 +746,94 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 		return 1;
 
 	return 0;
+}
+
+
+struct switchtec_dev *switchtec_open_by_path(const char *path)
+{
+	struct switchtec_linux *ldev;
+
+	ldev = malloc(sizeof(*ldev));
+	if (!ldev)
+		return NULL;
+
+	ldev->fd = open(path, O_RDWR | O_CLOEXEC);
+	if (ldev->fd < 0)
+		goto err_free;
+
+	if (check_switchtec_device(ldev))
+		goto err_close_free;
+
+	if (get_partition(ldev))
+		goto err_close_free;
+
+	return &ldev->dev;
+
+err_close_free:
+	close(ldev->fd);
+err_free:
+	free(ldev);
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_index(int index)
+{
+	char path[PATH_MAX];
+	struct switchtec_dev *dev;
+
+	snprintf(path, sizeof(path), "/dev/switchtec%d", index);
+
+	dev = switchtec_open_by_path(path);
+
+	if (errno == ENOENT)
+		errno = ENODEV;
+
+	return dev;
+}
+
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func)
+{
+	char path[PATH_MAX];
+	struct switchtec_dev *dev;
+	struct dirent *dirent;
+	DIR *dir;
+
+	snprintf(path, sizeof(path),
+		 "/sys/bus/pci/devices/%04x:%02x:%02x.%x/switchtec",
+		 domain, bus, device, func);
+
+	dir = opendir(path);
+	if (!dir)
+		goto err_out;
+
+	while ((dirent = readdir(dir))) {
+		if (dirent->d_name[0] != '.')
+			break;
+	}
+
+	if (!dirent)
+		goto err_close;
+
+	/*
+	 * Should only be one switchtec device, if there are
+	 * more then something is wrong
+	 */
+	if (readdir(dir))
+		goto err_close;
+
+	snprintf(path, sizeof(path), "/dev/%s", dirent->d_name);
+	printf("%s\n", path);
+	dev = switchtec_open(path);
+
+	closedir(dir);
+	return dev;
+
+err_close:
+	closedir(dir);
+err_out:
+	errno = ENODEV;
+	return NULL;
 }
 
 #endif

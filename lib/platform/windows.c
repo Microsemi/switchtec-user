@@ -251,123 +251,6 @@ static void set_partition_info(struct switchtec_dev *dev)
 	dev->partition_count = gas_reg_read8(dev, top.partition_count);
 }
 
-struct switchtec_dev *switchtec_open_by_path(const char *path)
-{
-	struct switchtec_windows *wdev;
-	char path_with_guid[MAX_PATH];
-	int idx;
-
-	if (sscanf(path, "/dev/switchtec%d", &idx) == 1)
-		return switchtec_open_by_index(idx);
-
-	wdev = malloc(sizeof(*wdev));
-	if (!wdev)
-		return NULL;
-
-	append_guid(path, path_with_guid, sizeof(path_with_guid),
-		    &SWITCHTEC_INTERFACE_GUID);
-
-	wdev->hdl = CreateFile(path_with_guid, GENERIC_READ | GENERIC_WRITE,
-			       FILE_SHARE_READ | FILE_SHARE_WRITE,
-			       NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
-
-	if (wdev->hdl == INVALID_HANDLE_VALUE)
-		goto err_free;
-
-	if (!map_gas(wdev))
-		goto err_close;
-
-	set_partition_info(&wdev->dev);
-
-	return &wdev->dev;
-
-err_close:
-	CloseHandle(wdev->hdl);
-err_free:
-	free(wdev);
-	return NULL;
-}
-
-struct switchtec_dev *switchtec_open_by_index(int index)
-{
-	HDEVINFO devinfo;
-	SP_DEVICE_INTERFACE_DATA deviface;
-	SP_DEVINFO_DATA devdata;
-	char path[MAX_PATH];
-	struct switchtec_dev *dev = NULL;
-	BOOL status;
-
-	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
-				      NULL, NULL, DIGCF_DEVICEINTERFACE |
-				      DIGCF_PRESENT);
-	if (devinfo == INVALID_HANDLE_VALUE)
-		return NULL;
-
-	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-
-	status = SetupDiEnumDeviceInterfaces(devinfo, NULL,
-					     &SWITCHTEC_INTERFACE_GUID,
-					     index, &deviface);
-	if (!status) {
-		errno = ENODEV;
-		goto out;
-	}
-
-	status = get_path(devinfo, &deviface,  &devdata,
-			  path, sizeof(path));
-	if (!status)
-		goto out;
-
-	dev = switchtec_open_by_path(path);
-
-out:
-	SetupDiDestroyDeviceInfoList(devinfo);
-	return dev;
-}
-
-struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
-						 int device, int func)
-{
-	HDEVINFO devinfo;
-	SP_DEVICE_INTERFACE_DATA deviface;
-	SP_DEVINFO_DATA devdata;
-	char path[MAX_PATH];
-	struct switchtec_dev *dev = NULL;
-	BOOL status;
-	int dbus, ddevice, dfunc;
-	int idx = 0;
-
-	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
-				      NULL, NULL, DIGCF_DEVICEINTERFACE |
-				      DIGCF_PRESENT);
-	if (devinfo == INVALID_HANDLE_VALUE)
-		return NULL;
-
-	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-
-	while (SetupDiEnumDeviceInterfaces(devinfo, NULL,
-					   &SWITCHTEC_INTERFACE_GUID,
-					   idx++, &deviface))
-	{
-		status = get_path(devinfo, &deviface,  &devdata,
-				  path, sizeof(path));
-		if (!status)
-			continue;
-
-		get_pci_address(devinfo, &devdata, &dbus, &ddevice, &dfunc);
-		if (dbus == bus && ddevice == device && dfunc == func) {
-			dev = switchtec_open_by_path(path);
-			break;
-		}
-	}
-
-	if (!dev)
-		errno = ENODEV;
-
-	SetupDiDestroyDeviceInfoList(devinfo);
-	return dev;
-}
-
 void switchtec_close(struct switchtec_dev *dev)
 {
 	struct switchtec_windows *wdev = to_switchtec_windows(dev);
@@ -885,6 +768,123 @@ gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
 
 void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
 {
+}
+
+struct switchtec_dev *switchtec_open_by_path(const char *path)
+{
+	struct switchtec_windows *wdev;
+	char path_with_guid[MAX_PATH];
+	int idx;
+
+	if (sscanf(path, "/dev/switchtec%d", &idx) == 1)
+		return switchtec_open_by_index(idx);
+
+	wdev = malloc(sizeof(*wdev));
+	if (!wdev)
+		return NULL;
+
+	append_guid(path, path_with_guid, sizeof(path_with_guid),
+		    &SWITCHTEC_INTERFACE_GUID);
+
+	wdev->hdl = CreateFile(path_with_guid, GENERIC_READ | GENERIC_WRITE,
+			       FILE_SHARE_READ | FILE_SHARE_WRITE,
+			       NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+
+	if (wdev->hdl == INVALID_HANDLE_VALUE)
+		goto err_free;
+
+	if (!map_gas(wdev))
+		goto err_close;
+
+	set_partition_info(&wdev->dev);
+
+	return &wdev->dev;
+
+err_close:
+	CloseHandle(wdev->hdl);
+err_free:
+	free(wdev);
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_index(int index)
+{
+	HDEVINFO devinfo;
+	SP_DEVICE_INTERFACE_DATA deviface;
+	SP_DEVINFO_DATA devdata;
+	char path[MAX_PATH];
+	struct switchtec_dev *dev = NULL;
+	BOOL status;
+
+	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
+				      NULL, NULL, DIGCF_DEVICEINTERFACE |
+				      DIGCF_PRESENT);
+	if (devinfo == INVALID_HANDLE_VALUE)
+		return NULL;
+
+	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+	status = SetupDiEnumDeviceInterfaces(devinfo, NULL,
+					     &SWITCHTEC_INTERFACE_GUID,
+					     index, &deviface);
+	if (!status) {
+		errno = ENODEV;
+		goto out;
+	}
+
+	status = get_path(devinfo, &deviface,  &devdata,
+			  path, sizeof(path));
+	if (!status)
+		goto out;
+
+	dev = switchtec_open_by_path(path);
+
+out:
+	SetupDiDestroyDeviceInfoList(devinfo);
+	return dev;
+}
+
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func)
+{
+	HDEVINFO devinfo;
+	SP_DEVICE_INTERFACE_DATA deviface;
+	SP_DEVINFO_DATA devdata;
+	char path[MAX_PATH];
+	struct switchtec_dev *dev = NULL;
+	BOOL status;
+	int dbus, ddevice, dfunc;
+	int idx = 0;
+
+	devinfo = SetupDiGetClassDevs(&SWITCHTEC_INTERFACE_GUID,
+				      NULL, NULL, DIGCF_DEVICEINTERFACE |
+				      DIGCF_PRESENT);
+	if (devinfo == INVALID_HANDLE_VALUE)
+		return NULL;
+
+	deviface.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
+
+	while (SetupDiEnumDeviceInterfaces(devinfo, NULL,
+					   &SWITCHTEC_INTERFACE_GUID,
+					   idx++, &deviface))
+	{
+		status = get_path(devinfo, &deviface,  &devdata,
+				  path, sizeof(path));
+		if (!status)
+			continue;
+
+		get_pci_address(devinfo, &devdata, &dbus, &ddevice, &dfunc);
+		if (dbus == bus && ddevice == device && dfunc == func) {
+			dev = switchtec_open_by_path(path);
+			break;
+		}
+	}
+
+	if (!dev)
+		errno = ENODEV;
+
+	SetupDiDestroyDeviceInfoList(devinfo);
+	return dev;
 }
 
 #endif
