@@ -251,7 +251,7 @@ static void set_partition_info(struct switchtec_dev *dev)
 	dev->partition_count = gas_reg_read8(dev, top.partition_count);
 }
 
-void switchtec_close(struct switchtec_dev *dev)
+static void windows_close(struct switchtec_dev *dev)
 {
 	struct switchtec_windows *wdev = to_switchtec_windows(dev);
 
@@ -319,8 +319,8 @@ int switchtec_list(struct switchtec_device_info **devlist)
 	return cnt;
 }
 
-int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
-			     size_t buflen)
+static int windows_get_fw_version(struct switchtec_dev *dev, char *buf,
+				  size_t buflen)
 {
 	long long ver;
 
@@ -330,9 +330,9 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 	return 0;
 }
 
-int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
-		  const void *payload, size_t payload_len, void *resp,
-		  size_t resp_len)
+static int windows_cmd(struct switchtec_dev *dev, uint32_t cmd,
+		       const void *payload, size_t payload_len, void *resp,
+		       size_t resp_len)
 {
 	struct switchtec_windows *wdev = to_switchtec_windows(dev);
 	BOOL status;
@@ -378,16 +378,8 @@ free_and_exit:
 	return ret;
 }
 
-int switchtec_get_devices(struct switchtec_dev *dev,
-			  struct switchtec_status *status,
-			  int ports)
-{
-	/* I don't see any easy way of implementing this on windows */
-	return 0;
-}
-
-int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
-			  int *partition, int *port)
+static int windows_pff_to_port(struct switchtec_dev *dev, int pff,
+			       int *partition, int *port)
 {
 	int i, part;
 	uint32_t reg;
@@ -428,8 +420,8 @@ int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 	return -EINVAL;
 }
 
-int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
-			  int port, int *pff)
+static int windows_port_to_pff(struct switchtec_dev *dev, int partition,
+			       int port, int *pff)
 {
 	struct part_cfg_regs *pcfg;
 
@@ -469,9 +461,9 @@ static void set_fw_info_part(struct switchtec_fw_image_info *info,
 	info->image_len = gas_read32(&pi->length);
 }
 
-int switchtec_flash_part(struct switchtec_dev *dev,
-			 struct switchtec_fw_image_info *info,
-			 enum switchtec_fw_image_type part)
+static int windows_flash_part(struct switchtec_dev *dev,
+			      struct switchtec_fw_image_info *info,
+			      enum switchtec_fw_image_type part)
 {
 	struct flash_info_regs __gas *fi = &dev->gas_map->flash_info;
 	struct sys_info_regs __gas *si = &dev->gas_map->sys_info;
@@ -527,8 +519,8 @@ int switchtec_flash_part(struct switchtec_dev *dev,
 	return 0;
 }
 
-int switchtec_event_summary(struct switchtec_dev *dev,
-			    struct switchtec_event_summary *sum)
+static int windows_event_summary(struct switchtec_dev *dev,
+				 struct switchtec_event_summary *sum)
 {
 	int i;
 	uint32_t reg;
@@ -685,10 +677,10 @@ static int event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
 	return (hdr >> 5) & 0xFF;
 }
 
-int switchtec_event_ctl(struct switchtec_dev *dev,
-			enum switchtec_event_id e,
-			int index, int flags,
-			uint32_t data[5])
+static int windows_event_ctl(struct switchtec_dev *dev,
+			     enum switchtec_event_id e,
+			     int index, int flags,
+			     uint32_t data[5])
 {
 	int nr_idxs;
 	int ret = 0;
@@ -722,7 +714,7 @@ einval:
 	return -errno;
 }
 
-int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
+static int windows_event_wait(struct switchtec_dev *dev, int timeout_ms)
 {
 	struct switchtec_windows *wdev = to_switchtec_windows(dev);
 	OVERLAPPED overlap = {
@@ -757,8 +749,8 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 	return 1;
 }
 
-gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
-                           size_t *map_size)
+static gasptr_t windows_gas_map(struct switchtec_dev *dev, int writeable,
+				size_t *map_size)
 {
 	if (map_size)
 		*map_size = dev->gas_map_size;
@@ -766,9 +758,18 @@ gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
 	return dev->gas_map;
 }
 
-void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
-{
-}
+static const struct switchtec_ops windows_ops = {
+	.close = windows_close,
+	.get_fw_version = windows_get_fw_version,
+	.cmd = windows_cmd,
+	.pff_to_port = windows_pff_to_port,
+	.port_to_pff = windows_port_to_pff,
+	.gas_map = windows_gas_map,
+	.flash_part = windows_flash_part,
+	.event_summary = windows_event_summary,
+	.event_ctl = windows_event_ctl,
+	.event_wait = windows_event_wait,
+};
 
 struct switchtec_dev *switchtec_open_by_path(const char *path)
 {
@@ -795,6 +796,8 @@ struct switchtec_dev *switchtec_open_by_path(const char *path)
 
 	if (!map_gas(wdev))
 		goto err_close;
+
+	wdev->dev.ops = &windows_ops;
 
 	set_partition_info(&wdev->dev);
 
