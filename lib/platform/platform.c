@@ -31,6 +31,8 @@
 #include "switchtec/switchtec.h"
 #include "switchtec/gas.h"
 
+#include <errno.h>
+
 /**
  * @brief Open a switchtec device by path.
  * @ingroup Device
@@ -261,6 +263,11 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
  */
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 {
+	if (!dev->ops->event_wait) {
+		errno = ENOTSUP;
+		return -errno;
+	}
+
 	return dev->ops->event_wait(dev, timeout_ms);
 }
 

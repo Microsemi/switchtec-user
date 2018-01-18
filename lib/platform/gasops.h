@@ -44,5 +44,9 @@ int gasop_event_summary(struct switchtec_dev *dev,
 			struct switchtec_event_summary *sum);
 int gasop_event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
 		    int index, int flags, uint32_t data[5]);
+int gasop_event_wait_for(struct switchtec_dev *dev,
+			 enum switchtec_event_id e, int index,
+			 struct switchtec_event_summary *res,
+			 int timeout_ms);
 
 #endif

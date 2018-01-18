@@ -61,6 +61,10 @@ struct switchtec_ops {
 			 int index, int flags,
 			 uint32_t data[5]);
 	int (*event_wait)(struct switchtec_dev *dev, int timeout_ms);
+	int (*event_wait_for)(struct switchtec_dev *dev,
+			      enum switchtec_event_id e, int index,
+			      struct switchtec_event_summary *res,
+			      int timeout_ms);
 
 	uint8_t (*gas_read8)(struct switchtec_dev *dev, uint8_t __gas *addr);
 	uint16_t (*gas_read16)(struct switchtec_dev *dev, uint16_t __gas *addr);

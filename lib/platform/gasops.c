@@ -31,6 +31,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #define gas_reg_read8(dev, reg)  gas_read8(dev, &dev->gas_map->reg)
 #define gas_reg_read16(dev, reg) gas_read16(dev, &dev->gas_map->reg)
@@ -438,4 +439,52 @@ int gasop_event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
 einval:
 	errno = EINVAL;
 	return -errno;
+}
+
+int gasop_event_wait_for(struct switchtec_dev *dev,
+			 enum switchtec_event_id e, int index,
+			 struct switchtec_event_summary *res,
+			 int timeout_ms)
+{
+	struct timeval tv;
+	long long start, now;
+	struct switchtec_event_summary wait_for = {0};
+	int ret;
+
+	ret = switchtec_event_summary_set(&wait_for, e, index);
+	if (ret)
+		return ret;
+
+	ret = switchtec_event_ctl(dev, e, index,
+				  SWITCHTEC_EVT_FLAG_CLEAR |
+				  SWITCHTEC_EVT_FLAG_EN_POLL,
+				  NULL);
+	if (ret < 0)
+		return ret;
+
+	ret = gettimeofday(&tv, NULL);
+	if (ret)
+		return ret;
+
+	now = start = ((tv.tv_sec) * 1000 + tv.tv_usec / 1000);
+
+	while (1) {
+		ret = switchtec_event_check(dev, &wait_for, res);
+		if (ret < 0)
+			return ret;
+
+		if (ret)
+			return 1;
+
+		ret = gettimeofday(&tv, NULL);
+		if (ret)
+			return ret;
+
+		now = ((tv.tv_sec) * 1000 + tv.tv_usec / 1000);
+
+		if (timeout_ms > 0 && now - start >= timeout_ms)
+			return 0;
+
+		usleep(5000);
+	}
 }
