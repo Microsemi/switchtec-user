@@ -552,4 +552,16 @@ struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
 	return dev;
 }
 
+struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr)
+{
+	errno = ENOTSUP;
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_i2c_by_adapter(int adapter, int i2c_addr)
+{
+	errno = ENOTSUP;
+	return NULL;
+}
+
 #endif

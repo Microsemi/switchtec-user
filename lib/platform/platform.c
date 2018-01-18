@@ -65,6 +65,15 @@ struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
 						 int device, int func);
 
 /**
+ * @brief Open a switchtec device behind an I2C device
+ * @ingroup Device
+ * @param[in] path	path to I2C device
+ * @param[in] i2c_addr	I2C Slave Address
+ * @return Switchtec device handle, NULL on failure
+ */
+struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr);
+
+/**
  * @brief Close a Switchtec device handle
  * @ingroup Device
  * @param[in] dev	Switchtec device handle to close
