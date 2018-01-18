@@ -391,20 +391,20 @@ static int windows_pff_to_port(struct switchtec_dev *dev, int pff,
 		pcfg = &dev->gas_map->part_cfg[part];
 		*partition = part;
 
-		reg = gas_read32(&pcfg->usp_pff_inst_id);
+		reg = gas_read32(dev, &pcfg->usp_pff_inst_id);
 		if (reg == pff) {
 			*port = 0;
 			return 0;
 		}
 
-		reg = gas_read32(&pcfg->vep_pff_inst_id);
+		reg = gas_read32(dev, &pcfg->vep_pff_inst_id);
 		if (reg == pff) {
 			*port = SWITCHTEC_PFF_PORT_VEP;
 			return 0;
 		}
 
 		for (i = 0; i < ARRAY_SIZE(pcfg->dsp_pff_inst_id); i++) {
-			reg = gas_read32(&pcfg->dsp_pff_inst_id[i]);
+			reg = gas_read32(dev, &pcfg->dsp_pff_inst_id[i]);
 			if (reg != pff)
 				continue;
 
@@ -436,10 +436,10 @@ static int windows_port_to_pff(struct switchtec_dev *dev, int partition,
 
 	switch(port) {
 	case 0:
-		*pff = gas_read32(&pcfg->usp_pff_inst_id);
+		*pff = gas_read32(dev, &pcfg->usp_pff_inst_id);
 		break;
 	case SWITCHTEC_PFF_PORT_VEP:
-		*pff = gas_read32(&pcfg->vep_pff_inst_id);
+		*pff = gas_read32(dev, &pcfg->vep_pff_inst_id);
 		break;
 	default:
 		if (port > ARRAY_SIZE(pcfg->dsp_pff_inst_id)) {
@@ -447,18 +447,19 @@ static int windows_port_to_pff(struct switchtec_dev *dev, int partition,
 			return -errno;
 		}
 
-		*pff = gas_read32(&pcfg->dsp_pff_inst_id[port - 1]);
+		*pff = gas_read32(dev, &pcfg->dsp_pff_inst_id[port - 1]);
 		break;
 	}
 
 	return 0;
 }
 
-static void set_fw_info_part(struct switchtec_fw_image_info *info,
+static void set_fw_info_part(struct switchtec_dev *dev,
+			     struct switchtec_fw_image_info *info,
 			     struct partition_info __gas *pi)
 {
-	info->image_addr = gas_read32(&pi->address);
-	info->image_len = gas_read32(&pi->length);
+	info->image_addr = gas_read32(dev, &pi->address);
+	info->image_len = gas_read32(dev, &pi->length);
 }
 
 static int windows_flash_part(struct switchtec_dev *dev,
@@ -468,45 +469,50 @@ static int windows_flash_part(struct switchtec_dev *dev,
 	struct flash_info_regs __gas *fi = &dev->gas_map->flash_info;
 	struct sys_info_regs __gas *si = &dev->gas_map->sys_info;
 	uint32_t active_addr = -1;
+	int val;
 
 	memset(info, 0, sizeof(*info));
 
 	switch (part) {
 	case SWITCHTEC_FW_TYPE_IMG0:
-		active_addr = gas_read32(&fi->active_img.address);
-		set_fw_info_part(info, &fi->img0);
+		active_addr = gas_read32(dev, &fi->active_img.address);
+		set_fw_info_part(dev, info, &fi->img0);
 
-		if (gas_read16(&si->img_running) == SWITCHTEC_IMG0_RUNNING)
+		val = gas_read16(dev, &si->img_running);
+		if (val == SWITCHTEC_IMG0_RUNNING)
 			info->active |= SWITCHTEC_FW_PART_RUNNING;
 		break;
 
 	case SWITCHTEC_FW_TYPE_IMG1:
-		active_addr = gas_read32(&fi->active_img.address);
-		set_fw_info_part(info, &fi->img1);
+		active_addr = gas_read32(dev, &fi->active_img.address);
+		set_fw_info_part(dev, info, &fi->img1);
 
-		if (gas_read16(&si->img_running) == SWITCHTEC_IMG1_RUNNING)
+		val = gas_read16(dev, &si->img_running);
+		if (val == SWITCHTEC_IMG1_RUNNING)
 			info->active |= SWITCHTEC_FW_PART_RUNNING;
 		break;
 
 	case SWITCHTEC_FW_TYPE_DAT0:
-		active_addr = gas_read32(&fi->active_cfg.address);
-		set_fw_info_part(info, &fi->cfg0);
+		active_addr = gas_read32(dev, &fi->active_cfg.address);
+		set_fw_info_part(dev, info, &fi->cfg0);
 
-		if (gas_read16(&si->cfg_running) == SWITCHTEC_CFG0_RUNNING)
+		val = gas_read16(dev, &si->cfg_running);
+		if (val == SWITCHTEC_CFG0_RUNNING)
 			info->active |= SWITCHTEC_FW_PART_RUNNING;
 		break;
 
 
 	case SWITCHTEC_FW_TYPE_DAT1:
-		active_addr = gas_read32(&fi->active_cfg.address);
-		set_fw_info_part(info, &fi->cfg1);
+		active_addr = gas_read32(dev, &fi->active_cfg.address);
+		set_fw_info_part(dev, info, &fi->cfg1);
 
-		if (gas_read16(&si->cfg_running) == SWITCHTEC_CFG1_RUNNING)
+		val = gas_read16(dev, &si->cfg_running);
+		if (val == SWITCHTEC_CFG1_RUNNING)
 			info->active |= SWITCHTEC_FW_PART_RUNNING;
 		break;
 
 	case SWITCHTEC_FW_TYPE_NVLOG:
-		set_fw_info_part(info, &fi->nvlog);
+		set_fw_info_part(dev, info, &fi->nvlog);
 		break;
 
 	default:
@@ -647,10 +653,10 @@ static int event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
 		return -errno;
 	}
 
-	hdr = gas_read32(reg);
+	hdr = gas_read32(dev, reg);
 	if (data)
 		for (i = 0; i < 5; i++)
-			data[i] = gas_read32(&reg[i + 1]);
+			data[i] = gas_read32(dev, &reg[i + 1]);
 
 	if (!(flags & SWITCHTEC_EVT_FLAG_CLEAR))
 		hdr &= ~SWITCHTEC_EVENT_CLEAR;
@@ -672,7 +678,7 @@ static int event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
 		hdr &= ~SWITCHTEC_EVENT_FATAL;
 
 	if (flags)
-		gas_write32(hdr, reg);
+		gas_write32(dev, hdr, reg);
 
 	return (hdr >> 5) & 0xFF;
 }
