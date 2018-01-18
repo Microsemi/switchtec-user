@@ -86,25 +86,6 @@ void gas_write32(struct switchtec_dev *dev, uint32_t val,
 void gas_write64(struct switchtec_dev *dev, uint64_t val,
 		 uint64_t __gas *addr);
 
-/*
- * These helpers only work in platform code that have access to the
- * switchtec_dev private structure. They should probably move out of here
- * at some point.
- */
-#define gas_reg_read8(dev, reg)  gas_read8(dev, &dev->gas_map->reg)
-#define gas_reg_read16(dev, reg) gas_read16(dev, &dev->gas_map->reg)
-#define gas_reg_read32(dev, reg) gas_read32(dev, &dev->gas_map->reg)
-#define gas_reg_read64(dev, reg) gas_read64(dev, &dev->gas_map->reg)
-
-#define gas_reg_write8(dev, val, reg)  gas_write8(dev, val, \
-						  &dev->gas_map->reg)
-#define gas_reg_write16(dev, val, reg) gas_write16(dev, val, \
-						   &dev->gas_map->reg)
-#define gas_reg_write32(dev, val, reg) gas_write32(dev, val, \
-						   &dev->gas_map->reg)
-#define gas_reg_write64(dev, val, reg) gas_write64(dev, val, \
-						   &dev->gas_map->reg)
-
 /**@}*/
 
 #endif
