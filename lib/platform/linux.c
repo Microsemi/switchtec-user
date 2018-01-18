@@ -28,6 +28,7 @@
 
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
+#include "mmap_gas.h"
 
 #include <linux/switchtec_ioctl.h>
 
@@ -761,6 +762,18 @@ static const struct switchtec_ops linux_ops = {
 	.event_summary = linux_event_summary,
 	.event_ctl = linux_event_ctl,
 	.event_wait = linux_event_wait,
+
+	.gas_read8 = mmap_gas_read8,
+	.gas_read16 = mmap_gas_read16,
+	.gas_read32 = mmap_gas_read32,
+	.gas_read64 = mmap_gas_read64,
+	.gas_write8 = mmap_gas_write8,
+	.gas_write16 = mmap_gas_write16,
+	.gas_write32 = mmap_gas_write32,
+	.gas_write64 = mmap_gas_write64,
+	.memcpy_to_gas = mmap_memcpy_to_gas,
+	.memcpy_from_gas = mmap_memcpy_from_gas,
+	.write_from_gas = mmap_write_from_gas,
 };
 
 struct switchtec_dev *switchtec_open_by_path(const char *path)

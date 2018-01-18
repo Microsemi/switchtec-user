@@ -59,147 +59,32 @@
 
 #ifdef SWITCHTEC_LIB_LINUX
 #error "GAS Access functions should not be used on the Linux platform " \
-	"as the require full root access."
+	"as they require full root access."
 #endif
 
-#ifdef __CHECKER__
-#define __force __attribute__((force))
-#else
-#define __force
-#endif
-
-#include <unistd.h>
 #include <stdint.h>
-#include <string.h>
 
-/**
- * @brief Copy data to the GAS
- * @param[out] dest	Destination gas address
- * @param[in]  src	Source data buffer
- * @param[in]  n	Number of bytes to transfer
- */
-static inline void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
-				 const void *src, size_t n)
-{
-	memcpy((void __force *)dest, src, n);
-}
+void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
+		   const void *src, size_t n);
 
-/**
- * @brief Copy data from the GAS
- * @param[out] dest	Destination buffer
- * @param[in]  src	Source gas address
- * @param[in]  n	Number of bytes to transfer
- */
-static inline void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
-				   const void __gas *src, size_t n)
-{
-	memcpy(dest, (void __force *)src, n);
-}
+void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+		     const void __gas *src, size_t n);
 
-/**
- * @brief Call write() with data from the GAS
- * @param[in] fd	Destination buffer
- * @param[in] src	Source gas address
- * @param[in] n		Number of bytes to transfer
- */
-static inline ssize_t write_from_gas(struct switchtec_dev *dev, int fd,
-				     const void __gas *src, size_t n)
-{
-	return write(fd, (void __force *)src, n);
-}
+ssize_t write_from_gas(struct switchtec_dev *dev, int fd,
+		       const void __gas *src, size_t n);
 
-/**
- * @brief Read a uint8_t from the GAS
- * @param[in] addr Address to read the value
- * @return The read value
- */
-static inline uint8_t gas_read8(struct switchtec_dev *dev,
-				uint8_t __gas *addr);
+uint8_t gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr);
+uint16_t gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr);
+uint32_t gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr);
+uint64_t gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr);
 
-/**
- * @brief Read a uint8_t from the GAS
- * @param[in] addr Address to read the value
- * @return The read value
- */
-static inline uint16_t gas_read16(struct switchtec_dev *dev,
-				  uint16_t __gas *addr);
-
-/**
- * @brief Read a uint8_t from the GAS
- * @param[in] addr Address to read the value
- * @return The read value
- */
-static inline uint32_t gas_read32(struct switchtec_dev *dev,
-				  uint32_t __gas *addr);
-
-/**
- * @brief Read a uint8_t from the GAS
- * @param[in] addr Address to read the value
- * @return The read value
- */
-static inline uint64_t gas_read64(struct switchtec_dev *dev,
-				  uint64_t __gas *addr);
-
-/**
- * @brief Write a uint8_t to the GAS
- * @param[in]  val  Value to write
- * @param[out] addr Address to write the value
- */
-static inline void gas_write8(struct switchtec_dev *dev, uint8_t val,
-			      uint8_t __gas *addr);
-
-/**
- * @brief Write a uint16_t to the GAS
- * @param[in]  val  Value to write
- * @param[out] addr Address to write the value
- */
-static inline void gas_write16(struct switchtec_dev *dev, uint16_t val,
-			       uint16_t __gas *addr);
-
-/**
- * @brief Write a uint32_t to the GAS
- * @param[in]  val  Value to write
- * @param[out] addr Address to write the value
- */
-static inline void gas_write32(struct switchtec_dev *dev, uint32_t val,
-			       uint32_t __gas *addr);
-
-/**
- * @brief Write a uint64_t to the GAS
- * @param[in]  val  Value to write
- * @param[out] addr Address to write the value
- */
-static inline void gas_write64(struct switchtec_dev *dev, uint64_t val,
-			       uint64_t __gas *addr);
-
-
-#define create_gas_read(type, suffix) \
-	static inline type gas_read ## suffix(struct switchtec_dev *dev, \
-					      type __gas *addr) \
-	{ \
-		type *safe_addr = (type __force *)addr; \
-		asm volatile("": : :"memory"); \
-		return *safe_addr; \
-	}
-
-#define create_gas_write(type, suffix) \
-	static inline void gas_write ## suffix(struct switchtec_dev *dev, \
-					       type val, type __gas *addr) \
-	{ \
-		type *safe_addr = (type __force *)addr; \
-		asm volatile("": : :"memory"); \
-		*safe_addr = val; \
-	}
-
-create_gas_read(uint8_t, 8);
-create_gas_read(uint16_t, 16);
-create_gas_read(uint32_t, 32);
-create_gas_read(uint64_t, 64);
-
-create_gas_write(uint8_t, 8);
-create_gas_write(uint16_t, 16);
-create_gas_write(uint32_t, 32);
-create_gas_write(uint64_t, 64);
+void gas_write8(struct switchtec_dev *dev, uint8_t val, uint8_t __gas *addr);
+void gas_write16(struct switchtec_dev *dev, uint16_t val,
+		 uint16_t __gas *addr);
+void gas_write32(struct switchtec_dev *dev, uint32_t val,
+		 uint32_t __gas *addr);
+void gas_write64(struct switchtec_dev *dev, uint64_t val,
+		 uint64_t __gas *addr);
 
 /*
  * These helpers only work in platform code that have access to the
@@ -219,8 +104,6 @@ create_gas_write(uint64_t, 64);
 						   &dev->gas_map->reg)
 #define gas_reg_write64(dev, val, reg) gas_write64(dev, val, \
 						   &dev->gas_map->reg)
-
-#undef __force
 
 /**@}*/
 

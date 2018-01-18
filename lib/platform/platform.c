@@ -29,6 +29,7 @@
 
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
+#include "switchtec/gas.h"
 
 /**
  * @brief Open a switchtec device by path.
@@ -261,4 +262,131 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 {
 	return dev->ops->event_wait(dev, timeout_ms);
+}
+
+/**
+ * @brief Read a uint8_t from the GAS
+ * @param[in] dev	Switchtec device handle
+ * @param[in] addr	Address to read the value
+ * @return The read value
+ */
+uint8_t gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr)
+{
+	return dev->ops->gas_read8(dev, addr);
+}
+
+/**
+ * @brief Read a uint16_t from the GAS
+ * @param[in] dev	Switchtec device handle
+ * @param[in] addr	Address to read the value
+ * @return The read value
+ */
+uint16_t gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr)
+{
+	return dev->ops->gas_read16(dev, addr);
+}
+
+/**
+ * @brief Read a uint32_t from the GAS
+ * @param[in] dev	Switchtec device handle
+ * @param[in] addr	Address to read the value
+ * @return The read value
+ */
+uint32_t gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr)
+{
+	return dev->ops->gas_read32(dev, addr);
+}
+
+/**
+ * @brief Read a uint64_t from the GAS
+ * @param[in] dev	Switchtec device handle
+ * @param[in] addr	Address to read the value
+ * @return The read value
+ */
+uint64_t gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr)
+{
+	return dev->ops->gas_read64(dev, addr);
+}
+
+/**
+ * @brief Write a uint8_t to the GAS
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  val	Value to write
+ * @param[out] addr	Address to write the value
+ */
+void gas_write8(struct switchtec_dev *dev, uint8_t val, uint8_t __gas *addr)
+{
+	dev->ops->gas_write8(dev, val, addr);
+}
+
+/**
+ * @brief Write a uint16_t to the GAS
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  val	Value to write
+ * @param[out] addr	Address to write the value
+ */
+void gas_write16(struct switchtec_dev *dev, uint16_t val, uint16_t __gas *addr)
+{
+	dev->ops->gas_write16(dev, val, addr);
+}
+
+/**
+ * @brief Write a uint32_t to the GAS
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  val	Value to write
+ * @param[out] addr	Address to write the value
+ */
+void gas_write32(struct switchtec_dev *dev, uint32_t val, uint32_t __gas *addr)
+{
+	dev->ops->gas_write32(dev, val, addr);
+}
+
+/**
+ * @brief Write a uint64_t to the GAS
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  val	Value to write
+ * @param[out] addr	Address to write the value
+ */
+void gas_write64(struct switchtec_dev *dev, uint64_t val, uint64_t __gas *addr)
+{
+	dev->ops->gas_write64(dev, val, addr);
+}
+
+/**
+ * @brief Copy data to the GAS
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] dest     Destination gas address
+ * @param[in]  src      Source data buffer
+ * @param[in]  n        Number of bytes to transfer
+ */
+void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
+		   const void *src, size_t n)
+{
+	dev->ops->memcpy_to_gas(dev, dest, src, n);
+}
+
+/**
+ * @brief Copy data from the GAS
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] dest     Destination buffer
+ * @param[in]  src      Source gas address
+ * @param[in]  n        Number of bytes to transfer
+ */
+void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+		     const void __gas *src, size_t n)
+{
+	dev->ops->memcpy_from_gas(dev, dest, src, n);
+}
+
+/**
+ * @brief Call write() with data from the GAS
+ * @param[in]  dev	Switchtec device handle
+ * @param[in] fd        Destination buffer
+ * @param[in] src       Source gas address
+ * @param[in] n         Number of bytes to transfer
+ */
+ssize_t write_from_gas(struct switchtec_dev *dev, int fd,
+		       const void __gas *src, size_t n)
+{
+	return dev->ops->write_from_gas(dev, fd, src, n);
 }
