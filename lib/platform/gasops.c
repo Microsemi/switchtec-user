@@ -52,6 +52,44 @@ void gasop_set_partition_info(struct switchtec_dev *dev)
 	dev->partition_count = gas_reg_read8(dev, top.partition_count);
 }
 
+int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
+	      const void *payload, size_t payload_len, void *resp,
+	      size_t resp_len)
+{
+	struct mrpc_regs __gas *mrpc = &dev->gas_map->mrpc;
+	int status;
+	int ret;
+
+	memcpy_to_gas(dev, &mrpc->input_data, payload, payload_len);
+	gas_write32(dev, cmd, &mrpc->cmd);
+
+	while (1) {
+		usleep(5000);
+
+		status = gas_read32(dev, &mrpc->status);
+		if (status != SWITCHTEC_MRPC_STATUS_INPROGRESS)
+			break;
+	}
+
+	if (status == SWITCHTEC_MRPC_STATUS_INTERRUPTED) {
+		errno = ENXIO;
+		return -errno;
+	}
+
+	if (status != SWITCHTEC_MRPC_STATUS_DONE) {
+		errno = ENXIO;
+		return -errno;
+	}
+
+	ret = gas_read32(dev, &mrpc->ret_value);
+	if (ret)
+		errno = ret;
+
+	memcpy_from_gas(dev, resp, &mrpc->output_data, resp_len);
+
+	return ret;
+}
+
 int gasop_get_fw_version(struct switchtec_dev *dev, char *buf,
 			 size_t buflen)
 {

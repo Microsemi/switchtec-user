@@ -28,6 +28,9 @@
 #include "switchtec/switchtec.h"
 
 void gasop_set_partition_info(struct switchtec_dev *dev);
+int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
+	      const void *payload, size_t payload_len, void *resp,
+	      size_t resp_len);
 int gasop_get_fw_version(struct switchtec_dev *dev, char *buf,
 			 size_t buflen);
 int gasop_pff_to_port(struct switchtec_dev *dev, int pff,
