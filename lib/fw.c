@@ -156,13 +156,15 @@ struct cmd_fwdl {
  * @brief Write a firmware file to the switchtec device
  * @param[in] dev		Switchtec device handle
  * @param[in] img_fd		File descriptor for the image file to write
+ * @param[in] force		If 1, ignore if another download command is
+ *			        already in progress.
  * @param[in] dont_activate	If 1, the new image will not be activated
  * @param[in] progress_callback If not NULL, this function will be called to
  * 	indicate the progress.
  * @return 0 on success, error code on failure
  */
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
-			  int dont_activate,
+			  int dont_activate, int force,
 			  void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
@@ -178,7 +180,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 
 	switchtec_fw_dlstatus(dev, &status, &bgstatus);
 
-	if (status == SWITCHTEC_DLSTAT_INPROGRESS) {
+	if (!force && status == SWITCHTEC_DLSTAT_INPROGRESS) {
 		errno = EBUSY;
 		return -EBUSY;
 	}
@@ -245,12 +247,14 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
  * @param[in] dev		Switchtec device handle
  * @param[in] fimg		FILE pointer for the image file to write
  * @param[in] dont_activate	If 1, the new image will not be activated
+ * @param[in] force		If 1, ignore if another download command is
+ *			        already in progress.
  * @param[in] progress_callback If not NULL, this function will be called to
  * 	indicate the progress.
  * @return 0 on success, error code on failure
  */
 int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
-			    int dont_activate,
+			    int dont_activate, int force,
 			    void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
@@ -271,7 +275,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 
 	switchtec_fw_dlstatus(dev, &status, &bgstatus);
 
-	if (status == SWITCHTEC_DLSTAT_INPROGRESS) {
+	if (!force && status == SWITCHTEC_DLSTAT_INPROGRESS) {
 		errno = EBUSY;
 		return -EBUSY;
 	}
