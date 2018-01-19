@@ -34,8 +34,11 @@ int switchtec_handler(const char *optarg, void *value_addr,
 			.custom_handler=switchtec_handler, \
 			.complete="/dev/switchtec*", \
 			.env="SWITCHTEC_DEV", \
-			.help="switchtec device to operate on. can be a device " \
-			"path (/dev/switchtec0), an index (0, 1, 2) or a pci " \
-			"address (3:00.1)"}
+			.help="switchtec device to operate on. can be any of:\n" \
+			" * a device path (/dev/switchtec0)\n" \
+			" * an index (0, 1, 2)\n" \
+			" * a pci address (3:00.1)\n" \
+			" * An I2C path with slave address (/dev/i2c-1@0x20)\n" \
+	}
 
 #endif
