@@ -1012,6 +1012,7 @@ static int fw_update(int argc, char **argv)
 		const char *img_filename;
 		int assume_yes;
 		int dont_activate;
+		int force;
 		int set_boot_rw;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
@@ -1024,6 +1025,9 @@ static int fw_update(int argc, char **argv)
 		{"dont-activate", 'A', "", CFG_NONE, &cfg.dont_activate, no_argument,
 		 "don't activate the new image, use fw-toggle to do so "
 		 "when it is safe"},
+		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
+		 "force interrupting an existing fw-update command in case "
+		 "firmware is stuck in the busy state"},
 		{"set-boot-rw", 'W', "", CFG_NONE, &cfg.set_boot_rw, no_argument,
 		 "set the bootloader partition as RW (only valid for BOOT images)"},
 		{NULL}};
@@ -1059,7 +1063,7 @@ static int fw_update(int argc, char **argv)
 
 	progress_start();
 	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
-				      progress_update);
+				      cfg.force, progress_update);
 	fclose(cfg.fimg);
 
 	if (ret) {
