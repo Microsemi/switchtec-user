@@ -112,7 +112,7 @@ struct cmd_fwdl {
 };
 
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
-			  int dont_activate,
+			  int dont_activate, int force,
 			  void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
@@ -128,7 +128,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 
 	switchtec_fw_dlstatus(dev, &status, &bgstatus);
 
-	if (status == SWITCHTEC_DLSTAT_INPROGRESS) {
+	if (!force && status == SWITCHTEC_DLSTAT_INPROGRESS) {
 		errno = EBUSY;
 		return -EBUSY;
 	}
@@ -191,7 +191,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 }
 
 int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
-			    int dont_activate,
+			    int dont_activate, int force,
 			    void (*progress_callback)(int cur, int tot))
 {
 	enum switchtec_fw_dlstatus status;
@@ -212,7 +212,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 
 	switchtec_fw_dlstatus(dev, &status, &bgstatus);
 
-	if (status == SWITCHTEC_DLSTAT_INPROGRESS) {
+	if (!force && status == SWITCHTEC_DLSTAT_INPROGRESS) {
 		errno = EBUSY;
 		return -EBUSY;
 	}
