@@ -251,9 +251,6 @@ static void windows_close(struct switchtec_dev *dev)
 {
 	struct switchtec_windows *wdev = to_switchtec_windows(dev);
 
-	if (!dev)
-		return;
-
 	unmap_gas(wdev);
 	CloseHandle(wdev->hdl);
 }

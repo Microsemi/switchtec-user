@@ -120,9 +120,6 @@ static void i2c_close(struct switchtec_dev *dev)
 {
 	struct switchtec_i2c *idev = to_switchtec_i2c(dev);
 
-	if (!dev)
-		return;
-
 	if (dev->gas_map)
 		munmap((void __force *)dev->gas_map, dev->gas_map_size);
 

@@ -156,9 +156,6 @@ static void linux_close(struct switchtec_dev *dev)
 {
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
-	if (!dev)
-		return;
-
 	close(ldev->fd);
 	free(ldev);
 }

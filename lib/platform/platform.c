@@ -80,6 +80,9 @@ struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr);
  */
 void switchtec_close(struct switchtec_dev *dev)
 {
+	if (!dev)
+		return;
+
 	dev->ops->close(dev);
 }
 
