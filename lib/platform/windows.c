@@ -45,10 +45,15 @@ struct switchtec_windows {
 	((struct switchtec_windows *) \
 	 ((char *)d - offsetof(struct switchtec_windows, dev)))
 
+static int earlier_error = 0;
+
 void platform_perror(const char *msg)
 {
 	char errmsg[500] = "";
 	int err = GetLastError();
+
+	if (!err && earlier_error)
+		err = earlier_error;
 
 	FormatMessage (FORMAT_MESSAGE_FROM_SYSTEM |
 		       FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err,
@@ -226,8 +231,10 @@ static BOOL map_gas(struct switchtec_windows *wdev)
 
 	status = DeviceIoControl(wdev->hdl, IOCTL_SWITCHTEC_GAS_MAP, NULL, 0,
 				 &map, sizeof(map), NULL, NULL);
-	if (!status)
+	if (!status) {
+		earlier_error = GetLastError();
 		return status;
+	}
 
 	wdev->dev.gas_map = (gasptr_t __force)map.gas;
 	wdev->dev.gas_map_size = map.length;
