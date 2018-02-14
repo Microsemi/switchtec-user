@@ -332,9 +332,14 @@ static int gui_init(struct switchtec_dev *dev, unsigned reset,
 	int ret, p, numports, port_ids[SWITCHTEC_MAX_PORTS];
 	struct switchtec_status *status;
 
+retry:
 	ret = switchtec_status(dev, &status);
-	if (ret < 0)
+	if (errno == EINTR) {
+		errno = 0;
+		goto retry;
+	} else if (ret < 0) {
 		cleanup_and_error("status");
+	}
 	numports = ret;
 
 	for (p = 0; p < numports; p++)
@@ -345,6 +350,11 @@ static int gui_init(struct switchtec_dev *dev, unsigned reset,
 	else
 		ret = switchtec_bwcntr_many(dev, numports, port_ids, 0,
 					    bw_data);
+
+	if (errno == EINTR) {
+		errno = 0;
+		goto retry;
+	}
 
 	switchtec_status_free(status, numports);
 	return ret;
