@@ -353,20 +353,17 @@ void switchtec_status_free(struct switchtec_status *status, int ports)
 }
 
 /**
- * @brief Print an error string to stdout
- * @param[in] str String that will be prefixed to the error message
+ * @brief Return a message coresponding to the last error
  *
  * This can be called after another switchtec function returned an error
  * to find out what caused the problem.
  */
-void switchtec_perror(const char *str)
+const char *switchtec_strerror(void)
 {
 	const char *msg;
 
 	switch (errno) {
-	case 0:
-		platform_perror(str);
-		return;
+	case 0: msg = platform_strerror(); break;
 
 	case ERR_NO_AVAIL_MRPC_THREAD:
 		msg = "No available MRPC handler thread"; break;
@@ -385,11 +382,22 @@ void switchtec_perror(const char *str)
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
 
-	default:
-		perror(str);
-		return;
+	default: msg = strerror(errno); break;
 	}
 
+	return msg;
+}
+
+/**
+ * @brief Print an error string to stdout
+ * @param[in] str String that will be prefixed to the error message
+ *
+ * This can be called after another switchtec function returned an error
+ * to find out what caused the problem.
+ */
+void switchtec_perror(const char *str)
+{
+	const char *msg = switchtec_strerror();
 	fprintf(stderr, "%s: %s\n", str, msg);
 }
 
