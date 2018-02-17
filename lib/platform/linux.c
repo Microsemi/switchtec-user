@@ -58,9 +58,9 @@ struct switchtec_linux {
 	((struct switchtec_linux *) \
 	 ((char *)d - offsetof(struct switchtec_linux, dev)))
 
-void platform_perror(const char *str)
+const char *platform_strerror(void)
 {
-	perror(str);
+	return "Unknown Error";
 }
 
 static int dev_to_sysfs_path(struct switchtec_linux *ldev, const char *suffix,

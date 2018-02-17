@@ -49,6 +49,6 @@ static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
 	snprintf(buf, buflen, "%x.%02x B%03X", major, minor, build);
 }
 
-void platform_perror(const char *str);
+const char *platform_strerror();
 
 #endif

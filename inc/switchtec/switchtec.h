@@ -258,6 +258,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
 void switchtec_status_free(struct switchtec_status *status, int ports);
 
+const char *switchtec_strerror(void);
 void switchtec_perror(const char *str);
 int switchtec_log_to_file(struct switchtec_dev *dev,
 			  enum switchtec_log_type type,
