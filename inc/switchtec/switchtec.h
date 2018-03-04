@@ -31,6 +31,7 @@
  */
 
 #include "mrpc.h"
+#include "bind.h"
 #include "portable.h"
 #include "registers.h"
 
@@ -440,7 +441,11 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);
-
+int switchtec_bind_info(struct switchtec_dev *dev, 
+                  struct switchtec_bind_status_out *bind_status, int phy_port);
+int switchtec_bind(struct switchtec_dev *dev, int par_id, 
+                   int log_port, int phy_port);
+int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port);
 /********** EVENT COUNTER *********/
 
 /**

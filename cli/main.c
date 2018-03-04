@@ -780,6 +780,106 @@ static int temp(int argc, char **argv)
 	return 0;
 }
 
+static int port_bind_info(int argc, char **argv)
+{
+	const char *desc = "Bind info for physical port";
+	float ret;
+	struct switchtec_bind_status_out bind_status;
+	static struct {
+		struct switchtec_dev *dev;
+		int phy_port;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_INT, &cfg.phy_port, required_argument,
+			"physical port number"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	printf("physical port:%d\n", cfg.phy_port);
+
+	ret = switchtec_bind_info(cfg.dev, &bind_status, cfg.phy_port);
+
+	if (ret < 0) {
+		printf("bind_info_error: %f", ret);
+		return 1;
+	}
+
+	printf("bind state %u\n", bind_status.bind_state);
+	printf("physical port %u bound to %u, partition %u\n", bind_status.phys_port_id,
+			bind_status.log_port_id, bind_status.par_id);
+
+
+	return 0;
+}
+
+
+static int port_bind(int argc, char **argv)
+{
+	const char *desc = "Bind switchtec logical port to physical port";
+	float ret;
+	static struct {
+		struct switchtec_dev *dev;
+		int par_id;
+		int log_port;
+		int phy_port;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"partition", 'p', "", CFG_INT, &cfg.par_id, required_argument,
+			"partition number"},
+		{"logical", 'l', "", CFG_INT, &cfg.log_port, required_argument,
+			"logical port number"},
+		{"physical", 'f', "", CFG_INT, &cfg.phy_port, required_argument,
+			"physical port number"},
+		{NULL}};
+
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_bind(cfg.dev, cfg.par_id, cfg.log_port, cfg.phy_port);
+
+	if (ret < 0) {
+		printf("bind_error: %f", ret);
+		return 1;
+	}
+
+	return 0;
+}
+
+
+static int port_unbind(int argc, char **argv)
+{
+	const char *desc = "Unbind switchtec logical port from physical port";
+	float ret;
+	static struct {
+		struct switchtec_dev *dev;
+		int par_id;
+		int log_port;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"partition", 'p', "", CFG_INT, &cfg.par_id, required_argument,
+			"partition number"},
+		{"logical", 'l', "", CFG_INT, &cfg.log_port, required_argument,
+			"logical port number"},
+		{NULL}};
+
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_unbind(cfg.dev, cfg.par_id, cfg.log_port);
+
+	if (ret < 0) {
+		printf("unbind_error: %f", ret);
+		return 1;
+	}
+
+	return 0;
+}
+
+
 int ask_if_sure(int always_yes)
 {
 	char buf[10];
@@ -1651,6 +1751,9 @@ static const struct cmd commands[] = {
 	CMD(log_dump, "Dump firmware log to a file"),
 	CMD(test, "Test if switchtec interface is working"),
 	CMD(temp, "Return the switchtec die temperature"),
+	CMD(port_bind_info, "Return binding info for a physical port"),
+	CMD(port_bind, "Bind switchtec logical and physical ports"),
+	CMD(port_unbind, "Unbind switchtec logical port from physical port"),
 	CMD(hard_reset, "Perform a hard reset of the switch"),
 	CMD(fw_update, "Upload a new firmware image"),
 	CMD(fw_info, "Return information on currently flashed firmware"),
