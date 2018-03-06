@@ -406,4 +406,35 @@ struct switchtec_gas {
 	struct pff_csr_regs pff_csr[SWITCHTEC_MAX_PFF_CSR];
 };
 
+struct switchtec_bind_status_in {
+	uint8_t sub_cmd;
+	uint8_t phys_port_id;
+	uint8_t reserved1;
+	uint8_t reserved2;
+};
+
+struct switchtec_bind_status_out {
+	uint8_t inf_cnt;
+	uint8_t reserved1;
+	uint8_t reserved2;
+	uint8_t reserved3;
+	uint8_t phys_port_id;
+	uint8_t par_id;
+	uint8_t log_port_id;
+	uint8_t bind_state;
+};
+
+struct switchtec_bind_in {
+	uint8_t sub_cmd;
+	uint8_t par_id;
+	uint8_t log_port_id;
+	uint8_t phys_port_id;
+};
+
+struct switchtec_unbind_in {
+	uint8_t sub_cmd;
+	uint8_t par_id;
+	uint8_t log_port_id;
+	uint8_t opt;
+};
 #pragma pack(pop)
