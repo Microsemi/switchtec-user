@@ -560,4 +560,65 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 	return temp / 100.;
 }
 
+int switchtec_bind_info(struct switchtec_dev *dev,
+			struct switchtec_bind_status_out *status, int phy_port)
+{
+	int ret;
+
+	struct switchtec_bind_status_in sub_cmd_id = {
+		.sub_cmd = MRPC_PORT_INFO,
+		.phys_port_id = phy_port
+	};
+
+	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+			    sizeof(sub_cmd_id), status, sizeof(*status));
+
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int switchtec_bind(struct switchtec_dev *dev, int par_id, int log_port,
+		   int phy_port)
+{
+	int ret;
+	uint32_t output;
+
+	struct switchtec_bind_in sub_cmd_id = {
+		.sub_cmd = MRPC_PORT_BIND,
+		.par_id = par_id,
+		.log_port_id = log_port,
+		.phys_port_id = phy_port
+	};
+
+	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+			    sizeof(sub_cmd_id), &output, sizeof(output));
+
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port)
+{
+	int ret;
+	uint32_t output;
+
+	struct switchtec_unbind_in sub_cmd_id = {
+		.sub_cmd = MRPC_PORT_UNBIND,
+		.par_id = par_id,
+		.log_port_id = log_port,
+		.opt = 2
+	};
+
+	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+			    sizeof(sub_cmd_id), &output, sizeof(output));
+
+	if (ret)
+		return ret;
+
+	return 0;
+}
 /**@}*/
