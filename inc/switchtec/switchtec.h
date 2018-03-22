@@ -48,6 +48,7 @@ struct switchtec_dev;
 #define SWITCHTEC_MAX_PARTS  48
 #define SWITCHTEC_MAX_PORTS  48
 #define SWITCHTEC_MAX_STACKS 8
+#define SWITCHTEC_MAX_ARBITRATION_WEIGHTS 56
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
 #define SWITCHTEC_PFF_PORT_VEP 100
@@ -327,6 +328,29 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 			     enum switchtec_event_id e, int index,
 			     struct switchtec_event_summary *res,
 			     int timeout_ms);
+
+/******** ARBITRATION Management ********/
+
+/**
+ * @brief Describe the port arbitration mode
+ * @see switchtec_arbitration_get()
+ */
+enum switchtec_arbitration_mode {
+	SWITCHTEC_ARBITRATION_FRR,
+	SWITCHTEC_ARBITRATION_WRR,
+};
+
+const char *switchtec_arbitration_mode(enum switchtec_arbitration_mode mode);
+
+int switchtec_arbitration_get(struct switchtec_dev *dev, int port_id,
+			      enum switchtec_arbitration_mode *mode,
+			      int *weights);
+
+int switchtec_arbitration_set(struct switchtec_dev *dev, int port_id,
+			      enum switchtec_arbitration_mode in_mode,
+			      int *in_weights,
+			      enum switchtec_arbitration_mode *out_mode,
+			      int *out_weights);
 
 /******** FIRMWARE Management ********/
 

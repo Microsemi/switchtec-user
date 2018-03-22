@@ -111,6 +111,9 @@ enum mrpc_sub_cmd {
 	MRPC_PORT_BIND = 0,
 	MRPC_PORT_UNBIND = 1,
 	MRPC_PORT_INFO = 2,
+
+	MRPC_ARB_GET = 0,
+	MRPC_ARB_SET = 1,
 };
 
 #endif

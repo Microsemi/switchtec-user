@@ -780,6 +780,121 @@ static int temp(int argc, char **argv)
 	return 0;
 }
 
+static void arbitration_print(enum switchtec_arbitration_mode mode,
+			      int ports, int *weights)
+{
+	int p;
+
+	printf("Mode = %u : %s\n", mode, switchtec_arbitration_mode(mode));
+
+	printf("Port  :");
+	for (p = 0; p < ports; p++)
+		printf("%4d", p);
+	printf("\nWeight:");
+	for (p = 0; p < ports; p++)
+		printf("%4d", weights[p]);
+	printf("\n");
+}
+
+static int arbitration_get(int argc, char **argv)
+{
+	const char *desc = "Get Arbitration info for physical port";
+	int ports;
+	enum switchtec_arbitration_mode mode;
+	int weights[SWITCHTEC_MAX_ARBITRATION_WEIGHTS];
+
+	static struct {
+		struct switchtec_dev *dev;
+		int port;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "", CFG_POSITIVE, &cfg.port, required_argument,
+			"physical port number (0-47)"},
+		{NULL} };
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.port < 0 || cfg.port >= SWITCHTEC_MAX_PORTS) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --port argument is invalid!\n");
+		return 1;
+	}
+
+	printf("Physical port:%d\n", cfg.port);
+
+	ports = switchtec_arbitration_get(cfg.dev, cfg.port, &mode, weights);
+
+	if (ports < 0) {
+		switchtec_perror("arbitration get");
+		return ports;
+	}
+
+	arbitration_print(mode, ports, weights);
+
+	return 0;
+}
+
+static int arbitration_set(int argc, char **argv)
+{
+	const char *desc = "Set Arbitration info for physical port";
+	int p, ports;
+	enum switchtec_arbitration_mode mode;
+	int in_weights[SWITCHTEC_MAX_ARBITRATION_WEIGHTS];
+	int out_weights[SWITCHTEC_MAX_ARBITRATION_WEIGHTS];
+
+	static struct {
+		struct switchtec_dev *dev;
+		int port;
+		int mode;
+		int weight;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "", CFG_POSITIVE, &cfg.port, required_argument,
+			"physical port number (0-47)"},
+		{"mode", 'm', "", CFG_POSITIVE, &cfg.mode, required_argument,
+			"arbitration mode to set"},
+		{"weight", 'w', "", CFG_POSITIVE, &cfg.weight,
+			required_argument, "weight value to set"},
+		{NULL} };
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.port < 0 || cfg.port >= SWITCHTEC_MAX_PORTS) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --port argument is invalid!\n");
+		return 1;
+	}
+
+	if (cfg.weight < 0 || cfg.weight >= 255) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --weight argument is invalid!\n");
+		return 1;
+	}
+
+	printf("Physical port:%d\n", cfg.port);
+	printf("Mode = %u : %s\n", cfg.mode,
+	       switchtec_arbitration_mode(cfg.mode));
+	printf("Weight for all Ports = %d\n", cfg.weight);
+
+	for (p = 0; p < SWITCHTEC_MAX_ARBITRATION_WEIGHTS; p++)
+		in_weights[p] = cfg.weight;
+
+	ports = switchtec_arbitration_set(cfg.dev, cfg.port,
+					  cfg.mode, in_weights,
+					  &mode, out_weights);
+
+	if (ports < 0) {
+		switchtec_perror("arbitration set");
+		return ports;
+	}
+
+	arbitration_print(mode, ports, out_weights);
+
+	return 0;
+}
+
 static int port_bind_info(int argc, char **argv)
 {
 	const char *desc = "Bind info for physical port";
@@ -1746,6 +1861,8 @@ static const struct cmd commands[] = {
 	CMD(log_dump, "Dump firmware log to a file"),
 	CMD(test, "Test if switchtec interface is working"),
 	CMD(temp, "Return the switchtec die temperature"),
+	CMD(arbitration_get, "Return arbitration weights for a physical port"),
+	CMD(arbitration_set, "Set arbitration weight for a physical port"),
 	CMD(port_bind_info, "Return binding info for a physical port"),
 	CMD(port_bind, "Bind switchtec logical and physical ports"),
 	CMD(port_unbind, "Unbind switchtec logical port from physical port"),
