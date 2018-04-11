@@ -86,7 +86,8 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	if (ret)
 		errno = ret;
 
-	memcpy_from_gas(dev, resp, &mrpc->output_data, resp_len);
+	if(resp)
+		memcpy_from_gas(dev, resp, &mrpc->output_data, resp_len);
 
 	return ret;
 }
