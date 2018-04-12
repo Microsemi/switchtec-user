@@ -415,7 +415,7 @@ int switchtec_echo(struct switchtec_dev *dev, uint32_t input,
 		   uint32_t *output)
 {
 	return switchtec_cmd(dev, MRPC_ECHO, &input, sizeof(input),
-			     output, sizeof(output));
+			     output, sizeof(*output));
 }
 
 /**
