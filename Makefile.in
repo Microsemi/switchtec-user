@@ -186,7 +186,7 @@ doc:
 	make -C doc
 
 .PHONY: clean compile install unintsall install-bin install-bash-completion doc
-.PHONY: FORCE
+.PHONY: FORCE dist
 
 
 -include $(patsubst %.o,%.d,$(LIB_OBJS) $(CLI_OBJS))
