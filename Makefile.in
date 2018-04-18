@@ -120,7 +120,7 @@ $(STLIBNAME): $(LIB_OBJS)
 
 $(SHLIBNAME): $(LIB_OBJS)
 	@$(NQ) echo "  LD    $@"
-	$(Q)$(LINK.o) -shared $^ $(SHLDLIBS) -o $@
+	$(Q)$(LINK.o) -shared -Wl,-soname,$@.$(MAJOR_VER) $^ $(SHLDLIBS) -o $@
 
 $(EXENAME): $(CLI_OBJS) $(STLIBNAME)
 	@$(NQ) echo "  LD    $@"
@@ -150,14 +150,13 @@ install-bin: compile
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(IMPLIBNAME).$(VERSION)"
 	$(Q)install $(IMPLIBNAME) $(LIBDIR)/$(IMPLIBNAME).$(VERSION)
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(IMPLIBNAME)"
-	$(Q)ln -fs $(LIBDIR)/$(IMPLIBNAME).$(VERSION) \
-           $(LIBDIR)/$(IMPLIBNAME)
+	$(Q)ln -fs $(IMPLIBNAME).$(MAJOR_VER) $(LIBDIR)/$(IMPLIBNAME)
 	@$(NQ) echo "  INSTALL  $(INCDIR)/switchtec"
 	@$(Q)mkdir -p $(INCDIR)
 	@$(Q)cp -r inc/switchtec $(INCDIR)
 
 	@$(NQ) echo "  LDCONFIG"
-	$(Q)$(LDCONFIG)
+	$(Q)$(LDCONFIG) $(LIBDIR)
 
 install: install-bin install-bash-completion
 
@@ -172,7 +171,7 @@ uninstall:
 	@$(Q)rm -rf $(INCDIR)/switchtec
 
 	@$(NQ) echo "  LDCONFIG"
-	$(Q)$(LDCONFIG)
+	$(Q)$(LDCONFIG) $(LIBDIR)
 
 PKG=switchtec-$(FULL_VERSION)
 dist:

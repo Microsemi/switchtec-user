@@ -92,6 +92,7 @@ if test -d $OBJDIR; then
 
 		echo "VERSION=$MVN" >$MVF
 		echo "FULL_VERSION=$VN" >>$MVF
+		echo "MAJOR_VER=$MAJOR" >>$MVF
 	}
 fi
 
