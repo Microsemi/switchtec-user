@@ -81,6 +81,11 @@ struct top_regs {
 	uint8_t pff_port[255];
 };
 
+struct event {
+	uint32_t hdr;
+	uint32_t data[5];
+};
+
 struct sw_event_regs {
 	uint64_t event_report_ctrl;
 	uint64_t reserved1;
@@ -122,9 +127,12 @@ struct sw_event_regs {
 	uint32_t gpio_interrupt_hdr;
 	uint32_t gpio_interrupt_data;
 	uint32_t reserved16[4];
-	uint32_t gfms_event_hdr;
+	uint32_t gfms_event_hdr;		//!< Event specific for PAX
 	uint32_t gfms_event_data;
 	uint32_t reserved17[4];
+	uint32_t reserved18[60];
+	struct event customer_events[6];
+	uint32_t reserved19[320];
 };
 
 enum {
@@ -204,7 +212,9 @@ struct part_cfg_regs {
 	uint32_t mrpc_comp_async_data[5];
 	uint32_t dyn_binding_hdr;
 	uint32_t dyn_binding_data[5];
-	uint32_t reserved4[159];
+	uint32_t reserved4[120];
+	struct event customer_events[6];
+	uint32_t reserved5[3];
 };
 
 enum {
@@ -358,7 +368,9 @@ struct pff_csr_regs {
 	uint32_t credit_timeout_data[5];
 	uint32_t link_state_hdr;
 	uint32_t link_state_data[5];
-	uint32_t reserved4[174];
+	uint32_t reserved4[66];
+	struct event customer_events[6];
+	uint32_t reserved5[72];
 };
 
 struct switchtec_gas {
