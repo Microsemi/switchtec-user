@@ -1,0 +1,56 @@
+Name: 		switchtec
+Version: 	@@VERSION@@
+Release: 	@@RELEASE@@%{?dist}
+Summary:  	Userspace application and library  for the Microsemi PCIe Switch
+License: 	MIT
+Group: 		Development/Tools
+URL: 		https://github.com/Microsemi/switchtec-user
+Source: 	switchtec-@@VERSION@@-@@RELEASE@@.tar.xz
+Provides:	switchtec
+BuildRoot:	%{_tmppath}/%{name}-%{version}-root
+
+%description
+This application and C library allows for communicating with
+Microsemi's Switchtec management interface.
+
+This provides the following features:
+
+* Show status for each port on all partitions
+* Measure bandwidth and latency for each port
+* Display and wait on event occurrances
+* Setup and show event counters for various types of events
+* Dump firmware logs
+* Send a hard reset command to the switch
+* Update and readback firmware as well as display image version and CRC info
+* A simple ncurses GUI that shows salient information for the switch
+
+%prep
+%setup -n switchtec-@@VERSION@@-@@RELEASE@@
+
+%build
+%configure --with-curses
+make
+
+%install
+rm -rf $RPM_BUILD_ROOT
+make install-pkg DESTDIR=%{buildroot}
+
+%post
+/sbin/ldconfig
+
+%postun
+/sbin/ldconfig
+
+%files
+%defattr(-,root,root)
+/usr/local/bin/switchtec
+/usr/local/lib/libswitchtec.*
+/usr/local/include/switchtec/*.*
+/etc/bash_completion.d/switchtec
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%changelog
+* Mon Apr 16 2018 Boris Glimcher <Boris.Glimcher@emc.com>
+- Initial RPM spec

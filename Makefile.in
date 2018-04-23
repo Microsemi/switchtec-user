@@ -30,6 +30,7 @@ OBJDIR ?= build
 
 DESTDIR ?=
 PREFIX ?= /usr/local
+RPMBUILD ?= rpmbuild
 
 BINDIR ?= $(DESTDIR)$(PREFIX)/bin
 LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
@@ -97,7 +98,7 @@ clean:
 
 distclean: clean
 	$(Q)rm -rf config.log config.status *.lib *.exe *.so *.dll build* \
-		Makefile autom4te.cache
+		Makefile autom4te.cache *.tar* switchtec.spec
 
 $(OBJDIR)/version.h $(OBJDIR)/version.mk: FORCE $(OBJDIR)
 	@$(SHELL_PATH) ./VERSION-GEN
@@ -120,7 +121,7 @@ $(STLIBNAME): $(LIB_OBJS)
 
 $(SHLIBNAME): $(LIB_OBJS)
 	@$(NQ) echo "  LD    $@"
-	$(Q)$(LINK.o) -shared $^ $(SHLDLIBS) -o $@
+	$(Q)$(LINK.o) -shared -Wl,-soname,$@.$(MAJOR_VER) $^ $(SHLDLIBS) -o $@
 
 $(EXENAME): $(CLI_OBJS) $(STLIBNAME)
 	@$(NQ) echo "  LD    $@"
@@ -150,43 +151,41 @@ install-bin: compile
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(IMPLIBNAME).$(VERSION)"
 	$(Q)install $(IMPLIBNAME) $(LIBDIR)/$(IMPLIBNAME).$(VERSION)
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(IMPLIBNAME)"
-	$(Q)ln -fs $(LIBDIR)/$(IMPLIBNAME).$(VERSION) \
-           $(LIBDIR)/$(IMPLIBNAME)
+	$(Q)ln -fs $(IMPLIBNAME).$(MAJOR_VER) $(LIBDIR)/$(IMPLIBNAME)
 	@$(NQ) echo "  INSTALL  $(INCDIR)/switchtec"
 	@$(Q)mkdir -p $(INCDIR)
 	@$(Q)cp -r inc/switchtec $(INCDIR)
 
-	@$(NQ) echo "  LDCONFIG"
-	$(Q)$(LDCONFIG)
+install-pkg: install-bin install-bash-completion
 
 install: install-bin install-bash-completion
+	@$(NQ) echo "  LDCONFIG"
+	$(Q)$(LDCONFIG) $(LIBDIR)
 
 uninstall:
-	@$(NQ) echo "  UNINSTALL  $(BINDIR)/$(INSTEXENAME)"
-	$(Q)rm -f $(BINDIR)/$(INSTEXENAME)
-	@$(NQ) echo "  UNINSTALL  $(LIBDIR)/$(STLIBNAME)"
-	$(Q)rm -f $(LIBDIR)/$(STLIBNAME)
-	@$(NQ) echo "  UNINSTALL  $(LIBDIR)/$(IMPLIBNAME)"
-	$(Q)rm -f $(LIBDIR)/$(IMPLIBNAME)*
-	@$(NQ) echo "  UNINSTALL  $(INCDIR)/switchtec"
-	@$(Q)rm -rf $(INCDIR)/switchtec
-
 	@$(NQ) echo "  LDCONFIG"
-	$(Q)$(LDCONFIG)
+	$(Q)$(LDCONFIG) $(LIBDIR)
 
-PKG=switchtec-$(FULL_VERSION)
-dist:
+switchtec.spec: switchtec.spec.in $(OBJDIR)/version.mk
+	sed -e 's/@@VERSION@@/$(VERSION)/g' < $< | sed -e 's/@@RELEASE@@/$(RELEASE)/g' > $@+
+	mv $@+ $@
+
+PKG=switchtec-$(VERSION)-$(RELEASE)
+dist: switchtec.spec
 	git archive --format=tar --prefix=$(PKG)/ HEAD > $(PKG).tar
-	@echo $(FULL_VERSION) > version
-	tar -rf $(PKG).tar --xform="s%^%$(PKG)/%" version
+	@echo $(VERSION)-$(RELEASE) > version
+	tar -rf $(PKG).tar --xform="s%^%$(PKG)/%" switchtec.spec version
 	xz -f $(PKG).tar
 	rm -f version
+
+rpm: dist
+	$(RPMBUILD) -ta $(PKG).tar.xz
 
 doc:
 	make -C doc
 
 .PHONY: clean compile install unintsall install-bin install-bash-completion doc
-.PHONY: FORCE dist
+.PHONY: FORCE dist rpm
 
 
 -include $(patsubst %.o,%.d,$(LIB_OBJS) $(CLI_OBJS))
