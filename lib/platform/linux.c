@@ -58,9 +58,9 @@ struct switchtec_linux {
 	((struct switchtec_linux *) \
 	 ((char *)d - offsetof(struct switchtec_linux, dev)))
 
-void platform_perror(const char *str)
+const char *platform_strerror(void)
 {
-	perror(str);
+	return "Unknown Error";
 }
 
 static int dev_to_sysfs_path(struct switchtec_linux *ldev, const char *suffix,
@@ -484,7 +484,7 @@ static void get_port_info(const char *searchpath, int port,
 	char syspath[PATH_MAX];
 	glob_t paths;
 
-	snprintf(syspath, sizeof(syspath), "%s/*:*:%02d.*/*:*:*/",
+	snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.*/*:*:*/",
 		 searchpath, port);
 
 	glob(syspath, 0, NULL, &paths);
@@ -522,7 +522,6 @@ int switchtec_get_devices(struct switchtec_dev *dev,
 	int ret;
 	int i;
 	int local_part;
-	int port;
 	char syspath[PATH_MAX];
 	char searchpath[PATH_MAX];
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
@@ -541,15 +540,13 @@ int switchtec_get_devices(struct switchtec_dev *dev,
 	searchpath[strlen(searchpath) - 1] = '0';
 
 	local_part = switchtec_partition(dev);
-	port = 0;
 
 	for (i = 0; i < ports; i++) {
 		if (status[i].port.upstream ||
 		    status[i].port.partition != local_part)
 			continue;
 
-		get_port_info(searchpath, port, &status[i]);
-		port++;
+		get_port_info(searchpath, status[i].port.log_id - 1, &status[i]);
 	}
 
 	return 0;

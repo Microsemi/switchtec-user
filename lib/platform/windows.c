@@ -47,9 +47,9 @@ struct switchtec_windows {
 
 static int earlier_error = 0;
 
-void platform_perror(const char *msg)
+const char *platform_strerror(void)
 {
-	char errmsg[500] = "";
+	static char errmsg[500] = "";
 	int err = GetLastError();
 
 	if (!err && earlier_error)
@@ -62,8 +62,12 @@ void platform_perror(const char *msg)
 
 	if (!strlen(errmsg))
 		sprintf(errmsg, "Error %d", err);
+	return errmsg;
+}
 
-	fprintf(stderr, "%s: %s", msg, errmsg);
+static void platform_perror(const char *msg)
+{
+	fprintf(stderr, "%s: %s\n", msg, platform_strerror());
 }
 
 static int count_devices(void)

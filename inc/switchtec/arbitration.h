@@ -22,33 +22,30 @@
  *
  */
 
-#ifndef LIBSWITCHTEC_SWITCHTEC_PRIV_H
-#define LIBSWITCHTEC_SWITCHTEC_PRIV_H
-
-#include "switchtec/switchtec.h"
+#ifndef LIBSWITCHTEC_ARBITRATION_H
+#define LIBSWITCHTEC_ARBITRATION_H
 
 #include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <limits.h>
+#include <switchtec/switchtec.h>
 
-struct switchtec_dev {
-	int partition, partition_count;
-	char name[PATH_MAX];
+#pragma pack(push, 1)
 
-	gasptr_t gas_map;
-	size_t gas_map_size;
+struct arbitration_in {
+	uint8_t sub_cmd_id;
+	uint8_t port_id;
+	uint8_t mode;
+	uint8_t weights[SWITCHTEC_MAX_ARBITRATION_WEIGHTS];
+	uint8_t reserved1;
 };
 
-static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
-{
-	int major = version >> 24;
-	int minor = (version >> 16) & 0xFF;
-	int build = version & 0xFFFF;
+struct arbitration_out {
+	uint8_t mode;
+	uint8_t weights[SWITCHTEC_MAX_ARBITRATION_WEIGHTS];
+	uint8_t reserved1;
+	uint8_t reserved2;
+	uint8_t reserved3;
+};
 
-	snprintf(buf, buflen, "%x.%02x B%03X", major, minor, build);
-}
-
-const char *platform_strerror();
+#pragma pack(pop)
 
 #endif

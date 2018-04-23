@@ -353,20 +353,17 @@ void switchtec_status_free(struct switchtec_status *status, int ports)
 }
 
 /**
- * @brief Print an error string to stdout
- * @param[in] str String that will be prefixed to the error message
+ * @brief Return a message coresponding to the last error
  *
  * This can be called after another switchtec function returned an error
  * to find out what caused the problem.
  */
-void switchtec_perror(const char *str)
+const char *switchtec_strerror(void)
 {
 	const char *msg;
 
 	switch (errno) {
-	case 0:
-		platform_perror(str);
-		return;
+	case 0: msg = platform_strerror(); break;
 
 	case ERR_NO_AVAIL_MRPC_THREAD:
 		msg = "No available MRPC handler thread"; break;
@@ -385,11 +382,22 @@ void switchtec_perror(const char *str)
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
 
-	default:
-		perror(str);
-		return;
+	default: msg = strerror(errno); break;
 	}
 
+	return msg;
+}
+
+/**
+ * @brief Print an error string to stdout
+ * @param[in] str String that will be prefixed to the error message
+ *
+ * This can be called after another switchtec function returned an error
+ * to find out what caused the problem.
+ */
+void switchtec_perror(const char *str)
+{
+	const char *msg = switchtec_strerror();
 	fprintf(stderr, "%s: %s\n", str, msg);
 }
 
@@ -552,4 +560,65 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 	return temp / 100.;
 }
 
+int switchtec_bind_info(struct switchtec_dev *dev,
+			struct switchtec_bind_status_out *status, int phy_port)
+{
+	int ret;
+
+	struct switchtec_bind_status_in sub_cmd_id = {
+		.sub_cmd = MRPC_PORT_INFO,
+		.phys_port_id = phy_port
+	};
+
+	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+			    sizeof(sub_cmd_id), status, sizeof(*status));
+
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int switchtec_bind(struct switchtec_dev *dev, int par_id, int log_port,
+		   int phy_port)
+{
+	int ret;
+	uint32_t output;
+
+	struct switchtec_bind_in sub_cmd_id = {
+		.sub_cmd = MRPC_PORT_BIND,
+		.par_id = par_id,
+		.log_port_id = log_port,
+		.phys_port_id = phy_port
+	};
+
+	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+			    sizeof(sub_cmd_id), &output, sizeof(output));
+
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port)
+{
+	int ret;
+	uint32_t output;
+
+	struct switchtec_unbind_in sub_cmd_id = {
+		.sub_cmd = MRPC_PORT_UNBIND,
+		.par_id = par_id,
+		.log_port_id = log_port,
+		.opt = 2
+	};
+
+	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+			    sizeof(sub_cmd_id), &output, sizeof(output));
+
+	if (ret)
+		return ret;
+
+	return 0;
+}
 /**@}*/

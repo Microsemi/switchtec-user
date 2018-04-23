@@ -22,33 +22,46 @@
  *
  */
 
-#ifndef LIBSWITCHTEC_SWITCHTEC_PRIV_H
-#define LIBSWITCHTEC_SWITCHTEC_PRIV_H
-
-#include "switchtec/switchtec.h"
+#ifndef LIBSWITCHTEC_BIND_H
+#define LIBSWITCHTEC_BIND_H
 
 #include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <limits.h>
+#include <switchtec/switchtec.h>
 
-struct switchtec_dev {
-	int partition, partition_count;
-	char name[PATH_MAX];
+#pragma pack(push, 1)
 
-	gasptr_t gas_map;
-	size_t gas_map_size;
+struct switchtec_bind_status_in {
+	uint8_t sub_cmd;
+	uint8_t phys_port_id;
+	uint8_t reserved1;
+	uint8_t reserved2;
 };
 
-static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
-{
-	int major = version >> 24;
-	int minor = (version >> 16) & 0xFF;
-	int build = version & 0xFFFF;
+struct switchtec_bind_status_out {
+	uint8_t inf_cnt;
+	uint8_t reserved1;
+	uint8_t reserved2;
+	uint8_t reserved3;
+	uint8_t phys_port_id;
+	uint8_t par_id;
+	uint8_t log_port_id;
+	uint8_t bind_state;
+};
 
-	snprintf(buf, buflen, "%x.%02x B%03X", major, minor, build);
-}
+struct switchtec_bind_in {
+	uint8_t sub_cmd;
+	uint8_t par_id;
+	uint8_t log_port_id;
+	uint8_t phys_port_id;
+};
 
-const char *platform_strerror();
+struct switchtec_unbind_in {
+	uint8_t sub_cmd;
+	uint8_t par_id;
+	uint8_t log_port_id;
+	uint8_t opt;
+};
+
+#pragma pack(pop)
 
 #endif

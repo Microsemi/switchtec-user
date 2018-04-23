@@ -31,6 +31,7 @@
  */
 
 #include "mrpc.h"
+#include "bind.h"
 #include "portable.h"
 #include "registers.h"
 
@@ -47,6 +48,7 @@ struct switchtec_dev;
 #define SWITCHTEC_MAX_PARTS  48
 #define SWITCHTEC_MAX_PORTS  48
 #define SWITCHTEC_MAX_STACKS 8
+#define SWITCHTEC_MAX_ARBITRATION_WEIGHTS 56
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
 #define SWITCHTEC_PFF_PORT_VEP 100
@@ -258,6 +260,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
 void switchtec_status_free(struct switchtec_status *status, int ports);
 
+const char *switchtec_strerror(void);
 void switchtec_perror(const char *str);
 int switchtec_log_to_file(struct switchtec_dev *dev,
 			  enum switchtec_log_type type,
@@ -325,6 +328,29 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 			     enum switchtec_event_id e, int index,
 			     struct switchtec_event_summary *res,
 			     int timeout_ms);
+
+/******** ARBITRATION Management ********/
+
+/**
+ * @brief Describe the port arbitration mode
+ * @see switchtec_arbitration_get()
+ */
+enum switchtec_arbitration_mode {
+	SWITCHTEC_ARBITRATION_FRR,
+	SWITCHTEC_ARBITRATION_WRR,
+};
+
+const char *switchtec_arbitration_mode(enum switchtec_arbitration_mode mode);
+
+int switchtec_arbitration_get(struct switchtec_dev *dev, int port_id,
+			      enum switchtec_arbitration_mode *mode,
+			      int *weights);
+
+int switchtec_arbitration_set(struct switchtec_dev *dev, int port_id,
+			      enum switchtec_arbitration_mode in_mode,
+			      int *in_weights,
+			      enum switchtec_arbitration_mode *out_mode,
+			      int *out_weights);
 
 /******** FIRMWARE Management ********/
 
@@ -440,7 +466,12 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);
-
+int switchtec_bind_info(struct switchtec_dev *dev,
+			struct switchtec_bind_status_out *bind_status,
+			int phy_port);
+int switchtec_bind(struct switchtec_dev *dev, int par_id,
+		   int log_port, int phy_port);
+int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port);
 /********** EVENT COUNTER *********/
 
 /**
