@@ -109,6 +109,8 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 			return ret;
 		if (bgstatus == MRPC_BG_STAT_ERROR)
 			return SWITCHTEC_DLSTAT_HARDWARE_ERR;
+		if (*status == SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT)
+			return SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT;
 
 	} while (bgstatus == MRPC_BG_STAT_INPROGRESS);
 
@@ -217,7 +219,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			return ret;
 
 		ret = switchtec_fw_wait(dev, &status);
-		if (ret < 0)
+		if (ret != 0)
 		    return ret;
 
 		offset += cmd.hdr.blk_length;
@@ -305,7 +307,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
 				    NULL, 0);
 
-		if (ret < 0)
+		if (ret != 0)
 			return ret;
 
 		ret = switchtec_fw_wait(dev, &status);
@@ -361,6 +363,10 @@ void switchtec_fw_perror(const char *s, int ret)
 		msg = "Length incorrect";  break;
 	case SWITCHTEC_DLSTAT_HARDWARE_ERR:
 		msg = "Hardware Error";  break;
+	case SWITCHTEC_DLSTAT_PARTITION_READ_ONLY:
+		msg = "Partition Read Only"; break;
+	case SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT:
+		msg = "Download Timeout"; break;
 	default:
 		fprintf(stderr, "%s: Unknown Error (%d)\n", s, ret);
 		return;
