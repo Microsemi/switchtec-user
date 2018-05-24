@@ -109,6 +109,8 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 			return ret;
 		if (bgstatus == MRPC_BG_STAT_ERROR)
 			return SWITCHTEC_DLSTAT_HARDWARE_ERR;
+		if (*status == SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT)
+			return SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT;
 
 	} while (bgstatus == MRPC_BG_STAT_INPROGRESS);
 
@@ -361,6 +363,8 @@ void switchtec_fw_perror(const char *s, int ret)
 		msg = "Length incorrect";  break;
 	case SWITCHTEC_DLSTAT_HARDWARE_ERR:
 		msg = "Hardware Error";  break;
+	case SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT:
+		msg = "Download Timeout";  break;
 	default:
 		fprintf(stderr, "%s: Unknown Error (%d)\n", s, ret);
 		return;
