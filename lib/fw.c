@@ -217,7 +217,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			return ret;
 
 		ret = switchtec_fw_wait(dev, &status);
-		if (ret < 0)
+		if (ret != 0)
 		    return ret;
 
 		offset += cmd.hdr.blk_length;
@@ -309,7 +309,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 			return ret;
 
 		ret = switchtec_fw_wait(dev, &status);
-		if (ret < 0)
+		if (ret != 0)
 			return ret;
 
 		offset += cmd.hdr.blk_length;
