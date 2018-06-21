@@ -349,6 +349,62 @@ void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
 }
 
 /**
+ * @brief Set bandwidth type for a number of ports
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  nr_ports	Number of ports to set
+ * @param[in]  phys_port_ids	The physical ids for each port to set
+ * @param[in]  bw_type		Type of bandwidth to set
+ * @return 0 on success, error code on failure
+ */
+int switchtec_bwcntr_set_many(struct switchtec_dev *dev, int nr_ports,
+			      int * phys_port_ids,
+			      enum switchtec_bw_type bw_type)
+{
+	int i;
+	size_t cmd_size;
+	struct pmon_bw_set cmd = {
+		.sub_cmd_id = MRPC_PMON_SET_BW_COUNTER,
+		.count = nr_ports,
+	};
+
+	for (i = 0; i < cmd.count; i++) {
+		cmd.ports[i].id = phys_port_ids[i];
+		cmd.ports[i].bw_type = bw_type;
+	}
+
+	cmd_size = offsetof(struct pmon_bw_set, ports) +
+		sizeof(cmd.ports[0]) * cmd.count;
+
+	return switchtec_cmd(dev, MRPC_PMON, &cmd, cmd_size, NULL, 0);
+}
+
+/**
+ * @brief Set bandwidth type for all the ports in the system
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  bw_type		Type of bandwidth to set
+ * @return 0 on success, error code on failure
+ */
+int switchtec_bwcntr_set_all(struct switchtec_dev *dev,
+			     enum switchtec_bw_type bw_type)
+{
+	int ret, i;
+	struct switchtec_status *status;
+	int ids[SWITCHTEC_MAX_PORTS];
+
+	ret = switchtec_status(dev, &status);
+	if (ret < 0)
+		return ret;
+
+	for (i = 0; i < ret; i++) {
+		ids[i] = status[i].port.phys_id;
+	}
+
+	ret = switchtec_bwcntr_set_many(dev, ret, ids, bw_type);
+	free(status);
+	return ret;
+}
+
+/**
  * @brief Retrieve the bandwidth counter results for a number of ports
  * @param[in]  dev		Switchtec device handle
  * @param[in]  nr_ports		Number of ports to retrieve

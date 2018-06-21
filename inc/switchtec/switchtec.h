@@ -115,6 +115,14 @@ struct switchtec_status {
 };
 
 /**
+ * @brief The types of bandwidth
+ */
+enum switchtec_bw_type {
+	SWITCHTEC_BW_TYPE_RAW = 0x0,
+	SWITCHTEC_BW_TYPE_PAYLOAD = 0x1,
+};
+
+/**
  * @brief Describe the type of logs too dump
  * @see switchtec_log_to_file()
  */
@@ -585,7 +593,11 @@ struct switchtec_bwcntr_res {
 
 void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
 			  struct switchtec_bwcntr_res *old);
-
+int switchtec_bwcntr_set_many(struct switchtec_dev *dev, int nr_ports,
+			      int * phys_port_ids,
+			      enum switchtec_bw_type bw_type);
+int switchtec_bwcntr_set_all(struct switchtec_dev *dev,
+			     enum switchtec_bw_type bw_type);
 int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 			  int *phys_port_ids, int clear,
 			  struct switchtec_bwcntr_res *res);
