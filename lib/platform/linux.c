@@ -388,15 +388,34 @@ static int get_class_devices(const char *searchpath,
 	return found;
 }
 
-static void get_port_info(const char *searchpath, int port,
-			  struct switchtec_status *status)
+static void get_port_bdf(const char *searchpath, int port,
+			 struct switchtec_status *status)
+{
+	char syspath[PATH_MAX];
+	glob_t paths;
+
+	snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.*",
+		 searchpath, port);
+
+	glob(syspath, 0, NULL, &paths);
+
+	if (paths.gl_pathc == 1)
+		status->pci_bdf = strdup(basename(paths.gl_pathv[0]));
+
+	globfree(&paths);
+}
+
+static void get_port_info(struct switchtec_status *status)
 {
 	int i;
 	char syspath[PATH_MAX];
 	glob_t paths;
 
-	snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.*/*:*:*/",
-		 searchpath, port);
+	if (!status->pci_bdf)
+		return;
+
+	snprintf(syspath, sizeof(syspath), "/sys/bus/pci/devices/%s/*:*:*/",
+		 status->pci_bdf);
 
 	glob(syspath, 0, NULL, &paths);
 
@@ -453,11 +472,16 @@ static int linux_get_devices(struct switchtec_dev *dev,
 	local_part = switchtec_partition(dev);
 
 	for (i = 0; i < ports; i++) {
-		if (status[i].port.upstream ||
-		    status[i].port.partition != local_part)
+		if (status[i].port.partition != local_part)
 			continue;
 
-		get_port_info(searchpath, status[i].port.log_id - 1, &status[i]);
+		if (status[i].port.upstream) {
+			status->pci_bdf = strdup(basename(searchpath));
+			continue;
+		}
+
+		get_port_bdf(searchpath, status[i].port.log_id - 1, &status[i]);
+		get_port_info(&status[i]);
 	}
 
 	return 0;

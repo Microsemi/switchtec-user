@@ -367,6 +367,9 @@ void switchtec_status_free(struct switchtec_status *status, int ports)
 	int i;
 
 	for (i = 0; i < ports; i++) {
+		if (status[i].pci_bdf)
+			free(status[i].pci_bdf);
+
 		if (status[i].pci_dev)
 			free(status[i].pci_dev);
 
