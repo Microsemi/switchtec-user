@@ -25,6 +25,7 @@
 #ifdef __linux__
 
 #include "../switchtec_priv.h"
+#include "../crc8.h"
 #include "switchtec/switchtec.h"
 #include "gasops.h"
 
@@ -48,9 +49,23 @@ struct switchtec_i2c {
 	int i2c_addr;
 };
 
+#define CMD_GET_CAP  0xE0
+#define MAX_RETRY_COUNT  100
+#define PEC_BYTE_COUNT  1
+#define TWI_ENHANCED_MODE  0x80
+
 #define to_switchtec_i2c(d)  \
 	((struct switchtec_i2c *) \
 	 ((char *)d - offsetof(struct switchtec_i2c, dev)))
+
+static uint8_t i2c_msg_pec(struct i2c_msg *msg, uint8_t byte_count,
+                           uint8_t oldchksum, bool init)
+{
+	/* This function just supports 7-bits I2C address */
+	uint8_t addr = (msg->addr << 1) | msg->flags;
+	uint8_t pec = crc8(&addr, 1, oldchksum, init);
+	return crc8(msg->buf, byte_count, pec, false);
+}
 
 static int dev_to_sysfs_path(struct switchtec_i2c *idev, const char *suffix,
 			     char *buf, size_t buflen)
@@ -160,6 +175,55 @@ static gasptr_t i2c_gas_map(struct switchtec_dev *dev, int writeable,
 		*map_size = dev->gas_map_size;
 
 	return dev->gas_map;
+}
+
+static uint8_t i2c_gas_cap_get(struct switchtec_dev *dev)
+{
+	int ret;
+	struct switchtec_i2c *idev = to_switchtec_i2c(dev);
+
+	struct i2c_msg msgs[2];
+	struct i2c_rdwr_ioctl_data rwdata = {
+		.msgs = msgs,
+		.nmsgs = 2,
+	};
+
+	uint8_t command_code = CMD_GET_CAP;
+	uint8_t rx_buf[2];
+	uint8_t msg_0_pec, pec;
+	uint8_t retry_count = 0;
+
+	msgs[0].addr = msgs[1].addr = idev->i2c_addr;
+	msgs[0].flags = 0;
+	msgs[0].len = 1;
+	msgs[0].buf = &command_code;
+
+	msgs[1].flags = I2C_M_RD;
+	msgs[1].len = 2;
+	msgs[1].buf = rx_buf;
+
+	do {
+		ret = ioctl(idev->fd, I2C_RDWR, &rwdata);
+		if (ret < 0)
+			goto i2c_ioctl_fail;
+
+		msg_0_pec = i2c_msg_pec(&msgs[0], msgs[0].len, 0, true);
+		pec = i2c_msg_pec(&msgs[1], msgs[1].len - PEC_BYTE_COUNT,
+				   msg_0_pec, false);
+		if (rx_buf[1] == pec)
+			break;
+
+		retry_count++;
+	} while(retry_count < MAX_RETRY_COUNT);
+
+	/* return capability */
+	if (retry_count == MAX_RETRY_COUNT)
+		return -1;
+	else
+		return (rx_buf[0] & TWI_ENHANCED_MODE);
+
+i2c_ioctl_fail:
+	return -1;
 }
 
 /* One I2C transaction can write a maximum of 28 bytes */
@@ -349,6 +413,9 @@ struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr)
 		goto err_close_free;
 
 	if (i2c_set_addr(idev, i2c_addr))
+		goto err_close_free;
+
+	if (i2c_gas_cap_get(&idev->dev) != TWI_ENHANCED_MODE)
 		goto err_close_free;
 
 	if (map_gas(&idev->dev))
