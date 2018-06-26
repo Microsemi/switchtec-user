@@ -405,6 +405,50 @@ static void get_port_bdf(const char *searchpath, int port,
 	globfree(&paths);
 }
 
+static void get_port_bdf_path(struct switchtec_status *status)
+{
+	char path[PATH_MAX];
+	char rpath[PATH_MAX];
+	int domain, bus, dev, fn;
+	int ptr = 0;
+	char *subpath;
+	int ret;
+
+	if (!status->pci_bdf)
+		return;
+
+	snprintf(path, sizeof(path), "/sys/bus/pci/devices/%s",
+		 status->pci_bdf);
+
+	if (!realpath(path, rpath))
+		return;
+
+	subpath = strtok(rpath, "/");
+	while (subpath) {
+		ret = sscanf(subpath, "%x:%x:%x.%x", &domain, &bus, &dev, &fn);
+		if (ret == 4) {
+			if (ptr == 0)
+				ret = snprintf(path + ptr, sizeof(path) - ptr,
+					       "%04x:%02x:%02x:%x/",
+					       domain, bus, dev, fn);
+			else
+				ret = snprintf(path + ptr, sizeof(path) - ptr,
+					       "%02x.%x/", dev, fn);
+
+			if (ret <= 0 || ret >= sizeof(path) - ptr)
+				break;
+
+			ptr += ret;
+		}
+		subpath = strtok(NULL, "/");
+	}
+
+	if (ptr)
+		path[ptr - 1] = 0;
+
+	status->pci_bdf_path = strdup(path);
+}
+
 static void get_port_info(struct switchtec_status *status)
 {
 	int i;
@@ -477,10 +521,12 @@ static int linux_get_devices(struct switchtec_dev *dev,
 
 		if (status[i].port.upstream) {
 			status->pci_bdf = strdup(basename(searchpath));
+			get_port_bdf_path(&status[i]);
 			continue;
 		}
 
 		get_port_bdf(searchpath, status[i].port.log_id - 1, &status[i]);
+		get_port_bdf_path(&status[i]);
 		get_port_info(&status[i]);
 	}
 

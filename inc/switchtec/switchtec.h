@@ -109,6 +109,7 @@ struct switchtec_status {
 	const char *ltssm_str;		//!< Link state as a string
 
 	char *pci_bdf;			//!< PCI BDF of the port
+	char *pci_bdf_path;		//!< PCI BDF path of the port
 
 	char *pci_dev;			//!< PCI BDF of the device on the port
 	int vendor_id;			//!< Vendor ID
