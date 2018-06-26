@@ -55,11 +55,13 @@ struct switchtec_i2c {
 #define CMD_GAS_WRITE  0xEA
 #define CMD_GET_WRITE_STATUS  0xE2
 #define CMD_GAS_WRITE_WITH_STATUS  0xE8
+#define CMD_GAS_READ  0xE9
 
 #define MAX_RETRY_COUNT  100
 #define PEC_BYTE_COUNT  1
 #define TWI_ENHANCED_MODE  0x80
 #define GAS_TWI_MRPC_ERR  0x20
+#define DATA_TAIL_BYTE_COUNT  2
 
 #define to_switchtec_i2c(d)  \
 	((struct switchtec_i2c *) \
@@ -247,6 +249,11 @@ i2c_ioctl_fail:
  * write the GAS with dword.
  */
 #define I2C_MAX_WRITE 24
+/*
+ * One I2C transaction can read a maximum of 27 bytes, but it is better to
+ * read GAS with dword.
+ */
+#define I2C_MAX_READ 24
 
 static uint8_t i2c_gas_data_write(struct switchtec_dev *dev, void __gas *dest,
 				  const void *src, size_t n, uint8_t tag)
@@ -390,39 +397,121 @@ static void i2c_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 	}
 }
 
-static void i2c_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
-				const void __gas *src, size_t n)
+static uint8_t i2c_gas_data_read(struct switchtec_dev *dev, void *dest,
+				 const void __gas *src, size_t n)
 {
 	int ret;
+	int pec_index, status_index;
+	uint8_t msg_0_pec, pec;
+	uint8_t retry_count = 0;
+
 	struct switchtec_i2c *idev = to_switchtec_i2c(dev);
 	uint32_t gas_addr = (uint32_t)(src - (void __gas *)dev->gas_map);
+	uint8_t status;
+
 	struct i2c_msg msgs[2];
 	struct i2c_rdwr_ioctl_data rwdata = {
 		.msgs = msgs,
 		.nmsgs = 2,
 	};
 
-	gas_addr = htobe32(gas_addr);
+	struct {
+		uint8_t command_code;
+		uint8_t byte_count;
+		uint32_t offset;
+		uint8_t data_length;
+	} __attribute__((packed)) *read_command;
+
+	struct {
+		uint8_t byte_count;
+		/* tail is one byte status and one byte pec */
+		uint8_t data_and_tail[];
+	}*read_response;
+
+	read_command = malloc(sizeof(*read_command));
+	read_response = malloc(sizeof(*read_response) + n \
+			       + DATA_TAIL_BYTE_COUNT);
 
 	msgs[0].addr = msgs[1].addr = idev->i2c_addr;
-
 	msgs[0].flags = 0;
-	msgs[0].len = sizeof(gas_addr);
-	msgs[0].buf = (__u8 *)&gas_addr;
+	msgs[0].len = sizeof(*read_command);
+
+	read_command->command_code = CMD_GAS_READ;
+	read_command->byte_count = sizeof(read_command->offset) \
+				   + sizeof(read_command->data_length);
+	gas_addr = htobe32(gas_addr);
+	read_command->offset = gas_addr;
+	read_command->data_length = n;
+	msgs[0].buf = (uint8_t *)read_command;
 
 	msgs[1].flags = I2C_M_RD;
-	msgs[1].len = n;
-	msgs[1].buf = dest;
+	msgs[1].len = sizeof(read_response->byte_count) + n + \
+		      DATA_TAIL_BYTE_COUNT;
+	msgs[1].buf = (uint8_t *)read_response;
 
-	ret = ioctl(idev->fd, I2C_RDWR, &rwdata);
-	if (ret < 0) {
-		/*
-		 * For now, this is all we can do. If it's a problem we'll
-		 * have to refactor all GAS access functions to return an
-		 * error code.
-		 */
-		perror("Could not communicate with I2C device");
-		exit(1);
+	do {
+		ret = ioctl(idev->fd, I2C_RDWR, &rwdata);
+		if (ret < 0)
+			goto i2c_read_fail;
+
+		msg_0_pec = i2c_msg_pec(&msgs[0], msgs[0].len, 0, true);
+		pec = i2c_msg_pec(&msgs[1], msgs[1].len - PEC_BYTE_COUNT, \
+				   msg_0_pec, false);
+		pec_index = msgs[1].len - sizeof(read_response->byte_count) \
+			    - PEC_BYTE_COUNT;
+		if (read_response->data_and_tail[ pec_index ] == pec)
+			break;
+
+		retry_count++;
+	} while(retry_count < MAX_RETRY_COUNT);
+
+	if (retry_count == MAX_RETRY_COUNT)
+		goto i2c_read_fail;
+
+	memcpy(dest, read_response->data_and_tail, n);
+	status_index = msgs[1].len - sizeof(read_response->byte_count) \
+		       - DATA_TAIL_BYTE_COUNT;
+	status = read_response->data_and_tail[ status_index ];
+
+	free(read_command);
+	free(read_response);
+	return status;
+
+i2c_read_fail:
+	free(read_command);
+	free(read_response);
+	return -1;
+}
+
+static void i2c_gas_read(struct switchtec_dev *dev, void *dest,
+			 const void __gas *src, size_t n)
+{
+	uint8_t status;
+	uint8_t retry_count = 0;
+
+	do {
+		status = i2c_gas_data_read(dev, dest, src, n);
+		if (status == 0 || status == GAS_TWI_MRPC_ERR)
+			break;
+		retry_count++;
+	}while(retry_count < MAX_RETRY_COUNT);
+
+	if (retry_count == MAX_RETRY_COUNT)
+		raise(SIGBUS);
+}
+
+static void i2c_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+			        const void __gas *src, size_t n)
+{
+	size_t cnt;
+
+	while (n) {
+		cnt = n > I2C_MAX_READ ? I2C_MAX_READ : n;
+		i2c_gas_read(dev, dest, src, cnt);
+
+		dest += cnt;
+		src += cnt;
+		n -= cnt;
 	}
 }
 
