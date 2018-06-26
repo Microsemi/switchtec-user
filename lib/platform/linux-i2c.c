@@ -143,6 +143,11 @@ static int i2c_set_addr(struct switchtec_i2c *idev, int i2c_addr)
 	return ioctl(idev->fd, I2C_SLAVE, i2c_addr);
 }
 
+static int i2c_set_timeout(struct switchtec_i2c *idev, int time)
+{
+	return ioctl(idev->fd, I2C_TIMEOUT, time);
+}
+
 #ifdef __CHECKER__
 #define __force __attribute__((force))
 #else
@@ -614,6 +619,9 @@ struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr)
 		goto err_close_free;
 
 	if (i2c_set_addr(idev, i2c_addr))
+		goto err_close_free;
+
+	if (i2c_set_timeout(idev, 10))
 		goto err_close_free;
 
 	if (i2c_gas_cap_get(&idev->dev) != TWI_ENHANCED_MODE)
