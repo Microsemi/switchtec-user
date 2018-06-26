@@ -183,11 +183,14 @@ static int status(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		int reset_bytes;
+		int verbose;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
 		 "reset byte counters"},
+		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
+		 "print additional information"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -226,6 +229,10 @@ static int status(int argc, char **argv)
 
 		printf("\tPhys Port ID:    \t%d (Stack %d, Port %d)\n",
 		       s->port.phys_id, s->port.stack, s->port.stk_id);
+		if (s->pci_bdf)
+			printf("\tBus-Dev-Func:    \t%s\n", s->pci_bdf);
+		if (cfg.verbose && s->pci_bdf_path)
+			printf("\tBus-Dev-Func Path:\t%s\n", s->pci_bdf_path);
 
 		printf("\tStatus:          \t%s\n",
 		       s->link_up ? "UP" : "DOWN");
