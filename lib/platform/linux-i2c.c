@@ -554,15 +554,13 @@ create_gas_read(uint64_t, 64);
 static void i2c_gas_write8(struct switchtec_dev *dev, uint8_t val,
 			   uint8_t __gas *addr)
 {
-	fprintf(stderr, "gas_write8 is not supported for I2C accesses\n");
-	exit(1);
+	i2c_gas_write(dev, addr, &val, sizeof(uint8_t));
 }
 
 static void i2c_gas_write16(struct switchtec_dev *dev, uint16_t val,
 			    uint16_t __gas *addr)
 {
-	fprintf(stderr, "gas_write16 is not supported for I2C accesses\n");
-	exit(1);
+	i2c_gas_write(dev, addr, &val, sizeof(uint16_t));
 }
 
 static void i2c_gas_write32(struct switchtec_dev *dev, uint32_t val,
