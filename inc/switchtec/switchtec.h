@@ -115,6 +115,7 @@ struct switchtec_status {
 	int vendor_id;			//!< Vendor ID
 	int device_id;			//!< Device ID
 	char *class_devices;		//!< Comma seperated list of classes
+	unsigned int acs_ctrl;		//!< ACS Setting of the Port
 };
 
 /**

@@ -28,6 +28,7 @@
 
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
+#include "switchtec/pci.h"
 #include "mmap_gas.h"
 
 #include <linux/switchtec_ioctl.h>
@@ -489,6 +490,45 @@ static void get_port_info(struct switchtec_status *status)
 	globfree(&paths);
 }
 
+static void get_config_info(struct switchtec_status *status)
+{
+	int ret;
+	int fd;
+	char syspath[PATH_MAX];
+	uint32_t extcap;
+	int pos = PCI_EXT_CAP_OFFSET;
+	uint16_t acs;
+
+	snprintf(syspath, sizeof(syspath), "/sys/bus/pci/devices/%s/config",
+		 status->pci_bdf);
+
+	fd = open(syspath, O_RDONLY);
+	if (fd < -1)
+		return;
+
+	while (1) {
+		ret = pread(fd, &extcap, sizeof(extcap), pos);
+		if (ret != sizeof(extcap) || !extcap)
+			goto close_and_exit;
+
+		if (PCI_EXT_CAP_ID(extcap) == PCI_EXT_CAP_ID_ACS)
+			break;
+
+		pos = PCI_EXT_CAP_NEXT(extcap);
+		if (pos < PCI_EXT_CAP_OFFSET)
+			goto close_and_exit;
+	}
+
+	ret = pread(fd, &acs, sizeof(acs), pos + PCI_ACS_CTRL);
+	if (ret != sizeof(acs))
+		goto close_and_exit;
+
+	status->acs_ctrl = acs;
+
+close_and_exit:
+	close(fd);
+}
+
 static int linux_get_devices(struct switchtec_dev *dev,
 			     struct switchtec_status *status,
 			     int ports)
@@ -528,6 +568,7 @@ static int linux_get_devices(struct switchtec_dev *dev,
 		get_port_bdf(searchpath, status[i].port.log_id - 1, &status[i]);
 		get_port_bdf_path(&status[i]);
 		get_port_info(&status[i]);
+		get_config_info(&status[i]);
 	}
 
 	return 0;
