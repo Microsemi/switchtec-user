@@ -31,6 +31,7 @@
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
+#include <switchtec/pci.h>
 
 #include <locale.h>
 #include <time.h>
@@ -168,6 +169,57 @@ static int gui(int argc, char **argv)
 	return ret;
 }
 
+#define PCI_ACS_P2P_MASK (PCI_ACS_CTRL_REQ_RED | PCI_ACS_CTRL_CMPLT_RED | \
+			  PCI_ACS_EGRESS_CTRL)
+
+static const char * const pci_acs_strings[] = {
+	"SrcValid",
+	"TransBlk",
+	"ReqRedir",
+	"CmpltRedir",
+	"UpstreamFwd",
+	"EgressCtrl",
+	"DirectTrans",
+	NULL,
+};
+
+static char *pci_acs_to_string(char *buf, size_t buflen, int acs_ctrl,
+			       int verbose)
+{
+	int ptr = 0;
+	int wr;
+	int i;
+
+	if (acs_ctrl == -1) {
+		snprintf(buf, buflen, "Unknown");
+		return buf;
+	}
+
+	if (!verbose) {
+		if (acs_ctrl & PCI_ACS_P2P_MASK)
+			snprintf(buf, buflen, "P2P Redirected");
+		else
+			snprintf(buf, buflen, "Direct P2P Supported");
+		return buf;
+	}
+
+	for (i = 0; pci_acs_strings[i]; i++) {
+		wr = snprintf(buf + ptr, buflen - ptr, "%s%c ",
+			      pci_acs_strings[i],
+			      (acs_ctrl & (1 << i)) ? '+' : '-');
+
+		if (wr <= 0 || wr >= buflen - ptr)
+			break;
+
+		ptr += wr;
+	}
+
+	if (ptr)
+		buf[ptr - 1] = 0;
+
+	return buf;
+}
+
 static int status(int argc, char **argv)
 {
 	const char *desc = "Display status of the ports on the switch";
@@ -179,6 +231,7 @@ static int status(int argc, char **argv)
 	int p;
 	double bw_val;
 	const char *bw_suf;
+	char buf[100];
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -253,6 +306,12 @@ static int status(int argc, char **argv)
 		bw_val = switchtec_bwcntr_tot(&bw_data[p].ingress);
 		bw_suf = suffix_si_get(&bw_val);
 		printf("\tIn Bytes:        \t%-.3g %sB\n", bw_val, bw_suf);
+
+		if (s->acs_ctrl != -1) {
+			pci_acs_to_string(buf, sizeof(buf), s->acs_ctrl,
+					  cfg.verbose);
+			printf("\tACS:             \t%s\n", buf);
+		}
 
 		if (!s->vendor_id || !s->device_id || !s->pci_dev)
 			continue;
