@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 #include <stddef.h>
 #include <assert.h>
 #include <string.h>
@@ -47,16 +48,31 @@ struct switchtec_i2c {
 	struct switchtec_dev dev;
 	int fd;
 	int i2c_addr;
+	uint8_t tag;
 };
 
 #define CMD_GET_CAP  0xE0
+#define CMD_GAS_WRITE  0xEA
+#define CMD_GET_WRITE_STATUS  0xE2
+#define CMD_GAS_WRITE_WITH_STATUS  0xE8
+
 #define MAX_RETRY_COUNT  100
 #define PEC_BYTE_COUNT  1
 #define TWI_ENHANCED_MODE  0x80
+#define GAS_TWI_MRPC_ERR  0x20
 
 #define to_switchtec_i2c(d)  \
 	((struct switchtec_i2c *) \
 	 ((char *)d - offsetof(struct switchtec_i2c, dev)))
+
+static uint8_t get_tag(struct switchtec_i2c *idev)
+{
+	/* Valid tag is 0x01 ~ 0xff */
+	idev->tag++;
+	if (!idev->tag)
+		idev->tag = 1;
+	return idev->tag;
+}
 
 static uint8_t i2c_msg_pec(struct i2c_msg *msg, uint8_t byte_count,
                            uint8_t oldchksum, bool init)
@@ -226,41 +242,137 @@ i2c_ioctl_fail:
 	return -1;
 }
 
-/* One I2C transaction can write a maximum of 28 bytes */
-#define I2C_MAX_WRITE 28
+/*
+ * One I2C transaction can write a maximum of 26 bytes, but it is better to
+ * write the GAS with dword.
+ */
+#define I2C_MAX_WRITE 24
 
-static void i2c_gas_write(struct switchtec_dev *dev, void __gas *dest,
-			  const void *src, size_t n)
+static uint8_t i2c_gas_data_write(struct switchtec_dev *dev, void __gas *dest,
+				  const void *src, size_t n, uint8_t tag)
 {
 	int ret;
 	struct switchtec_i2c *idev = to_switchtec_i2c(dev);
 
+	struct i2c_msg msg;
+	struct i2c_rdwr_ioctl_data wdata = {
+		.msgs = &msg,
+		.nmsgs = 1,
+	};
+
 	struct {
-		uint32_t gas_addr;
+		uint8_t command_code;
+		uint8_t byte_count;
+		uint8_t tag;
+		uint32_t offset;
 		uint8_t data[];
-	} *msg;
+	} __attribute__((packed)) *i2c_data;
 
-	msg = malloc(sizeof(*msg) + n);
-
-	msg->gas_addr = (uint32_t)(dest - (void __gas *)dev->gas_map);
+	uint32_t gas_addr = (uint32_t)(dest - (void __gas *)dev->gas_map);
 	assert(n <= I2C_MAX_WRITE);
-	assert((msg->gas_addr & 0x3) == 0);
 
-	memcpy(&msg->data, src, n);
-	msg->gas_addr = htobe32(msg->gas_addr);
+	/* PEC is the last byte */
+	i2c_data = malloc(sizeof(*i2c_data) + n + PEC_BYTE_COUNT);
 
-	ret = write(idev->fd, msg, sizeof(*msg) + n);
-	if (ret != sizeof(*msg) + n) {
-		/*
-		 * For now, this is all we can do. If it's a problem we'll
-		 * have to refactor all GAS access functions to return an
-		 * error code.
-		 */
-		perror("Could not communicate with I2C device");
-		exit(1);
-	}
+	i2c_data->command_code = CMD_GAS_WRITE;
+	i2c_data->byte_count = (sizeof(i2c_data->tag)
+				+ sizeof(i2c_data->offset)
+			        + n);
+	i2c_data->tag = tag;
 
-	free(msg);
+	gas_addr = htobe32(gas_addr);
+	i2c_data->offset = gas_addr;
+	memcpy(&i2c_data->data, src, n);
+	msg.addr = idev->i2c_addr;
+	msg.flags = 0;
+	msg.len = sizeof(*i2c_data) + n + PEC_BYTE_COUNT;
+	msg.buf = (uint8_t *)i2c_data;
+
+	i2c_data->data[n] = i2c_msg_pec(&msg, msg.len - PEC_BYTE_COUNT, 0,
+					 true);
+
+	ret = ioctl(idev->fd, I2C_RDWR, &wdata);
+	if (ret < 0)
+		goto i2c_write_fail;
+
+	free(i2c_data);
+	return 0;
+
+i2c_write_fail:
+	free(i2c_data);
+	return -1;
+}
+
+static uint8_t i2c_gas_write_status_get(struct switchtec_dev *dev,
+					 uint8_t tag)
+{
+	int ret;
+	struct switchtec_i2c *idev = to_switchtec_i2c(dev);
+	struct i2c_msg msgs[2];
+	struct i2c_rdwr_ioctl_data rwdata = {
+		.msgs = msgs,
+		.nmsgs = 2,
+	};
+
+	uint8_t command_code = CMD_GET_WRITE_STATUS;
+	uint8_t rx_buf[3];
+
+	uint8_t msg_0_pec, pec;
+	uint8_t retry_count = 0;
+
+	msgs[0].addr = msgs[1].addr = idev->i2c_addr;
+	msgs[0].flags = 0;
+	msgs[0].len = 1;
+	msgs[0].buf = &command_code;
+
+	msgs[1].flags = I2C_M_RD;
+	msgs[1].len = 3;
+	msgs[1].buf = rx_buf;
+
+	do {
+		usleep(2000);
+		ret = ioctl(idev->fd, I2C_RDWR, &rwdata);
+		if (ret < 0)
+			goto i2c_ioctl_fail;
+
+		msg_0_pec = i2c_msg_pec(&msgs[0], msgs[0].len, 0, true);
+		pec = i2c_msg_pec(&msgs[1], msgs[1].len - PEC_BYTE_COUNT,
+				  msg_0_pec, false);
+		if (rx_buf[0] == tag && rx_buf[2] == pec)
+			break;
+
+		retry_count++;
+	} while(retry_count < MAX_RETRY_COUNT);
+
+	/* return status of last write operation */
+	if (retry_count == MAX_RETRY_COUNT)
+		return -1;
+	else
+		return rx_buf[1];
+
+i2c_ioctl_fail:
+	return -1;
+}
+
+static void i2c_gas_write(struct switchtec_dev *dev, void __gas *dest,
+			  const void *src, size_t n)
+{
+	struct switchtec_i2c *idev = to_switchtec_i2c(dev);
+	uint8_t tag;
+	uint8_t status;
+	uint8_t retry_count = 0;
+
+	do {
+		tag = get_tag(idev);
+		i2c_gas_data_write(dev, dest, src, n, tag);
+		status = i2c_gas_write_status_get(dev, tag);
+		if (status == 0 || status == GAS_TWI_MRPC_ERR)
+			break;
+		retry_count++;
+	}while (retry_count < MAX_RETRY_COUNT);
+
+	if (retry_count == MAX_RETRY_COUNT)
+		raise(SIGBUS);
 }
 
 static void i2c_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
