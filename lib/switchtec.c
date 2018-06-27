@@ -106,6 +106,8 @@ struct switchtec_dev *switchtec_open(const char *device)
 found:
 	if (ret)
 		snprintf(ret->name, sizeof(ret->name), "%s", device);
+	else
+		errno = ENODEV;
 
 	return ret;
 }
