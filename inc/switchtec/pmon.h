@@ -71,6 +71,15 @@ struct pmon_bw_get {
 	} ports[SWITCHTEC_MAX_PORTS];
 };
 
+struct pmon_bw_set {
+	uint8_t sub_cmd_id;
+	uint8_t count;
+	struct {
+		uint8_t id;
+		uint8_t bw_type;
+	} ports[SWITCHTEC_MAX_PORTS];
+};
+
 struct pmon_lat_setup {
 	uint8_t sub_cmd_id;
 	uint8_t count;
