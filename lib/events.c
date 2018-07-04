@@ -368,6 +368,9 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
 	struct switchtec_event_summary wait_for = {0};
 	int ret;
 
+	if (dev->ops->event_wait_for)
+		return dev->ops->event_wait_for(dev, e, index, res, timeout_ms);
+
 	ret = switchtec_event_summary_set(&wait_for, e, index);
 	if (ret)
 		return ret;
