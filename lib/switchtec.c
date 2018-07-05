@@ -70,6 +70,7 @@
  *   * An I2C adapter number and slave number (0@0x20)
  *   * An I2C device delimited with a colon (/dev/i2c-1:0x20)
  *     (must start with a / so that it is distinguishable from a BDF)
+ *   * An UART device (/dev/ttyUSB0)
  */
 struct switchtec_dev *switchtec_open(const char *device)
 {
@@ -79,6 +80,11 @@ struct switchtec_dev *switchtec_open(const char *device)
 	char path[PATH_MAX];
 	char *endptr;
 	struct switchtec_dev *ret;
+
+	if (sscanf(device, "/dev/tty%*[^0-9]%d", &idx) == 1) {
+		ret = switchtec_open_uart(device);
+		goto found;
+	}
 
 	if (sscanf(device, "%2049[^@]@%i", path, &dev) == 2) {
 		ret = switchtec_open_i2c(path, dev);

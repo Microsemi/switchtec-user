@@ -222,6 +222,7 @@ struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
 						 int device, int func);
 struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr);
 struct switchtec_dev *switchtec_open_i2c_by_adapter(int adapter, int i2c_addr);
+struct switchtec_dev *switchtec_open_uart(const char *path);
 
 void switchtec_close(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
