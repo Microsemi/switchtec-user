@@ -1,5 +1,5 @@
 /*
- * Microsemi Switchtec(tm) PCIe Management Command Line Interface
+ * Microsemi Switchtec(tm) PCIe Management Library
  * Copyright (c) 2017, Microsemi Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -22,24 +22,31 @@
  *
  */
 
-#ifndef COMMON_H
-#define COMMON_H
+#ifndef LIBSWITCHTEC_GASOPS_H
+#define LIBSWITCHTEC_GASOPS_H
 
-int ask_if_sure(int always_yes);
-int switchtec_handler(const char *optarg, void *value_addr,
-		      const struct argconfig_options *opt);
+#include "switchtec/switchtec.h"
 
-#define DEVICE_OPTION {"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
-			.argument_type=required_positional, \
-			.custom_handler=switchtec_handler, \
-			.complete="/dev/switchtec*", \
-			.env="SWITCHTEC_DEV", \
-			.help="switchtec device to operate on. can be any of:\n" \
-			" * a device path (/dev/switchtec0)\n" \
-			" * an index (0, 1, 2)\n" \
-			" * a pci address (3:00.1)\n" \
-			" * An I2C path with slave address (/dev/i2c-1@0x20)\n" \
-			" * An UART path (/dev/ttyUSB0)\n" \
-	}
+void gasop_set_partition_info(struct switchtec_dev *dev);
+int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
+	      const void *payload, size_t payload_len, void *resp,
+	      size_t resp_len);
+int gasop_get_fw_version(struct switchtec_dev *dev, char *buf,
+			 size_t buflen);
+int gasop_pff_to_port(struct switchtec_dev *dev, int pff,
+		      int *partition, int *port);
+int gasop_port_to_pff(struct switchtec_dev *dev, int partition,
+		      int port, int *pff);
+int gasop_flash_part(struct switchtec_dev *dev,
+		     struct switchtec_fw_image_info *info,
+		     enum switchtec_fw_image_type part);
+int gasop_event_summary(struct switchtec_dev *dev,
+			struct switchtec_event_summary *sum);
+int gasop_event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
+		    int index, int flags, uint32_t data[5]);
+int gasop_event_wait_for(struct switchtec_dev *dev,
+			 enum switchtec_event_id e, int index,
+			 struct switchtec_event_summary *res,
+			 int timeout_ms);
 
 #endif
