@@ -21,7 +21,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  */
-
 #ifdef __linux__
 
 #include "../switchtec_priv.h"
