@@ -39,6 +39,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
 			" * an index (0, 1, 2)\n" \
 			" * a pci address (3:00.1)\n" \
 			" * An I2C path with slave address (/dev/i2c-1@0x20)\n" \
+			" * An UART path (/dev/ttyUSB0)\n" \
 	}
 
 #endif
