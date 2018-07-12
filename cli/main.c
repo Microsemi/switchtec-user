@@ -1563,7 +1563,7 @@ static int fw_toggle(int argc, char **argv)
 
 static int fw_read(int argc, char **argv)
 {
-	const char *desc = "Flash the firmware with a new image";
+	const char *desc = "Read the firmware image";
 	struct switchtec_fw_footer ftr;
 	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg;
 	int ret = 0;
@@ -1577,8 +1577,13 @@ static int fw_read(int argc, char **argv)
 		int out_fd;
 		const char *out_filename;
 		int inactive;
-		int data;
-	} cfg = {};
+		int img;
+		int cfg;
+	} cfg = {
+		.inactive = 0,
+		.img = 0,
+		.cfg = 0,
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
@@ -1587,9 +1592,9 @@ static int fw_read(int argc, char **argv)
 		  .help="image file to display information for"},
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
 		 "read the inactive partition"},
-		{"data", 'd', "", CFG_NONE, &cfg.data, no_argument,
-		 "read the data/config partiton instead of the main firmware"},
-		{"config", 'c', "", CFG_NONE, &cfg.data, no_argument,
+		{"image", 'm', "", CFG_NONE, &cfg.img, no_argument,
+		 "read the main firmware"},
+		{"config", 'c', "", CFG_NONE, &cfg.cfg, no_argument,
 		 "read the data/config partiton instead of the main firmware"},
 		{NULL}};
 
@@ -1607,18 +1612,22 @@ static int fw_read(int argc, char **argv)
 		goto close_and_exit;
 	}
 
-	if (cfg.data) {
+	if (cfg.cfg) {
 		img_addr = cfg.inactive ? inact_cfg.image_addr :
 			act_cfg.image_addr;
 		img_size = cfg.inactive ? inact_cfg.image_len :
 			act_cfg.image_len;;
 		type = SWITCHTEC_FW_TYPE_DAT0;
-	} else {
+	} else if (cfg.img) {
 		img_addr = cfg.inactive ? inact_img.image_addr :
 			act_img.image_addr;
 		img_size = cfg.inactive ? inact_img.image_len :
 			act_img.image_len;
 		type = SWITCHTEC_FW_TYPE_IMG0;
+	} else {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "Must specify image or config to read!\n");
+		goto close_and_exit;
 	}
 
 	ret = switchtec_fw_read_footer(cfg.dev, img_addr, img_size, &ftr,
@@ -1629,7 +1638,7 @@ static int fw_read(int argc, char **argv)
 	}
 
 	fprintf(stderr, "Version:  %s\n", version);
-	fprintf(stderr, "Type:     %s\n", cfg.data ? "DAT" : "IMG");
+	fprintf(stderr, "Type:     %s\n", cfg.img ? "IMG" : "DAT");
 	fprintf(stderr, "Img Len:  0x%x\n", (int) ftr.image_len);
 	fprintf(stderr, "CRC:      0x%x\n", (int) ftr.image_crc);
 
