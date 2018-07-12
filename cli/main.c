@@ -1448,7 +1448,7 @@ static int fw_toggle(int argc, char **argv)
 
 static int fw_read(int argc, char **argv)
 {
-	const char *desc = "Flash the firmware with a new image";
+	const char *desc = "Read the firmware image";
 	struct switchtec_fw_footer ftr;
 	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg;
 	int ret = 0;
@@ -1462,8 +1462,13 @@ static int fw_read(int argc, char **argv)
 		int out_fd;
 		const char *out_filename;
 		int inactive;
+		int img;
 		int data;
-	} cfg = {};
+	} cfg = {
+		.inactive = 0,
+		.img = 1,
+		.data = 0,
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
@@ -1472,8 +1477,8 @@ static int fw_read(int argc, char **argv)
 		  .help="image file to display information for"},
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
 		 "read the inactive partition"},
-		{"data", 'd', "", CFG_NONE, &cfg.data, no_argument,
-		 "read the data/config partiton instead of the main firmware"},
+		{"image", 'm', "", CFG_NONE, &cfg.img, no_argument,
+		 "read the main firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.data, no_argument,
 		 "read the data/config partiton instead of the main firmware"},
 		{NULL}};
