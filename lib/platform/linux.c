@@ -61,7 +61,7 @@ struct switchtec_linux {
 
 const char *platform_strerror(void)
 {
-	return "Unknown Error";
+	return "Success";
 }
 
 static int dev_to_sysfs_path(struct switchtec_linux *ldev, const char *suffix,
