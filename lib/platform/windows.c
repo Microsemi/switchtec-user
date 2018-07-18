@@ -561,4 +561,10 @@ struct switchtec_dev *switchtec_open_i2c_by_adapter(int adapter, int i2c_addr)
 	return NULL;
 }
 
+struct switchtec_dev *switchtec_open_uart(int fd)
+{
+	errno = ENOTSUP;
+	return NULL;
+}
+
 #endif
