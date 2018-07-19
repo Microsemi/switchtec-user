@@ -53,6 +53,11 @@ struct switchtec_dev;
 #define SWITCHTEC_UNBOUND_PORT 255
 #define SWITCHTEC_PFF_PORT_VEP 100
 
+#define SWITCHTEC_FLASH_BOOT_PART_START 0xa8000000
+#define SWITCHTEC_FLASH_MAP0_PART_START 0xa8020000
+#define SWITCHTEC_FLASH_MAP1_PART_START 0xa8040000
+#define SWITCHTEC_FLASH_PART_LEN 0x10000
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
@@ -460,6 +465,9 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 			     size_t partition_len,
 			     struct switchtec_fw_footer *ftr,
 			     char *version, size_t version_len);
+int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
+					struct switchtec_fw_footer *ftr,
+					char *version, size_t version_len);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
