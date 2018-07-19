@@ -431,7 +431,7 @@ int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 	while (remain) {
 		cmd.count = remain;
 		if (cmd.count > MRPC_MAX_DATA_LEN / sizeof(*res))
-			cmd.count = MRPC_MAX_DATA_LEN / sizeof(*res);
+			cmd.count = MRPC_MAX_DATA_LEN / sizeof(*res) - 1;
 
 		for (i = 0; i < cmd.count; i++) {
 			cmd.ports[i].id = phys_port_ids[i];
