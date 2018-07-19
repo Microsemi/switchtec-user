@@ -322,8 +322,10 @@ int switchtec_status(struct switchtec_dev *dev,
 
 
 	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+		if ((ports[i].phys_port_id == 0) && (i != 0))
+			break;
 		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
-			continue;
+			break;
 		nr_ports++;
 	}
 
@@ -332,9 +334,6 @@ int switchtec_status(struct switchtec_dev *dev,
 		return -ENOMEM;
 
 	for (i = 0, p = 0; i < SWITCHTEC_MAX_PORTS && p < nr_ports; i++) {
-		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
-			continue;
-
 		s[p].port.partition = ports[i].par_id;
 		s[p].port.stack = ports[i].stk_id >> 4;
 		s[p].port.upstream = ports[i].usp_flag;
