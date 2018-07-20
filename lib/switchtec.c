@@ -70,6 +70,7 @@
  *   * An I2C adapter number and slave number (0@0x20)
  *   * An I2C device delimited with a colon (/dev/i2c-1:0x20)
  *     (must start with a / so that it is distinguishable from a BDF)
+ *   * A UART device (/dev/ttyUSB0)
  */
 struct switchtec_dev *switchtec_open(const char *device)
 {

@@ -74,6 +74,14 @@ struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
 struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr);
 
 /**
+ * @brief Open a switchtec device behind a uart device
+ * @ingroup Device
+ * @param[in] fd	file descriptor to uart device
+ * @return Switchtec device handle, NULL on failure
+ */
+struct switchtec_dev *switchtec_open_uart(int fd);
+
+/**
  * @brief Close a Switchtec device handle
  * @ingroup Device
  * @param[in] dev	Switchtec device handle to close

@@ -773,14 +773,20 @@ static const struct switchtec_ops linux_ops = {
 struct switchtec_dev *switchtec_open_by_path(const char *path)
 {
 	struct switchtec_linux *ldev;
+	int fd;
+
+	fd = open(path, O_RDWR | O_CLOEXEC);
+	if (fd < 0)
+		return NULL;
+
+	if (isatty(fd))
+		return switchtec_open_uart(fd);
 
 	ldev = malloc(sizeof(*ldev));
 	if (!ldev)
 		return NULL;
 
-	ldev->fd = open(path, O_RDWR | O_CLOEXEC);
-	if (ldev->fd < 0)
-		goto err_free;
+	ldev->fd = fd;
 
 	if (check_switchtec_device(ldev))
 		goto err_close_free;
@@ -794,7 +800,6 @@ struct switchtec_dev *switchtec_open_by_path(const char *path)
 
 err_close_free:
 	close(ldev->fd);
-err_free:
 	free(ldev);
 	return NULL;
 }
