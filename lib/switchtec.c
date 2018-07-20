@@ -61,17 +61,36 @@
  * @return A switchtec_dev structure for use in other library functions
  *	or NULL if an error occurred.
  *
- * The string can be specified as a path to the device (/dev/switchtec0),
- * an index (0, 1, etc), an index with a 'switchtec' prefix (switchtec0)
- * or a BDF (bus, device function) string (3:00.1).
+ * The string can be specified as:
+ *   * A path to the device (/dev/switchtec0)
+ *   * An index (0, 1, etc)
+ *   * An index with a 'switchtec' prefix (switchtec0)
+ *   * A BDF (bus, device function) string (3:00.1)
+ *   * An I2C device with slave number (/dev/i2c-1@0x20)
+ *   * An I2C adapter number and slave number (0@0x20)
+ *   * An I2C device delimited with a colon (/dev/i2c-1:0x20)
+ *     (must start with a / so that it is distinguishable from a BDF)
+ *   * A UART device (/dev/ttyUSB0)
  */
 struct switchtec_dev *switchtec_open(const char *device)
 {
 	int idx;
 	int domain = 0;
 	int bus, dev, func;
+	char path[PATH_MAX];
 	char *endptr;
 	struct switchtec_dev *ret;
+
+	if (sscanf(device, "%2049[^@]@%i", path, &dev) == 2) {
+		ret = switchtec_open_i2c(path, dev);
+		goto found;
+	}
+
+	if (device[0] == '/' &&
+	    sscanf(device, "%2049[^:]:%i", path, &dev) == 2) {
+		ret = switchtec_open_i2c(path, dev);
+		goto found;
+	}
 
 	if (strchr(device, '/') || strchr(device, '\\')) {
 		ret = switchtec_open_by_path(device);
@@ -85,6 +104,11 @@ struct switchtec_dev *switchtec_open(const char *device)
 
 	if (sscanf(device, "%x:%x:%x.%x", &domain, &bus, &dev, &func) == 4) {
 		ret = switchtec_open_by_pci_addr(domain, bus, dev, func);
+		goto found;
+	}
+
+	if (sscanf(device, "%i@%i", &bus, &dev) == 2) {
+		ret = switchtec_open_i2c_by_adapter(bus, dev);
 		goto found;
 	}
 
@@ -106,6 +130,8 @@ struct switchtec_dev *switchtec_open(const char *device)
 found:
 	if (ret)
 		snprintf(ret->name, sizeof(ret->name), "%s", device);
+	else
+		errno = ENODEV;
 
 	return ret;
 }

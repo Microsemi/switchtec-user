@@ -327,7 +327,8 @@ free_and_return:
 }
 
 static int gui_init(struct switchtec_dev *dev, unsigned reset,
-		    struct switchtec_bwcntr_res *bw_data)
+		    struct switchtec_bwcntr_res *bw_data,
+		    enum switchtec_bw_type bw_type)
 {
 	int ret, p, numports, port_ids[SWITCHTEC_MAX_PORTS];
 	struct switchtec_status *status;
@@ -344,6 +345,10 @@ retry:
 
 	for (p = 0; p < numports; p++)
 		port_ids[p] = status[p].port.phys_id;
+
+	ret = switchtec_bwcntr_set_many(dev, numports, port_ids, bw_type);
+	if (ret < 0)
+		cleanup_and_error("Set bandwidth type");
 
 	if (reset)
 		ret = switchtec_bwcntr_many(dev, numports, port_ids, 1, NULL);
@@ -387,7 +392,7 @@ static unsigned gui_keypress(void)
   /* Main GUI window. */
 
 int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
-	     unsigned refresh, int duration)
+	     unsigned refresh, int duration, enum switchtec_bw_type bw_type)
 {
 	struct timeval endtime, now;
 
@@ -405,7 +410,7 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 	int ret;
 	struct switchtec_bwcntr_res bw_data[SWITCHTEC_MAX_PORTS] = { {0} };
 
-	ret = gui_init(dev, reset, bw_data);
+	ret = gui_init(dev, reset, bw_data, bw_type);
 	if (ret < 0) {
 		cleanup_and_error("gui_init");
 		return ret;
@@ -442,7 +447,7 @@ int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 #else
 
 int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
-	     unsigned refresh, int duration)
+	     unsigned refresh, int duration, enum switchtec_bw_type bw_type)
 {
 	printf("gui requires libcurses support when switchtec-user is built\n");
 	return 0;

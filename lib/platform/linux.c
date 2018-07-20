@@ -28,6 +28,7 @@
 
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
+#include "mmap_gas.h"
 
 #include <linux/switchtec_ioctl.h>
 
@@ -60,7 +61,7 @@ struct switchtec_linux {
 
 const char *platform_strerror(void)
 {
-	return "Unknown Error";
+	return "Success";
 }
 
 static int dev_to_sysfs_path(struct switchtec_linux *ldev, const char *suffix,
@@ -151,99 +152,9 @@ static int get_partition(struct switchtec_linux *ldev)
 	return 0;
 }
 
-struct switchtec_dev *switchtec_open_by_path(const char *path)
-{
-	struct switchtec_linux *ldev;
-
-	ldev = malloc(sizeof(*ldev));
-	if (!ldev)
-		return NULL;
-
-	ldev->fd = open(path, O_RDWR | O_CLOEXEC);
-	if (ldev->fd < 0)
-		goto err_free;
-
-	if (check_switchtec_device(ldev))
-		goto err_close_free;
-
-	if (get_partition(ldev))
-		goto err_close_free;
-
-	return &ldev->dev;
-
-err_close_free:
-	close(ldev->fd);
-err_free:
-	free(ldev);
-	return NULL;
-}
-
-struct switchtec_dev *switchtec_open_by_index(int index)
-{
-	char path[PATH_MAX];
-	struct switchtec_dev *dev;
-
-	snprintf(path, sizeof(path), "/dev/switchtec%d", index);
-
-	dev = switchtec_open_by_path(path);
-
-	if (errno == ENOENT)
-		errno = ENODEV;
-
-	return dev;
-}
-
-struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
-						 int device, int func)
-{
-	char path[PATH_MAX];
-	struct switchtec_dev *dev;
-	struct dirent *dirent;
-	DIR *dir;
-
-	snprintf(path, sizeof(path),
-		 "/sys/bus/pci/devices/%04x:%02x:%02x.%x/switchtec",
-		 domain, bus, device, func);
-
-	dir = opendir(path);
-	if (!dir)
-		goto err_out;
-
-	while ((dirent = readdir(dir))) {
-		if (dirent->d_name[0] != '.')
-			break;
-	}
-
-	if (!dirent)
-		goto err_close;
-
-	/*
-	 * Should only be one switchtec device, if there are
-	 * more then something is wrong
-	 */
-	if (readdir(dir))
-		goto err_close;
-
-	snprintf(path, sizeof(path), "/dev/%s", dirent->d_name);
-	printf("%s\n", path);
-	dev = switchtec_open(path);
-
-	closedir(dir);
-	return dev;
-
-err_close:
-	closedir(dir);
-err_out:
-	errno = ENODEV;
-	return NULL;
-}
-
-void switchtec_close(struct switchtec_dev *dev)
+static void linux_close(struct switchtec_dev *dev)
 {
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
-
-	if (!dev)
-		return;
 
 	close(ldev->fd);
 	free(ldev);
@@ -344,8 +255,8 @@ int switchtec_list(struct switchtec_device_info **devlist)
 	return n;
 }
 
-int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
-			     size_t buflen)
+static int linux_get_fw_version(struct switchtec_dev *dev, char *buf,
+				size_t buflen)
 {
 	int ret;
 	long long version;
@@ -418,9 +329,9 @@ static int read_resp(struct switchtec_linux *ldev, void *resp,
 	return ret;
 }
 
-int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
-		  const void *payload, size_t payload_len, void *resp,
-		  size_t resp_len)
+static int linux_cmd(struct switchtec_dev *dev,  uint32_t cmd,
+		     const void *payload, size_t payload_len, void *resp,
+		     size_t resp_len)
 {
 	int ret;
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
@@ -515,9 +426,9 @@ static void get_port_info(const char *searchpath, int port,
 	globfree(&paths);
 }
 
-int switchtec_get_devices(struct switchtec_dev *dev,
-			  struct switchtec_status *status,
-			  int ports)
+static int linux_get_devices(struct switchtec_dev *dev,
+			     struct switchtec_status *status,
+			     int ports)
 {
 	int ret;
 	int i;
@@ -552,8 +463,8 @@ int switchtec_get_devices(struct switchtec_dev *dev,
 	return 0;
 }
 
-int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
-			  int *partition, int *port)
+static int linux_pff_to_port(struct switchtec_dev *dev, int pff,
+			     int *partition, int *port)
 {
 	int ret;
 	struct switchtec_ioctl_pff_port p;
@@ -572,8 +483,8 @@ int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 	return 0;
 }
 
-int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
-			  int port, int *pff)
+static int linux_port_to_pff(struct switchtec_dev *dev, int partition,
+			     int port, int *pff)
 {
 	int ret;
 	struct switchtec_ioctl_pff_port p;
@@ -605,8 +516,8 @@ int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
  * that use this will remain unsupported by Microsemi unless it's
  * done within the switchtec user project or otherwise specified.
  */
-gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
-                           size_t *map_size)
+static gasptr_t linux_gas_map(struct switchtec_dev *dev, int writeable,
+			      size_t *map_size)
 {
 	int ret;
 	int fd;
@@ -648,14 +559,14 @@ gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
 	return (gasptr_t __force)map;
 }
 
-void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
+static void linux_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
 {
 	munmap((void __force *)map, dev->gas_map_size);
 }
 
-int switchtec_flash_part(struct switchtec_dev *dev,
-			 struct switchtec_fw_image_info *info,
-			 enum switchtec_fw_image_type part)
+static int linux_flash_part(struct switchtec_dev *dev,
+			    struct switchtec_fw_image_info *info,
+			    enum switchtec_fw_image_type part)
 {
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 	struct switchtec_ioctl_flash_part_info ioctl_info = {0};
@@ -743,8 +654,8 @@ static const int event_map[] = {
 	EV(PFF, LINK_STATE),
 };
 
-int switchtec_event_summary(struct switchtec_dev *dev,
-			    struct switchtec_event_summary *sum)
+static int linux_event_summary(struct switchtec_dev *dev,
+			       struct switchtec_event_summary *sum)
 {
 	int ret;
 	struct switchtec_ioctl_event_summary isum;
@@ -762,10 +673,10 @@ int switchtec_event_summary(struct switchtec_dev *dev,
 	return 0;
 }
 
-int switchtec_event_ctl(struct switchtec_dev *dev,
-			enum switchtec_event_id e,
-			int index, int flags,
-			uint32_t data[5])
+static int linux_event_ctl(struct switchtec_dev *dev,
+			   enum switchtec_event_id e,
+			   int index, int flags,
+			   uint32_t data[5])
 {
 	int ret;
 	struct switchtec_ioctl_event_ctl ctl;
@@ -808,7 +719,7 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
 	return ctl.count;
 }
 
-int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
+static int linux_event_wait(struct switchtec_dev *dev, int timeout_ms)
 {
 	int ret;
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
@@ -830,6 +741,127 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
 		return 1;
 
 	return 0;
+}
+
+static const struct switchtec_ops linux_ops = {
+	.close = linux_close,
+	.get_fw_version = linux_get_fw_version,
+	.cmd = linux_cmd,
+	.get_devices = linux_get_devices,
+	.pff_to_port = linux_pff_to_port,
+	.port_to_pff = linux_port_to_pff,
+	.gas_map = linux_gas_map,
+	.gas_unmap = linux_gas_unmap,
+	.flash_part = linux_flash_part,
+	.event_summary = linux_event_summary,
+	.event_ctl = linux_event_ctl,
+	.event_wait = linux_event_wait,
+
+	.gas_read8 = mmap_gas_read8,
+	.gas_read16 = mmap_gas_read16,
+	.gas_read32 = mmap_gas_read32,
+	.gas_read64 = mmap_gas_read64,
+	.gas_write8 = mmap_gas_write8,
+	.gas_write16 = mmap_gas_write16,
+	.gas_write32 = mmap_gas_write32,
+	.gas_write64 = mmap_gas_write64,
+	.memcpy_to_gas = mmap_memcpy_to_gas,
+	.memcpy_from_gas = mmap_memcpy_from_gas,
+	.write_from_gas = mmap_write_from_gas,
+};
+
+struct switchtec_dev *switchtec_open_by_path(const char *path)
+{
+	struct switchtec_linux *ldev;
+	int fd;
+
+	fd = open(path, O_RDWR | O_CLOEXEC);
+	if (fd < 0)
+		return NULL;
+
+	if (isatty(fd))
+		return switchtec_open_uart(fd);
+
+	ldev = malloc(sizeof(*ldev));
+	if (!ldev)
+		return NULL;
+
+	ldev->fd = fd;
+
+	if (check_switchtec_device(ldev))
+		goto err_close_free;
+
+	if (get_partition(ldev))
+		goto err_close_free;
+
+	ldev->dev.ops = &linux_ops;
+
+	return &ldev->dev;
+
+err_close_free:
+	close(ldev->fd);
+	free(ldev);
+	return NULL;
+}
+
+struct switchtec_dev *switchtec_open_by_index(int index)
+{
+	char path[PATH_MAX];
+	struct switchtec_dev *dev;
+
+	snprintf(path, sizeof(path), "/dev/switchtec%d", index);
+
+	dev = switchtec_open_by_path(path);
+
+	if (errno == ENOENT)
+		errno = ENODEV;
+
+	return dev;
+}
+
+struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
+						 int device, int func)
+{
+	char path[PATH_MAX];
+	struct switchtec_dev *dev;
+	struct dirent *dirent;
+	DIR *dir;
+
+	snprintf(path, sizeof(path),
+		 "/sys/bus/pci/devices/%04x:%02x:%02x.%x/switchtec",
+		 domain, bus, device, func);
+
+	dir = opendir(path);
+	if (!dir)
+		goto err_out;
+
+	while ((dirent = readdir(dir))) {
+		if (dirent->d_name[0] != '.')
+			break;
+	}
+
+	if (!dirent)
+		goto err_close;
+
+	/*
+	 * Should only be one switchtec device, if there are
+	 * more then something is wrong
+	 */
+	if (readdir(dir))
+		goto err_close;
+
+	snprintf(path, sizeof(path), "/dev/%s", dirent->d_name);
+	printf("%s\n", path);
+	dev = switchtec_open(path);
+
+	closedir(dir);
+	return dev;
+
+err_close:
+	closedir(dir);
+err_out:
+	errno = ENODEV;
+	return NULL;
 }
 
 #endif

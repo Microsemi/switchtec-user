@@ -1,5 +1,6 @@
+
 /*
- * Microsemi Switchtec(tm) PCIe Management Command Line Interface
+ * Microsemi Switchtec(tm) PCIe Management Library
  * Copyright (c) 2017, Microsemi Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -22,24 +23,15 @@
  *
  */
 
-#ifndef COMMON_H
-#define COMMON_H
 
-int ask_if_sure(int always_yes);
-int switchtec_handler(const char *optarg, void *value_addr,
-		      const struct argconfig_options *opt);
+#ifndef CRC8_H
+#define CRC8_H
 
-#define DEVICE_OPTION {"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
-			.argument_type=required_positional, \
-			.custom_handler=switchtec_handler, \
-			.complete="/dev/switchtec*", \
-			.env="SWITCHTEC_DEV", \
-			.help="switchtec device to operate on. can be any of:\n" \
-			" * a device path (/dev/switchtec0)\n" \
-			" * an index (0, 1, 2)\n" \
-			" * a pci address (3:00.1)\n" \
-			" * An I2C path with slave address (/dev/i2c-1@0x20)\n" \
-			" * A UART path (/dev/ttyUSB0)\n" \
-	}
+
+#include <stdint.h>
+#include <stdbool.h>
+
+uint8_t crc8(uint8_t *msg_ptr, uint32_t byte_cnt, uint32_t oldchksum,
+	      bool init);
 
 #endif

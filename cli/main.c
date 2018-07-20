@@ -42,6 +42,12 @@
 
 static struct switchtec_dev *global_dev = NULL;
 
+static const struct argconfig_choice bandwidth_types[] = {
+	{"RAW", SWITCHTEC_BW_TYPE_RAW, "Get the raw bandwidth"},
+	{"PAYLOAD", SWITCHTEC_BW_TYPE_PAYLOAD, "Get the payload bandwidth"},
+	{}
+};
+
 int switchtec_handler(const char *optarg, void *value_addr,
 		      const struct argconfig_options *opt)
 {
@@ -133,9 +139,11 @@ static int gui(int argc, char **argv)
 		unsigned reset_bytes;
 		unsigned refresh;
 		int duration;
+		enum switchtec_bw_type bw_type;
 	} cfg = {
 	    .refresh  = 1,
 	    .duration = -1,
+	    .bw_type  = SWITCHTEC_BW_TYPE_RAW,
 	};
 
 	const struct argconfig_options opts[] = {
@@ -148,12 +156,14 @@ static int gui(int argc, char **argv)
 		 "gui refresh period in seconds (default: 1 second)"},
 		{"duration", 'd', "", CFG_INT, &cfg.duration, required_argument,
 		 "gui duration in seconds (-1 forever)"},
+		{"bw_type", 'b', "TYPE", CFG_CHOICES, &cfg.bw_type,
+		 required_argument, "gui bandwidth type", .choices=bandwidth_types},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = gui_main(cfg.dev, cfg.all_ports, cfg.reset_bytes, cfg.refresh,
-		       cfg. duration);
+		       cfg.duration, cfg.bw_type);
 
 	return ret;
 }
@@ -275,9 +285,12 @@ static int bw(int argc, char **argv)
 		struct switchtec_dev *dev;
 		unsigned meas_time;
 		int verbose;
+		enum switchtec_bw_type bw_type;
 	} cfg = {
 		.meas_time = 5,
+		.bw_type = SWITCHTEC_BW_TYPE_RAW,
 	};
+
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"time", 't', "NUM", CFG_POSITIVE, &cfg.meas_time,
@@ -285,9 +298,17 @@ static int bw(int argc, char **argv)
 		 "measurement time, in seconds"},
 		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
 		 "print posted, non-posted and completion results"},
+		{"bw_type", 'b', "TYPE", CFG_CHOICES, &cfg.bw_type,
+		 required_argument, "bandwidth type", .choices=bandwidth_types},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_bwcntr_set_all(cfg.dev, cfg.bw_type);
+	if (ret < 0) {
+		switchtec_perror("bw type");
+		return ret;
+	}
 
 	ret = switchtec_bwcntr_all(cfg.dev, 0, &port_ids, &before);
 	if (ret < 0) {
@@ -1122,7 +1143,9 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	int nr_mult = 16;
 	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg,
 		mult_cfg[nr_mult];
+	struct switchtec_fw_footer map;
 	struct switchtec_fw_footer bootloader;
+	char map_ver[16];
 	char bootloader_ver[16];
 	int bootloader_ro;
 	int ret, i;
@@ -1137,11 +1160,18 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	ret = switchtec_fw_read_footer(dev, 0xa8000000, 0x10000,
-				       &bootloader, bootloader_ver,
-				       sizeof(bootloader_ver));
+	ret = switchtec_fw_read_footer(dev, SWITCHTEC_FLASH_BOOT_PART_START,
+				       SWITCHTEC_FLASH_PART_LEN, &bootloader,
+				       bootloader_ver, sizeof(bootloader_ver));
 	if (ret < 0) {
 		switchtec_perror("BOOT");
+		return ret;
+	}
+
+	ret = switchtec_fw_read_active_map_footer(dev, &map, map_ver,
+						  sizeof(map_ver));
+	if (ret < 0) {
+		switchtec_perror("MAP");
 		return ret;
 	}
 
@@ -1153,6 +1183,8 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("  BOOT \tVersion: %-8s\tCRC: %08lx   %s\n",
 	       bootloader_ver, (long)bootloader.image_crc,
 	       bootloader_ro ? "(RO)" : "");
+	printf("  MAP \tVersion: %-8s\tCRC: %08lx\n",
+	       map_ver, (long)map.image_crc);
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
 	       act_img.version, act_img.crc,
 	       fw_running_string(&act_img));

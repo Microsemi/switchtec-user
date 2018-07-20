@@ -53,6 +53,11 @@ struct switchtec_dev;
 #define SWITCHTEC_UNBOUND_PORT 255
 #define SWITCHTEC_PFF_PORT_VEP 100
 
+#define SWITCHTEC_FLASH_BOOT_PART_START 0xa8000000
+#define SWITCHTEC_FLASH_MAP0_PART_START 0xa8020000
+#define SWITCHTEC_FLASH_MAP1_PART_START 0xa8040000
+#define SWITCHTEC_FLASH_PART_LEN 0x10000
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
@@ -112,6 +117,14 @@ struct switchtec_status {
 	int vendor_id;			//!< Vendor ID
 	int device_id;			//!< Device ID
 	char *class_devices;		//!< Comma seperated list of classes
+};
+
+/**
+ * @brief The types of bandwidth
+ */
+enum switchtec_bw_type {
+	SWITCHTEC_BW_TYPE_RAW = 0x0,
+	SWITCHTEC_BW_TYPE_PAYLOAD = 0x1,
 };
 
 /**
@@ -222,6 +235,10 @@ struct switchtec_dev *switchtec_open_by_path(const char *path);
 struct switchtec_dev *switchtec_open_by_index(int index);
 struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
 						 int device, int func);
+struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr);
+struct switchtec_dev *switchtec_open_i2c_by_adapter(int adapter, int i2c_addr);
+struct switchtec_dev *switchtec_open_uart(int fd);
+
 void switchtec_close(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
@@ -369,6 +386,7 @@ enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_COMPLETES = 7,
 	SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT = 8,
 	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
+	SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT = 14,
 };
 
 /**
@@ -448,6 +466,9 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 			     size_t partition_len,
 			     struct switchtec_fw_footer *ftr,
 			     char *version, size_t version_len);
+int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
+					struct switchtec_fw_footer *ftr,
+					char *version, size_t version_len);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
@@ -584,7 +605,11 @@ struct switchtec_bwcntr_res {
 
 void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
 			  struct switchtec_bwcntr_res *old);
-
+int switchtec_bwcntr_set_many(struct switchtec_dev *dev, int nr_ports,
+			      int * phys_port_ids,
+			      enum switchtec_bw_type bw_type);
+int switchtec_bwcntr_set_all(struct switchtec_dev *dev,
+			     enum switchtec_bw_type bw_type);
 int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 			  int *phys_port_ids, int clear,
 			  struct switchtec_bwcntr_res *res);
