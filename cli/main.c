@@ -309,6 +309,9 @@ static int bw(int argc, char **argv)
 		switchtec_perror("bw type");
 		return ret;
 	}
+	/* switchtec_bwcntr_set_all will reset bandwidth counter and it needs
+	 * about 1s */
+	sleep(1);
 
 	ret = switchtec_bwcntr_all(cfg.dev, 0, &port_ids, &before);
 	if (ret < 0) {
