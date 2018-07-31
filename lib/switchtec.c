@@ -131,7 +131,7 @@ found:
 	if (ret)
 		snprintf(ret->name, sizeof(ret->name), "%s", device);
 	else
-		errno = ENODEV;
+		errno = errno ? errno : ENODEV;
 
 	return ret;
 }
