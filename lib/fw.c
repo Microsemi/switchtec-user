@@ -107,10 +107,13 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 		ret = switchtec_fw_dlstatus(dev, status, &bgstatus);
 		if (ret < 0)
 			return ret;
+		if (*status != SWITCHTEC_DLSTAT_INPROGRESS &&
+		    *status != SWITCHTEC_DLSTAT_COMPLETES &&
+		    *status != SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT &&
+		    *status != SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
+			return *status;
 		if (bgstatus == MRPC_BG_STAT_ERROR)
 			return SWITCHTEC_DLSTAT_HARDWARE_ERR;
-		if (*status == SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT)
-			return SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT;
 
 	} while (bgstatus == MRPC_BG_STAT_INPROGRESS);
 
@@ -220,7 +223,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 
 		ret = switchtec_fw_wait(dev, &status);
 		if (ret != 0)
-		    return ret;
+			return ret;
 
 		offset += cmd.hdr.blk_length;
 
