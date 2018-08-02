@@ -781,6 +781,8 @@ struct switchtec_dev *switchtec_open_by_path(const char *path)
 
 	if (isatty(fd))
 		return switchtec_open_uart(fd);
+	else
+		errno = 0;
 
 	ldev = malloc(sizeof(*ldev));
 	if (!ldev)
