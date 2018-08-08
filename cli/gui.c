@@ -349,6 +349,9 @@ retry:
 	ret = switchtec_bwcntr_set_many(dev, numports, port_ids, bw_type);
 	if (ret < 0)
 		cleanup_and_error("Set bandwidth type");
+	/* switchtec_bwcntr_set_many will reset bandwidth counter and it needs
+	 * about 1s. */
+	sleep(1);
 
 	if (reset)
 		ret = switchtec_bwcntr_many(dev, numports, port_ids, 1, NULL);
