@@ -45,6 +45,67 @@
 #include <sys/file.h>
 #include <termios.h>
 
+/*
+ * Example of uart operations
+ *
+ * GAS Write:
+ *
+ * command: gaswr -c -s <offset> 0x<byte str> <crc>
+ *
+ * case 1: success
+ * input:    gaswr -c -s 0x5 0xaabbccddeeff 0x84
+ * output:   gas_reg_write() success
+ * 	     CRC: [0x84/0x84]
+ *	     0x00000000:1212>
+ *
+ * case 2: success
+ * input:    gaswr -c -s 0x135c10 0x00000008 0xbc
+ * output:   [PFF] cs addr: 0x0304, not hit
+ *           gas_reg_write() success
+ * 	     CRC: [0xbc/0xbc]
+ *	     0x00000000:2172>
+ *
+
+ * case 3: crc error
+ * input:    gaswr -c -s 0x5 0xaabbccddeeff 0xb
+ * output:   gas_reg_write() CRC Error
+ * 	     CRC: [0x84/0x0b]
+ *	     0x00000000:0000>
+ *
+ * case 4: out of range
+ * input:    gaswr -c -s 0x5135c00 0x00000000 0xe9
+ * output:   Error with gas_reg_write(): 0x63006, Offset:0x5135c00
+ *           CRC:[0xe9/0xe9]
+ *           0x00000000:084d>
+ *
+ * GAS Read:
+ *
+ * command: gasrd -c -s <offset> <byte count>
+ *
+ * case 1: success
+ * input:    gasrd -c -s 0x3 5
+ * output:   gas_reg_read <0x3> [5 Byte]
+ * 	     00 58 00 00 00
+ * 	     CRC: 0x37
+ *           0x00000000:1204>
+ *
+ * case 2: success
+ * input:    gasrd -c -s 0x135c00 4
+ * output:   gas_reg_read <0x135c00> [4 Byte]
+ *           [PFF] cs addr: 0x0300,not hit
+ * 	     00 00 00 00
+ * 	     CRC: 0xb6
+ * 	     0x00000000:0d93>
+ *
+ * case 3: out of range
+ * input:    gasrd -c -s 0x5135c00 4
+ * output:   gas_reg_read <0x5135c00> [4 Byte]
+ *           No access beyond the Total GAS Section
+ * 	     ...
+ * 	     ...
+ * 	     0x00000000:0d93>
+ */
+
 struct switchtec_uart{
 	struct switchtec_dev dev;
 	int fd;
@@ -194,7 +255,7 @@ static void uart_gas_read(struct switchtec_dev *dev, void *dest,
 	uint8_t cal;
 	char gas_rd_rtn[4096];
 
-	for (i = 0; i< RETRY_NUM; i++) {
+	for (i = 0; i < RETRY_NUM; i++) {
 		ret =  send_cmd(udev->fd, "gasrd -c -s 0x%x %zu\r", 0, addr, n);
 		if (ret)
 			continue;
@@ -203,16 +264,35 @@ static void uart_gas_read(struct switchtec_dev *dev, void *dest,
 		if (ret)
 			continue;
 
-		if(sscanf(gas_rd_rtn,
-			 "%*[^<]<0x%x> [%d Byte]%*[^:]: 0x%x%*[^:]:",
+		/* case 3 */
+		if (strstr(gas_rd_rtn, "No access beyond the Total GAS Section")){
+			memset(dest, 0xff, n);
+			break;
+		}
+		/* case 2 */
+		if (strchr(gas_rd_rtn, ',')) {
+			if (sscanf(gas_rd_rtn,
+				 "%*[^<]<0x%x> [%d Byte]%*[^,],%*[^:]: 0x"
+				 "%x%*[^:]:",
 				  &raddr, &rnum, &rcrc) != 3)
 			continue;
+		} else {
+			/* case 1 */
+			if (sscanf(gas_rd_rtn,
+				 "%*[^<]<0x%x> [%d Byte]%*[^:]: 0x%x%*[^:]:",
+				  &raddr, &rnum, &rcrc) != 3)
+			continue;
+		}
 
 		if ((raddr != addr) || (rnum != n))
 			continue;
 
 		pos = strchr(gas_rd_rtn, ']');
-		pos += 2;
+		if (strchr(gas_rd_rtn, ','))
+			pos = strchr(gas_rd_rtn, ',') + strlen("not hit");
+		else
+			pos += 2;
+
 		for (j = 0; j < n; j++)
 			*ptr++ = strtol(pos, &pos, 16);
 
@@ -271,8 +351,7 @@ static void uart_gas_write(struct switchtec_dev *dev, void __gas *dest,
 		crc = crc8((uint8_t *)src + i - 1, sizeof(uint8_t), crc, false);
 
 	addr = htobe32(addr);
-
-	for (i = 0; i< RETRY_NUM; i++) {
+	for (i = 0; i < RETRY_NUM; i++) {
 		ret =  send_cmd(udev->fd, "gaswr -c -s 0x%x 0x",
 			       n, addr, src, crc);
 		if (ret)
@@ -282,10 +361,20 @@ static void uart_gas_write(struct switchtec_dev *dev, void __gas *dest,
 		if (ret)
 			continue;
 
-		if (sscanf(gas_wr_rtn, "%*[^:]: [0x%x/0x%x]%*[^:]:",
-			   &cal, &exp) != 2)
-			continue;
-
+		/* case 4 */
+		if (strstr(gas_wr_rtn, "Error with gas_reg_write()"))
+			break;
+		/* case 2 */
+		if (strchr(gas_wr_rtn, ',')) {
+			if (sscanf(gas_wr_rtn, "%*[^,],%*[^:]: [0x%x/0x%x]%*[^:]:",
+				   &cal, &exp) != 2)
+				continue;
+		} else {
+			/* case 1 and case 3 */
+			if (sscanf(gas_wr_rtn, "%*[^:]: [0x%x/0x%x]%*[^:]:",
+				   &cal, &exp) != 2)
+				continue;
+		}
 		if ((exp == cal) && (cal == crc))
 			break;
 	}
