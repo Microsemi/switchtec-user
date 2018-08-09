@@ -36,7 +36,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#include <signal.h>
 #include <errno.h>
 #include <stdio.h>
 
@@ -1927,9 +1927,34 @@ static struct prog_info prog_info = {
 		"(ex: /dev/switchtec0)",
 };
 
+#ifndef _WIN32
+static void sig_handler(int signum)
+{
+	if (signum == SIGBUS) {
+		fprintf(stderr, "Error communicating with the device. "
+			"Please check your setup.\n");
+		exit(1);
+	}
+}
+
+static void setup_sigbus(void)
+{
+	signal(SIGBUS, sig_handler);
+}
+
+#else /* _WIN32 defined */
+
+static void setup_sigbus(void)
+{
+}
+
+#endif
+
 int main(int argc, char **argv)
 {
 	int ret;
+
+	setup_sigbus();
 
 	ret = commands_handle(argc, argv, &prog_info);
 
