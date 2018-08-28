@@ -509,6 +509,60 @@ static int linux_port_to_pff(struct switchtec_dev *dev, int partition,
 #define __force
 #endif
 
+static ssize_t resource_size(struct switchtec_linux *ldev, const char *fname)
+{
+	char respath[PATH_MAX];
+	struct stat stat;
+	int fd, ret;
+
+	ret = dev_to_sysfs_path(ldev, fname, respath,
+				sizeof(respath));
+	if (ret) {
+		errno = ret;
+		return -1;
+	}
+
+	fd = open(respath, O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	ret = fstat(fd, &stat);
+	if (ret < 0) {
+		close(fd);
+		return -1;
+	}
+
+	close(fd);
+	return stat.st_size;
+}
+
+static int mmap_resource(struct switchtec_linux *ldev, const char *fname,
+			 void *addr, size_t offset, size_t size, int writeable)
+{
+	char respath[PATH_MAX];
+	void *map;
+	int fd, ret = 0;
+
+	ret = dev_to_sysfs_path(ldev, fname, respath,
+				sizeof(respath));
+	if (ret) {
+		errno = ret;
+		return -1;
+	}
+
+	fd = open(respath, writeable ? O_RDWR : O_RDONLY);
+	if (fd < 0)
+		return -1;
+
+	map = mmap(addr, size, (writeable ? PROT_WRITE : 0) | PROT_READ,
+		   MAP_SHARED | MAP_FIXED, fd, offset);
+	if (map == MAP_FAILED)
+		ret = -1;
+
+	close(fd);
+	return ret;
+}
+
 /*
  * GAS map maps the hardware registers into user memory space.
  * Needless to say, this can be very dangerous and should only
@@ -520,43 +574,46 @@ static gasptr_t linux_gas_map(struct switchtec_dev *dev, int writeable,
 			      size_t *map_size)
 {
 	int ret;
-	int fd;
 	void *map;
-	char respath[PATH_MAX];
-	struct stat stat;
+	ssize_t msize;
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
-	ret = dev_to_sysfs_path(ldev, "device/resource0_wc", respath,
-				sizeof(respath));
-
-	if (ret) {
-		errno = ret;
-		return SWITCHTEC_MAP_FAILED;
-	}
-
-	fd = open(respath, writeable ? O_RDWR : O_RDONLY);
-	if (fd < 0)
+	msize = resource_size(ldev, "device/resource0");
+	if (msize <= 0)
 		return SWITCHTEC_MAP_FAILED;
 
-	ret = fstat(fd, &stat);
-	if (ret < 0)
-		return SWITCHTEC_MAP_FAILED;
-
-	map = mmap(NULL, stat.st_size,
-		   (writeable ? PROT_WRITE : 0) | PROT_READ,
-		   MAP_SHARED, fd, 0);
-	close(fd);
-
+	/*
+	 * Reserve virtual address space for the entire GAS mapping.
+	 */
+	map = mmap(NULL, msize, PROT_NONE,
+		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (map == MAP_FAILED)
 		return SWITCHTEC_MAP_FAILED;
 
+	ret = mmap_resource(ldev, "device/resource0_wc", map, 0,
+			    SWITCHTEC_GAS_TOP_CFG_OFFSET, writeable);
+	if (ret)
+		goto unmap_and_exit;
+
+	ret = mmap_resource(ldev, "device/resource0",
+			    map + SWITCHTEC_GAS_TOP_CFG_OFFSET,
+			    SWITCHTEC_GAS_TOP_CFG_OFFSET,
+			    msize - SWITCHTEC_GAS_TOP_CFG_OFFSET,
+			    writeable);
+	if (ret)
+		goto unmap_and_exit;
+
 	if (map_size)
-		*map_size = stat.st_size;
+		*map_size = msize;
 
 	dev->gas_map = (gasptr_t __force)map;
-	dev->gas_map_size = stat.st_size;
+	dev->gas_map_size = msize;
 
 	return (gasptr_t __force)map;
+
+unmap_and_exit:
+	munmap(map, msize);
+	return SWITCHTEC_MAP_FAILED;
 }
 
 static void linux_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
