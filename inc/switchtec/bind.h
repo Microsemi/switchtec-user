@@ -30,6 +30,12 @@
 
 #pragma pack(push, 1)
 
+enum switchtec_bind_info_result {
+	BIND_INFO_SUCCESS = 0,
+	BIND_INFO_FAIL = 1,
+	BIND_INFO_IN_PROGRESS = 2,
+};
+
 struct switchtec_bind_status_in {
 	uint8_t sub_cmd;
 	uint8_t phys_port_id;

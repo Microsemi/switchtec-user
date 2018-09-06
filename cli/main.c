@@ -919,10 +919,32 @@ static int arbitration_set(int argc, char **argv)
 	return 0;
 }
 
+static void print_bind_info(struct switchtec_bind_status_out status)
+{
+	enum switchtec_bind_info_result result = status.bind_state & 0x0F;
+	int state = (status.bind_state & 0xF0) >> 4;
+
+	switch (result) {
+	case BIND_INFO_SUCCESS:
+		printf("bind state: %s\n", state ? "Bound" : "Unbound");
+		if(state)
+			printf("physical port %u bound to %u, partition %u\n",
+			       status.phys_port_id, status.log_port_id,
+			       status.par_id);
+		break;
+	case BIND_INFO_FAIL:
+		printf("bind_info: Fail\n");
+		break;
+	case BIND_INFO_IN_PROGRESS:
+		printf("bind_info: In Progress\n");
+		break;
+	}
+}
+
 static int port_bind_info(int argc, char **argv)
 {
 	const char *desc = "Bind info for physical port";
-	float ret;
+	int ret;
 	struct switchtec_bind_status_out bind_status;
 	static struct {
 		struct switchtec_dev *dev;
@@ -940,23 +962,19 @@ static int port_bind_info(int argc, char **argv)
 
 	ret = switchtec_bind_info(cfg.dev, &bind_status, cfg.phy_port);
 
-	if (ret < 0) {
-		printf("bind_info_error: %f", ret);
+	if (ret != 0) {
+		switchtec_perror("port_bind_info");
 		return 1;
 	}
 
-	printf("bind state %u\n", bind_status.bind_state);
-	printf("physical port %u bound to %u, partition %u\n",
-	       bind_status.phys_port_id, bind_status.log_port_id,
-	       bind_status.par_id);
-
+	print_bind_info(bind_status);
 	return 0;
 }
 
 static int port_bind(int argc, char **argv)
 {
 	const char *desc = "Bind switchtec logical port to physical port";
-	float ret;
+	int ret;
 	static struct {
 		struct switchtec_dev *dev;
 		int par_id;
@@ -977,8 +995,8 @@ static int port_bind(int argc, char **argv)
 
 	ret = switchtec_bind(cfg.dev, cfg.par_id, cfg.log_port, cfg.phy_port);
 
-	if (ret < 0) {
-		printf("bind_error: %f", ret);
+	if (ret != 0) {
+		switchtec_perror("port_bind");
 		return 1;
 	}
 
@@ -988,7 +1006,7 @@ static int port_bind(int argc, char **argv)
 static int port_unbind(int argc, char **argv)
 {
 	const char *desc = "Unbind switchtec logical port from physical port";
-	float ret;
+	int ret;
 	static struct {
 		struct switchtec_dev *dev;
 		int par_id;
@@ -1006,8 +1024,8 @@ static int port_unbind(int argc, char **argv)
 
 	ret = switchtec_unbind(cfg.dev, cfg.par_id, cfg.log_port);
 
-	if (ret < 0) {
-		printf("unbind_error: %f", ret);
+	if (ret != 0) {
+		switchtec_perror("port_unbind");
 		return 1;
 	}
 
