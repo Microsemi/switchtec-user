@@ -408,6 +408,33 @@ const char *switchtec_strerror(void)
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
 
+	case ERR_PHYC_PORT_ARDY_BIND:
+		msg = "Physical port already bound"; break;
+	case ERR_LOGC_PORT_ARDY_BIND:
+		msg = "Logical bridge instance already bound"; break;
+	case ERR_BIND_PRTT_NOT_EXIST:
+		msg = "Partition does not exist"; break;
+	case ERR_PHYC_PORT_NOT_EXIST:
+		msg = "Physical port does not exist"; break;
+	case ERR_PHYC_PORT_DIS:
+		msg = "Physical port disabled"; break;
+	case ERR_NO_LOGC_PORT:
+		msg = "No logical bridge instance"; break;
+	case ERR_BIND_IN_PROGRESS:
+		msg = "Bind/unbind in progress"; break;
+	case ERR_BIND_TGT_IS_USP:
+		msg = "Bind/unbind target is USP"; break;
+	case ERR_BIND_SUBCMD_INVALID:
+		msg = "Sub-command does not exist"; break;
+	case ERR_PHYC_PORT_LINK_ACT:
+		msg = "Physical port link active"; break;
+	case ERR_LOGC_PORT_NOT_BIND_PHYC_PORT:
+		msg = "Logical bridge not bind to physical port"; break;
+	case ERR_UNBIND_OPT_INVALID:
+		msg = "Invalid unbind option"; break;
+	case ERR_BIND_CHECK_FAIL:
+		msg = "Port bind checking failed"; break;
+
 	default: msg = strerror(errno); break;
 	}
 
