@@ -417,6 +417,33 @@ const char *switchtec_strerror(void)
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
 
+	case ERR_PHYC_PORT_ARDY_BIND:
+		msg = "Physical port already bound"; break;
+	case ERR_LOGC_PORT_ARDY_BIND:
+		msg = "Logical bridge instance already bound"; break;
+	case ERR_BIND_PRTT_NOT_EXIST:
+		msg = "Partition does not exist"; break;
+	case ERR_PHYC_PORT_NOT_EXIST:
+		msg = "Physical port does not exist"; break;
+	case ERR_PHYC_PORT_DIS:
+		msg = "Physical port disabled"; break;
+	case ERR_NO_LOGC_PORT:
+		msg = "No logical bridge instance"; break;
+	case ERR_BIND_IN_PROGRESS:
+		msg = "Bind/unbind in progress"; break;
+	case ERR_BIND_TGT_IS_USP:
+		msg = "Bind/unbind target is USP"; break;
+	case ERR_BIND_SUBCMD_INVALID:
+		msg = "Sub-command does not exist"; break;
+	case ERR_PHYC_PORT_LINK_ACT:
+		msg = "Physical port link active"; break;
+	case ERR_LOGC_PORT_NOT_BIND_PHYC_PORT:
+		msg = "Logical bridge not bind to physical port"; break;
+	case ERR_UNBIND_OPT_INVALID:
+		msg = "Invalid unbind option"; break;
+	case ERR_BIND_CHECK_FAIL:
+		msg = "Port bind checking failed"; break;
+
 	default: msg = strerror(errno); break;
 	}
 
@@ -598,26 +625,18 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 int switchtec_bind_info(struct switchtec_dev *dev,
 			struct switchtec_bind_status_out *status, int phy_port)
 {
-	int ret;
-
 	struct switchtec_bind_status_in sub_cmd_id = {
 		.sub_cmd = MRPC_PORT_INFO,
 		.phys_port_id = phy_port
 	};
 
-	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+	return switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
 			    sizeof(sub_cmd_id), status, sizeof(*status));
-
-	if (ret)
-		return ret;
-
-	return 0;
 }
 
 int switchtec_bind(struct switchtec_dev *dev, int par_id, int log_port,
 		   int phy_port)
 {
-	int ret;
 	uint32_t output;
 
 	struct switchtec_bind_in sub_cmd_id = {
@@ -627,18 +646,12 @@ int switchtec_bind(struct switchtec_dev *dev, int par_id, int log_port,
 		.phys_port_id = phy_port
 	};
 
-	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+	return switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
 			    sizeof(sub_cmd_id), &output, sizeof(output));
-
-	if (ret)
-		return ret;
-
-	return 0;
 }
 
 int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port)
 {
-	int ret;
 	uint32_t output;
 
 	struct switchtec_unbind_in sub_cmd_id = {
@@ -648,12 +661,7 @@ int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port)
 		.opt = 2
 	};
 
-	ret = switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
+	return switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
 			    sizeof(sub_cmd_id), &output, sizeof(output));
-
-	if (ret)
-		return ret;
-
-	return 0;
 }
 /**@}*/
