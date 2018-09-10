@@ -28,6 +28,7 @@
 
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
+#include "switchtec/pci.h"
 #include "mmap_gas.h"
 
 #include <linux/switchtec_ioctl.h>
@@ -388,15 +389,78 @@ static int get_class_devices(const char *searchpath,
 	return found;
 }
 
-static void get_port_info(const char *searchpath, int port,
-			  struct switchtec_status *status)
+static void get_port_bdf(const char *searchpath, int port,
+			 struct switchtec_status *status)
+{
+	char syspath[PATH_MAX];
+	glob_t paths;
+
+	snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.*",
+		 searchpath, port);
+
+	glob(syspath, 0, NULL, &paths);
+
+	if (paths.gl_pathc == 1)
+		status->pci_bdf = strdup(basename(paths.gl_pathv[0]));
+
+	globfree(&paths);
+}
+
+static void get_port_bdf_path(struct switchtec_status *status)
+{
+	char path[PATH_MAX];
+	char rpath[PATH_MAX];
+	int domain, bus, dev, fn;
+	int ptr = 0;
+	char *subpath;
+	int ret;
+
+	if (!status->pci_bdf)
+		return;
+
+	snprintf(path, sizeof(path), "/sys/bus/pci/devices/%s",
+		 status->pci_bdf);
+
+	if (!realpath(path, rpath))
+		return;
+
+	subpath = strtok(rpath, "/");
+	while (subpath) {
+		ret = sscanf(subpath, "%x:%x:%x.%x", &domain, &bus, &dev, &fn);
+		if (ret == 4) {
+			if (ptr == 0)
+				ret = snprintf(path + ptr, sizeof(path) - ptr,
+					       "%04x:%02x:%02x:%x/",
+					       domain, bus, dev, fn);
+			else
+				ret = snprintf(path + ptr, sizeof(path) - ptr,
+					       "%02x.%x/", dev, fn);
+
+			if (ret <= 0 || ret >= sizeof(path) - ptr)
+				break;
+
+			ptr += ret;
+		}
+		subpath = strtok(NULL, "/");
+	}
+
+	if (ptr)
+		path[ptr - 1] = 0;
+
+	status->pci_bdf_path = strdup(path);
+}
+
+static void get_port_info(struct switchtec_status *status)
 {
 	int i;
 	char syspath[PATH_MAX];
 	glob_t paths;
 
-	snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.*/*:*:*/",
-		 searchpath, port);
+	if (!status->pci_bdf)
+		return;
+
+	snprintf(syspath, sizeof(syspath), "/sys/bus/pci/devices/%s/*:*:*/",
+		 status->pci_bdf);
 
 	glob(syspath, 0, NULL, &paths);
 
@@ -426,6 +490,45 @@ static void get_port_info(const char *searchpath, int port,
 	globfree(&paths);
 }
 
+static void get_config_info(struct switchtec_status *status)
+{
+	int ret;
+	int fd;
+	char syspath[PATH_MAX];
+	uint32_t extcap;
+	int pos = PCI_EXT_CAP_OFFSET;
+	uint16_t acs;
+
+	snprintf(syspath, sizeof(syspath), "/sys/bus/pci/devices/%s/config",
+		 status->pci_bdf);
+
+	fd = open(syspath, O_RDONLY);
+	if (fd < -1)
+		return;
+
+	while (1) {
+		ret = pread(fd, &extcap, sizeof(extcap), pos);
+		if (ret != sizeof(extcap) || !extcap)
+			goto close_and_exit;
+
+		if (PCI_EXT_CAP_ID(extcap) == PCI_EXT_CAP_ID_ACS)
+			break;
+
+		pos = PCI_EXT_CAP_NEXT(extcap);
+		if (pos < PCI_EXT_CAP_OFFSET)
+			goto close_and_exit;
+	}
+
+	ret = pread(fd, &acs, sizeof(acs), pos + PCI_ACS_CTRL);
+	if (ret != sizeof(acs))
+		goto close_and_exit;
+
+	status->acs_ctrl = acs;
+
+close_and_exit:
+	close(fd);
+}
+
 static int linux_get_devices(struct switchtec_dev *dev,
 			     struct switchtec_status *status,
 			     int ports)
@@ -453,11 +556,19 @@ static int linux_get_devices(struct switchtec_dev *dev,
 	local_part = switchtec_partition(dev);
 
 	for (i = 0; i < ports; i++) {
-		if (status[i].port.upstream ||
-		    status[i].port.partition != local_part)
+		if (status[i].port.partition != local_part)
 			continue;
 
-		get_port_info(searchpath, status[i].port.log_id - 1, &status[i]);
+		if (status[i].port.upstream) {
+			status->pci_bdf = strdup(basename(searchpath));
+			get_port_bdf_path(&status[i]);
+			continue;
+		}
+
+		get_port_bdf(searchpath, status[i].port.log_id - 1, &status[i]);
+		get_port_bdf_path(&status[i]);
+		get_port_info(&status[i]);
+		get_config_info(&status[i]);
 	}
 
 	return 0;

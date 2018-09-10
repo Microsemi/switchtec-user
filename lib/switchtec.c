@@ -349,6 +349,9 @@ int switchtec_status(struct switchtec_dev *dev,
 		s[p].link_rate = ports[i].linkup_linkrate & 0x7F;
 		s[p].ltssm = le16toh(ports[i].LTSSM);
 		s[p].ltssm_str = ltssm_str(s[i].ltssm, 0);
+
+		s[p].acs_ctrl = -1;
+
 		p++;
 	}
 
@@ -368,6 +371,12 @@ void switchtec_status_free(struct switchtec_status *status, int ports)
 	int i;
 
 	for (i = 0; i < ports; i++) {
+		if (status[i].pci_bdf)
+			free(status[i].pci_bdf);
+
+		if (status[i].pci_bdf_path)
+			free(status[i].pci_bdf_path);
+
 		if (status[i].pci_dev)
 			free(status[i].pci_dev);
 
