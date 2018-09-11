@@ -31,7 +31,7 @@ OBJDIR=${OBJDIR:-build}
 DOCDIR=${DOCDIR:-$ROOTDIR/doc}
 GVF=$OBJDIR/version.h
 MVF=$OBJDIR/version.mk
-DEF_VER=v1.0
+DEF_VER=v1.1
 
 LF='
 '
