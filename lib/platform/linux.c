@@ -189,16 +189,23 @@ static void get_fw_version(const char *path, char *buf, size_t buflen)
 {
 	char sysfs_path[PATH_MAX];
 	int fw_ver;
+	int ret;
 
-	snprintf(sysfs_path, sizeof(sysfs_path), "%s/fw_version",
-		 path);
+	ret = snprintf(sysfs_path, sizeof(sysfs_path), "%s/fw_version",
+		       path);
+	if (ret >= sizeof(sysfs_path))
+		goto unknown_version;
 
 	fw_ver = sysfs_read_int(sysfs_path, 16);
 
 	if (fw_ver < 0)
-		snprintf(buf, buflen, "unknown");
-	else
-		version_to_string(fw_ver, buf, buflen);
+		goto unknown_version;
+
+	version_to_string(fw_ver, buf, buflen);
+	return;
+
+unknown_version:
+	snprintf(buf, buflen, "unknown");
 }
 
 int switchtec_list(struct switchtec_device_info **devlist)
@@ -394,9 +401,12 @@ static void get_port_bdf(const char *searchpath, int port,
 {
 	char syspath[PATH_MAX];
 	glob_t paths;
+	int ret;
 
-	snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.*",
-		 searchpath, port);
+	ret = snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.*",
+		       searchpath, port);
+	if (ret >= sizeof(syspath))
+		return;
 
 	glob(syspath, 0, NULL, &paths);
 
