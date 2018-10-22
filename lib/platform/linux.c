@@ -29,6 +29,7 @@
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/pci.h"
+#include "switchtec/utils.h"
 #include "mmap_gas.h"
 
 #include <linux/switchtec_ioctl.h>
@@ -781,7 +782,8 @@ static int linux_flash_part(struct switchtec_dev *dev,
 }
 
 static void event_summary_copy(struct switchtec_event_summary *dst,
-			       struct switchtec_ioctl_event_summary *src)
+			       struct switchtec_ioctl_event_summary *src,
+			       int size)
 {
 	int i;
 
@@ -792,7 +794,7 @@ static void event_summary_copy(struct switchtec_event_summary *dst,
 	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
 		dst->part[i] = src->part[i];
 
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+	for (i = 0; i < SWITCHTEC_MAX_PFF_CSR && i < size; i++)
 		dst->pff[i] = src->pff[i];
 }
 
@@ -837,16 +839,23 @@ static int linux_event_summary(struct switchtec_dev *dev,
 {
 	int ret;
 	struct switchtec_ioctl_event_summary isum;
+	struct switchtec_ioctl_event_summary_legacy isum_legacy;
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
 	if (!sum)
 		return -EINVAL;
 
 	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
+	if (!ret) {
+		event_summary_copy(sum, &isum, ARRAY_SIZE(isum.pff));
+		return ret;
+	}
+
+	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY_LEGACY, &isum);
 	if (ret < 0)
 		return ret;
 
-	event_summary_copy(sum, &isum);
+	event_summary_copy(sum, &isum, ARRAY_SIZE(isum_legacy.pff));
 
 	return 0;
 }
