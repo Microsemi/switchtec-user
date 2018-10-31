@@ -504,6 +504,8 @@ static void i2c_gas_read(struct switchtec_dev *dev, void *dest,
 
 	if (retry_count == MAX_RETRY_COUNT)
 		raise(SIGBUS);
+
+	errno = 0;
 }
 
 static void i2c_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
