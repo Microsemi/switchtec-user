@@ -1270,8 +1270,9 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("  BOOT \tVersion: %-8s\tCRC: %08lx   %s\n",
 	       bootloader_ver, (long)bootloader.image_crc,
 	       bootloader_ro ? "(RO)" : "");
-	printf("  MAP \tVersion: %-8s\tCRC: %08lx\n",
-	       map_ver, (long)map.image_crc);
+	printf("  MAP \tVersion: %-8s\tCRC: %08lx   %s\n",
+	       map_ver, (long)map.image_crc,
+	       bootloader_ro ? "(RO)" : "");
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
 	       act_img.version, act_img.crc,
 	       fw_running_string(&act_img));
@@ -1358,7 +1359,7 @@ static int fw_update(int argc, char **argv)
 		 "force interrupting an existing fw-update command in case "
 		 "firmware is stuck in the busy state"},
 		{"set-boot-rw", 'W', "", CFG_NONE, &cfg.set_boot_rw, no_argument,
-		 "set the bootloader partition as RW (only valid for BOOT images)"},
+		 "set the bootloader and map partition as RW (only valid for BOOT and MAP images)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -1376,15 +1377,19 @@ static int fw_update(int argc, char **argv)
 		return ret;
 	}
 
-	if (cfg.set_boot_rw && type != SWITCHTEC_FW_TYPE_BOOT) {
-		fprintf(stderr, "The --set-boot-rw option only applies for BOOT images\n");
+	if (cfg.set_boot_rw && type != SWITCHTEC_FW_TYPE_BOOT &&
+	    type != SWITCHTEC_FW_TYPE_MAP0 &&
+	    type != SWITCHTEC_FW_TYPE_MAP1) {
+		fprintf(stderr, "The --set-boot-rw option only applies for BOOT and MAP images\n");
 		return -1;
-	} else if (type == SWITCHTEC_FW_TYPE_BOOT) {
+	} else if (type == SWITCHTEC_FW_TYPE_BOOT ||
+		   type == SWITCHTEC_FW_TYPE_MAP0 ||
+		   type == SWITCHTEC_FW_TYPE_MAP1) {
 		if (cfg.set_boot_rw)
 			switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
 
 		if (switchtec_fw_is_boot_ro(cfg.dev) == SWITCHTEC_FW_RO) {
-			fprintf(stderr, "\nfirmware update: the BOOT partition is read-only. "
+			fprintf(stderr, "\nfirmware update: the BOOT and MAP partition are read-only. "
 				"use --set-boot-rw to override\n");
 			return -1;
 		}
