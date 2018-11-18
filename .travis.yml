@@ -38,7 +38,7 @@ matrix:
 
     - os: linux
       install:
-        - git clone https://git.kernel.org/pub/scm/devel/sparse/sparse.git --branch v0.5.1
+        - git clone https://git.kernel.org/pub/scm/devel/sparse/sparse.git --branch v0.5.2
         - pushd sparse && make HAVE_LLVM=no && sudo make install HAVE_LLVM=no && popd
       env:
         - MATRIX_EVAL="CC=cgcc"
