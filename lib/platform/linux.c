@@ -30,6 +30,7 @@
 #include "switchtec/switchtec.h"
 #include "switchtec/pci.h"
 #include "mmap_gas.h"
+#include "gasops.h"
 
 #include <linux/switchtec_ioctl.h>
 
@@ -730,6 +731,11 @@ static gasptr_t linux_gas_map(struct switchtec_dev *dev, int writeable,
 	dev->gas_map = (gasptr_t __force)map;
 	dev->gas_map_size = msize;
 
+	ret = gasop_access_check(dev);
+	if (ret) {
+		errno = ENODEV;
+		goto unmap_and_exit;
+	}
 	return (gasptr_t __force)map;
 
 unmap_and_exit:

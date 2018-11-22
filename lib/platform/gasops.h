@@ -27,6 +27,7 @@
 
 #include "switchtec/switchtec.h"
 
+int gasop_access_check(struct switchtec_dev *dev);
 void gasop_set_partition_info(struct switchtec_dev *dev);
 int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	      const void *payload, size_t payload_len, void *resp,

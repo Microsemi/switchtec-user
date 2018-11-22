@@ -47,6 +47,16 @@
 #define gas_reg_write64(dev, val, reg) gas_write64(dev, val, \
 						   &dev->gas_map->reg)
 
+int gasop_access_check(struct switchtec_dev *dev)
+{
+	uint32_t device_id;
+
+	device_id = gas_reg_read32(dev, sys_info.device_id);
+	if (device_id == -1)
+		return -1;
+	return 0;
+}
+
 void gasop_set_partition_info(struct switchtec_dev *dev)
 {
 	dev->partition = gas_reg_read8(dev, top.partition_id);

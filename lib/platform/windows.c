@@ -409,9 +409,16 @@ static int windows_event_wait(struct switchtec_dev *dev, int timeout_ms)
 static gasptr_t windows_gas_map(struct switchtec_dev *dev, int writeable,
 				size_t *map_size)
 {
+	int ret;
+
 	if (map_size)
 		*map_size = dev->gas_map_size;
 
+	ret = gasop_access_check(dev);
+	if (ret) {
+		errno = ENODEV;
+		return SWITCHTEC_MAP_FAILED;
+	}
 	return dev->gas_map;
 }
 
