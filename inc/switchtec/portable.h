@@ -56,6 +56,12 @@
 #endif
 #endif
 
+#ifdef __WINDOWS__
+#ifndef SIGBUS
+#define SIGBUS SIGABRT
+#endif
+#endif
+
 #ifdef __MINGW32__
 #define ffs __builtin_ffs
 #endif

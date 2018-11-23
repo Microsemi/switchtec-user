@@ -2016,7 +2016,6 @@ static struct prog_info prog_info = {
 		"(ex: /dev/switchtec0)",
 };
 
-#ifndef _WIN32
 static void sig_handler(int signum)
 {
 	if (signum == SIGBUS) {
@@ -2030,14 +2029,6 @@ static void setup_sigbus(void)
 {
 	signal(SIGBUS, sig_handler);
 }
-
-#else /* _WIN32 defined */
-
-static void setup_sigbus(void)
-{
-}
-
-#endif
 
 int main(int argc, char **argv)
 {
