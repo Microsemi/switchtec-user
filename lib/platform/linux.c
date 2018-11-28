@@ -180,7 +180,7 @@ static void get_device_str(const char *path, const char *file,
 		 path, file);
 
 	ret = sysfs_read_str(sysfs_path, buf, buflen);
-	if (ret < 0)
+	if (ret < 0 || buf[0] == -1)
 		snprintf(buf, buflen, "unknown");
 
 	buf[strcspn(buf, "\n")] = 0;
