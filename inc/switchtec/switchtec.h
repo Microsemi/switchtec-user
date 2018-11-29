@@ -191,7 +191,7 @@ struct switchtec_event_summary {
 	unsigned part[SWITCHTEC_MAX_PARTS];
 
 	/** @brief Bitmap of events in each port function */
-	unsigned pff[SWITCHTEC_MAX_PORTS];
+	unsigned pff[SWITCHTEC_MAX_PFF_CSR];
 };
 
 /**
