@@ -31,6 +31,7 @@
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
+#include <switchtec/pci.h>
 
 #include <locale.h>
 #include <time.h>
@@ -168,6 +169,57 @@ static int gui(int argc, char **argv)
 	return ret;
 }
 
+#define PCI_ACS_P2P_MASK (PCI_ACS_CTRL_REQ_RED | PCI_ACS_CTRL_CMPLT_RED | \
+			  PCI_ACS_EGRESS_CTRL)
+
+static const char * const pci_acs_strings[] = {
+	"SrcValid",
+	"TransBlk",
+	"ReqRedir",
+	"CmpltRedir",
+	"UpstreamFwd",
+	"EgressCtrl",
+	"DirectTrans",
+	NULL,
+};
+
+static char *pci_acs_to_string(char *buf, size_t buflen, int acs_ctrl,
+			       int verbose)
+{
+	int ptr = 0;
+	int wr;
+	int i;
+
+	if (acs_ctrl == -1) {
+		snprintf(buf, buflen, "Unknown");
+		return buf;
+	}
+
+	if (!verbose) {
+		if (acs_ctrl & PCI_ACS_P2P_MASK)
+			snprintf(buf, buflen, "P2P Redirected");
+		else
+			snprintf(buf, buflen, "Direct P2P Supported");
+		return buf;
+	}
+
+	for (i = 0; pci_acs_strings[i]; i++) {
+		wr = snprintf(buf + ptr, buflen - ptr, "%s%c ",
+			      pci_acs_strings[i],
+			      (acs_ctrl & (1 << i)) ? '+' : '-');
+
+		if (wr <= 0 || wr >= buflen - ptr)
+			break;
+
+		ptr += wr;
+	}
+
+	if (ptr)
+		buf[ptr - 1] = 0;
+
+	return buf;
+}
+
 static int status(int argc, char **argv)
 {
 	const char *desc = "Display status of the ports on the switch";
@@ -179,15 +231,19 @@ static int status(int argc, char **argv)
 	int p;
 	double bw_val;
 	const char *bw_suf;
+	char buf[100];
 
 	static struct {
 		struct switchtec_dev *dev;
 		int reset_bytes;
+		int verbose;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
 		 "reset byte counters"},
+		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
+		 "print additional information"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -226,6 +282,10 @@ static int status(int argc, char **argv)
 
 		printf("\tPhys Port ID:    \t%d (Stack %d, Port %d)\n",
 		       s->port.phys_id, s->port.stack, s->port.stk_id);
+		if (s->pci_bdf)
+			printf("\tBus-Dev-Func:    \t%s\n", s->pci_bdf);
+		if (cfg.verbose && s->pci_bdf_path)
+			printf("\tBus-Dev-Func Path:\t%s\n", s->pci_bdf_path);
 
 		printf("\tStatus:          \t%s\n",
 		       s->link_up ? "UP" : "DOWN");
@@ -246,6 +306,12 @@ static int status(int argc, char **argv)
 		bw_val = switchtec_bwcntr_tot(&bw_data[p].ingress);
 		bw_suf = suffix_si_get(&bw_val);
 		printf("\tIn Bytes:        \t%-.3g %sB\n", bw_val, bw_suf);
+
+		if (s->acs_ctrl != -1) {
+			pci_acs_to_string(buf, sizeof(buf), s->acs_ctrl,
+					  cfg.verbose);
+			printf("\tACS:             \t%s\n", buf);
+		}
 
 		if (!s->vendor_id || !s->device_id || !s->pci_dev)
 			continue;
@@ -919,10 +985,32 @@ static int arbitration_set(int argc, char **argv)
 	return 0;
 }
 
+static void print_bind_info(struct switchtec_bind_status_out status)
+{
+	enum switchtec_bind_info_result result = status.bind_state & 0x0F;
+	int state = (status.bind_state & 0xF0) >> 4;
+
+	switch (result) {
+	case BIND_INFO_SUCCESS:
+		printf("bind state: %s\n", state ? "Bound" : "Unbound");
+		if(state)
+			printf("physical port %u bound to %u, partition %u\n",
+			       status.phys_port_id, status.log_port_id,
+			       status.par_id);
+		break;
+	case BIND_INFO_FAIL:
+		printf("bind_info: Fail\n");
+		break;
+	case BIND_INFO_IN_PROGRESS:
+		printf("bind_info: In Progress\n");
+		break;
+	}
+}
+
 static int port_bind_info(int argc, char **argv)
 {
 	const char *desc = "Bind info for physical port";
-	float ret;
+	int ret;
 	struct switchtec_bind_status_out bind_status;
 	static struct {
 		struct switchtec_dev *dev;
@@ -940,23 +1028,19 @@ static int port_bind_info(int argc, char **argv)
 
 	ret = switchtec_bind_info(cfg.dev, &bind_status, cfg.phy_port);
 
-	if (ret < 0) {
-		printf("bind_info_error: %f", ret);
+	if (ret != 0) {
+		switchtec_perror("port_bind_info");
 		return 1;
 	}
 
-	printf("bind state %u\n", bind_status.bind_state);
-	printf("physical port %u bound to %u, partition %u\n",
-	       bind_status.phys_port_id, bind_status.log_port_id,
-	       bind_status.par_id);
-
+	print_bind_info(bind_status);
 	return 0;
 }
 
 static int port_bind(int argc, char **argv)
 {
 	const char *desc = "Bind switchtec logical port to physical port";
-	float ret;
+	int ret;
 	static struct {
 		struct switchtec_dev *dev;
 		int par_id;
@@ -977,8 +1061,8 @@ static int port_bind(int argc, char **argv)
 
 	ret = switchtec_bind(cfg.dev, cfg.par_id, cfg.log_port, cfg.phy_port);
 
-	if (ret < 0) {
-		printf("bind_error: %f", ret);
+	if (ret != 0) {
+		switchtec_perror("port_bind");
 		return 1;
 	}
 
@@ -988,7 +1072,7 @@ static int port_bind(int argc, char **argv)
 static int port_unbind(int argc, char **argv)
 {
 	const char *desc = "Unbind switchtec logical port from physical port";
-	float ret;
+	int ret;
 	static struct {
 		struct switchtec_dev *dev;
 		int par_id;
@@ -1006,8 +1090,8 @@ static int port_unbind(int argc, char **argv)
 
 	ret = switchtec_unbind(cfg.dev, cfg.par_id, cfg.log_port);
 
-	if (ret < 0) {
-		printf("unbind_error: %f", ret);
+	if (ret != 0) {
+		switchtec_perror("port_unbind");
 		return 1;
 	}
 
@@ -1186,8 +1270,9 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("  BOOT \tVersion: %-8s\tCRC: %08lx   %s\n",
 	       bootloader_ver, (long)bootloader.image_crc,
 	       bootloader_ro ? "(RO)" : "");
-	printf("  MAP \tVersion: %-8s\tCRC: %08lx\n",
-	       map_ver, (long)map.image_crc);
+	printf("  MAP \tVersion: %-8s\tCRC: %08lx   %s\n",
+	       map_ver, (long)map.image_crc,
+	       bootloader_ro ? "(RO)" : "");
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
 	       act_img.version, act_img.crc,
 	       fw_running_string(&act_img));
@@ -1274,7 +1359,7 @@ static int fw_update(int argc, char **argv)
 		 "force interrupting an existing fw-update command in case "
 		 "firmware is stuck in the busy state"},
 		{"set-boot-rw", 'W', "", CFG_NONE, &cfg.set_boot_rw, no_argument,
-		 "set the bootloader partition as RW (only valid for BOOT images)"},
+		 "set the bootloader and map partition as RW (only valid for BOOT and MAP images)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -1292,15 +1377,19 @@ static int fw_update(int argc, char **argv)
 		return ret;
 	}
 
-	if (cfg.set_boot_rw && type != SWITCHTEC_FW_TYPE_BOOT) {
-		fprintf(stderr, "The --set-boot-rw option only applies for BOOT images\n");
+	if (cfg.set_boot_rw && type != SWITCHTEC_FW_TYPE_BOOT &&
+	    type != SWITCHTEC_FW_TYPE_MAP0 &&
+	    type != SWITCHTEC_FW_TYPE_MAP1) {
+		fprintf(stderr, "The --set-boot-rw option only applies for BOOT and MAP images\n");
 		return -1;
-	} else if (type == SWITCHTEC_FW_TYPE_BOOT) {
+	} else if (type == SWITCHTEC_FW_TYPE_BOOT ||
+		   type == SWITCHTEC_FW_TYPE_MAP0 ||
+		   type == SWITCHTEC_FW_TYPE_MAP1) {
 		if (cfg.set_boot_rw)
 			switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
 
 		if (switchtec_fw_is_boot_ro(cfg.dev) == SWITCHTEC_FW_RO) {
-			fprintf(stderr, "\nfirmware update: the BOOT partition is read-only. "
+			fprintf(stderr, "\nfirmware update: the BOOT and MAP partition are read-only. "
 				"use --set-boot-rw to override\n");
 			return -1;
 		}
@@ -1927,7 +2016,6 @@ static struct prog_info prog_info = {
 		"(ex: /dev/switchtec0)",
 };
 
-#ifndef _WIN32
 static void sig_handler(int signum)
 {
 	if (signum == SIGBUS) {
@@ -1941,14 +2029,6 @@ static void setup_sigbus(void)
 {
 	signal(SIGBUS, sig_handler);
 }
-
-#else /* _WIN32 defined */
-
-static void setup_sigbus(void)
-{
-}
-
-#endif
 
 int main(int argc, char **argv)
 {

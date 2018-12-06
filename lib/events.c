@@ -320,7 +320,7 @@ int switchtec_event_check(struct switchtec_dev *dev,
 		if (chk->part[i] & res->part[i])
 			return 1;
 
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+	for (i = 0; i < SWITCHTEC_MAX_PFF_CSR; i++)
 		if (chk->pff[i] & res->pff[i])
 			return 1;
 

@@ -113,10 +113,14 @@ struct switchtec_status {
 	unsigned char ltssm;		//!< Link state
 	const char *ltssm_str;		//!< Link state as a string
 
-	char *pci_dev;			//!< PCI BDF of the port
+	char *pci_bdf;			//!< PCI BDF of the port
+	char *pci_bdf_path;		//!< PCI BDF path of the port
+
+	char *pci_dev;			//!< PCI BDF of the device on the port
 	int vendor_id;			//!< Vendor ID
 	int device_id;			//!< Device ID
 	char *class_devices;		//!< Comma seperated list of classes
+	unsigned int acs_ctrl;		//!< ACS Setting of the Port
 };
 
 /**
@@ -187,7 +191,7 @@ struct switchtec_event_summary {
 	unsigned part[SWITCHTEC_MAX_PARTS];
 
 	/** @brief Bitmap of events in each port function */
-	unsigned pff[SWITCHTEC_MAX_PORTS];
+	unsigned pff[SWITCHTEC_MAX_PFF_CSR];
 };
 
 /**
