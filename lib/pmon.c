@@ -427,11 +427,13 @@ int switchtec_bwcntr_many(struct switchtec_dev *dev, int nr_ports,
 	struct pmon_bw_get cmd = {
 		.sub_cmd_id = MRPC_PMON_GET_BW_COUNTER,
 	};
+	int cmd_max_count = ((MRPC_MAX_DATA_LEN - sizeof(struct pmon_bw_get))
+			      / sizeof(*res));
 
 	while (remain) {
 		cmd.count = remain;
-		if (cmd.count > MRPC_MAX_DATA_LEN / sizeof(*res))
-			cmd.count = MRPC_MAX_DATA_LEN / sizeof(*res) - 1;
+		if (cmd.count > cmd_max_count)
+			cmd.count = cmd_max_count;
 
 		for (i = 0; i < cmd.count; i++) {
 			cmd.ports[i].id = phys_port_ids[i];
