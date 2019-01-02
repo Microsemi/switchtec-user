@@ -397,7 +397,7 @@ static int event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
 	if (flags & SWITCHTEC_EVT_FLAG_EN_POLL)
 		hdr |= SWITCHTEC_EVENT_EN_IRQ;
 	if (flags & SWITCHTEC_EVT_FLAG_EN_LOG)
-		hdr |= SWITCHTEC_EVENT_EN_IRQ;
+		hdr |= SWITCHTEC_EVENT_EN_LOG;
 	if (flags & SWITCHTEC_EVT_FLAG_EN_CLI)
 		hdr |= SWITCHTEC_EVENT_EN_CLI;
 	if (flags & SWITCHTEC_EVT_FLAG_EN_FATAL)
