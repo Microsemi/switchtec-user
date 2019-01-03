@@ -709,7 +709,7 @@ static int event_wait(int argc, char **argv)
 	case SWITCHTEC_EVT_GLOBAL:
 		break;
 	case SWITCHTEC_EVT_PART:
-		if (cfg.port < 0) {
+		if (cfg.port >= 0) {
 			fprintf(stderr, "Port cannot be specified for this event type.\n");
 			return -1;
 		}
