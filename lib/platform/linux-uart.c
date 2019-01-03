@@ -127,21 +127,26 @@ static int send_cmd(int fd, const char *fmt, int write_bytes, ...)
 	int cnt;
 	char cmd[1024];
 	uint8_t *write_data;
+	uint32_t write_crc;
 	va_list argp;
 
 	va_start(argp, write_bytes);
 
+	if (write_bytes) {
+		write_data = va_arg(argp, uint8_t *);
+		write_crc = va_arg(argp, uint32_t);
+	}
+
 	cnt = vsnprintf(cmd, sizeof(cmd), fmt, argp);
 
 	if (write_bytes) {
-		write_data = va_arg(argp, uint8_t *);
 		for (i = 0; i< write_bytes; i++) {
 			cnt += snprintf(cmd + cnt, sizeof(cmd) - cnt,
 				       "%02x", write_data[write_bytes - 1 - i]);
 		}
 
 		cnt += snprintf(cmd + cnt, sizeof(cmd) - cnt,
-				" 0x%x\r", va_arg(argp, int));
+				" 0x%x\r", write_crc);
 	}
 
 	va_end(argp);
@@ -353,7 +358,7 @@ static void uart_gas_write(struct switchtec_dev *dev, void __gas *dest,
 	addr = htobe32(addr);
 	for (i = 0; i < RETRY_NUM; i++) {
 		ret =  send_cmd(udev->fd, "gaswr -c -s 0x%x 0x",
-			       n, addr, src, crc);
+			        n, src, crc, addr);
 		if (ret)
 			continue;
 
