@@ -316,6 +316,9 @@ int switchtec_event_check(struct switchtec_dev *dev,
 	if (chk->part_bitmap & res->part_bitmap)
 		return 1;
 
+	if (chk->local_part & res->local_part)
+		return 1;
+
 	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
 		if (chk->part[i] & res->part[i])
 			return 1;
