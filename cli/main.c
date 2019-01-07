@@ -734,6 +734,7 @@ static int event_wait(int argc, char **argv)
 				return ret;
 			}
 		}
+		break;
 	}
 
 	ret = switchtec_event_wait_for(cfg.dev, cfg.event_id, index, &sum,
