@@ -411,8 +411,10 @@ next:
 
 		now = ((tv.tv_sec) * 1000 + tv.tv_usec / 1000);
 
-		if (timeout_ms > 0 && now - start >= timeout_ms)
-			return 0;
+		if (timeout_ms > 0 && now - start >= timeout_ms) {
+			ret = switchtec_event_summary(dev, res);
+			return ret;
+		}
 	}
 }
 
