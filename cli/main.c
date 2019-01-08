@@ -669,7 +669,7 @@ static int event_wait(int argc, char **argv)
 {
 	const char *desc = "Wait for an event to occur";
 	struct event_list elist[256];
-	struct switchtec_event_summary sum;
+	struct switchtec_event_summary sum = {0};
 	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
 	int index = 0;
 	int ret;
@@ -685,6 +685,7 @@ static int event_wait(int argc, char **argv)
 		.partition = -1,
 		.port = -1,
 		.timeout = -1,
+		.event_id = -1,
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -709,7 +710,7 @@ static int event_wait(int argc, char **argv)
 	case SWITCHTEC_EVT_GLOBAL:
 		break;
 	case SWITCHTEC_EVT_PART:
-		if (cfg.port < 0) {
+		if (cfg.port >= 0) {
 			fprintf(stderr, "Port cannot be specified for this event type.\n");
 			return -1;
 		}
@@ -734,6 +735,10 @@ static int event_wait(int argc, char **argv)
 				return ret;
 			}
 		}
+		break;
+	default:
+		fprintf(stderr, "Must specify event type.\n");
+		return -1;
 	}
 
 	ret = switchtec_event_wait_for(cfg.dev, cfg.event_id, index, &sum,

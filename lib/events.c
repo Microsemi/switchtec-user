@@ -316,6 +316,9 @@ int switchtec_event_check(struct switchtec_dev *dev,
 	if (chk->part_bitmap & res->part_bitmap)
 		return 1;
 
+	if (chk->local_part & res->local_part)
+		return 1;
+
 	for (i = 0; i < SWITCHTEC_MAX_PARTS; i++)
 		if (chk->part[i] & res->part[i])
 			return 1;
@@ -339,6 +342,9 @@ enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
 					       const char **name,
 					       const char **desc)
 {
+	if (e <= SWITCHTEC_EVT_INVALID || e >= SWITCHTEC_MAX_EVENTS)
+		return -1;
+
 	if (name)
 		*name = events[e].short_name;
 
@@ -411,8 +417,10 @@ next:
 
 		now = ((tv.tv_sec) * 1000 + tv.tv_usec / 1000);
 
-		if (timeout_ms > 0 && now - start >= timeout_ms)
-			return 0;
+		if (timeout_ms > 0 && now - start >= timeout_ms) {
+			ret = switchtec_event_summary(dev, res);
+			return ret;
+		}
 	}
 }
 
