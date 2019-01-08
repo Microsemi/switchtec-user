@@ -685,6 +685,7 @@ static int event_wait(int argc, char **argv)
 		.partition = -1,
 		.port = -1,
 		.timeout = -1,
+		.event_id = -1,
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -734,6 +735,10 @@ static int event_wait(int argc, char **argv)
 				return ret;
 			}
 		}
+		break;
+	default:
+		fprintf(stderr, "Must specify event type.\n");
+		return -1;
 	}
 
 	ret = switchtec_event_wait_for(cfg.dev, cfg.event_id, index, &sum,

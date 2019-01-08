@@ -342,6 +342,9 @@ enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
 					       const char **name,
 					       const char **desc)
 {
+	if (e <= SWITCHTEC_EVT_INVALID || e >= SWITCHTEC_MAX_EVENTS)
+		return -1;
+
 	if (name)
 		*name = events[e].short_name;
 
