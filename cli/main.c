@@ -669,7 +669,7 @@ static int event_wait(int argc, char **argv)
 {
 	const char *desc = "Wait for an event to occur";
 	struct event_list elist[256];
-	struct switchtec_event_summary sum;
+	struct switchtec_event_summary sum = {0};
 	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
 	int index = 0;
 	int ret;
