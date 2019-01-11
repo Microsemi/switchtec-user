@@ -110,6 +110,7 @@ extern "C" {
 
 typedef void argconfig_help_func();
 void argconfig_append_usage(const char *str);
+void argconfig_reset_usage(void);
 int argconfig_parse(int argc, char *argv[], const char *program_desc,
 		    const struct argconfig_options *options,
 		    void *config_out, size_t config_size);
