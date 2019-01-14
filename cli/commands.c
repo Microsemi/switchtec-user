@@ -237,9 +237,10 @@ static int do_command(int argc, char **argv, struct subcommand *subcmd,
 	}
 
 	while (ext) {
-		if (!strcmp(cmd, ext->name))
+		if (!strcmp(cmd, ext->name)) {
+			argconfig_reset_usage();
 			return do_command(argc - 1, &argv[1], ext, prog_info);
-
+		}
 		ext = ext->next;
 	}
 
