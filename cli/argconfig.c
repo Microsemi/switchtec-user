@@ -61,6 +61,11 @@ void argconfig_append_usage(const char *str)
 		strlen(append_usage_str) - 1);
 }
 
+void argconfig_reset_usage(void)
+{
+	append_usage_str[0] = '\0';
+}
+
 void print_word_wrapped(const char *s, int indent, int start)
 {
 	const int width = 76;
