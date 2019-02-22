@@ -875,7 +875,7 @@ static int linux_event_ctl(struct switchtec_dev *dev,
 	struct switchtec_ioctl_event_ctl ctl;
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
-	if (e > SWITCHTEC_MAX_EVENTS)
+	if (e >= SWITCHTEC_MAX_EVENTS)
 		return -EINVAL;
 
 	ctl.event_id = event_map[e];
