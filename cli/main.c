@@ -1798,8 +1798,8 @@ static int evcntr_setup(int argc, char **argv)
 	}
 
 	if (cfg.setup.threshold &&
-	    __builtin_popcount(cfg.setup.port_mask) > 1 &&
-	    __builtin_popcount(cfg.setup.type_mask) > 1)
+	    (__builtin_popcount(cfg.setup.port_mask) > 1 ||
+	    __builtin_popcount(cfg.setup.type_mask) > 1))
 	{
 		fprintf(stderr, "A threshold can only be used with a counter "
 			"that has a single port and single event\n");
