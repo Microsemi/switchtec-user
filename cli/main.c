@@ -992,23 +992,28 @@ static int arbitration_set(int argc, char **argv)
 
 static void print_bind_info(struct switchtec_bind_status_out status)
 {
-	enum switchtec_bind_info_result result = status.bind_state & 0x0F;
-	int state = (status.bind_state & 0xF0) >> 4;
+	int i;
 
-	switch (result) {
-	case BIND_INFO_SUCCESS:
-		printf("bind state: %s\n", state ? "Bound" : "Unbound");
-		if(state)
-			printf("physical port %u bound to %u, partition %u\n",
-			       status.phys_port_id, status.log_port_id,
-			       status.par_id);
-		break;
-	case BIND_INFO_FAIL:
-		printf("bind_info: Fail\n");
-		break;
-	case BIND_INFO_IN_PROGRESS:
-		printf("bind_info: In Progress\n");
-		break;
+	for (i = 0; i < status.inf_cnt; i++) {
+		enum switchtec_bind_info_result result = status.port_info[i].bind_state & 0x0F;
+		int state = (status.port_info[i].bind_state & 0xF0) >> 4;
+
+		switch (result) {
+		case BIND_INFO_SUCCESS:
+			printf("bind state: %s\n", state ? "Bound" : "Unbound");
+			if (state)
+				printf("physical port %u bound to %u, partition %u\n",
+				       status.port_info[i].phys_port_id,
+				       status.port_info[i].log_port_id,
+				       status.port_info[i].par_id);
+			break;
+		case BIND_INFO_FAIL:
+			printf("bind_info: Fail\n");
+			break;
+		case BIND_INFO_IN_PROGRESS:
+			printf("bind_info: In Progress\n");
+			break;
+		}
 	}
 }
 
@@ -1020,7 +1025,9 @@ static int port_bind_info(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		int phy_port;
-	} cfg = {};
+	} cfg = {
+		.phy_port = 0xff
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"physical", 'f', "", CFG_INT, &cfg.phy_port, required_argument,
@@ -1029,7 +1036,10 @@ static int port_bind_info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	printf("physical port:%d\n", cfg.phy_port);
+	if (cfg.phy_port == 0xff)
+		printf("physical port: all\n");
+	else
+		printf("physical port: %d\n", cfg.phy_port);
 
 	ret = switchtec_bind_info(cfg.dev, &bind_status, cfg.phy_port);
 
@@ -1788,8 +1798,8 @@ static int evcntr_setup(int argc, char **argv)
 	}
 
 	if (cfg.setup.threshold &&
-	    __builtin_popcount(cfg.setup.port_mask) > 1 &&
-	    __builtin_popcount(cfg.setup.type_mask) > 1)
+	    (__builtin_popcount(cfg.setup.port_mask) > 1 ||
+	    __builtin_popcount(cfg.setup.type_mask) > 1))
 	{
 		fprintf(stderr, "A threshold can only be used with a counter "
 			"that has a single port and single event\n");

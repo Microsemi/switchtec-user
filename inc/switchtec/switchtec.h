@@ -110,7 +110,7 @@ struct switchtec_status {
 	unsigned char neg_lnk_width;	//!< Negotiated link width
 	unsigned char link_up;		//!< 1 if the link is up
 	unsigned char link_rate;	//!< Link rate/gen
-	unsigned char ltssm;		//!< Link state
+	uint16_t ltssm;			//!< Link state
 	const char *ltssm_str;		//!< Link state as a string
 
 	char *pci_bdf;			//!< PCI BDF of the port

@@ -28,6 +28,8 @@
 #include <stdint.h>
 #include <switchtec/switchtec.h>
 
+#define SWITCHTEC_MAX_PHY_PORTS 48
+
 #pragma pack(push, 1)
 
 enum switchtec_bind_info_result {
@@ -48,10 +50,12 @@ struct switchtec_bind_status_out {
 	uint8_t reserved1;
 	uint8_t reserved2;
 	uint8_t reserved3;
-	uint8_t phys_port_id;
-	uint8_t par_id;
-	uint8_t log_port_id;
-	uint8_t bind_state;
+	struct {
+		uint8_t phys_port_id;
+		uint8_t par_id;
+		uint8_t log_port_id;
+		uint8_t bind_state;
+	} port_info[SWITCHTEC_MAX_PHY_PORTS];
 };
 
 struct switchtec_bind_in {
