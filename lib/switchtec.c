@@ -348,7 +348,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		s[p].link_up = ports[i].linkup_linkrate >> 7;
 		s[p].link_rate = ports[i].linkup_linkrate & 0x7F;
 		s[p].ltssm = le16toh(ports[i].LTSSM);
-		s[p].ltssm_str = ltssm_str(s[i].ltssm, 0);
+		s[p].ltssm_str = ltssm_str(s[i].ltssm, 1);
 
 		s[p].acs_ctrl = -1;
 
