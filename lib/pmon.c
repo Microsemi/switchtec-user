@@ -331,21 +331,21 @@ int switchtec_evcntr_wait(struct switchtec_dev *dev, int timeout_ms)
 
 /**
  * @brief Subtract all the values between two bwcntr result structures
- * @param[in,out] new
- * @param[in] old
+ * @param[in,out] new_cntr
+ * @param[in] old_cntr
  *
- * \p new will have it's original values minus all the values in \p old
+ * \p new_cntr will have it's original values minus all the values in \p old_cntr
  */
-void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
-			  struct switchtec_bwcntr_res *old)
+void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new_cntr,
+			  struct switchtec_bwcntr_res *old_cntr)
 {
-	new->time_us -= old->time_us;
-	new->egress.posted -= old->egress.posted;
-	new->egress.nonposted -= old->egress.nonposted;
-	new->egress.comp -= old->egress.comp;
-	new->ingress.posted -= old->ingress.posted;
-	new->ingress.nonposted -= old->ingress.nonposted;
-	new->ingress.comp -= old->ingress.comp;
+	new_cntr->time_us -= old_cntr->time_us;
+	new_cntr->egress.posted -= old_cntr->egress.posted;
+	new_cntr->egress.nonposted -= old_cntr->egress.nonposted;
+	new_cntr->egress.comp -= old_cntr->egress.comp;
+	new_cntr->ingress.posted -= old_cntr->ingress.posted;
+	new_cntr->ingress.nonposted -= old_cntr->ingress.nonposted;
+	new_cntr->ingress.comp -= old_cntr->ingress.comp;
 }
 
 /**
