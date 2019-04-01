@@ -715,8 +715,13 @@ static gasptr_t linux_gas_map(struct switchtec_dev *dev, int writeable,
 
 	ret = mmap_resource(ldev, "device/resource0_wc", map, 0,
 			    SWITCHTEC_GAS_TOP_CFG_OFFSET, writeable);
-	if (ret)
-		goto unmap_and_exit;
+	if (ret) {
+		ret = mmap_resource(ldev, "device/resource0", map, 0,
+				    SWITCHTEC_GAS_TOP_CFG_OFFSET,
+				    writeable);
+		if (ret)
+			goto unmap_and_exit;
+	}
 
 	ret = mmap_resource(ldev, "device/resource0",
 			    map + SWITCHTEC_GAS_TOP_CFG_OFFSET,

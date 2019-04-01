@@ -607,8 +607,8 @@ struct switchtec_bwcntr_res {
 	  ingress;			//!< Bandwidth into the port
 };
 
-void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new,
-			  struct switchtec_bwcntr_res *old);
+void switchtec_bwcntr_sub(struct switchtec_bwcntr_res *new_cntr,
+			  struct switchtec_bwcntr_res *old_cntr);
 int switchtec_bwcntr_set_many(struct switchtec_dev *dev, int nr_ports,
 			      int * phys_port_ids,
 			      enum switchtec_bw_type bw_type);
