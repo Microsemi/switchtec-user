@@ -809,7 +809,7 @@ static int log_dump(int argc, char **argv)
 
 	fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
 
-	return ret;
+	return 0;
 }
 
 static int test(int argc, char **argv)
