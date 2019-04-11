@@ -90,6 +90,9 @@ struct switchtec_ops {
 };
 
 struct switchtec_dev {
+	int device_id;
+	enum switchtec_gen gen;
+	enum switchtec_variant var;
 	int partition, partition_count;
 	char name[PATH_MAX];
 
