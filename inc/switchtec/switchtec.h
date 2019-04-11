@@ -386,6 +386,35 @@ static inline int switchtec_is_pax(struct switchtec_dev *dev)
 	return switchtec_variant(dev) == SWITCHTEC_PAX;
 }
 
+/**
+ * @brief Return the generation string of a Switchtec device.
+ */
+static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
+{
+	const char *str;
+
+	str =  switchtec_is_gen3(dev) ? "GEN3" :
+	       switchtec_is_gen4(dev) ? "GEN4" : "Unknown";
+
+	return str;
+}
+
+/**
+ * @brief Return the variant string of a Switchtec device.
+ */
+static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
+{
+	const char *str;
+
+	str = switchtec_is_pfx(dev) ? "PFX" :
+	      switchtec_is_pfxl(dev) ? "PFX-L" :
+	      switchtec_is_pfxi(dev) ? "PFX-I" :
+	      switchtec_is_psx(dev) ? "PSX" :
+	      switchtec_is_pax(dev) ? "PAX" : "Unknown";
+
+	return str;
+}
+
 /** @brief Number of GT/s capable for each PCI generation or \p link_rate */
 static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16};
 /** @brief Number of GB/s capable for each PCI generation or \p link_rate */
