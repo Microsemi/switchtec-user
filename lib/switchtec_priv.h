@@ -36,6 +36,7 @@ struct switchtec_dev;
 
 struct switchtec_ops {
 	void (*close)(struct switchtec_dev *dev);
+	int (*get_device_id)(struct switchtec_dev *dev);
 	int (*get_fw_version)(struct switchtec_dev *dev, char *buf,
 			      size_t buflen);
 	int (*cmd)(struct switchtec_dev *dev,  uint32_t cmd,
