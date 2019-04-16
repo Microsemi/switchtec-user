@@ -12,12 +12,12 @@ document and take heed of its wisdom.
 
 ## Pull Requests
 
-This project uses Travis to check that it always builds on all the supported
-platforms. However, Microsemi's IT department stubbornly refuses (for silly
-reasons) to turn it on for the main repository. Therefore, in order to ensure
-your contributions get tested, please submit all pull requests to
-[lsgunth/switchtec-user][2]. From there we will ensure your contribution
-gets merged into the main repository.
+Please create the pull request basing the branch devel on this repo.
+Make sure the comparing changes include your bug fixes or new features.
+We follow kernel style as documented [here][1]. It is highly recommended
+that the patches be checked with the checkpatch.pl script in the Linux
+Kernel tree with no obivous style problems. Once the patches go through
+the review, they will be merged into the branch devel.
 
 ## Pitfalls
 
@@ -28,4 +28,3 @@ gets merged into the main repository.
 
 
 [1]: https://www.kernel.org/doc/html/latest/process/coding-style.html
-[2]: https://github.com/lsgunth/switchtec-user/
