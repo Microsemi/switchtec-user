@@ -42,12 +42,21 @@
 #include <stdio.h>
 
 static struct switchtec_dev *global_dev = NULL;
+static int global_pax_id = SWITCHTEC_PAX_ID_LOCAL;
 
 static const struct argconfig_choice bandwidth_types[] = {
 	{"RAW", SWITCHTEC_BW_TYPE_RAW, "Get the raw bandwidth"},
 	{"PAYLOAD", SWITCHTEC_BW_TYPE_PAYLOAD, "Get the payload bandwidth"},
 	{}
 };
+
+static int set_global_pax_id(void)
+{
+	if (global_dev)
+		return switchtec_set_pax_id(global_dev, global_pax_id);
+
+	return 0;
+}
 
 int switchtec_handler(const char *optarg, void *value_addr,
 		      const struct argconfig_options *opt)
@@ -72,6 +81,32 @@ int switchtec_handler(const char *optarg, void *value_addr,
 	}
 
 	*((struct switchtec_dev  **) value_addr) = dev;
+
+	if (set_global_pax_id()) {
+		fprintf(stderr, "%s: Setting PAX ID is not supported.\n", optarg);
+		return 4;
+	}
+
+	return 0;
+}
+
+int pax_handler(const char *optarg, void *value_addr,
+		const struct argconfig_options *opt)
+{
+	int ret;
+
+	ret = sscanf(optarg, "%i", &global_pax_id);
+
+	if (ret != 1 || (global_pax_id & ~SWITCHTEC_PAX_ID_MASK)) {
+		fprintf(stderr, "Invalid PAX ID specified: %s\n", optarg);
+		return 1;
+	}
+
+	if (set_global_pax_id()) {
+		fprintf(stderr, "%s: Setting PAX ID is not supported.\n", optarg);
+		return 4;
+	}
+
 	return 0;
 }
 
