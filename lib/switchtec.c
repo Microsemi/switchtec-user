@@ -781,19 +781,33 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 float switchtec_die_temp(struct switchtec_dev *dev)
 {
 	int ret;
-	uint32_t sub_cmd_id = MRPC_DIETEMP_SET_MEAS;
+	uint32_t sub_cmd_id;
 	uint32_t temp;
 
-	ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
-			    sizeof(sub_cmd_id), NULL, 0);
-	if (ret)
+	if (!switchtec_is_gen3(dev) && !switchtec_is_gen4(dev)) {
+		errno = ENOTSUP;
 		return -100.0;
+	}
 
-	sub_cmd_id = MRPC_DIETEMP_GET;
-	ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
-			    sizeof(sub_cmd_id), &temp, sizeof(temp));
-	if (ret)
-		return -100.0;
+	if (switchtec_is_gen3(dev)) {
+		sub_cmd_id = MRPC_DIETEMP_SET_MEAS;
+		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
+				    sizeof(sub_cmd_id), NULL, 0);
+		if (ret)
+			return -100.0;
+
+		sub_cmd_id = MRPC_DIETEMP_GET;
+		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
+				    sizeof(sub_cmd_id), &temp, sizeof(temp));
+		if (ret)
+			return -100.0;
+	} else {
+		sub_cmd_id = MRPC_DIETEMP_GET_GEN4;
+		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
+				    sizeof(sub_cmd_id), &temp, sizeof(temp));
+		if (ret)
+			return -100.0;
+	}
 
 	return temp / 100.;
 }
