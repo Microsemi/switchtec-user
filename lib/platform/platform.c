@@ -134,6 +134,9 @@ int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
 {
 	int ret;
 
+	cmd &= SWITCHTEC_CMD_MASK;
+	cmd |= dev->pax_id << SWITCHTEC_PAX_ID_SHIFT;
+
 	ret = dev->ops->cmd(dev, cmd, payload, payload_len, resp, resp_len);
 	if (ret) {
 		mrpc_error_cmd = cmd;

@@ -289,6 +289,16 @@ _PURE int switchtec_partition(struct switchtec_dev *dev)
 	return dev->partition;
 }
 
+int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id)
+{
+	if (!(switchtec_is_gen4(dev) && switchtec_is_pax(dev)) &&
+	    (pax_id != SWITCHTEC_PAX_ID_LOCAL))
+		return -1;
+
+	dev->pax_id = pax_id;
+	return 0;
+}
+
 static const char *ltssm_str(int ltssm, int show_minor)
 {
 	if (!show_minor)

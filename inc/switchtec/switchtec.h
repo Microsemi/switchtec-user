@@ -58,6 +58,11 @@ struct switchtec_dev;
 #define SWITCHTEC_FLASH_MAP1_PART_START 0xa8040000
 #define SWITCHTEC_FLASH_PART_LEN 0x10000
 
+#define SWITCHTEC_CMD_MASK 0xffff
+#define SWITCHTEC_PAX_ID_SHIFT 18
+#define SWITCHTEC_PAX_ID_MASK 0x1f
+#define SWITCHTEC_PAX_ID_LOCAL SWITCHTEC_PAX_ID_MASK
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
@@ -299,6 +304,7 @@ _PURE int switchtec_partition(struct switchtec_dev *dev);
 _PURE int switchtec_device_id(struct switchtec_dev *dev);
 _PURE enum switchtec_gen switchtec_gen(struct switchtec_dev *dev);
 _PURE enum switchtec_variant switchtec_variant(struct switchtec_dev *dev);
+int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
