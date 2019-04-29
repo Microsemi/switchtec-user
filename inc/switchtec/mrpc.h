@@ -60,6 +60,7 @@ enum mrpc_cmd {
 	MRPC_MULTI_CFG = 29,
 	MRPC_SES = 30,
 	MRPC_RD_FLASH = 31,
+	MRPC_PART_INFO = 43,
 	MRPC_ECHO = 65,
 };
 
@@ -115,6 +116,9 @@ enum mrpc_sub_cmd {
 
 	MRPC_ARB_GET = 0,
 	MRPC_ARB_SET = 1,
+
+	MRPC_FLASH_GET_ALL_INFO = 0,
+	MRPC_FLASH_GET_METADATA = 1,
 };
 
 #endif
