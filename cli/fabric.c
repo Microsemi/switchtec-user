@@ -107,9 +107,59 @@ static int gfms_unbind(int argc, char **argv)
 	return 0;
 }
 
+static int port_control(int argc, char **argv)
+{
+	const char *desc = "Initiate switchtec port control command";
+	int ret;
+	struct argconfig_choice control_type_choices[5] = {
+		{"DISABLE", 0, "disable port"},
+		{"ENABLE", 1, "enable port"},
+		{"RETRAIN", 2, "link retrain"},
+		{"HOT_RESET", 3, "link hot reset"},
+		{}
+	};
+	struct argconfig_choice hot_reset_flag_choices[3] = {
+		{"CLEAR", 0, "hot reset status clear"},
+		{"SET", 1, "hot reset status set"},
+		{}
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		uint8_t control_type;
+		uint8_t phys_port_id;
+		uint8_t hot_reset_flag;
+	} cfg;
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"control_type", 't', "TYPE", CFG_MULT_CHOICES, &cfg.control_type, required_argument,
+		.choices=control_type_choices,
+		.require_in_usage = 1,
+		.help="Port control type"},
+		{"phys_port_id", 'p', "NUM", CFG_INT, &cfg.phys_port_id, required_argument,"Physical port ID",
+		.require_in_usage = 1,},
+		{"hot_reset_flag", 'f', "FLAG", CFG_MULT_CHOICES, &cfg.hot_reset_flag, required_argument,
+		.choices=hot_reset_flag_choices,
+		.require_in_usage = 1,
+		.help="Hot reset flag option"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_port_control(cfg.dev, cfg.control_type, cfg.phys_port_id, cfg.hot_reset_flag);
+	if (ret) {
+		switchtec_perror("port_control");
+		return ret;
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
 	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
+	{"port_control", port_control, "Initiate port control command"},
 	{}
 };
 
