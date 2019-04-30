@@ -91,6 +91,23 @@ int switchtec_device_manage(struct switchtec_dev *dev,
                             struct switchtec_device_manage_req *req,
                             struct switchtec_device_manage_rsp *rsp);
 
+/********** PORT CONTROL *********/
+
+enum switchtec_fabric_port_control_type {
+	SWITCTEC_PORT_CONTROL_DISABLE,
+	SWITCTEC_PORT_CONTROL_ENABLE,
+	SWITCTEC_PORT_CONTROL_LINK_RETRAIN,
+	SWITCTEC_PORT_CONTROL_LINK_HOT_RESET,
+};
+
+enum switchtec_fabric_hot_reset_flag {
+	SWITCTEC_PORT_CONTROL_HOT_RESET_STATUS_CLEAR,
+	SWITCTEC_PORT_CONTROL_HOT_RESET_STATUS_SET,
+};
+
+int switchtec_port_control(struct switchtec_dev *dev, uint8_t control_type,
+			   uint8_t phys_port_id, uint8_t hot_reset_flag);
+
 #ifdef __cplusplus
 }
 #endif

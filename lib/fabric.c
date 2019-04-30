@@ -97,3 +97,24 @@ int switchtec_device_manage(struct switchtec_dev *dev,
 
         return ret;
 }
+
+int switchtec_port_control(struct switchtec_dev *dev, uint8_t control_type,
+			   uint8_t phys_port_id, uint8_t hot_reset_flag)
+{
+        int ret;
+
+	struct {
+		uint8_t control_type;
+		uint8_t phys_port_id;
+		uint8_t hot_reset_flag;
+		uint8_t rsvd;
+	} cmd;
+
+	cmd.control_type = control_type;
+	cmd.phys_port_id = phys_port_id;
+	cmd.hot_reset_flag = hot_reset_flag;
+
+        ret = switchtec_cmd(dev, MRPC_PORT_CONTROL, &cmd, sizeof(cmd), NULL, 0);
+
+        return ret;
+}
