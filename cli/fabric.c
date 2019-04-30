@@ -107,9 +107,103 @@ static int gfms_unbind(int argc, char **argv)
 	return 0;
 }
 
+static int string_to_dword_data(char *str, unsigned int *dw_data, int *data_len)
+{
+	char *tmp;
+	uint32_t num;
+	char *p;
+	uint32_t max_len;
+	uint32_t raw_data_len = 0;
+
+	max_len = *data_len;
+	memset(dw_data, 0, max_len);
+
+	p = strtok((char *)str, " ");
+	while(p) {
+		num = strtoul(p, &tmp, 0);
+
+		if (*tmp != '\0')
+			return -1;
+
+		dw_data[raw_data_len] = num;
+
+		raw_data_len++;
+		if(raw_data_len >= max_len)
+			return -1;
+
+		p = strtok(NULL, " ");
+	}
+
+	*data_len = raw_data_len;
+	return 0;
+}
+
+static int device_manage(int argc, char **argv)
+{
+	const char *desc = "Initiate device specific manage command";
+	int ret;
+	struct switchtec_device_manage_rsp rsp;
+	char *cmd_string = NULL;
+	int data_len;
+	int i;
+
+	static struct {
+		struct switchtec_dev *dev;
+		struct switchtec_device_manage_req req;
+	} cfg = {
+		.req.hdr.pdfid = 0xffff,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"pdfid", 'f', "NUM", CFG_INT, &cfg.req.hdr.pdfid,
+		 required_argument, "Endpoint function's FID",
+		 .require_in_usage = 1},
+		{"cmd_data", 'c', "String", CFG_STRING, &cmd_string,
+		 required_argument, .require_in_usage = 1,
+		 .help= "Command raw data in dword, "
+		 "format example: \"0x040b0006 0x00000001\""},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cmd_string == NULL) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --cmd_data|-c argument is required!\n");
+		return 1;
+	}
+	if (cfg.req.hdr.pdfid == 0xffff) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --pdfid|-f argument is required!\n");
+		return 1;
+	}
+
+	data_len = sizeof(cfg.req.cmd_data);
+	string_to_dword_data(cmd_string,
+			     (unsigned int *)cfg.req.cmd_data,
+			     &data_len);
+	cfg.req.hdr.expected_rsp_len = sizeof(rsp.rsp_data);
+
+	ret = switchtec_device_manage(cfg.dev, &(cfg.req), &rsp);
+	if (ret) {
+		switchtec_perror("device_manage");
+		return ret;
+	}
+
+	for(i = 0; i < rsp.hdr.rsp_len / 4; i++) {
+		printf("0x%08x ", *((int *)rsp.rsp_data + i));
+		if(i % 8 == 7)
+			printf("\n");
+	}
+	printf("\n");
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
 	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
+	{"device_manage", device_manage, "Initiate device specific manage command"},
 	{}
 };
 

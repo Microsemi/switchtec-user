@@ -85,3 +85,15 @@ int switchtec_gfms_unbind(struct switchtec_dev *dev,
 	return switchtec_cmd(dev, MRPC_GFMS_BIND_UNBIND, &cmd, sizeof(cmd),
 			     &result, sizeof(result));
 }
+
+int switchtec_device_manage(struct switchtec_dev *dev,
+                            struct switchtec_device_manage_req *req,
+                            struct switchtec_device_manage_rsp *rsp)
+{
+        int ret;
+
+        ret = switchtec_cmd(dev, MRPC_DEVICE_MANAGE_CMD,
+			    req, sizeof(*req), rsp, sizeof(*rsp));
+
+        return ret;
+}

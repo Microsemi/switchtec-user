@@ -61,6 +61,36 @@ int switchtec_gfms_bind(struct switchtec_dev *dev,
 		        struct switchtec_gfms_bind_req *req);
 int switchtec_gfms_unbind(struct switchtec_dev *dev,
 			  struct switchtec_gfms_unbind_req *req);
+
+/********** DEVICE MANAGE *********/
+
+#define SWITCHTEC_DEVICE_MANAGE_MAX_RESP 1016
+
+struct switchtec_device_manage_req_hdr {
+        uint16_t pdfid;
+        uint16_t expected_rsp_len;
+};
+
+struct switchtec_device_manage_rsp_hdr {
+        uint16_t rsp_len;
+        uint16_t rsvd;
+};
+
+struct switchtec_device_manage_req {
+        struct switchtec_device_manage_req_hdr hdr;
+        uint8_t cmd_data[MRPC_MAX_DATA_LEN -
+                        sizeof(struct switchtec_device_manage_req_hdr)];
+};
+
+struct switchtec_device_manage_rsp {
+        struct switchtec_device_manage_rsp_hdr hdr;
+        uint8_t rsp_data[SWITCHTEC_DEVICE_MANAGE_MAX_RESP];
+};
+
+int switchtec_device_manage(struct switchtec_dev *dev,
+                            struct switchtec_device_manage_req *req,
+                            struct switchtec_device_manage_rsp *rsp);
+
 #ifdef __cplusplus
 }
 #endif

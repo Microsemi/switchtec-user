@@ -63,6 +63,7 @@ enum mrpc_cmd {
 	MRPC_ECHO = 65,
 
 	MRPC_GFMS_BIND_UNBIND = 0x84,
+	MRPC_DEVICE_MANAGE_CMD = 0x85,
 };
 
 enum mrpc_bg_status {
