@@ -61,6 +61,8 @@ enum mrpc_cmd {
 	MRPC_SES = 30,
 	MRPC_RD_FLASH = 31,
 	MRPC_ECHO = 65,
+
+	MRPC_GFMS_BIND_UNBIND = 0x84,
 };
 
 enum mrpc_bg_status {
@@ -116,6 +118,9 @@ enum mrpc_sub_cmd {
 
 	MRPC_ARB_GET = 0,
 	MRPC_ARB_SET = 1,
+
+	MRPC_GFMS_BIND = 1,
+	MRPC_GFMS_UNBIND = 2,
 };
 
 #endif
