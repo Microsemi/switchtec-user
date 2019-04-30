@@ -65,6 +65,8 @@ enum mrpc_cmd {
 	MRPC_GAS_WRITE = 52,
 	MRPC_ECHO = 65,
 	MRPC_GET_PAX_ID = 129,
+
+	MRPC_GFMS_BIND_UNBIND = 0x84,
 };
 
 enum mrpc_bg_status {
@@ -120,6 +122,9 @@ enum mrpc_sub_cmd {
 
 	MRPC_PART_INFO_GET_ALL_INFO = 0,
 	MRPC_PART_INFO_GET_METADATA = 1,
+
+	MRPC_GFMS_BIND = 1,
+	MRPC_GFMS_UNBIND = 2,
 };
 
 #endif
