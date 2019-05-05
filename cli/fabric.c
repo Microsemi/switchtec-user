@@ -156,10 +156,77 @@ static int port_control(int argc, char **argv)
 	return 0;
 }
 
+static const char * const port_type_strs[] = {
+	"Unused",
+	"Fabric Link",
+	"Fabric EP",
+	"Fabric Host",
+	"Invalid",
+};
+
+static const char * const clock_mode_strs[] = {
+	"Common clock without SSC",
+	"Non-common clock without SSC (SRNS)",
+	"Common clock with SSC",
+	"Non-common clock with SSC (SRIS)",
+	"Invalid",
+};
+
+static int portcfg_show(int argc, char **argv)
+{
+	const char *desc = "Get the port config info";
+	int ret;
+	struct switchtec_fab_port_config port_info;
+	int port_type, clock_mode;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int phys_port_id;
+	} cfg = {
+		.phys_port_id = -1,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"phys_port_id", 'p', "NUM", CFG_NONNEGATIVE, &cfg.phys_port_id,
+		 required_argument,"physical port id", .require_in_usage = 1},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.phys_port_id == -1) {
+		argconfig_print_usage(opts);
+		return 1;
+	}
+
+	ret = switchtec_fab_port_config_get(cfg.dev, cfg.phys_port_id, &port_info);
+	if (ret) {
+		switchtec_perror("port_info");
+		return ret;
+	}
+
+	port_type = port_info.port_type;
+	if(port_type >= SWITCHTEC_FAB_PORT_TYPE_INVALID)
+		port_type = SWITCHTEC_FAB_PORT_TYPE_INVALID;
+
+	printf("Port Type:    %s \n", port_type_strs[port_type]);
+	printf("Clock Source: %d\n", port_info.clock_source);
+
+	clock_mode = port_info.clock_mode;
+	if(clock_mode >= SWITCHTEC_FAB_PORT_CLOCK_INVALID)
+		clock_mode = SWITCHTEC_FAB_PORT_CLOCK_INVALID;
+
+	printf("Clock Mode:   %s\n", clock_mode_strs[clock_mode]);
+	printf("Hvd Instance: %d\n", port_info.hvd_inst);
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
 	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
 	{"port_control", port_control, "Initiate port control command"},
+	{"portcfg_show", portcfg_show, "Get the port config info"},
 	{}
 };
 

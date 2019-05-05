@@ -106,3 +106,31 @@ int switchtec_port_control(struct switchtec_dev *dev, uint8_t control_type,
 
         return ret;
 }
+
+/**
+ * @brief Get the port config of the specified physical port
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  phys_port_id	The physical port id
+ * @param[out] info		The port config info
+ * @return 0 on success, error code on failure
+ */
+int switchtec_fab_port_config_get(struct switchtec_dev *dev,
+				  uint8_t phys_port_id,
+				  struct switchtec_fab_port_config *info)
+{
+	int ret;
+
+	struct {
+		uint8_t subcmd;
+		uint8_t phys_port_id;
+		uint8_t reserved[2];
+	} cmd;
+
+	cmd.subcmd = MRPC_PORT_CONFIG_GET;
+	cmd.phys_port_id = phys_port_id;
+
+	ret = switchtec_cmd(dev, MRPC_PORT_CONFIG, &cmd, sizeof(cmd),
+			    info, sizeof(struct switchtec_fab_port_config));
+
+	return ret;
+}
