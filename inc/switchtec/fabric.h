@@ -108,6 +108,44 @@ enum switchtec_fabric_hot_reset_flag {
 int switchtec_port_control(struct switchtec_dev *dev, uint8_t control_type,
 			   uint8_t phys_port_id, uint8_t hot_reset_flag);
 
+/********** PORT MANAGEMENT *********/
+
+/**
+ * @brief The port type
+ */
+enum switchtec_fab_port_type {
+	SWITCHTEC_FAB_PORT_TYPE_UNUSED,
+	SWITCHTEC_FAB_PORT_TYPE_FABRIC,
+	SWITCHTEC_FAB_PORT_TYPE_FABRIC_EP,
+	SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST,
+	SWITCHTEC_FAB_PORT_TYPE_INVALID,
+};
+
+/**
+ * @brief The port clock mode
+ */
+enum switchtec_fab_port_clock_mode {
+	SWITCHTEC_FAB_PORT_CLOCK_COMMON_WO_SSC,
+	SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_WO_SSC,
+	SWITCHTEC_FAB_PORT_CLOCK_COMMON_W_SSC,
+	SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_W_SSC,
+	SWITCHTEC_FAB_PORT_CLOCK_INVALID,
+};
+
+/**
+ * @brief The port config
+ */
+struct switchtec_fab_port_config {
+	uint8_t port_type;	//!< Port type
+	uint8_t clock_source; 	//!< CSU channel index for port clock source(0-2)
+	uint8_t clock_mode;	//!< Port clock mode option
+	uint8_t hvd_inst;	//!< HVM domain instance index for USP
+};
+
+int switchtec_fab_port_config_get(struct switchtec_dev *dev,
+				  uint8_t phys_port_id,
+				  struct switchtec_fab_port_config *info);
+
 #ifdef __cplusplus
 }
 #endif
