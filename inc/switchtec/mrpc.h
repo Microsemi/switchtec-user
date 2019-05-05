@@ -125,6 +125,7 @@ enum mrpc_sub_cmd {
 	MRPC_GFMS_BIND = 1,
 	MRPC_GFMS_UNBIND = 2,
 
+	MRPC_PORT_CONFIG_SET = 0,
 	MRPC_PORT_CONFIG_GET = 1,
 };
 
