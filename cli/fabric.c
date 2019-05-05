@@ -265,6 +265,72 @@ static const char * const clock_mode_strs[] = {
 	"Invalid",
 };
 
+static int portcfg_set(int argc, char **argv)
+{
+	const char *desc = "Set the port config";
+	int ret;
+
+	struct argconfig_choice port_type_choices[4] = {
+		{"unused", 0,
+		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_UNUSED]},
+		{"fabric_ep", 2,
+		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_FABRIC_EP]},
+		{"fabric_host", 3,
+		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST]},
+		{0}
+	};
+	struct argconfig_choice clock_mode_choices[5] = {
+		{"common", 0,
+		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_COMMON_WO_SSC]},
+		{"srns", 1,
+		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_WO_SSC]},
+		{"common_ssc", 2,
+		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_COMMON_W_SSC]},
+		{"sris", 3,
+		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_W_SSC]},
+		{0}
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		uint8_t phys_port_id;
+		struct switchtec_fab_port_config port_cfg;
+	} cfg;
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"phys_port_id", 'p', "NUM", CFG_INT,
+		 &cfg.phys_port_id, required_argument,
+		 "physical port id", .require_in_usage = 1},
+		{"port_type", 't', "TYPE", CFG_MULT_CHOICES,
+		 &cfg.port_cfg.port_type, required_argument,
+		.choices=port_type_choices, .require_in_usage = 1,
+		.help="Port type"},
+		{"clock_source", 'c', "NUM", CFG_INT,
+		 &cfg.port_cfg.clock_source, required_argument,
+		 "CSU channel index for port clock source",
+		 .require_in_usage = 1},
+		{"clock_mode", 'm', "TYPE", CFG_MULT_CHOICES,
+		 &cfg.port_cfg.clock_mode, required_argument,
+		 .choices=clock_mode_choices, .require_in_usage = 1,
+		 .help="Clock mode"},
+		{"hvd_id", 'd', "NUM", CFG_INT, &cfg.port_cfg.hvd_inst,
+		 required_argument, "HVM domain index for USP",
+		 .require_in_usage = 1},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_fab_port_config_set(cfg.dev, cfg.phys_port_id, &cfg.port_cfg);
+	if (ret) {
+		switchtec_perror("port_config");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int portcfg_show(int argc, char **argv)
 {
 	const char *desc = "Get the port config info";
@@ -314,6 +380,7 @@ static const struct cmd commands[] = {
 	{"device_manage", device_manage, "Initiate device specific manage command"},
 	{"port_control", port_control, "Initiate port control command"},
 	{"portcfg_show", portcfg_show, "Get the port config info"},
+	{"portcfg_set", portcfg_set, "Set the port config"},
 	{}
 };
 
