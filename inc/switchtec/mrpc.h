@@ -64,6 +64,7 @@ enum mrpc_cmd {
 
 	MRPC_GFMS_BIND_UNBIND = 0x84,
 	MRPC_DEVICE_MANAGE_CMD = 0x85,
+	MRPC_PORT_CONFIG = 0x88,
 	MRPC_PORT_CONTROL = 0x8D,
 };
 
@@ -123,6 +124,8 @@ enum mrpc_sub_cmd {
 
 	MRPC_GFMS_BIND = 1,
 	MRPC_GFMS_UNBIND = 2,
+
+	MRPC_PORT_CONFIG_GET = 1,
 };
 
 #endif
