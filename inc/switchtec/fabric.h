@@ -116,6 +116,9 @@ struct switchtec_fab_port_config {
 int switchtec_fab_port_config_get(struct switchtec_dev *dev,
 				  uint8_t phys_port_id,
 				  struct switchtec_fab_port_config *info);
+int switchtec_fab_port_config_set(struct switchtec_dev *dev,
+				  uint8_t phys_port_id,
+				  struct switchtec_fab_port_config *info);
 
 #ifdef __cplusplus
 }

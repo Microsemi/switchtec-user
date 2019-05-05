@@ -134,3 +134,39 @@ int switchtec_fab_port_config_get(struct switchtec_dev *dev,
 
 	return ret;
 }
+
+/**
+ * @brief Set the port config of the specified physical port
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  phys_port_id	The physical port id
+ * @param[in]  info		The port config info
+ * @return 0 on success, error code on failure
+ */
+int switchtec_fab_port_config_set(struct switchtec_dev *dev,
+				  uint8_t phys_port_id,
+				  struct switchtec_fab_port_config *info)
+{
+	int ret;
+
+	struct {
+		uint8_t subcmd;
+		uint8_t phys_port_id;
+		uint8_t port_type;
+		uint8_t clock_source;
+		uint8_t clock_mode;
+		uint8_t hvd_inst;
+		uint8_t reserved[2];
+	} cmd;
+
+	cmd.subcmd = MRPC_PORT_CONFIG_SET;
+	cmd.phys_port_id = phys_port_id;
+	cmd.port_type = info->port_type;
+	cmd.clock_source = info->clock_source;
+	cmd.clock_mode = info->clock_mode;
+	cmd.hvd_inst = info->hvd_inst;
+
+	ret = switchtec_cmd(dev, MRPC_PORT_CONFIG, &cmd, sizeof(cmd),
+			    info, sizeof(struct switchtec_fab_port_config));
+
+	return ret;
+}
