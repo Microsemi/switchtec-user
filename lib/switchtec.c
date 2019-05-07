@@ -388,18 +388,38 @@ void switchtec_status_free(struct switchtec_status *status, int ports)
 }
 
 /**
+ * @brief The MRPC command ID when errno is set.
+ *
+ * If errno is for MRPC (with the SWITCHTEC_ERRNO_MRPC_FLAG_BIT set), this
+ * variable will be set to the corresponding MRPC command ID.
+ */
+int mrpc_error_cmd;
+
+/**
  * @brief Return a message coresponding to the last error
  *
  * This can be called after another switchtec function returned an error
  * to find out what caused the problem.
+ *
+ * For MRPC errors (mrpc_error_cmd is not -1) that are unknown to this function,
+ * the string "Unknown MRPC error" are returned. Otherwise, either proper
+ * system error string or MRPC error string is returned.
  */
 const char *switchtec_strerror(void)
 {
-	const char *msg;
+	const char *msg = "Unknown MRPC error";
+	int err;
 
-	switch (errno) {
-	case 0: msg = platform_strerror(); break;
+	if ((errno & SWITCHTEC_ERRNO_MRPC_FLAG_BIT) == 0) {
+		if (errno)
+			return strerror(errno);
+		else
+			return platform_strerror();
+	}
 
+	err = errno & ~SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
+
+	switch (err) {
 	case ERR_NO_AVAIL_MRPC_THREAD:
 		msg = "No available MRPC handler thread"; break;
 	case ERR_HANDLER_THREAD_NOT_IDLE:
@@ -417,34 +437,42 @@ const char *switchtec_strerror(void)
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
 
-	case ERR_PHYC_PORT_ARDY_BIND:
-		msg = "Physical port already bound"; break;
-	case ERR_LOGC_PORT_ARDY_BIND:
-		msg = "Logical bridge instance already bound"; break;
-	case ERR_BIND_PRTT_NOT_EXIST:
-		msg = "Partition does not exist"; break;
-	case ERR_PHYC_PORT_NOT_EXIST:
-		msg = "Physical port does not exist"; break;
-	case ERR_PHYC_PORT_DIS:
-		msg = "Physical port disabled"; break;
-	case ERR_NO_LOGC_PORT:
-		msg = "No logical bridge instance"; break;
-	case ERR_BIND_IN_PROGRESS:
-		msg = "Bind/unbind in progress"; break;
-	case ERR_BIND_TGT_IS_USP:
-		msg = "Bind/unbind target is USP"; break;
-	case ERR_BIND_SUBCMD_INVALID:
-		msg = "Sub-command does not exist"; break;
-	case ERR_PHYC_PORT_LINK_ACT:
-		msg = "Physical port link active"; break;
-	case ERR_LOGC_PORT_NOT_BIND_PHYC_PORT:
-		msg = "Logical bridge not bind to physical port"; break;
-	case ERR_UNBIND_OPT_INVALID:
-		msg = "Invalid unbind option"; break;
-	case ERR_BIND_CHECK_FAIL:
-		msg = "Port bind checking failed"; break;
+	default: break;
+	}
 
-	default: msg = strerror(errno); break;
+	switch (mrpc_error_cmd) {
+	case MRPC_PORTPARTP2P:
+		switch (err) {
+		case ERR_PHYC_PORT_ARDY_BIND:
+			msg = "Physical port already bound"; break;
+		case ERR_LOGC_PORT_ARDY_BIND:
+			msg = "Logical bridge instance already bound"; break;
+		case ERR_BIND_PRTT_NOT_EXIST:
+			msg = "Partition does not exist"; break;
+		case ERR_PHYC_PORT_NOT_EXIST:
+			msg = "Physical port does not exist"; break;
+		case ERR_PHYC_PORT_DIS:
+			msg = "Physical port disabled"; break;
+		case ERR_NO_LOGC_PORT:
+			msg = "No logical bridge instance"; break;
+		case ERR_BIND_IN_PROGRESS:
+			msg = "Bind/unbind in progress"; break;
+		case ERR_BIND_TGT_IS_USP:
+			msg = "Bind/unbind target is USP"; break;
+		case ERR_BIND_SUBCMD_INVALID:
+			msg = "Sub-command does not exist"; break;
+		case ERR_PHYC_PORT_LINK_ACT:
+			msg = "Physical port link active"; break;
+		case ERR_LOGC_PORT_NOT_BIND_PHYC_PORT:
+			msg = "Logical bridge not bind to physical port"; break;
+		case ERR_UNBIND_OPT_INVALID:
+			msg = "Invalid unbind option"; break;
+		case ERR_BIND_CHECK_FAIL:
+			msg = "Port bind checking failed"; break;
+		default: break;
+		}
+		break;
+	default: break;
 	}
 
 	return msg;
@@ -460,7 +488,14 @@ const char *switchtec_strerror(void)
 void switchtec_perror(const char *str)
 {
 	const char *msg = switchtec_strerror();
-	fprintf(stderr, "%s: %s\n", str, msg);
+	int is_mrpc = errno & SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
+	int err = errno & ~SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
+
+	if (is_mrpc)
+		fprintf(stderr, "%s: %s (MRPC: 0x%x, error: 0x%x)\n",
+			str, msg, mrpc_error_cmd, err);
+	else
+		fprintf(stderr, "%s: %s\n", str, msg);
 }
 
 /**@}*/
