@@ -40,6 +40,91 @@
 extern "C" {
 #endif
 
+/********** TOPO INFO *********/
+
+#define SWITCHTEC_TOPO_INFO_DUMP_DATA_LENGTH_MAX 1000
+
+enum switchtec_fab_topo_info_dump_status {
+	SWITCHTEC_FAB_TOPO_INFO_DUMP_NOT_START = 1,
+	SWITCHTEC_FAB_TOPO_INFO_DUMP_WAIT = 2,
+	SWITCHTEC_FAB_TOPO_INFO_DUMP_READY = 3,
+	SWITCHTEC_FAB_TOPO_INFO_DUMP_FAILED = 4,
+	SWITCHTEC_FAB_TOPO_INFO_DUMP_WRONG_SUB_CMD = 5,
+};
+
+enum switchtec_fab_topo_info_dump_link_rate {
+	SWITCHTEC_FAB_PORT_LINK_RATE_NONE,
+	SWITCHTEC_FAB_PORT_LINK_RATE_GEN1,
+	SWITCHTEC_FAB_PORT_LINK_RATE_GEN2,
+	SWITCHTEC_FAB_PORT_LINK_RATE_GEN3,
+	SWITCHTEC_FAB_PORT_LINK_RATE_GEN4,
+	SWITCHTEC_FAB_PORT_LINK_RATE_INVALID,
+};
+
+enum switchtec_fab_topo_info_dump_LTSSM_STATE {
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_POLLING = 1,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_CONFIG,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_L0,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_RECOVERY,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_DISABLED,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_LOOPBK,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_HOTRST,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_L0S,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_L1,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_L2,
+	SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_INVALID,
+};
+
+#define SWITCHTEC_FAB_PORT_LTSSM_MINOR_STATE_MAX 12
+
+struct switchtec_fab_port_info {
+	uint8_t phys_port_id;			//!< Physical port id
+	uint8_t port_type;			//!< Port type
+	uint8_t port_clock_channel;		//!< Clock channel
+	uint8_t port_connector_id;		//!< Connector index
+
+	struct gpio_idx_val {
+		uint16_t gpio_idx;		//!< GPIO index
+		uint8_t value;			//!< GPIO value
+		uint8_t rsvd;
+	} conn_sig_pwrctrl;			//!< Power controller GPIO pin
+
+	struct gpio_idx_val conn_sig_dsp_perst;	//!< DSP PERST# GPIO pin
+	struct gpio_idx_val conn_sig_usp_perst;	//!< USP PERST# GPIO pin
+	struct gpio_idx_val conn_sig_presence;	//!< Presence GPIO pin
+	struct gpio_idx_val conn_sig_8639;	//!< SFF-8639 IFDET GPIO pin
+
+	/* link status */
+	uint8_t port_cfg_width;			//!< link width in config file
+	uint8_t port_neg_width;			//!< link width negotiated
+	uint8_t port_cfg_rate;			//!< link rate in config file
+	uint8_t port_neg_rate;			//!< link rate negotiated
+	uint8_t port_major_ltssm;		//!< Major LTSSM state
+	uint8_t port_minor_ltssm;		//!< Minor LTSSM state
+	uint8_t rsvd[2];
+};
+
+struct switchtec_fab_topo_info {
+	uint8_t sw_idx;			//!< Switch index
+	uint8_t rsvd[3];
+	uint32_t stack_bif[6]; 		//!< port bifurcation
+	uint8_t route_port[16];		//!< Route port
+	uint32_t rsvd1;
+	uint64_t port_bitmap;		//!< Physical port enabled bitmap
+
+	/**
+	 * @brief Port info list.
+	 *
+	 * The total port count is decided by enabled port number, which
+	 * is reflected by port_bitmap. Only enabled physical port will be
+	 * reported in the port_info_list[].
+	 */
+	struct switchtec_fab_port_info port_info_list[SWITCHTEC_MAX_PORTS];
+};
+
+int switchtec_topo_info_dump(struct switchtec_dev *dev,
+			     struct switchtec_fab_topo_info *topo_info);
+
 /********** GFMS BIND *********/
 
 struct switchtec_gfms_bind_req {

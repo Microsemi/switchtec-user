@@ -374,7 +374,352 @@ static int portcfg_show(int argc, char **argv)
 	return 0;
 }
 
+static const char * const fabric_port_link_rate[] = {
+	"NONE",
+	"2.5 GT/s",
+	"5 GT/s",
+	"8 GT/s",
+	"16 GT/s",
+	"Unknown",
+};
+
+static const char * const fabric_port_ltssm_major_state[] = {
+	"DETECT",
+	"POLLING",
+	"CONFIG",
+	"L0",
+	"RECOVERY",
+	"DISABLED",
+	"LOOPBK",
+	"HOTRST",
+	"L0S",
+	"L1",
+	"L2",
+	"INVALID",
+};
+
+static const char * const fabric_port_ltssm_minor_state[11][13] = {
+	{
+		"INACTIVE",
+		"QUIET",
+		"SPD_CHG0",
+		"SPD_CHG1",
+		"ACTIVE0",
+		"ACTIVE1",
+		"ACTIVE2",
+		"P1_TO_P0",
+		"P0_TO_P1_0",
+		"P0_TO_P1_1",
+		"P0_TO_P1_2",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"ACTIVE_ENTRY",
+		"ACTIVE",
+		"CFG",
+		"COMP",
+		"COMP_ENTRY",
+		"COMP_EIOS",
+		"COMP_EIOS_ACK",
+		"COMP_IDLE",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"US_LW_START",
+		"US_LW_ACCEPT",
+		"US_LN_WAIT",
+		"US_LN_ACCEPT",
+		"DS_LW_START",
+		"DS_LW_ACCEPT",
+		"DS_LN_WAIT",
+		"DS_LN_ACCEPT",
+		"COMPLETE",
+		"IDLE",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"L0",
+		"TX_EL_IDLE",
+		"TX_IDLE_MIN",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"RCVR_LOCK",
+		"RCVR_CFG",
+		"IDLE",
+		"SPEED0",
+		"SPEED1",
+		"SPEED2",
+		"SPEED3",
+		"EQ_PH0",
+		"EQ_PH1",
+		"EQ_PH2",
+		"EQ_PH3",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"DISABLE0",
+		"DISABLE1",
+		"DISABLE2",
+		"DISABLE3",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"ENTRY",
+		"ENTRY_EXIT",
+		"EIOS",
+		"EIOS_ACK",
+		"IDLE",
+		"ACTIVE",
+		"EXIT0",
+		"EXIT1",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"HOT_RESET",
+		"MASTER_UP",
+		"MASTER_DOWN",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"IDLE",
+		"TO_L0",
+		"FTS0",
+		"FTS1",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"IDLE",
+		"SUBSTATE",
+		"TO_L0",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID"
+	},
+	{
+		"INACTIVE",
+		"IDLE",
+		"TX_WAKE0",
+		"TX_WAKE1",
+		"EXIT",
+		"SPEED",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID",
+		"INVALID"
+	}
+};
+
+static int topo_info(int argc, char **argv)
+{
+	const char *desc = "Show topology info of the specific switch";
+	struct switchtec_fab_topo_info topo_info;
+	int i, j;
+	int port_type, port_rate, ltssm_major, ltssm_minor;
+	const char *ltssm_major_str;
+	const char *ltssm_minor_str;
+        int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	for(i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+		topo_info.port_info_list[i].phys_port_id = 0xFF;
+	}
+
+	ret = switchtec_topo_info_dump(cfg.dev, &topo_info);
+	if (ret) {
+		switchtec_perror("topo_info_get");
+		return ret;
+	}
+
+	printf("Bifurcation:\n");
+	for(i = 0; i < 6; i++) {
+		for (j = 0; j < 8; j++) {
+			int bif = (topo_info.stack_bif[i] >> (j * 4)) & 0x0f;
+			const char *bif_str;
+			switch(bif) {
+			case 0x1:
+				bif_str = "x2";
+				break;
+			case 0x2:
+				bif_str = "x4";
+				break;
+			case 0x4:
+				bif_str = "x8";
+				break;
+			case 0x8:
+				bif_str = "x16";
+				break;
+			case 0xf:
+				bif_str = "x1";
+				break;
+			default:
+				continue;
+			}
+			printf("    Physical Port %d (Stack %d Port %d): %s\n",
+					i * 8 + j, i, j, bif_str);
+		}
+	}
+
+	printf("\nRouting Table:\n");
+	for(i = 0; i < 16; i++)
+		if (topo_info.route_port[i] != 0xff)
+			printf("    To Switch %d via Physical Port ID %d\n",
+					i, topo_info.route_port[i]);
+
+	printf("\nActive Physical Ports:\n");
+	for(i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+		if(topo_info.port_info_list[i].phys_port_id == 0xFF)
+			break;
+
+		port_type =   topo_info.port_info_list[i].port_type;
+		if(port_type >= SWITCHTEC_FAB_PORT_TYPE_INVALID)
+			port_type = SWITCHTEC_FAB_PORT_TYPE_INVALID;
+		printf("    Physical Port ID %d (%s):\n",
+				topo_info.port_info_list[i].phys_port_id,
+				port_type_strs[port_type]);
+
+		printf("        Cfg Width:			x%d\n",
+				topo_info.port_info_list[i].port_cfg_width);
+		printf("        Neg Width:			x%d\n",
+				topo_info.port_info_list[i].port_neg_width);
+
+		port_rate= topo_info.port_info_list[i].port_cfg_rate;
+		if(port_rate >= SWITCHTEC_FAB_PORT_LINK_RATE_INVALID)
+			port_rate = SWITCHTEC_FAB_PORT_LINK_RATE_INVALID;
+
+		printf("        Cfg Rate:			%s\n",
+				fabric_port_link_rate[port_rate]);
+
+		port_rate= topo_info.port_info_list[i].port_neg_rate;
+
+		if(port_rate >= SWITCHTEC_FAB_PORT_LINK_RATE_INVALID)
+			port_rate = SWITCHTEC_FAB_PORT_LINK_RATE_INVALID;
+
+		printf("        Neg Rate:			%s\n",
+				fabric_port_link_rate[port_rate]);
+
+		ltssm_major = topo_info.port_info_list[i].port_major_ltssm;
+		ltssm_minor = topo_info.port_info_list[i].port_minor_ltssm;
+
+		if(ltssm_major >= SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_INVALID)
+			ltssm_major =
+				SWITCHTEC_FAB_PORT_LTSSM_MAJOR_STATE_INVALID;
+		if(ltssm_minor >= SWITCHTEC_FAB_PORT_LTSSM_MINOR_STATE_MAX)
+			ltssm_minor =
+				SWITCHTEC_FAB_PORT_LTSSM_MINOR_STATE_MAX + 1;
+
+		ltssm_major_str = fabric_port_ltssm_major_state[ltssm_major];
+		ltssm_minor_str =
+			fabric_port_ltssm_minor_state[ltssm_major][ltssm_minor];
+		printf("        LTSSM:			        %s (%s)\n",
+				ltssm_major_str, ltssm_minor_str);
+		printf("        Clock Channel:			%d\n",
+				topo_info.port_info_list[i].port_clock_channel);
+		printf("        Connector Index:		%d\n",
+				topo_info.port_info_list[i].port_connector_id);
+		if (topo_info.port_info_list[i].conn_sig_pwrctrl.gpio_idx == 0xffff)
+			printf("        Power Controller GPIO:		Unused\n");
+		else
+			printf("        Power Controller GPIO:		Index: 0x%04x, Value: 0x%02x\n",
+					topo_info.port_info_list[i].conn_sig_pwrctrl.gpio_idx,
+					topo_info.port_info_list[i].conn_sig_pwrctrl.value);
+		if (topo_info.port_info_list[i].conn_sig_dsp_perst.gpio_idx == 0xffff)
+			printf("        DSP PERST GPIO:			Unused\n");
+		else
+			printf("        DSP PERST GPIO:			Index: 0x%04x, Value: 0x%02x\n",
+					topo_info.port_info_list[i].conn_sig_dsp_perst.gpio_idx,
+					topo_info.port_info_list[i].conn_sig_dsp_perst.value);
+		if (topo_info.port_info_list[i].conn_sig_usp_perst.gpio_idx == 0xffff)
+			printf("        USP PERST GPIO:			Unused\n");
+		else
+			printf("        USP PERST GPIO:			Index: 0x%04x, Value: 0x%02x\n",
+					topo_info.port_info_list[i].conn_sig_usp_perst.gpio_idx,
+					topo_info.port_info_list[i].conn_sig_usp_perst.value);
+		if (topo_info.port_info_list[i].conn_sig_presence.gpio_idx == 0xffff)
+			printf("        PRESENCE GPIO:			Unused\n");
+		else
+			printf("        PRESENCE GPIO:			Index: 0x%04x, Value: 0x%02x\n",
+					topo_info.port_info_list[i].conn_sig_presence.gpio_idx,
+					topo_info.port_info_list[i].conn_sig_presence.value);
+		if (topo_info.port_info_list[i].conn_sig_8639.gpio_idx == 0xffff)
+			printf("        SFF8639 IFDET GPIO:		Unused\n");
+		else
+			printf("        SFF8639 IFDET GPIO:		Index: 0x%04x, Value: 0x%02x\n",
+					topo_info.port_info_list[i].conn_sig_8639.gpio_idx,
+					topo_info.port_info_list[i].conn_sig_8639.value);
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
+	{"topo_info", topo_info, "Show topology info of the specific switch"},
 	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
 	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
 	{"device_manage", device_manage, "Initiate device specific manage command"},
