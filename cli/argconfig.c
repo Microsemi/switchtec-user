@@ -527,8 +527,8 @@ static int cfg_positive_handler(const char *optarg, void *value_addr,
 {
 	char *endptr;
 
-	unsigned long tmp = strtoul(optarg, &endptr, 0);
-	if (errno || optarg == endptr) {
+	long tmp = strtol(optarg, &endptr, 0);
+	if (errno || optarg == endptr || tmp <= 0) {
 		fprintf(stderr,
 			"Expected positive argument for '--%s/-%c' "
 			"but got '%s'!\n",
