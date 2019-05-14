@@ -288,7 +288,113 @@ static int portcfg_show(int argc, char **argv)
 	return 0;
 }
 
+static int topo_info(int argc, char **argv)
+{
+	const char *desc = "Show topology info of the specific switch";
+	struct switchtec_fab_topo_info topo_info;
+	int i;
+	int port_type, port_rate, ltssm;
+	struct switchtec_fab_port_info *port_info;
+        int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	for(i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+		topo_info.port_info_list[i].phys_port_id = 0xff;
+
+	ret = switchtec_topo_info_dump(cfg.dev, &topo_info);
+	if (ret) {
+		switchtec_perror("topo_info_get");
+		return ret;
+	}
+
+	printf("Active Physical Ports:\n");
+	for(i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+		port_info = &topo_info.port_info_list[i];
+		if(port_info->phys_port_id == 0xff)
+			break;
+
+		port_type = port_info->port_type;
+		if(port_type >= SWITCHTEC_FAB_PORT_TYPE_INVALID)
+			port_type = SWITCHTEC_FAB_PORT_TYPE_INVALID;
+
+		printf("    Physical Port ID %d (%s):\n",
+		       port_info->phys_port_id,
+		       port_type_strs[port_type]);
+
+		printf("        Stack-Port:			Stack %d, Port %d\n",
+		       port_info->phys_port_id / 8,
+		       port_info->phys_port_id % 8);
+
+		printf("        Cfg Width (Bifurcation):	x%d\n",
+		       port_info->port_cfg_width);
+		printf("        Neg Width:			x%d\n",
+		       port_info->port_neg_width);
+
+		port_rate= port_info->port_cfg_rate;
+		printf("        Cfg Rate:			%g GT/s\n",
+		       switchtec_gen_transfers[port_rate]);
+
+		port_rate= port_info->port_neg_rate;
+		printf("        Neg Rate:			%g GT/s\n",
+		       switchtec_gen_transfers[port_rate]);
+
+		ltssm = port_info->port_minor_ltssm;
+		ltssm <<= 8;
+		ltssm |= port_info->port_major_ltssm;
+
+		printf("        LTSSM:			        %s\n",
+		       switchtec_ltssm_str(ltssm, 1));
+		printf("        Clock Channel:			%d\n",
+		       port_info->port_clock_channel);
+		printf("        Connector Index:		%d\n",
+		       port_info->port_connector_id);
+		if (port_info->conn_sig_pwrctrl.gpio_idx == 0xffff)
+			printf("        Power Controller GPIO:		Unused\n");
+		else
+			printf("        Power Controller GPIO:		Index: 0x%04x, Value: 0x%02x\n",
+			       port_info->conn_sig_pwrctrl.gpio_idx,
+			       port_info->conn_sig_pwrctrl.value);
+		if (port_info->conn_sig_dsp_perst.gpio_idx == 0xffff)
+			printf("        DSP PERST GPIO:			Unused\n");
+		else
+			printf("        DSP PERST GPIO:			Index: 0x%04x, Value: 0x%02x\n",
+			       port_info->conn_sig_dsp_perst.gpio_idx,
+			       port_info->conn_sig_dsp_perst.value);
+		if (port_info->conn_sig_usp_perst.gpio_idx == 0xffff)
+			printf("        USP PERST GPIO:			Unused\n");
+		else
+			printf("        USP PERST GPIO:			Index: 0x%04x, Value: 0x%02x\n",
+			       port_info->conn_sig_usp_perst.gpio_idx,
+			       port_info->conn_sig_usp_perst.value);
+		if (port_info->conn_sig_presence.gpio_idx == 0xffff)
+			printf("        PRESENCE GPIO:			Unused\n");
+		else
+			printf("        PRESENCE GPIO:			Index: 0x%04x, Value: 0x%02x\n",
+			       port_info->conn_sig_presence.gpio_idx,
+			       port_info->conn_sig_presence.value);
+		if (port_info->conn_sig_8639.gpio_idx == 0xffff)
+			printf("        SFF8639 IFDET GPIO:		Unused\n");
+		else
+			printf("        SFF8639 IFDET GPIO:		Index: 0x%04x, Value: 0x%02x\n",
+			       port_info->conn_sig_8639.gpio_idx,
+			       port_info->conn_sig_8639.value);
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
+	{"topo_info", topo_info, "Show topology info of the specific switch"},
 	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
 	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
 	{"port_control", port_control, "Initiate port control command"},
