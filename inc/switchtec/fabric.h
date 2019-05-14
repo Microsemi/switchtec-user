@@ -40,6 +40,61 @@
 extern "C" {
 #endif
 
+/********** TOPO INFO *********/
+
+/**
+ * @brief Represents each port in the in topology info.
+ */
+struct switchtec_fab_port_info {
+	uint8_t phys_port_id;			//!< Physical port id
+	uint8_t port_type;			//!< Port type
+	uint8_t port_clock_channel;		//!< Clock channel
+	uint8_t port_connector_id;		//!< Connector index
+
+	struct gpio_idx_val {
+		uint16_t gpio_idx;		//!< GPIO index
+		uint8_t value;			//!< GPIO value
+		uint8_t rsvd;
+	} conn_sig_pwrctrl;			//!< Power controller GPIO pin
+
+	struct gpio_idx_val conn_sig_dsp_perst;	//!< DSP PERST# GPIO pin
+	struct gpio_idx_val conn_sig_usp_perst;	//!< USP PERST# GPIO pin
+	struct gpio_idx_val conn_sig_presence;	//!< Presence GPIO pin
+	struct gpio_idx_val conn_sig_8639;	//!< SFF-8639 IFDET GPIO pin
+
+	uint8_t port_cfg_width;			//!< link width in config file
+	uint8_t port_neg_width;			//!< link width negotiated
+	uint8_t port_cfg_rate;			//!< link rate in config file
+	uint8_t port_neg_rate;			//!< link rate negotiated
+	uint8_t port_major_ltssm;		//!< Major LTSSM state
+	uint8_t port_minor_ltssm;		//!< Minor LTSSM state
+	uint8_t rsvd[2];
+};
+
+/**
+ * @brief Represents the topology info.
+ */
+struct switchtec_fab_topo_info {
+	uint8_t sw_idx;			//!< Switch index
+	uint8_t rsvd[3];
+	uint32_t stack_bif[6]; 		//!< Port bifurcation
+	uint8_t route_port[16];		//!< Route port
+	uint32_t rsvd1;
+	uint64_t port_bitmap;		//!< Enabled physical port bitmap
+
+	/**
+	 * @brief Port info list.
+	 *
+	 * The total port count is determined by the enabled port number, which
+	 * is reported in the port_bitmap. Only enabled physical port will be
+	 * populated in the port_info_list[].
+	 */
+	struct switchtec_fab_port_info port_info_list[SWITCHTEC_MAX_PORTS];
+};
+
+int switchtec_topo_info_dump(struct switchtec_dev *dev,
+			     struct switchtec_fab_topo_info *topo_info);
+
 /********** GFMS BIND *********/
 
 struct switchtec_gfms_bind_req {
