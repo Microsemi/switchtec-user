@@ -454,11 +454,11 @@ static int latency(int argc, char **argv)
 		{"time", 't', "NUM", CFG_POSITIVE, &cfg.meas_time,
 		  required_argument,
 		 "measurement time, in seconds"},
-		{"egress", 'e', "NUM", CFG_POSITIVE, &cfg.egress,
+		{"egress", 'e', "NUM", CFG_NONNEGATIVE, &cfg.egress,
 		  required_argument,
 		 "physical port id for the egress side",
 		 .require_in_usage=1},
-		{"ingress", 'i', "NUM", CFG_POSITIVE, &cfg.ingress,
+		{"ingress", 'i', "NUM", CFG_NONNEGATIVE, &cfg.ingress,
 		  required_argument,
 		 "physical port id for the ingress side, by default use all ports"},
 		{NULL}};
@@ -692,10 +692,10 @@ static int event_wait(int argc, char **argv)
 		{"event", 'e', "EVENT", CFG_CHOICES, &cfg.event_id,
 		  required_argument, .choices=event_choices,
 		  .help="event to wait on"},
-		{"partition", 'p', "NUM", CFG_POSITIVE, &cfg.partition,
+		{"partition", 'p', "NUM", CFG_NONNEGATIVE, &cfg.partition,
 		  required_argument,
 		  .help="partition number for the event"},
-		{"port", 'q', "NUM", CFG_POSITIVE, &cfg.port,
+		{"port", 'q', "NUM", CFG_NONNEGATIVE, &cfg.port,
 		  required_argument,
 		  .help="port number for the event"},
 		{"timeout", 't', "MS", CFG_INT, &cfg.timeout,
@@ -904,7 +904,7 @@ static int arbitration_get(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"port", 'p', "", CFG_POSITIVE, &cfg.port, required_argument,
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port, required_argument,
 			"physical port number (0-47)"},
 		{NULL} };
 
@@ -946,11 +946,11 @@ static int arbitration_set(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"port", 'p', "", CFG_POSITIVE, &cfg.port, required_argument,
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port, required_argument,
 			"physical port number (0-47)"},
-		{"mode", 'm', "", CFG_POSITIVE, &cfg.mode, required_argument,
+		{"mode", 'm', "", CFG_NONNEGATIVE, &cfg.mode, required_argument,
 			"arbitration mode to set"},
-		{"weight", 'w', "", CFG_POSITIVE, &cfg.weight,
+		{"weight", 'w', "", CFG_NONNEGATIVE, &cfg.weight,
 			required_argument, "weight value to set"},
 		{NULL} };
 
@@ -1756,7 +1756,7 @@ static int evcntr_setup(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in",
 		 .require_in_usage=1},
 		{"event", 'e', "EVENT", CFG_MULT_CHOICES, &cfg.setup.type_mask,
@@ -1765,7 +1765,7 @@ static int evcntr_setup(int argc, char **argv)
 		 "to count on multiple events",
 		 .choices=type_choices, .require_in_usage=1},
 
-		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
 		 "counter index, default is to use the next unused index"},
 		{"egress", 'g', "", CFG_NONE, &cfg.setup.egress, no_argument,
 		 "measure egress TLPs instead of ingress -- only meaningful for "
@@ -1838,7 +1838,7 @@ static int evcntr(int argc, char **argv)
 		DEVICE_OPTION,
 		{"reset", 'r', "", CFG_NONE, &cfg.reset, no_argument,
 		 "reset counters back to zero"},
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in"},
 		{}};
 
@@ -1874,10 +1874,10 @@ static int evcntr_show(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in",
 		 .require_in_usage=1},
-		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
 		 "counter index, default is to use the next unused index",
 		 .require_in_usage=1},
 		{NULL}};
@@ -1925,10 +1925,10 @@ static int evcntr_del(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in",
 		 .require_in_usage=1},
-		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
 		 "counter index, default is to use the next unused index",
 		 .require_in_usage=1},
 		{NULL}};
