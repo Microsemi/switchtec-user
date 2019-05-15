@@ -1037,7 +1037,7 @@ static int port_bind_info(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_INT, &cfg.phy_port, required_argument,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
 			"physical port number"},
 		{NULL}};
 
@@ -1069,11 +1069,11 @@ static int port_bind(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"partition", 'p', "", CFG_INT, &cfg.par_id, required_argument,
+		{"partition", 'p', "", CFG_NONNEGATIVE, &cfg.par_id, required_argument,
 			"partition number"},
-		{"logical", 'l', "", CFG_INT, &cfg.log_port, required_argument,
+		{"logical", 'l', "", CFG_POSITIVE, &cfg.log_port, required_argument,
 			"logical port number"},
-		{"physical", 'f', "", CFG_INT, &cfg.phy_port, required_argument,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
 			"physical port number"},
 		{NULL}};
 
@@ -1100,9 +1100,9 @@ static int port_unbind(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"partition", 'p', "", CFG_INT, &cfg.par_id, required_argument,
+		{"partition", 'p', "", CFG_NONNEGATIVE, &cfg.par_id, required_argument,
 			"partition number"},
-		{"logical", 'l', "", CFG_INT, &cfg.log_port, required_argument,
+		{"logical", 'l', "", CFG_POSITIVE, &cfg.log_port, required_argument,
 			"logical port number"},
 		{NULL}};
 
