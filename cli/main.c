@@ -700,7 +700,7 @@ static int event_wait(int argc, char **argv)
 		  .help="port number for the event"},
 		{"timeout", 't', "MS", CFG_INT, &cfg.timeout,
 		  required_argument,
-		  "timeout in milliseconds"},
+		  "timeout in milliseconds (-1 forever)"},
 		{NULL}};
 
 	populate_event_choices(event_choices, 0);
@@ -1972,7 +1972,7 @@ static int evcntr_wait(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"timeout", 't', "MS", CFG_INT, &cfg.timeout, required_argument,
-		 "timeout in milliseconds"},
+		 "timeout in milliseconds (-1 forever)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
