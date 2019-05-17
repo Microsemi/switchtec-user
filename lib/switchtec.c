@@ -56,6 +56,98 @@
  */
 
 /**
+ * @brief Switchtec device id to generation/variant mapping
+ */
+struct switchtec_device_id {
+	unsigned short device_id;
+	enum switchtec_gen gen;
+	enum switchtec_variant var;
+};
+
+/**
+ * @brief Supported Switchtec device id table
+ */
+static const struct switchtec_device_id switchtec_device_id_tbl[] = {
+	{0x8531, SWITCHTEC_GEN3, SWITCHTEC_PFX},   //PFX 24xG3
+	{0x8532, SWITCHTEC_GEN3, SWITCHTEC_PFX},   //PFX 32xG3
+	{0x8533, SWITCHTEC_GEN3, SWITCHTEC_PFX},   //PFX 48xG3
+	{0x8534, SWITCHTEC_GEN3, SWITCHTEC_PFX},   //PFX 64xG3
+	{0x8535, SWITCHTEC_GEN3, SWITCHTEC_PFX},   //PFX 80xG3
+	{0x8536, SWITCHTEC_GEN3, SWITCHTEC_PFX},   //PFX 96xG3
+	{0x8541, SWITCHTEC_GEN3, SWITCHTEC_PSX},   //PSX 24xG3
+	{0x8542, SWITCHTEC_GEN3, SWITCHTEC_PSX},   //PSX 32xG3
+	{0x8543, SWITCHTEC_GEN3, SWITCHTEC_PSX},   //PSX 48xG3
+	{0x8544, SWITCHTEC_GEN3, SWITCHTEC_PSX},   //PSX 64xG3
+	{0x8545, SWITCHTEC_GEN3, SWITCHTEC_PSX},   //PSX 80xG3
+	{0x8546, SWITCHTEC_GEN3, SWITCHTEC_PSX},   //PSX 96xG3
+	{0x8551, SWITCHTEC_GEN3, SWITCHTEC_PAX},   //PAX 24XG3
+	{0x8552, SWITCHTEC_GEN3, SWITCHTEC_PAX},   //PAX 32XG3
+	{0x8553, SWITCHTEC_GEN3, SWITCHTEC_PAX},   //PAX 48XG3
+	{0x8554, SWITCHTEC_GEN3, SWITCHTEC_PAX},   //PAX 64XG3
+	{0x8555, SWITCHTEC_GEN3, SWITCHTEC_PAX},   //PAX 80XG3
+	{0x8556, SWITCHTEC_GEN3, SWITCHTEC_PAX},   //PAX 96XG3
+	{0x8561, SWITCHTEC_GEN3, SWITCHTEC_PFXL},  //PFXL 24XG3
+	{0x8562, SWITCHTEC_GEN3, SWITCHTEC_PFXL},  //PFXL 32XG3
+	{0x8563, SWITCHTEC_GEN3, SWITCHTEC_PFXL},  //PFXL 48XG3
+	{0x8564, SWITCHTEC_GEN3, SWITCHTEC_PFXL},  //PFXL 64XG3
+	{0x8565, SWITCHTEC_GEN3, SWITCHTEC_PFXL},  //PFXL 80XG3
+	{0x8566, SWITCHTEC_GEN3, SWITCHTEC_PFXL},  //PFXL 96XG3
+	{0x8571, SWITCHTEC_GEN3, SWITCHTEC_PFXI},  //PFXI 24XG3
+	{0x8572, SWITCHTEC_GEN3, SWITCHTEC_PFXI},  //PFXI 32XG3
+	{0x8573, SWITCHTEC_GEN3, SWITCHTEC_PFXI},  //PFXI 48XG3
+	{0x8574, SWITCHTEC_GEN3, SWITCHTEC_PFXI},  //PFXI 64XG3
+	{0x8575, SWITCHTEC_GEN3, SWITCHTEC_PFXI},  //PFXI 80XG3
+	{0x8576, SWITCHTEC_GEN3, SWITCHTEC_PFXI},  //PFXI 96XG3
+	{0x4000, SWITCHTEC_GEN4, SWITCHTEC_PFX},   //PFX 100XG4
+	{0x4084, SWITCHTEC_GEN4, SWITCHTEC_PFX},   //PFX 84XG4
+	{0x4068, SWITCHTEC_GEN4, SWITCHTEC_PFX},   //PFX 68XG4
+	{0x4052, SWITCHTEC_GEN4, SWITCHTEC_PFX},   //PFX 52XG4
+	{0x4036, SWITCHTEC_GEN4, SWITCHTEC_PFX},   //PFX 36XG4
+	{0x4028, SWITCHTEC_GEN4, SWITCHTEC_PFX},   //PFX 28XG4
+	{0x4100, SWITCHTEC_GEN4, SWITCHTEC_PSX},   //PSX 100XG4
+	{0x4184, SWITCHTEC_GEN4, SWITCHTEC_PSX},   //PSX 84XG4
+	{0x4168, SWITCHTEC_GEN4, SWITCHTEC_PSX},   //PSX 68XG4
+	{0x4152, SWITCHTEC_GEN4, SWITCHTEC_PSX},   //PSX 52XG4
+	{0x4136, SWITCHTEC_GEN4, SWITCHTEC_PSX},   //PSX 36XG4
+	{0x4128, SWITCHTEC_GEN4, SWITCHTEC_PSX},   //PSX 28XG4
+	{0x4200, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 100XG4
+	{0x4284, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 84XG4
+	{0x4268, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 68XG4
+	{0x4252, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 52XG4
+	{0x4236, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 36XG4
+	{0x4228, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 28XG4
+	{0},
+};
+
+static int set_gen_variant(struct switchtec_dev * dev)
+{
+	const struct switchtec_device_id *id = switchtec_device_id_tbl;
+
+	dev->device_id = dev->ops->get_device_id(dev);
+	if (dev->device_id < 0) {
+		errno = ENOTSUP;
+		return -1;
+	}
+
+	dev->gen = SWITCHTEC_GEN_UNKNOWN;
+	while (id->device_id) {
+		if (id->device_id == dev->device_id) {
+			dev->gen = id->gen;
+			dev->var = id->var;
+		}
+
+		id++;
+	}
+
+	if (dev->gen == SWITCHTEC_GEN_UNKNOWN) {
+		errno = ENOTSUP;
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
  * @brief Open a Switchtec device by string
  * @param[in] device A string representing the device to open
  * @return A switchtec_dev structure for use in other library functions
@@ -133,7 +225,46 @@ found:
 	else
 		errno = ENODEV;
 
+	if (set_gen_variant(ret))
+		return NULL;
+
 	return ret;
+}
+
+/**
+ * @brief Get the device id of the device
+ * @param[in] dev Switchtec device handle
+ * @return The device id of the device
+ *
+ * This is only valid if the device was opend with switchtec_open().
+ */
+_PURE int switchtec_device_id(struct switchtec_dev *dev)
+{
+	return dev->device_id;
+}
+
+/**
+ * @brief Get the generation of the device
+ * @param[in] dev Switchtec device handle
+ * @return The generation of the device
+ *
+ * This is only valid if the device was opend with switchtec_open().
+ */
+_PURE enum switchtec_gen switchtec_gen(struct switchtec_dev *dev)
+{
+	return dev->gen;
+}
+
+/**
+ * @brief Get the variant type of the device
+ * @param[in] dev Switchtec device handle
+ * @return The variant type of the device
+ *
+ * This is only valid if the device was opend with switchtec_open().
+ */
+_PURE enum switchtec_variant switchtec_variant(struct switchtec_dev *dev)
+{
+	return dev->var;
 }
 
 /**
@@ -156,6 +287,16 @@ _PURE const char *switchtec_name(struct switchtec_dev *dev)
 _PURE int switchtec_partition(struct switchtec_dev *dev)
 {
 	return dev->partition;
+}
+
+int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id)
+{
+	if (!(switchtec_is_gen4(dev) && switchtec_is_pax(dev)) &&
+	    (pax_id != SWITCHTEC_PAX_ID_LOCAL))
+		return -1;
+
+	dev->pax_id = pax_id;
+	return 0;
 }
 
 static const char *ltssm_str(int ltssm, int show_minor)

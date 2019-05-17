@@ -265,6 +265,16 @@ int switchtec_list(struct switchtec_device_info **devlist)
 	return n;
 }
 
+static int linux_get_device_id(struct switchtec_dev *dev)
+{
+	char link_path[PATH_MAX];
+
+	snprintf(link_path, sizeof(link_path), "%s/%s/device/device",
+		 sys_path, basename(dev->name));
+
+	return sysfs_read_int(link_path, 16);
+}
+
 static int linux_get_fw_version(struct switchtec_dev *dev, char *buf,
 				size_t buflen)
 {
@@ -943,6 +953,7 @@ static int linux_event_wait(struct switchtec_dev *dev, int timeout_ms)
 
 static const struct switchtec_ops linux_ops = {
 	.close = linux_close,
+	.get_device_id = linux_get_device_id,
 	.get_fw_version = linux_get_fw_version,
 	.cmd = linux_cmd,
 	.get_devices = linux_get_devices,

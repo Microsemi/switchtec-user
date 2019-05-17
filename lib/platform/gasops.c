@@ -102,6 +102,11 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	return ret;
 }
 
+int gasop_get_device_id(struct switchtec_dev *dev)
+{
+	return gas_reg_read32(dev, sys_info.device_id);
+}
+
 int gasop_get_fw_version(struct switchtec_dev *dev, char *buf,
 			 size_t buflen)
 {
