@@ -132,7 +132,7 @@ static int list(int argc, char **argv)
 		return n;
 
 	for (i = 0; i < n; i++) {
-		printf("%-20s\t%-15s\t%-5s\t%-10s\t%s\n", devices[i].name,
+		printf("%-20s\t%-16s%-5s\t%-10s\t%s\n", devices[i].name,
 		       devices[i].product_id, devices[i].product_rev,
 		       devices[i].fw_version, devices[i].pci_dev);
 		if (cfg.verbose) {
