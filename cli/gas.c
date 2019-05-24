@@ -287,7 +287,7 @@ static int gas_dump(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
+		{"count", 'n', "NUM", CFG_SIZE_SUFFIX, &cfg.count, required_argument,
 		 "number of bytes to dump (default is the entire gas space)"},
 		{"text", 't', "", CFG_NONE, &cfg.text, no_argument,
 		 "force outputing data in text format, default is to output in "
@@ -413,11 +413,11 @@ static int gas_read(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
+		{"addr", 'a', "ADDR", CFG_SIZE_SUFFIX, &cfg.addr, required_argument,
 		 "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to read per access (default 4)"},
-		{"count", 'n', "NUM", CFG_LONG_SUFFIX, &cfg.count, required_argument,
+		{"count", 'n', "NUM", CFG_SIZE_SUFFIX, &cfg.count, required_argument,
 		 "number of accesses to perform (default 1)"},
 		{"print", 'p', "STYLE", CFG_CHOICES, &cfg.print_style, required_argument,
 		 "printing style", .choices=print_choices},
@@ -460,7 +460,7 @@ static int gas_write(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
+		{"addr", 'a', "ADDR", CFG_SIZE_SUFFIX, &cfg.addr, required_argument,
 		 "address to write"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to write (default 4)"},
