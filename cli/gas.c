@@ -303,7 +303,7 @@ static int gas_dump(int argc, char **argv)
 		return 1;
 	}
 
-	if (!cfg.count)
+	if (!cfg.count || cfg.count > map_size)
 		cfg.count = map_size;
 
 	if (cfg.text) {
@@ -390,6 +390,7 @@ static int gas_read(int argc, char **argv)
 {
 	const char *desc = "Read a gas register";
 	gasptr_t map;
+	size_t map_size;
 	int i;
 	int ret = 0;
 
@@ -425,13 +426,19 @@ static int gas_read(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	map = switchtec_gas_map(cfg.dev, 0, NULL);
+	map = switchtec_gas_map(cfg.dev, 0, &map_size);
 	if (map == SWITCHTEC_MAP_FAILED) {
 		switchtec_perror("gas_map");
 		return 1;
 	}
 
+
 	for (i = 0; i < cfg.count; i++) {
+		if ((cfg.addr + cfg.bytes) > map_size) {
+			fprintf(stderr, "Out of range for Global Address Space\n");
+			return -1;
+		}
+
 		ret = print_funcs[cfg.print_style](cfg.dev, map, cfg.addr,
 						   cfg.bytes);
 		cfg.addr += cfg.bytes;
@@ -447,6 +454,7 @@ static int gas_write(int argc, char **argv)
 {
 	const char *desc = "Write a gas register";
 	void __gas *map;
+	size_t map_size;
 	int ret = 0;
 
 	static struct {
@@ -472,10 +480,15 @@ static int gas_write(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	map = switchtec_gas_map(cfg.dev, 1, NULL);
+	map = switchtec_gas_map(cfg.dev, 1, &map_size);
 	if (map == SWITCHTEC_MAP_FAILED) {
 		switchtec_perror("gas_map");
 		return 1;
+	}
+
+	if ((cfg.addr + cfg.bytes) > map_size) {
+		fprintf(stderr, "Out of range for Global Address Space\n");
+		return -1;
 	}
 
 	if (!cfg.assume_yes)
