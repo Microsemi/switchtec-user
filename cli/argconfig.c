@@ -422,6 +422,22 @@ static int cfg_size_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
+static int cfg_size_suffix_handler(const char *optarg, void *value_addr,
+				   const struct argconfig_options *opt)
+{
+	ssize_t tmp = suffix_binary_parse(optarg);
+	if (errno || tmp < 0) {
+		fprintf(stderr,
+			"Expected suffixed size argument for '--%s/-%c' "
+			"but got '%s'!\n",
+			opt->option, opt->short_option, optarg);
+		return 1;
+	}
+	*((size_t *)value_addr) = tmp;
+
+	return 0;
+}
+
 static int cfg_long_handler(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt)
 {
@@ -739,6 +755,7 @@ static type_handler cfg_type_handlers[_CFG_MAX_TYPES] = {
 	[CFG_STRING] = cfg_string_handler,
 	[CFG_INT] = cfg_int_handler,
 	[CFG_SIZE] = cfg_size_handler,
+	[CFG_SIZE_SUFFIX] = cfg_size_suffix_handler,
 	[CFG_LONG] = cfg_long_handler,
 	[CFG_LONG_SUFFIX] = cfg_long_suffix_handler,
 	[CFG_DOUBLE] = cfg_double_handler,
