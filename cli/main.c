@@ -74,12 +74,12 @@ int switchtec_handler(const char *optarg, void *value_addr,
 		fprintf(stderr, "%s: Gen3 PAX is not supported.\n", optarg);
 		return 2;
 	}
-
+#if 0
 	if (switchtec_is_gen4(dev)) {
 		fprintf(stderr, "%s: Gen4 is not supported.\n", optarg);
 		return 3;
 	}
-
+#endif
 	*((struct switchtec_dev  **) value_addr) = dev;
 
 	if (set_global_pax_id()) {

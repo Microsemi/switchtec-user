@@ -175,6 +175,344 @@ int switchtec_fab_port_config_set(struct switchtec_dev *dev,
 				  uint8_t phys_port_id,
 				  struct switchtec_fab_port_config *info);
 
+/********** GFMS DUMP *********/
+
+#define SWITCHTEC_FABRIC_MAX_SWITCH_NUM 16
+#define SWITCHTEC_FABRIC_MAX_HOST_PER_SWITCH 16
+#define SWITCHTEC_FABRIC_MAX_DEV_PER_SWITCH 32
+#define SWITCHTEC_FABRIC_MAX_FUNC_PER_DEV 32
+#define SWITCHTEC_FABRIC_MAX_BAR_NUM 6
+#define SWITCHTEC_FABRIC_MAX_DSP_PER_HOST 32
+#define SWITCHTEC_FABRIC_MAX_BINDING_NUM 512
+
+enum switchtec_gfms_db_ep_attached_device_type {
+	SWITCHTEC_GFMS_DB_TYPE_EP,
+	SWITCHTEC_GFMS_DB_TYPE_SWITCH,
+	SWITCHTEC_GFMS_DB_TYPE_NON,
+};
+
+enum switchtec_gfms_db_reach_type {
+	SWITCHTEC_GFMS_DB_REACH_UC,
+	SWITCHTEC_GFMS_DB_REACH_BC,
+	SWITCHTEC_GFMS_DB_REACH_UR,
+};
+
+enum switchtec_gfms_db_hvd_usp_link_state {
+	SWITCHTEC_GFMS_DB_HVD_USP_LINK_DOWN,
+	SWITCHTEC_GFMS_DB_HVD_USP_LINK_UP,
+};
+
+enum switchtec_gfms_db_vep_type {
+	SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT = 7,
+};
+
+enum switchtec_gfms_db_ep_port_bar_type {
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_32_PREFETCH = 0x8,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_64_PREFETCH = 0xc,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_32_NON_PREFETCH = 0x0,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_64_NON_PREFETCH = 0x4,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_32_PREFETCH = 0x9,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_64_PREFETCH = 0xd,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_32_NON_PREFETCH = 0x1,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_64_NON_PREFETCH = 0x5,
+};
+
+struct switchtec_gfms_db_dump_section_hdr {
+	uint8_t section_class;
+	uint8_t pax_idx;
+	uint16_t swfid;
+	uint32_t resp_size_dw;
+	uint32_t rsvd;
+};
+
+struct switchtec_gfms_db_fabric_general_body {
+	uint32_t rsvd[3];
+	struct pax_idx_info {
+		uint8_t pax_idx;
+		uint8_t reachable_type;
+		uint16_t rsvd;
+	} pax_idx[16];
+};
+
+struct switchtec_gfms_db_fabric_general {
+	struct switchtec_gfms_db_dump_section_hdr hdr;
+	struct switchtec_gfms_db_fabric_general_body body;
+};
+
+struct switchtec_gfms_db_pax_general_body {
+	uint8_t phy_port_count;
+	uint8_t hvd_count;
+	uint16_t ep_count;
+	uint16_t ep_function_count;
+	uint16_t rsvd0;
+	uint32_t rsvd1[3];
+	uint16_t fid_start;
+	uint16_t fid_end;
+	uint16_t hfid_start;
+	uint16_t hfid_end;
+	uint16_t vdfid_start;
+	uint16_t vdfid_end;
+	uint16_t pdfid_start;
+	uint16_t pdfid_end;
+	uint32_t rc_port_map_low;
+	uint32_t rc_port_map_high;
+	uint32_t ep_port_map_low;
+	uint32_t ep_port_map_high;
+	uint32_t fab_port_map_low;
+	uint32_t fab_port_map_high;
+	uint32_t free_port_map_low;
+	uint32_t free_port_map_high;
+};
+
+struct switchtec_gfms_db_pax_general {
+	struct switchtec_gfms_db_dump_section_hdr hdr;
+	struct switchtec_gfms_db_pax_general_body body;
+};
+
+struct switchtec_gfms_db_hvd_port_bound {
+	uint8_t log_pid;
+	uint8_t bound;
+	uint16_t bound_pdfid;
+};
+
+struct switchtec_gfms_db_hvd_body {
+	uint8_t hvd_inst_id;
+	uint8_t phy_pid;
+	uint16_t hfid;
+	uint16_t logical_port_count;
+	uint16_t rsvd;
+	struct switchtec_gfms_db_hvd_port_bound bound[(MRPC_MAX_DATA_LEN -
+			sizeof(struct switchtec_gfms_db_dump_section_hdr) - 8) /
+			sizeof(struct switchtec_gfms_db_hvd_port_bound)];
+};
+
+struct switchtec_gfms_db_hvd {
+	struct switchtec_gfms_db_dump_section_hdr hdr;
+	struct switchtec_gfms_db_hvd_body body;
+};
+
+struct switchtec_gfms_db_hvd_all {
+	int hvd_count;
+	struct switchtec_gfms_db_dump_section_hdr hdr;
+	struct switchtec_gfms_db_hvd_body bodies[
+		SWITCHTEC_FABRIC_MAX_HOST_PER_SWITCH];
+};
+
+struct switchtec_gfms_db_hvd_vep {
+	uint8_t type;
+	uint8_t rsvd;
+	uint16_t bdf;
+};
+
+struct switchtec_gfms_db_hvd_log_port {
+	uint8_t log_pid;
+	uint8_t bound;
+	uint16_t dsp_bdf;
+	uint16_t bound_pdfid;
+	uint16_t bound_hvd_bdf;
+};
+
+struct switchtec_gfms_db_hvd_detail_body {
+	uint8_t hvd_inst_id;
+	uint8_t phy_pid;
+	uint16_t hfid;
+	uint8_t vep_count;
+	uint8_t usp_status;
+	uint8_t rsvd[2];
+	struct switchtec_gfms_db_hvd_vep vep_region[7];
+	uint16_t log_dsp_count;
+	uint16_t usp_bdf;
+	struct switchtec_gfms_db_hvd_log_port log_port_region[48];
+	uint32_t log_port_p2p_enable_bitmap_low;
+	uint32_t log_port_p2p_enable_bitmap_high;
+	uint8_t log_port_count;
+	struct switchtec_cfg_act_bitmap {
+		uint32_t config_bitmap_low;
+		uint32_t config_bitmap_high;
+		uint32_t active_bitmap_low;
+		uint32_t active_bitmap_high;
+	} log_port_p2p_bitmap[64];
+};
+
+struct switchtec_gfms_db_hvd_detail {
+	struct switchtec_gfms_db_dump_section_hdr hdr;
+	struct switchtec_gfms_db_hvd_detail_body body;
+};
+
+struct switchtec_gfms_db_fab_port_body {
+	uint8_t phy_pid;
+	uint8_t rsvd0[3];
+	uint8_t attached_phy_pid;
+	uint8_t attached_sw_idx;
+	uint16_t attached_swfid;
+	uint32_t attached_fw_version;
+	uint32_t rsvd1[2];
+};
+
+struct switchtec_gfms_db_fab_port {
+	struct switchtec_gfms_db_dump_section_hdr hdr;
+	struct switchtec_gfms_db_fab_port_body body;
+};
+
+struct switchtec_gfms_db_ep_port_attached_device_function {
+	uint16_t func_id;
+	uint16_t pdfid;
+	uint8_t sriov_cap_pf;
+	uint8_t vf_num;
+	uint16_t rsvd;
+	uint8_t bound;
+	uint8_t bound_pax_id;
+	uint8_t bound_hvd_phy_pid;
+	uint8_t bound_hvd_log_pid;
+	uint16_t vid;
+	uint16_t did;
+	uint16_t sub_sys_vid;
+	uint16_t sub_sys_did;
+	uint32_t device_class: 24;
+	uint32_t bar_number: 8;
+	struct bar {
+		uint8_t type;
+		uint8_t size;
+	} bars[6];
+};
+
+struct switchtec_gfms_db_ep_port_attached_ds_function {
+	uint16_t func_id;
+	uint16_t enumid;
+	uint32_t rsvd0[2];
+	uint16_t vid;
+	uint16_t did;
+	uint16_t rsvd1[2];
+	uint32_t device_class: 24;
+	uint32_t bar_num: 8;
+	struct {
+		uint8_t type;
+		uint8_t size;
+	} bar[6];
+};
+
+struct switchtec_gfms_db_ep_port_attachement_hdr {
+	uint16_t function_number;
+	uint16_t attached_dsp_enumid;
+	uint32_t size_dw: 24;
+	uint32_t rsvd: 8;
+};
+
+struct switchtec_gfms_db_ep_port_ep {
+	struct switchtec_gfms_db_ep_port_attachement_hdr ep_hdr;
+	struct switchtec_gfms_db_ep_port_attached_device_function
+		functions[SWITCHTEC_FABRIC_MAX_FUNC_PER_DEV];
+};
+
+struct switchtec_gfms_db_ep_port_switch {
+	struct switchtec_gfms_db_ep_port_attachement_hdr sw_hdr;
+	struct attached_switch {
+		struct switchtec_gfms_db_ep_port_attached_ds_function
+			internal_functions[
+			SWITCHTEC_FABRIC_MAX_HOST_PER_SWITCH +
+			SWITCHTEC_FABRIC_MAX_DEV_PER_SWITCH];
+	} ds_switch;
+
+	struct switchtec_gfms_db_ep_port_ep
+		switch_eps[SWITCHTEC_FABRIC_MAX_DEV_PER_SWITCH];
+};
+
+struct switchtec_gfms_db_ep_port_hdr {
+	uint8_t type;
+	uint8_t phy_pid;
+	uint16_t ep_count;
+	uint32_t size_dw: 24;
+	uint32_t rsvd: 8;
+};
+
+struct switchtec_gfms_db_ep_port {
+	struct switchtec_gfms_db_ep_port_hdr port_hdr;
+	union {
+		struct switchtec_gfms_db_ep_port_switch ep_switch;
+		struct switchtec_gfms_db_ep_port_ep ep_ep;
+	};
+};
+
+struct switchtec_gfms_db_ep_port_section {
+	struct switchtec_gfms_db_dump_section_hdr hdr;
+	struct switchtec_gfms_db_ep_port ep_port;
+};
+
+struct switchtec_gfms_db_ep_port_all_section {
+	int ep_port_count;
+	struct switchtec_gfms_db_dump_section_hdr hdr;
+	struct switchtec_gfms_db_ep_port ep_ports[
+		SWITCHTEC_FABRIC_MAX_DEV_PER_SWITCH];
+};
+
+struct switchtec_gfms_db_pax_all {
+	struct switchtec_gfms_db_fabric_general fabric_general;
+	struct switchtec_gfms_db_hvd_all hvd_all;
+	struct switchtec_gfms_db_pax_general pax_general;
+	struct switchtec_gfms_db_ep_port_all_section ep_port_all;
+};
+
+static inline int switchtec_ep_port_bar_type_str(uint8_t bar_type,
+						 char *bar_type_str,
+						 size_t len)
+{
+	switch (bar_type) {
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_32_PREFETCH:
+		strncpy(bar_type_str, "Memory, Prefetchable, 32-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_64_PREFETCH:
+		strncpy(bar_type_str, "Memory, Prefetchable, 64-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_32_NON_PREFETCH:
+		strncpy(bar_type_str, "Memory, Non-prefetchable, 32-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_64_NON_PREFETCH:
+		strncpy(bar_type_str, "Memory, Non-prefetchable, 64-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_32_PREFETCH:
+		strncpy(bar_type_str, "IO, Prefetchable, 32-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_64_PREFETCH:
+		strncpy(bar_type_str, "IO, Prefetchable, 64-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_32_NON_PREFETCH:
+		strncpy(bar_type_str, "IO, Non-prefetchable, 32-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_64_NON_PREFETCH:
+		strncpy(bar_type_str, "IO, Non-prefetchable, 64-bit", len);
+		break;
+	default:
+		strncpy(bar_type_str, "Unknown", len);
+	}
+
+	bar_type_str[len - 1] = '\0';
+	return 0;
+}
+
+int switchtec_fab_gfms_db_dump_fabric_general(
+		struct switchtec_dev *dev,
+		struct switchtec_gfms_db_fabric_general *fabric_general);
+int switchtec_fab_gfms_db_dump_pax_all(
+		struct switchtec_dev *dev,
+		struct switchtec_gfms_db_pax_all *pax_all);
+int switchtec_fab_gfms_db_dump_pax_general(
+		struct switchtec_dev *dev,
+		struct switchtec_gfms_db_pax_general *pax_general);
+int switchtec_fab_gfms_db_dump_hvd(struct switchtec_dev *dev,
+				   uint8_t hvd_idx,
+				   struct switchtec_gfms_db_hvd *hvd);
+int switchtec_fab_gfms_db_dump_fab_port(
+		struct switchtec_dev *dev,
+		uint8_t phy_pid,
+		struct switchtec_gfms_db_fab_port *fab_port);
+int switchtec_fab_gfms_db_dump_ep_port(
+		struct switchtec_dev *dev,
+		uint8_t phy_pid,
+		struct switchtec_gfms_db_ep_port_section *ep_port_section);
+int switchtec_fab_gfms_db_dump_hvd_detail(
+		struct switchtec_dev *dev,
+		uint8_t hvd_idx,
+		struct switchtec_gfms_db_hvd_detail *hvd_detail);
 #ifdef __cplusplus
 }
 #endif

@@ -393,10 +393,606 @@ static int topo_info(int argc, char **argv)
 	return 0;
 }
 
+static int section_hdr_print(struct switchtec_dev *dev,
+			     struct switchtec_gfms_db_dump_section_hdr *hdr)
+{
+	printf("PAX ID: %d (SWFID: 0x%04hx)\n",
+		hdr->pax_idx, hdr->swfid);
+
+	return 0;
+}
+
+static int fabric_general_print(
+		struct switchtec_dev *dev,
+		struct switchtec_gfms_db_fabric_general *fabric_general)
+{
+	int i;
+	uint8_t r_type;
+	char * r_type_str = NULL;
+	struct switchtec_gfms_db_fabric_general *fg;
+
+	section_hdr_print(dev, &fabric_general->hdr);
+
+	fg = fabric_general;
+
+	for (i = 0; i < SWITCHTEC_FABRIC_MAX_SWITCH_NUM; i++) {
+		if (fg->hdr.pax_idx == i)
+			continue;
+
+		r_type = fg->body.pax_idx[i].reachable_type;
+		if (r_type == SWITCHTEC_GFMS_DB_REACH_UC)
+			r_type_str = "Unicast";
+		else if (r_type == SWITCHTEC_GFMS_DB_REACH_BC)
+			r_type_str = "Broadcast";
+		else
+			r_type_str = NULL;
+
+		if (r_type_str)
+			printf("    To PAX_IDX %d: %s\n", i, r_type_str);
+	}
+
+	return 0;
+}
+
+static int pax_general_body_print(
+		struct switchtec_dev *dev,
+		struct switchtec_gfms_db_pax_general_body *body)
+{
+	unsigned long long rc_port_map;
+	unsigned long long ep_port_map;
+	unsigned long long fab_port_map;
+	unsigned long long free_port_map;
+
+	rc_port_map = body->rc_port_map_high;
+	rc_port_map = rc_port_map << 32 | body->rc_port_map_low;
+	ep_port_map = body->ep_port_map_high;
+	ep_port_map = ep_port_map << 32 | body->ep_port_map_low;
+	fab_port_map = body->fab_port_map_high;
+	fab_port_map = fab_port_map << 32 | body->fab_port_map_low;
+	free_port_map = body->free_port_map_high;
+	free_port_map = free_port_map << 32 | body->free_port_map_low;
+
+	printf("    Physical Port Count:\t%d\n", body->phy_port_count);
+	printf("    HVD Count:          \t%d\n", body->hvd_count);
+	printf("    EP Count:           \t%d\n", body->ep_count);
+	printf("    FID range:          \t0x%04hx - 0x%04hx\n",
+	       body->fid_start, body->fid_end);
+	printf("    HFID range:         \t0x%04hx - 0x%04hx\n",
+	       body->hfid_start, body->hfid_end);
+	printf("    VDFID range:        \t0x%04hx - 0x%04hx\n",
+	       body->vdfid_start, body->vdfid_end);
+	printf("    PDFID range:        \t0x%04hx - 0x%04hx\n",
+	       body->pdfid_start, body->pdfid_end);
+	printf("    RC Port Map:        \t0x%016llx\n", rc_port_map);
+	printf("    EP Port Map:        \t0x%016llx\n", ep_port_map);
+	printf("    Fabric Port Map:    \t0x%016llx\n", fab_port_map);
+	printf("    Free Port Map:      \t0x%016llx\n", free_port_map);
+	printf("\n");
+
+	return 0;
+}
+
+static int pax_general_print(struct switchtec_dev *dev,
+			     struct switchtec_gfms_db_pax_general *pax_general)
+{
+	section_hdr_print(dev, &pax_general->hdr);
+	pax_general_body_print(dev, &pax_general->body);
+
+	return 0;
+}
+
+static int hvd_body_print(struct switchtec_dev *dev,
+			  struct switchtec_gfms_db_hvd_body *body)
+{
+	int i;
+	int log_port_count;
+
+	printf("    HVD %hhx (Physical Port ID: %hhu, HFID: 0x%04hx):\n",
+	       body->hvd_inst_id, body->phy_pid,
+	       body->hfid);
+	log_port_count = body->logical_port_count;
+
+	for (i = 0; i < log_port_count; i++) {
+		if (body->bound[i].bound)
+			printf("        Logical Port ID %hhd:    \tBound to PDFID 0x%04hx\n",
+			       body->bound[i].log_pid,
+			       body->bound[i].bound_pdfid);
+		else
+			printf("        Logical Port ID %hhd:    \tUnbound\n",
+			       body->bound[i].log_pid);
+	}
+
+	return 0;
+}
+
+static int bdf_to_str(uint16_t bdf, char *str)
+{
+	sprintf(str, "%02x:%02x.%x",
+		     (bdf & 0xff00) >> 8,
+		     (bdf & 0x00f8) >> 3,
+		     (bdf & 0x0007));
+
+	return 0;
+}
+
+static int vep_type_to_str(uint8_t type, char *str)
+{
+	switch (type) {
+		case SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT:
+			sprintf(str, "EP_MGMT");
+			break;
+		default:
+			sprintf(str, "Unknown(%hhu)", type);
+			return -1;
+	}
+
+	return 0;
+}
+
+static int hvd_detail_body_print(struct switchtec_dev *dev,
+				 struct switchtec_gfms_db_hvd_detail_body *body)
+{
+	int i;
+	int vep_count;
+	int log_port_count;
+	char bdf_str1[32];
+	char bdf_str2[32];
+	char vep_type_str[32];
+	uint64_t enable_bitmap;
+	uint64_t bitmap;
+	int pos;
+
+	bdf_to_str(body->usp_bdf, bdf_str1);
+	printf("    HVD %hhx:\n"
+	       "        Physical Port ID:  \t\t%hhu\n"
+	       "        HFID:              \t\t0x%04hx\n"
+	       "        USP Status:        \t\t%s\n"
+	       "        USP BDF:           \t\t%s\n",
+	       body->hvd_inst_id, body->phy_pid,
+	       body->hfid, body->usp_status ? "LINK UP": "LINK DOWN",
+	       body->usp_status ? bdf_str1 : "N/A");
+
+	vep_count = body->vep_count;
+	log_port_count = body->log_dsp_count;
+
+	printf("        VEPs (%hhu):\n", body->vep_count);
+	for (i = 0; i < vep_count; i++) {
+		vep_type_to_str(body->vep_region[i].type, vep_type_str);
+		bdf_to_str(body->vep_region[i].bdf, bdf_str1);
+		printf("            VEP %hhu:\n"
+		       "                Type:\t\t\t%s\n"
+		       "                BDF: \t\t\t%s\n",
+		       i, vep_type_str, body->usp_status ? bdf_str1 : "N/A");
+	}
+
+	printf("        Logical Ports (%hhu):\n", body->log_dsp_count);
+	for (i = 0; i < log_port_count; i++) {
+		if (body->log_port_region[i].bound) {
+			bdf_to_str(body->log_port_region[i].dsp_bdf, bdf_str1);
+			bdf_to_str(body->log_port_region[i].bound_hvd_bdf,
+				   bdf_str2);
+			printf("            Logical PID %hhu:\t\tBound to PDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
+			       body->log_port_region[i].log_pid,
+			       body->log_port_region[i].bound_pdfid,
+			       body->usp_status ? bdf_str1 : "N/A",
+			       body->usp_status ? bdf_str2 : "N/A");
+		} else
+			printf("            Logical PID %hhu:\t\tUnbound\n",
+			       body->log_port_region[i].log_pid);
+	}
+
+	enable_bitmap = body->log_port_p2p_enable_bitmap_high;
+	enable_bitmap <<= 32;
+	enable_bitmap |= body->log_port_p2p_enable_bitmap_low;
+
+	printf("        Logical Port P2P enable bitmap:\t0x%016lx\n",
+	       enable_bitmap);
+	for (i = 0; i < body->log_port_count; i++) {
+		pos = ffs(enable_bitmap);
+		if (pos) {
+			pos -= 1;
+			enable_bitmap &= ~(1UL << pos);
+
+			bitmap = body->log_port_p2p_bitmap[i].config_bitmap_high;
+			bitmap <<= 32;
+			bitmap |= body->log_port_p2p_bitmap[i].config_bitmap_low;
+			printf("        Logical Port %hhu P2P config bitmap:    \t0x%016lx\n",
+			       pos, bitmap);
+
+			bitmap = body->log_port_p2p_bitmap[i].active_bitmap_high;
+			bitmap <<= 32;
+			bitmap |= body->log_port_p2p_bitmap[i].active_bitmap_low;
+			printf("        Logical Port %hhu P2P active bitmap:    \t0x%016lx\n",
+			       pos, bitmap);
+		}
+	}
+
+	return 0;
+}
+
+static int hvd_print(struct switchtec_dev *dev,
+		     struct switchtec_gfms_db_hvd* hvd)
+{
+	section_hdr_print(dev, &hvd->hdr);
+	hvd_body_print(dev, &hvd->body);
+
+	return 0;
+}
+
+static int hvd_detail_print(struct switchtec_dev *dev,
+			    struct switchtec_gfms_db_hvd_detail* hvd_detail)
+{
+	section_hdr_print(dev, &hvd_detail->hdr);
+	hvd_detail_body_print(dev, &hvd_detail->body);
+
+	return 0;
+}
+
+static int fab_port_print(struct switchtec_dev *dev,
+			  struct switchtec_gfms_db_fab_port *fab_port)
+{
+	section_hdr_print(dev, &fab_port->hdr);
+
+	if (fab_port->body.attached_swfid == 0xff) {
+		printf("    Physical Port ID %hhd (Not attached)\n",
+		       fab_port->body.phy_pid);
+		return 0;
+	}
+
+	printf("    Physical PID %hhd:\n",
+	       fab_port->body.phy_pid);
+	printf("        Attached Physical PID:\t%hhd\n",
+	       fab_port->body.attached_phy_pid);
+	printf("        Attached Switch Index:\t%hhd\n",
+	       fab_port->body.attached_sw_idx);
+	printf("        Attached SWFID:       \t0x%04hx\n",
+	       fab_port->body.attached_swfid);
+	printf("        Attached FW Version:  \t0x%hx\n",
+	       fab_port->body.attached_fw_version);
+
+	return 0;
+}
+
+static int ep_port_func_type(uint8_t sriov_cap_pf, char *func_type, size_t len)
+{
+	if (sriov_cap_pf == 0x3) {
+		strncpy(func_type, "SRIOV-PF", len);
+		func_type[len - 1] = '\0';
+	} else if(sriov_cap_pf == 0x1) {
+		strncpy(func_type, "PF", len);
+		func_type[len - 1] = '\0';
+	} else if(sriov_cap_pf == 0x0) {
+		strncpy(func_type, "SRIOV-VF", len);
+		func_type[len - 1] = '\0';
+	} else {
+		strncpy(func_type, "Unknown", len);
+		func_type[len - 1] = '\0';
+	}
+
+	return 0;
+}
+
+static int exp2_to_string(int exp, char *str)
+{
+	char unit[7] = {'\0', 'K', 'M', 'G', 'T', 'P', '\0'};
+
+	if (exp >= 50)
+		return -1;
+
+	sprintf(str, "%d%c", 1 << (exp % 10), unit[exp / 10]);
+
+	return 0;
+}
+
+static int ep_port_function_print(
+		struct switchtec_gfms_db_ep_port_attached_device_function *func,
+		char *lead)
+{
+	int i;
+	char bar_type[64];
+	char bar_size[10];
+	char func_type[16];
+
+	if (!lead)
+		lead = "";
+	ep_port_func_type(func->sriov_cap_pf, func_type, 16);
+
+	printf("%s        Function %d (%s): \n",
+	       lead, func->func_id, func_type);
+	printf("%s            PDFID:      \t0x%02hx\n", lead, func->pdfid);
+	printf("%s            VID-DID:    \t0x%04hx-0x%04hx\n", lead, func->vid, func->did);
+	if (func->bound) {
+		printf("%s            Binding:    \tBound\n", lead);
+		printf("%s                Bound PAX ID          : %hhd\n",
+		       lead, func->bound_pax_id);
+		printf("%s                Bound HVD Physical PID: %hhd\n",
+		       lead, func->bound_hvd_phy_pid);
+		printf("%s                Bound HVD Logical PID : %hhd\n",
+		       lead, func->bound_hvd_log_pid);
+	} else
+		printf("%s            Binding:    \tUnbound\n", lead);
+
+	for (i = 0; i < 6; i++) {
+		if (func->bars[i].size) {
+			switchtec_ep_port_bar_type_str(func->bars[i].type,
+						       bar_type,
+						       sizeof(bar_type));
+
+			if (exp2_to_string(func->bars[i].size, bar_size))
+				sprintf(bar_size, "Invalid");
+
+			printf("%s            BAR[%d]:     \t%s Bytes (%s)\n",
+			       lead, i, bar_size, bar_type);
+		}
+	}
+
+	return 0;
+}
+
+static int ep_port_print(struct switchtec_dev *dev,
+			 struct switchtec_gfms_db_ep_port *ep_port)
+{
+	int i, j;
+	char bar_type[64];
+	char bar_size[10];
+
+	struct switchtec_gfms_db_ep_port_attached_device_function
+		*device_function;
+	struct switchtec_gfms_db_ep_port_attached_ds_function
+		*switch_function;
+
+	if (ep_port->port_hdr.type == SWITCHTEC_GFMS_DB_TYPE_NON) {
+		printf("    Physical Port ID %d (Not attached)\n",
+		       ep_port->port_hdr.phy_pid);
+	} else if (ep_port->port_hdr.type == SWITCHTEC_GFMS_DB_TYPE_EP) {
+		printf("    Physical Port ID %d (EP attached):\n",
+		       ep_port->port_hdr.phy_pid);
+
+		for (i = 0; i < ep_port->ep_ep.ep_hdr.function_number; i++) {
+			device_function = &ep_port->ep_ep.functions[i];
+			ep_port_function_print(device_function, NULL);
+		}
+	} else if (ep_port->port_hdr.type == SWITCHTEC_GFMS_DB_TYPE_SWITCH) {
+		printf("    Physical Port ID %d (Switch attached):\n",
+		       ep_port->port_hdr.phy_pid);
+
+		printf("        Switch Functions:\n");
+		for (i = 0; i < ep_port->ep_switch.sw_hdr.function_number; i++) {
+			switch_function =
+				&ep_port->ep_switch.ds_switch.internal_functions[i];
+			printf("            Function %d:\n"
+			       "                ENUM_ID:      \t0x%04hx\n"
+			       "                VID-DID:      \t0x%04hx-0x%04hx\n"
+			       "                Class Code:   \t0x%06x\n",
+			       switch_function->func_id, switch_function->enumid,
+			       switch_function->vid, switch_function->did,
+			       switch_function->device_class);
+
+			for (j = 0; j < 6; j++)
+				if (switch_function->bar[j].size) {
+					switchtec_ep_port_bar_type_str(
+						switch_function->bar[j].type,
+						bar_type, 64);
+
+					if (exp2_to_string(
+						switch_function->bar[j].size,
+						bar_size))
+						sprintf(bar_size, "Invalid");
+
+					printf("                BAR[%d]:\t\t%s Bytes (%s)\n",
+					       j, bar_size, bar_type);
+				}
+		}
+		printf("        Switch attached EPs:\n");
+		for (i = 0; i < ep_port->port_hdr.ep_count; i++) {
+			printf("            Physical Port ID %d (DSP P2P ENUMID 0x%04x):\n",
+			       ep_port->port_hdr.phy_pid,
+			       ep_port->ep_switch.switch_eps[i].ep_hdr.attached_dsp_enumid);
+
+			for (j = 0; j < ep_port->ep_switch.switch_eps[i].ep_hdr.function_number; j++) {
+				device_function = &ep_port->ep_switch.switch_eps[i].functions[j];
+				ep_port_function_print(device_function, "        ");
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int pax_all_print(struct switchtec_dev *dev,
+			 struct switchtec_gfms_db_pax_all *pax_all)
+{
+	int i;
+
+	section_hdr_print(dev, &pax_all->pax_general.hdr);
+
+	printf("General:\n");
+	pax_general_body_print(dev, &pax_all->pax_general.body);
+
+
+	printf("Fabric EPs:\n");
+	for (i = 0; i < pax_all->ep_port_all.ep_port_count; i++) {
+		ep_port_print(dev, &pax_all->ep_port_all.ep_ports[i]);
+	}
+
+	printf("HVDs:\n");
+	for (i = 0; i < pax_all->hvd_all.hvd_count; i++) {
+		hvd_body_print(dev, &pax_all->hvd_all.bodies[i]);
+	}
+
+	return 0;
+}
+
+enum switchtec_gfms_db_dump_type {
+	SWITCHTEC_GFMS_FABRIC = 0,
+	SWITCHTEC_GFMS_PAX_ALL,
+	SWITCHTEC_GFMS_PAX,
+	SWITCHTEC_GFMS_HVD,
+	SWITCHTEC_GFMS_FAB_PORT,
+	SWITCHTEC_GFMS_EP_PORT,
+	SWITCHTEC_GFMS_HVD_DETAIL,
+};
+
+static int gfms_dump(int argc, char **argv)
+{
+	const char *desc = "PAX only, dump the GFMS database";
+
+	int ret = 0;
+
+	struct switchtec_gfms_db_fabric_general fabric_general;
+	struct switchtec_gfms_db_ep_port_section ep_port_section;
+	struct switchtec_gfms_db_fab_port fab_port;
+	struct switchtec_gfms_db_pax_general pax_general;
+	struct switchtec_gfms_db_pax_all pax_all;
+	struct switchtec_gfms_db_hvd hvd;
+	struct switchtec_gfms_db_hvd_detail hvd_detail;
+
+	const struct argconfig_choice types[] = {
+		{"FABRIC", SWITCHTEC_GFMS_FABRIC,
+		 "Dump the fabric general information"},
+		{"PAX_ALL", SWITCHTEC_GFMS_PAX_ALL,
+		 "Dump all topology information of one PAX"},
+		{"PAX", SWITCHTEC_GFMS_PAX,
+		 "Dump specific PAX's general information"},
+		{"HVD", SWITCHTEC_GFMS_HVD,
+		 "Dump specific HVD's information"},
+		{"FAB_PORT", SWITCHTEC_GFMS_FAB_PORT,
+		 "Dump specific Fabric port's information"},
+		{"EP_PORT", SWITCHTEC_GFMS_EP_PORT,
+		 "Dump specific ep port's information"},
+		{"HVD_DETAIL", SWITCHTEC_GFMS_HVD_DETAIL,
+		 "Dump specific HVD's detail information"},
+		{}
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned type;
+		signed hvd_idx;
+		signed fab_pid;
+		signed ep_pid;
+	} cfg = {
+		.type = SWITCHTEC_GFMS_PAX_ALL,
+		.hvd_idx = -1,
+		.fab_pid = -1,
+		.ep_pid = -1,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"type", 't', "TYPE", CFG_CHOICES, &cfg.type,
+		  required_argument, "GFMS type to dump", .choices=types},
+		{"hvd_id", 'd', "ID", CFG_INT, &cfg.hvd_idx,
+		  required_argument, .help="HVM domain index for USP"},
+		{"fab_pid", 'f', "PID", CFG_INT, &cfg.fab_pid,
+		  required_argument, .help="Fabric port id"},
+		{"ep_pid", 'e', "PID", CFG_INT, &cfg.ep_pid,
+		  required_argument, .help="EP port id"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	switch (cfg.type) {
+		case SWITCHTEC_GFMS_FABRIC:
+			ret = switchtec_fab_gfms_db_dump_fabric_general(
+					cfg.dev, &fabric_general);
+			if (ret) {
+				switchtec_perror("gfms_db_dump");
+				return -1;
+			}
+			fabric_general_print(cfg.dev, &fabric_general);
+			break;
+		case SWITCHTEC_GFMS_PAX_ALL:
+			ret = switchtec_fab_gfms_db_dump_pax_all(cfg.dev,
+								 &pax_all);
+			if (ret) {
+				switchtec_perror("gfms_db_dump");
+				return -1;
+			}
+			pax_all_print(cfg.dev, &pax_all);
+			break;
+		case SWITCHTEC_GFMS_PAX:
+			ret = switchtec_fab_gfms_db_dump_pax_general(
+					cfg.dev,
+					&pax_general);
+			if (ret) {
+				switchtec_perror("gfms_db_dump");
+				return -1;
+			}
+			pax_general_print(cfg.dev, &pax_general);
+			break;
+		case SWITCHTEC_GFMS_HVD:
+			if (cfg.hvd_idx < 0) {
+				argconfig_print_usage(opts);
+				fprintf(stderr, "The --hvd_id|-d argument is required for -t HVD!\n");
+				return 1;
+			}
+			ret = switchtec_fab_gfms_db_dump_hvd(cfg.dev,
+							     cfg.hvd_idx,
+							     &hvd);
+			if (ret) {
+				switchtec_perror("gfms_db_dump");
+				return -1;
+			}
+			hvd_print(cfg.dev, &hvd);
+			break;
+		case SWITCHTEC_GFMS_FAB_PORT:
+			if (cfg.fab_pid < 0) {
+				argconfig_print_usage(opts);
+				fprintf(stderr, "The --fab_pid|-f argument is required for -t FAB_PORT!\n");
+				return 1;
+			}
+			ret = switchtec_fab_gfms_db_dump_fab_port(cfg.dev,
+								  cfg.fab_pid,
+								  &fab_port);
+			if (ret) {
+				switchtec_perror("gfms_db_dump");
+				return -1;
+			}
+			fab_port_print(cfg.dev, &fab_port);
+			break;
+		case SWITCHTEC_GFMS_EP_PORT:
+			if (cfg.ep_pid < 0) {
+				argconfig_print_usage(opts);
+				fprintf(stderr, "The --ep_pid|-e argument is required for -t EP_PORT!\n");
+				return 1;
+			}
+			ret = switchtec_fab_gfms_db_dump_ep_port(
+					cfg.dev, cfg.ep_pid, &ep_port_section);
+			if (ret) {
+				switchtec_perror("gfms_db_dump");
+				return -1;
+			}
+			section_hdr_print(cfg.dev, &ep_port_section.hdr);
+			ep_port_print(cfg.dev, &ep_port_section.ep_port);
+			break;
+		case SWITCHTEC_GFMS_HVD_DETAIL:
+			if (cfg.hvd_idx < 0) {
+				argconfig_print_usage(opts);
+				fprintf(stderr, "The --hvd_id|-d argument is required for -t HVD!\n");
+				return 1;
+			}
+			ret = switchtec_fab_gfms_db_dump_hvd_detail(
+					cfg.dev, cfg.hvd_idx, &hvd_detail);
+			if (ret) {
+				switchtec_perror("gfms_db_dump");
+				return -1;
+			}
+			hvd_detail_print(cfg.dev, &hvd_detail);
+			break;
+		default:
+			fprintf(stderr, "Invalid type\n");
+			return -1;
+	}
+
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	{"topo_info", topo_info, "Show topology info of the specific switch"},
 	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
 	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
+	{"gfms_dump", gfms_dump, "PAX only, dump the GFMS database"},
 	{"port_control", port_control, "Initiate port control command"},
 	{"portcfg_show", portcfg_show, "Get the port config info"},
 	{"portcfg_set", portcfg_set, "Set the port config"},
