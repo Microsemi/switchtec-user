@@ -51,6 +51,7 @@ enum argconfig_types {
 	CFG_STRING,
 	CFG_INT,
 	CFG_SIZE,
+	CFG_SIZE_SUFFIX,
 	CFG_LONG,
 	CFG_LONG_SUFFIX,
 	CFG_DOUBLE,
