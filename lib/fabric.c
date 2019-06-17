@@ -416,6 +416,7 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 	void *p;
 	int len;
 	uint64_t bitmap;
+	int i;
 
 	struct {
 		uint8_t subcmd;
@@ -472,7 +473,7 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 	bitmap |= hvd_detail->body.log_port_p2p_enable_bitmap_low;
 
 	hvd_detail->body.log_port_count = 0;
-	for (int i = 0; i < (sizeof(bitmap) * 8); i++)
+	for (i = 0; i < (sizeof(bitmap) * 8); i++)
 		if (bitmap >> i && 0x1)
 			hvd_detail->body.log_port_count++;
 

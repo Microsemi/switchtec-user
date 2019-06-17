@@ -31,7 +31,6 @@
 
 #include <switchtec/switchtec.h>
 
-#include <linux/limits.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>

@@ -988,11 +988,76 @@ static int gfms_dump(int argc, char **argv)
 	return ret;
 }
 
+static int route(int argc, char **argv)
+{
+	const char *desc = "Show topology info of the specific switch";
+	struct switchtec_fab_topo_info topo_info;
+	struct switchtec_gfms_db_fabric_general fg;
+	uint8_t r_type;
+	char * r_type_str = NULL;
+	int i;
+        int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	for(i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+		topo_info.port_info_list[i].phys_port_id = 0xff;
+	}
+
+	ret = switchtec_topo_info_dump(cfg.dev, &topo_info);
+	if (ret) {
+		switchtec_perror("topo_info_dump");
+		return ret;
+	}
+
+	ret = switchtec_fab_gfms_db_dump_fabric_general(cfg.dev, &fg);
+	if (ret) {
+		switchtec_perror("gfms_db_dump");
+		return -1;
+	}
+
+	printf("%-15s\t%-15s\t%-15s\n", "Destination",
+	       "Phys_port", "Reachable");
+	for (i = 0; i < 16; i++) {
+		if (fg.hdr.pax_idx == i)
+			continue;
+
+		if (topo_info.route_port[i] == 0xff)
+			continue;
+
+		r_type = fg.body.pax_idx[i].reachable_type;
+
+		if (r_type == SWITCHTEC_GFMS_DB_REACH_UC)
+			r_type_str = "Unicast";
+		else if (r_type == SWITCHTEC_GFMS_DB_REACH_BC)
+			r_type_str = "Broadcast";
+		else if (r_type == SWITCHTEC_GFMS_DB_REACH_UR)
+			r_type_str = "Unreachable";
+		else
+			r_type_str = "Unknown";
+
+		printf("%-15d\t%-15d\t%s\n", i, topo_info.route_port[i],
+		       r_type_str);
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	{"topo_info", topo_info, "Show topology info of the specific switch"},
 	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
 	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
 	{"gfms_dump", gfms_dump, "PAX only, dump the GFMS database"},
+	{"route", route, "Show routing info of the specific switch"},
 	{"port_control", port_control, "Initiate port control command"},
 	{"portcfg_show", portcfg_show, "Get the port config info"},
 	{"portcfg_set", portcfg_set, "Set the port config"},
