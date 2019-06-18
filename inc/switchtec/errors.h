@@ -25,6 +25,9 @@
 #ifndef LIBSWITCHTEC_ERRORS_H
 #define LIBSWITCHTEC_ERRORS_H
 
+extern int mrpc_error_cmd;
+
+#define SWITCHTEC_ERRNO_MRPC_FLAG_BIT (1 << 30)
 
 enum {
 	ERR_PHYC_PORT_ARDY_BIND = 0x00000001,

@@ -30,6 +30,7 @@
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/gas.h"
+#include "switchtec/errors.h"
 
 #include <errno.h>
 
@@ -131,7 +132,18 @@ int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
 		  const void *payload, size_t payload_len, void *resp,
 		  size_t resp_len)
 {
-	return dev->ops->cmd(dev, cmd, payload, payload_len, resp, resp_len);
+	int ret;
+
+	cmd &= SWITCHTEC_CMD_MASK;
+	cmd |= dev->pax_id << SWITCHTEC_PAX_ID_SHIFT;
+
+	ret = dev->ops->cmd(dev, cmd, payload, payload_len, resp, resp_len);
+	if (ret) {
+		mrpc_error_cmd = cmd & SWITCHTEC_CMD_MASK;
+		errno |= SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
+	}
+
+	return ret;
 }
 
 /**

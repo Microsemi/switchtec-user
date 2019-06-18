@@ -42,12 +42,21 @@
 #include <stdio.h>
 
 static struct switchtec_dev *global_dev = NULL;
+static int global_pax_id = SWITCHTEC_PAX_ID_LOCAL;
 
 static const struct argconfig_choice bandwidth_types[] = {
 	{"RAW", SWITCHTEC_BW_TYPE_RAW, "Get the raw bandwidth"},
 	{"PAYLOAD", SWITCHTEC_BW_TYPE_PAYLOAD, "Get the payload bandwidth"},
 	{}
 };
+
+static int set_global_pax_id(void)
+{
+	if (global_dev)
+		return switchtec_set_pax_id(global_dev, global_pax_id);
+
+	return 0;
+}
 
 int switchtec_handler(const char *optarg, void *value_addr,
 		      const struct argconfig_options *opt)
@@ -61,7 +70,43 @@ int switchtec_handler(const char *optarg, void *value_addr,
 		return 1;
 	}
 
+	if (switchtec_is_gen3(dev) && switchtec_is_pax(dev)) {
+		fprintf(stderr, "%s: Gen3 PAX is not supported.\n", optarg);
+		return 2;
+	}
+
+	if (switchtec_is_gen4(dev)) {
+		fprintf(stderr, "%s: Gen4 is not supported.\n", optarg);
+		return 3;
+	}
+
 	*((struct switchtec_dev  **) value_addr) = dev;
+
+	if (set_global_pax_id()) {
+		fprintf(stderr, "%s: Setting PAX ID is not supported.\n", optarg);
+		return 4;
+	}
+
+	return 0;
+}
+
+int pax_handler(const char *optarg, void *value_addr,
+		const struct argconfig_options *opt)
+{
+	int ret;
+
+	ret = sscanf(optarg, "%i", &global_pax_id);
+
+	if (ret != 1 || (global_pax_id & ~SWITCHTEC_PAX_ID_MASK)) {
+		fprintf(stderr, "Invalid PAX ID specified: %s\n", optarg);
+		return 1;
+	}
+
+	if (set_global_pax_id()) {
+		fprintf(stderr, "%s: Setting PAX ID is not supported.\n", optarg);
+		return 4;
+	}
+
 	return 0;
 }
 
@@ -87,7 +132,7 @@ static int list(int argc, char **argv)
 		return n;
 
 	for (i = 0; i < n; i++) {
-		printf("%-20s\t%-15s\t%-5s\t%-10s\t%s\n", devices[i].name,
+		printf("%-20s\t%-16s%-5s\t%-10s\t%s\n", devices[i].name,
 		       devices[i].product_id, devices[i].product_rev,
 		       devices[i].fw_version, devices[i].pci_dev);
 		if (cfg.verbose) {
@@ -100,6 +145,46 @@ static int list(int argc, char **argv)
 
 	free(devices);
 	return 0;
+}
+
+static int print_dev_info(struct switchtec_dev *dev)
+{
+	int ret;
+	int device_id;
+	char version[64];
+
+	device_id = switchtec_device_id(dev);
+
+	ret = switchtec_get_fw_version(dev, version, sizeof(version));
+	if (ret < 0) {
+		switchtec_perror("dev info");
+		return ret;
+	}
+
+	printf("%s:\n", switchtec_name(dev));
+	printf("    Generation:  %s\n", switchtec_gen_str(dev));
+	printf("    Variant:     %s\n", switchtec_variant_str(dev));
+	printf("    Device ID:   0x%04x\n", device_id);
+	printf("    FW Version:  %s\n", version);
+
+	return 0;
+}
+
+static int info(int argc, char **argv)
+{
+	const char *desc = "Display information for a Switchtec device";
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	return print_dev_info(cfg.dev);
 }
 
 static void print_port_title(struct switchtec_dev *dev,
@@ -454,11 +539,11 @@ static int latency(int argc, char **argv)
 		{"time", 't', "NUM", CFG_POSITIVE, &cfg.meas_time,
 		  required_argument,
 		 "measurement time, in seconds"},
-		{"egress", 'e', "NUM", CFG_POSITIVE, &cfg.egress,
+		{"egress", 'e', "NUM", CFG_NONNEGATIVE, &cfg.egress,
 		  required_argument,
 		 "physical port id for the egress side",
 		 .require_in_usage=1},
-		{"ingress", 'i', "NUM", CFG_POSITIVE, &cfg.ingress,
+		{"ingress", 'i', "NUM", CFG_NONNEGATIVE, &cfg.ingress,
 		  required_argument,
 		 "physical port id for the ingress side, by default use all ports"},
 		{NULL}};
@@ -692,15 +777,15 @@ static int event_wait(int argc, char **argv)
 		{"event", 'e', "EVENT", CFG_CHOICES, &cfg.event_id,
 		  required_argument, .choices=event_choices,
 		  .help="event to wait on"},
-		{"partition", 'p', "NUM", CFG_POSITIVE, &cfg.partition,
+		{"partition", 'p', "NUM", CFG_NONNEGATIVE, &cfg.partition,
 		  required_argument,
 		  .help="partition number for the event"},
-		{"port", 'q', "NUM", CFG_POSITIVE, &cfg.port,
+		{"port", 'q', "NUM", CFG_NONNEGATIVE, &cfg.port,
 		  required_argument,
 		  .help="port number for the event"},
 		{"timeout", 't', "MS", CFG_INT, &cfg.timeout,
 		  required_argument,
-		  "timeout in milliseconds"},
+		  "timeout in milliseconds (-1 forever)"},
 		{NULL}};
 
 	populate_event_choices(event_choices, 0);
@@ -922,7 +1007,7 @@ static int port_bind_info(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_INT, &cfg.phy_port, required_argument,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
 			"physical port number"},
 		{NULL}};
 
@@ -954,11 +1039,11 @@ static int port_bind(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"partition", 'p', "", CFG_INT, &cfg.par_id, required_argument,
+		{"partition", 'p', "", CFG_NONNEGATIVE, &cfg.par_id, required_argument,
 			"partition number"},
-		{"logical", 'l', "", CFG_INT, &cfg.log_port, required_argument,
+		{"logical", 'l', "", CFG_POSITIVE, &cfg.log_port, required_argument,
 			"logical port number"},
-		{"physical", 'f', "", CFG_INT, &cfg.phy_port, required_argument,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
 			"physical port number"},
 		{NULL}};
 
@@ -985,9 +1070,9 @@ static int port_unbind(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"partition", 'p', "", CFG_INT, &cfg.par_id, required_argument,
+		{"partition", 'p', "", CFG_NONNEGATIVE, &cfg.par_id, required_argument,
 			"partition number"},
-		{"logical", 'l', "", CFG_INT, &cfg.log_port, required_argument,
+		{"logical", 'l', "", CFG_POSITIVE, &cfg.log_port, required_argument,
 			"logical port number"},
 		{NULL}};
 
@@ -1641,7 +1726,7 @@ static int evcntr_setup(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in",
 		 .require_in_usage=1},
 		{"event", 'e', "EVENT", CFG_MULT_CHOICES, &cfg.setup.type_mask,
@@ -1650,7 +1735,7 @@ static int evcntr_setup(int argc, char **argv)
 		 "to count on multiple events",
 		 .choices=type_choices, .require_in_usage=1},
 
-		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
 		 "counter index, default is to use the next unused index"},
 		{"egress", 'g', "", CFG_NONE, &cfg.setup.egress, no_argument,
 		 "measure egress TLPs instead of ingress -- only meaningful for "
@@ -1723,7 +1808,7 @@ static int evcntr(int argc, char **argv)
 		DEVICE_OPTION,
 		{"reset", 'r', "", CFG_NONE, &cfg.reset, no_argument,
 		 "reset counters back to zero"},
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in"},
 		{}};
 
@@ -1759,10 +1844,10 @@ static int evcntr_show(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in",
 		 .require_in_usage=1},
-		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
 		 "counter index, default is to use the next unused index",
 		 .require_in_usage=1},
 		{NULL}};
@@ -1810,10 +1895,10 @@ static int evcntr_del(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack, required_argument,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
 		 "stack to create the counter in",
 		 .require_in_usage=1},
-		{"counter", 'c', "NUM", CFG_POSITIVE, &cfg.counter, required_argument,
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
 		 "counter index, default is to use the next unused index",
 		 .require_in_usage=1},
 		{NULL}};
@@ -1857,7 +1942,7 @@ static int evcntr_wait(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"timeout", 't', "MS", CFG_INT, &cfg.timeout, required_argument,
-		 "timeout in milliseconds"},
+		 "timeout in milliseconds (-1 forever)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -1881,6 +1966,7 @@ static int evcntr_wait(int argc, char **argv)
 
 static const struct cmd commands[] = {
 	CMD(list, "List all switchtec devices on this machine"),
+	CMD(info, "Display information for a Switchtec device"),
 	CMD(gui, "Display a simple ncurses GUI for the switch"),
 	CMD(status, "Display status information"),
 	CMD(bw, "Measure the bandwidth for each port"),

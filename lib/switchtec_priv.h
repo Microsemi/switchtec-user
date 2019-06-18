@@ -36,6 +36,7 @@ struct switchtec_dev;
 
 struct switchtec_ops {
 	void (*close)(struct switchtec_dev *dev);
+	int (*get_device_id)(struct switchtec_dev *dev);
 	int (*get_fw_version)(struct switchtec_dev *dev, char *buf,
 			      size_t buflen);
 	int (*cmd)(struct switchtec_dev *dev,  uint32_t cmd,
@@ -89,6 +90,10 @@ struct switchtec_ops {
 };
 
 struct switchtec_dev {
+	int device_id;
+	enum switchtec_gen gen;
+	enum switchtec_variant var;
+	int pax_id;
 	int partition, partition_count;
 	char name[PATH_MAX];
 

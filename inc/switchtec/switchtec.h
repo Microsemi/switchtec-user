@@ -57,6 +57,11 @@ struct switchtec_dev;
 #define SWITCHTEC_FLASH_MAP1_PART_START 0xa8040000
 #define SWITCHTEC_FLASH_PART_LEN 0x10000
 
+#define SWITCHTEC_CMD_MASK 0xffff
+#define SWITCHTEC_PAX_ID_SHIFT 18
+#define SWITCHTEC_PAX_ID_MASK 0x1f
+#define SWITCHTEC_PAX_ID_LOCAL SWITCHTEC_PAX_ID_MASK
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
@@ -70,6 +75,27 @@ struct switchtec_dev;
  */
 typedef __gas struct switchtec_gas *gasptr_t;
 #define SWITCHTEC_MAP_FAILED ((gasptr_t) -1)
+
+/**
+ * @brief The PCIe generations
+ */
+enum switchtec_gen {
+	SWITCHTEC_GEN3,
+	SWITCHTEC_GEN4,
+	SWITCHTEC_GEN_UNKNOWN,
+};
+
+/**
+ * @brief The variant types of Switchtec device
+ */
+enum switchtec_variant {
+	SWITCHTEC_PFX,
+	SWITCHTEC_PFXL,
+	SWITCHTEC_PFXI,
+	SWITCHTEC_PSX,
+	SWITCHTEC_PAX,
+	SWITCHTEC_VAR_UNKNOWN,
+};
 
 /**
  * @brief Represents a Switchtec device in the switchtec_list() function
@@ -220,6 +246,7 @@ enum switchtec_event_id {
 	SWITCHTEC_PFF_EVT_AER_IN_VEP,
 	SWITCHTEC_PFF_EVT_DPC,
 	SWITCHTEC_PFF_EVT_CTS,
+	SWITCHTEC_PFF_EVT_UEC,
 	SWITCHTEC_PFF_EVT_HOTPLUG,
 	SWITCHTEC_PFF_EVT_IER,
 	SWITCHTEC_PFF_EVT_THRESH,
@@ -274,6 +301,10 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
 
 _PURE const char *switchtec_name(struct switchtec_dev *dev);
 _PURE int switchtec_partition(struct switchtec_dev *dev);
+_PURE int switchtec_device_id(struct switchtec_dev *dev);
+_PURE enum switchtec_gen switchtec_gen(struct switchtec_dev *dev);
+_PURE enum switchtec_variant switchtec_variant(struct switchtec_dev *dev);
+int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
@@ -286,6 +317,109 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  enum switchtec_log_type type,
 			  int fd);
 float switchtec_die_temp(struct switchtec_dev *dev);
+
+/**
+ * @brief Return whether a Switchtec device is a Gen 3 device.
+ */
+static inline int switchtec_is_gen3(struct switchtec_dev *dev)
+{
+	return switchtec_gen(dev) == SWITCHTEC_GEN3;
+}
+
+/**
+ * @brief Return whether a Switchtec device is a Gen 4 device.
+ */
+static inline int switchtec_is_gen4(struct switchtec_dev *dev)
+{
+	return switchtec_gen(dev) == SWITCHTEC_GEN4;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PFX.
+ */
+static inline int switchtec_is_pfx(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PFX;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PFX-L.
+ */
+static inline int switchtec_is_pfxl(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PFXL;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PFX-I.
+ */
+static inline int switchtec_is_pfxi(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PFXI;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PFX(L/I).
+ */
+static inline int switchtec_is_pfx_all(struct switchtec_dev *dev)
+{
+	return switchtec_is_pfx(dev) ||
+	       switchtec_is_pfxl(dev) ||
+	       switchtec_is_pfxi(dev);
+}
+
+/**
+ * @brief Return whether a Switchtec device is PSX.
+ */
+static inline int switchtec_is_psx(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PSX;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PFX or PSX.
+ */
+static inline int switchtec_is_psx_pfx_all(struct switchtec_dev *dev)
+{
+	return switchtec_is_psx(dev) || switchtec_is_pfx_all(dev);
+}
+
+/**
+ * @brief Return whether a Switchtec device is PAX.
+ */
+static inline int switchtec_is_pax(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PAX;
+}
+
+/**
+ * @brief Return the generation string of a Switchtec device.
+ */
+static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
+{
+	const char *str;
+
+	str =  switchtec_is_gen3(dev) ? "GEN3" :
+	       switchtec_is_gen4(dev) ? "GEN4" : "Unknown";
+
+	return str;
+}
+
+/**
+ * @brief Return the variant string of a Switchtec device.
+ */
+static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
+{
+	const char *str;
+
+	str = switchtec_is_pfx(dev) ? "PFX" :
+	      switchtec_is_pfxl(dev) ? "PFX-L" :
+	      switchtec_is_pfxi(dev) ? "PFX-I" :
+	      switchtec_is_psx(dev) ? "PSX" :
+	      switchtec_is_pax(dev) ? "PAX" : "Unknown";
+
+	return str;
+}
 
 /** @brief Number of GT/s capable for each PCI generation or \p link_rate */
 static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16};

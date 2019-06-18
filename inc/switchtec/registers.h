@@ -351,7 +351,8 @@ struct pff_csr_regs {
 	uint32_t dpc_data[5];
 	uint32_t cts_hdr;
 	uint32_t cts_data[5];
-	uint32_t reserved3[6];
+	uint32_t uec_hdr;
+	uint32_t uec_data[5];
 	uint32_t hotplug_hdr;
 	uint32_t hotplug_data[5];
 	uint32_t ier_hdr;
@@ -368,9 +369,9 @@ struct pff_csr_regs {
 	uint32_t credit_timeout_data[5];
 	uint32_t link_state_hdr;
 	uint32_t link_state_data[5];
-	uint32_t reserved4[66];
+	uint32_t reserved3[66];
 	struct event customer_events[6];
-	uint32_t reserved5[72];
+	uint32_t reserved4[72];
 };
 
 struct switchtec_gas {

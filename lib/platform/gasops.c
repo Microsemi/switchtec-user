@@ -102,6 +102,11 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	return ret;
 }
 
+int gasop_get_device_id(struct switchtec_dev *dev)
+{
+	return gas_reg_read32(dev, sys_info.device_id);
+}
+
 int gasop_get_fw_version(struct switchtec_dev *dev, char *buf,
 			 size_t buflen)
 {
@@ -340,6 +345,7 @@ static const struct event_reg {
 	EV_PFF(AER_IN_VEP, aer_in_vep_hdr),
 	EV_PFF(DPC, dpc_hdr),
 	EV_PFF(CTS, cts_hdr),
+	EV_PFF(UEC, uec_hdr),
 	EV_PFF(HOTPLUG, hotplug_hdr),
 	EV_PFF(IER, ier_hdr),
 	EV_PFF(THRESH, threshold_hdr),
