@@ -845,6 +845,7 @@ static const int event_map[] = {
 	EV(PFF, AER_IN_VEP),
 	EV(PFF, DPC),
 	EV(PFF, CTS),
+	EV(PFF, UEC),
 	EV(PFF, HOTPLUG),
 	EV(PFF, IER),
 	EV(PFF, THRESH),

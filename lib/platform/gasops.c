@@ -345,6 +345,7 @@ static const struct event_reg {
 	EV_PFF(AER_IN_VEP, aer_in_vep_hdr),
 	EV_PFF(DPC, dpc_hdr),
 	EV_PFF(CTS, cts_hdr),
+	EV_PFF(UEC, uec_hdr),
 	EV_PFF(HOTPLUG, hotplug_hdr),
 	EV_PFF(IER, ier_hdr),
 	EV_PFF(THRESH, threshold_hdr),
