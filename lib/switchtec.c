@@ -327,108 +327,6 @@ int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id)
 	return 0;
 }
 
-static const char *ltssm_str(int ltssm, int show_minor)
-{
-	if (!show_minor)
-		ltssm |= 0xFF00;
-
-	switch(ltssm) {
-	case 0x0000: return "Detect (INACTIVE)";
-	case 0x0100: return "Detect (QUIET)";
-	case 0x0200: return "Detect (SPD_CHD0)";
-	case 0x0300: return "Detect (SPD_CHD1)";
-	case 0x0400: return "Detect (ACTIVE0)";
-	case 0x0500: return "Detect (ACTIVE1)";
-	case 0x0600: return "Detect (P1_TO_P0)";
-	case 0x0700: return "Detect (P0_TO_P1_0)";
-	case 0x0800: return "Detect (P0_TO_P1_1)";
-	case 0x0900: return "Detect (P0_TO_P1_2)";
-	case 0xFF00: return "Detect";
-	case 0x0001: return "Polling (INACTIVE)";
-	case 0x0101: return "Polling (ACTIVE_ENTRY)";
-	case 0x0201: return "Polling (ACTIVE)";
-	case 0x0301: return "Polling (CFG)";
-	case 0x0401: return "Polling (COMP)";
-	case 0x0501: return "Polling (COMP_ENTRY)";
-	case 0x0601: return "Polling (COMP_EIOS)";
-	case 0x0701: return "Polling (COMP_EIOS_ACK)";
-	case 0x0801: return "Polling (COMP_IDLE)";
-	case 0xFF01: return "Polling";
-	case 0x0002: return "Config (INACTIVE)";
-	case 0x0102: return "Config (US_LW_START)";
-	case 0x0202: return "Config (US_LW_ACCEPT)";
-	case 0x0302: return "Config (US_LN_WAIT)";
-	case 0x0402: return "Config (US_LN_ACCEPT)";
-	case 0x0502: return "Config (DS_LW_START)";
-	case 0x0602: return "Config (DS_LW_ACCEPT)";
-	case 0x0702: return "Config (DS_LN_WAIT)";
-	case 0x0802: return "Config (DS_LN_ACCEPT)";
-	case 0x0902: return "Config (COMPLETE)";
-	case 0x0A02: return "Config (IDLE)";
-	case 0xFF02: return "Config";
-	case 0x0003: return "L0 (INACTIVE)";
-	case 0x0103: return "L0 (L0)";
-	case 0x0203: return "L0 (TX_EL_IDLE)";
-	case 0x0303: return "L0 (TX_IDLE_MIN)";
-	case 0xFF03: return "L0";
-	case 0x0004: return "Recovery (INACTIVE)";
-	case 0x0104: return "Recovery (RCVR_LOCK)";
-	case 0x0204: return "Recovery (RCVR_CFG)";
-	case 0x0304: return "Recovery (IDLE)";
-	case 0x0404: return "Recovery (SPEED0)";
-	case 0x0504: return "Recovery (SPEED1)";
-	case 0x0604: return "Recovery (SPEED2)";
-	case 0x0704: return "Recovery (SPEED3)";
-	case 0x0804: return "Recovery (EQ_PH0)";
-	case 0x0904: return "Recovery (EQ_PH1)";
-	case 0x0A04: return "Recovery (EQ_PH2)";
-	case 0x0B04: return "Recovery (EQ_PH3)";
-	case 0xFF04: return "Recovery";
-	case 0x0005: return "Disable (INACTIVE)";
-	case 0x0105: return "Disable (DISABLE0)";
-	case 0x0205: return "Disable (DISABLE1)";
-	case 0x0305: return "Disable (DISABLE2)";
-	case 0x0405: return "Disable (DISABLE3)";
-	case 0xFF05: return "Disable";
-	case 0x0006: return "Loop Back (INACTIVE)";
-	case 0x0106: return "Loop Back (ENTRY)";
-	case 0x0206: return "Loop Back (ENTRY_EXIT)";
-	case 0x0306: return "Loop Back (EIOS)";
-	case 0x0406: return "Loop Back (EIOS_ACK)";
-	case 0x0506: return "Loop Back (IDLE)";
-	case 0x0606: return "Loop Back (ACTIVE)";
-	case 0x0706: return "Loop Back (EXIT0)";
-	case 0x0806: return "Loop Back (EXIT1)";
-	case 0xFF06: return "Loop Back";
-	case 0x0007: return "Hot Reset (INACTIVE)";
-	case 0x0107: return "Hot Reset (HOT_RESET)";
-	case 0x0207: return "Hot Reset (MASTER_UP)";
-	case 0x0307: return "Hot Reset (MASTER_DOWN)";
-	case 0xFF07: return "Hot Reset";
-	case 0x0008: return "TxL0s (INACTIVE)";
-	case 0x0108: return "TxL0s (IDLE)";
-	case 0x0208: return "TxL0s (T0_L0)";
-	case 0x0308: return "TxL0s (FTS0)";
-	case 0x0408: return "TxL0s (FTS1)";
-	case 0xFF08: return "TxL0s";
-	case 0x0009: return "L1 (INACTIVE)";
-	case 0x0109: return "L1 (IDLE)";
-	case 0x0209: return "L1 (SUBSTATE)";
-	case 0x0309: return "L1 (SPD_CHG1)";
-	case 0x0409: return "L1 (T0_L0)";
-	case 0xFF09: return "L1";
-	case 0x000A: return "L2 (INACTIVE)";
-	case 0x010A: return "L2 (IDLE)";
-	case 0x020A: return "L2 (TX_WAKE0)";
-	case 0x030A: return "L2 (TX_WAKE1)";
-	case 0x040A: return "L2 (EXIT)";
-	case 0x050A: return "L2 (SPEED)";
-	case 0xFF0A: return "L2";
-	default: return "UNKNOWN";
-	}
-
-}
-
 static int compare_port_id(const void *aa, const void *bb)
 {
 	const struct switchtec_port_id *a = aa, *b = bb;
@@ -517,7 +415,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		s[p].link_up = ports[i].linkup_linkrate >> 7;
 		s[p].link_rate = ports[i].linkup_linkrate & 0x7F;
 		s[p].ltssm = le16toh(ports[i].LTSSM);
-		s[p].ltssm_str = ltssm_str(s[i].ltssm, 1);
+		s[p].ltssm_str = switchtec_ltssm_str(s[i].ltssm, 1);
 
 		s[p].acs_ctrl = -1;
 
