@@ -29,6 +29,7 @@
 #include <switchtec/switchtec.h>
 #include <switchtec/portable.h>
 #include <switchtec/fabric.h>
+#include <switchtec/utils.h>
 
 #include <unistd.h>
 #include <stdint.h>
@@ -1052,6 +1053,187 @@ static int route(int argc, char **argv)
 	return 0;
 }
 
+static void print_gfms_event_host_link(struct switchtec_gfms_event *e)
+{
+	printf("        Physical Port ID:           \t%d\n",
+	       e->data.host.phys_port_id);
+}
+
+static void print_gfms_event_bind(struct switchtec_gfms_event *e)
+{
+	struct switchtec_gfms_event_bind *bind = &e->data.bind;
+
+	printf("        Host Switch Index:          \t%d\n", bind->host_sw_idx);
+	printf("        Host Physical Port ID:      \t%d\n",
+	       bind->host_phys_port_id);
+	printf("        Logical Port ID:            \t%d\n", bind->log_port_id);
+	printf("        PDFID:                      \t0x%04x,\n", bind->pdfid);
+}
+
+static void print_gfms_event_hvd(struct switchtec_gfms_event *e)
+{
+	struct switchtec_gfms_event_hvd *hvd = &e->data.hvd;
+
+	printf("        HVD Instance ID:            \t%d\n", hvd->hvd_inst_id);
+	printf("        Physical Port ID:           \t%d\n", hvd->phys_port_id);
+	printf("        Clock Channel:              \t%d\n", hvd->clock_chan);
+}
+
+static void print_gfms_event_ep(struct switchtec_gfms_event *e)
+{
+	printf("        Physical Port ID:           \t%d\n",
+	       e->data.ep.phys_port_id);
+}
+
+static void print_gfms_event_aer(struct switchtec_gfms_event *e)
+{
+	struct switchtec_gfms_event_aer *aer = &e->data.aer;
+
+	printf("        Physical Port ID:           \t%d\n", aer->phys_port_id);
+	printf("        DPC Triggered:              \t%s\n",
+			switchtec_gfms_aer_dpc(aer) ? "Yes": "No");
+	printf("        CE/UE:                      \t%s\n",
+			switchtec_gfms_aer_ce_ue(aer) ? "CE": "UE");
+	printf("        CE/UE Error Status:         \t0x%08x\n",
+			aer->ce_ue_err_sts);
+	printf("        Time Stamp (In Clock Ticks):\t0x%08x%08x\n",
+			aer->aer_err_log_time_stamp_high,
+			aer->aer_err_log_time_stamp_low);
+	if (switchtec_gfms_aer_log(aer))
+		printf("        AER TLP Header Log:         \t0x%08x\n"
+		       "                                    \t0x%08x\n"
+		       "                                    \t0x%08x\n"
+		       "                                    \t0x%08x\n",
+		       aer->aer_header_log[0],
+		       aer->aer_header_log[1],
+		       aer->aer_header_log[2],
+		       aer->aer_header_log[3]);
+	else
+		printf("        AER TLP Header Log:         \tN/A\n");
+}
+
+static void print_gfms_event_list(struct switchtec_gfms_event *e, size_t cnt,
+				  int overflow, int remain_num)
+{
+	int i = 0;
+
+	printf("GFMS Events (%sRemaining: %d)\n",
+	       overflow ? "Overflowed, ": "", remain_num);
+	while (cnt--) {
+		printf("    %d) ", ++i);
+		switch (e->event_code) {
+		case SWITCHTEC_GFMS_EVENT_HOST_LINK_UP:
+			printf("HOST_LINK_UP (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_host_link(e);
+			break;
+		case SWITCHTEC_GFMS_EVENT_HOST_LINK_DOWN:
+			printf("HOST_LINK_DOWN (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_host_link(e);
+			break;
+		case SWITCHTEC_GFMS_EVENT_DEV_ADD:
+			printf("DEVICE_ADD (PAX ID %d)\n", e->src_sw_id);
+			break;
+		case SWITCHTEC_GFMS_EVENT_DEV_DEL:
+			printf("DEVICE_DELETE (PAX ID %d)\n", e->src_sw_id);
+			break;
+		case SWITCHTEC_GFMS_EVENT_FAB_LINK_UP:
+			printf("FABRIC_LINK_UP (PAX ID %d)\n", e->src_sw_id);
+			break;
+		case SWITCHTEC_GFMS_EVENT_FAB_LINK_DOWN:
+			printf("FABRIC_LINK_DOWN (PAX ID %d)\n", e->src_sw_id);
+			break;
+		case SWITCHTEC_GFMS_EVENT_BIND:
+			printf("BIND (PAX ID %d)\n", e->src_sw_id);
+			break;
+		case SWITCHTEC_GFMS_EVENT_UNBIND:
+			printf("UNBIND (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_bind(e);
+			break;
+		case SWITCHTEC_GFMS_EVENT_DATABASE_CHANGED:
+			printf("DATABASE_CHANGED (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_bind(e);
+			break;
+		case SWITCHTEC_GFMS_EVENT_HVD_INST_ENABLE:
+			printf("HVD_INSTANCE_ENABLE (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_hvd(e);
+		case SWITCHTEC_GFMS_EVENT_HVD_INST_DISABLE:
+			printf("HVD_INSTANCE_DISABLE (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_hvd(e);
+			break;
+		case SWITCHTEC_GFMS_EVENT_EP_PORT_ADD:
+			printf("EP_PORT_ADD (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_ep(e);
+			break;
+		case SWITCHTEC_GFMS_EVENT_EP_PORT_REMOVE:
+			printf("EP_PORT_REMOVE (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_ep(e);
+			break;
+		case SWITCHTEC_GFMS_EVENT_AER:
+			printf("AER (PAX ID %d):\n", e->src_sw_id);
+			print_gfms_event_aer(e);
+			break;
+		}
+		e++;
+	}
+}
+
+static int gfms_events(int argc, char **argv)
+{
+	const char *desc =
+		"Display information on GFMS events that have occurred";
+	struct switchtec_gfms_event elist[128];
+	int overflow;
+	size_t num;
+	size_t remain_num;
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int status;
+		int clear;
+	} cfg = {
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"status", 's', "", CFG_NONE, &cfg.status, no_argument,
+		 "show events in all partitions"},
+		{"reset", 'r', "", CFG_NONE, &cfg.clear, no_argument,
+		 "clear all GFMS events"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	num = ARRAY_SIZE(elist);
+
+	if (cfg.clear && cfg.status) {
+		fprintf(stderr, "--clear and --reset cannot be specified at the same time.\n");
+		return -1;
+	}
+
+	if (cfg.clear) {
+		ret = switchtec_clear_gfms_events(cfg.dev);
+		if (ret < 0)  {
+			switchtec_perror("get_gfms_events");
+			return ret;
+		}
+	}
+
+	if (cfg.status)
+		num = 0;
+
+	ret = switchtec_get_gfms_events(cfg.dev, elist, num,
+					&overflow, &remain_num);
+	if (ret < 0)  {
+		switchtec_perror("get_gfms_events");
+		return ret;
+	}
+
+	print_gfms_event_list(elist, ret, overflow, remain_num);
+
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	{"topo_info", topo_info, "Show topology info of the specific switch"},
 	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
@@ -1061,6 +1243,7 @@ static const struct cmd commands[] = {
 	{"port_control", port_control, "Initiate port control command"},
 	{"portcfg_show", portcfg_show, "Get the port config info"},
 	{"portcfg_set", portcfg_set, "Set the port config"},
+	{"gfms_events", gfms_events, "Display information on GFMS events that have occurred"},
 	{}
 };
 

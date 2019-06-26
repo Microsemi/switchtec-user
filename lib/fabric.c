@@ -916,3 +916,83 @@ free_and_exit:
 exit:
 	return ret;
 }
+
+int switchtec_get_gfms_events(struct switchtec_dev *dev,
+			      struct switchtec_gfms_event *elist,
+			      size_t elist_len, int *overflow,
+			      size_t *remain_number)
+{
+	int ret;
+	int event_cnt = 0;
+	uint16_t req_num = elist_len;
+	uint16_t remain_num;
+	struct switchtec_gfms_event *e = elist;
+	size_t d_len;
+	uint8_t *p;
+	int i;
+
+	struct {
+		uint8_t subcmd;
+		uint8_t reserved;
+		uint16_t req_num;
+	} req = {
+		.subcmd = 1,
+		.req_num = req_num,
+	};
+
+	struct {
+		uint16_t num;
+		uint16_t remain_num_flag;
+		uint8_t data[MRPC_MAX_DATA_LEN - 4];
+	} resp;
+
+	struct entry {
+		uint16_t entry_len;
+		uint8_t event_code;
+		uint8_t src_sw_id;
+		uint8_t data[];
+	} *hdr;
+
+	do {
+		ret = switchtec_cmd(dev, MRPC_GFMS_EVENT, &req,
+				    sizeof(req), &resp, sizeof(resp));
+		if (ret)
+			return -1;
+
+		if ((resp.remain_num_flag & 0x8000) && overflow)
+			*overflow = 1;
+
+		p = resp.data;
+		for (i = 0; i < resp.num; i++) {
+			hdr = (struct entry *)p;
+			e->event_code = hdr->event_code;
+			e->src_sw_id = hdr->src_sw_id;
+			d_len = le32toh(hdr->entry_len) -
+				offsetof(struct entry, data);
+			memcpy(e->data.byte, hdr->data, d_len);
+			p += hdr->entry_len;
+			e++;
+		};
+		event_cnt += resp.num;
+		remain_num = resp.remain_num_flag & 0x7fff;
+		req_num -= resp.num;
+	} while (req_num && remain_num);
+
+	if (remain_number)
+		*remain_number = remain_num;
+
+	return event_cnt;
+}
+
+int switchtec_clear_gfms_events(struct switchtec_dev *dev)
+{
+	int ret;
+	uint32_t subcmd = 0;
+
+	ret = switchtec_cmd(dev, MRPC_GFMS_EVENT, &subcmd, sizeof(subcmd),
+			    NULL, 0);
+	if (ret)
+		return -1;
+
+	return 0;
+}
