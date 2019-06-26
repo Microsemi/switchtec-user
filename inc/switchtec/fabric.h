@@ -493,6 +493,114 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 		struct switchtec_dev *dev,
 		uint8_t hvd_idx,
 		struct switchtec_gfms_db_hvd_detail *hvd_detail);
+
+/********** GFMS Event *********/
+
+/**
+ * @brief The GFMS event types
+ */
+enum switchtec_gfms_event_type {
+	SWITCHTEC_GFMS_EVENT_HOST_LINK_UP = 0,
+	SWITCHTEC_GFMS_EVENT_HOST_LINK_DOWN = 1,
+	SWITCHTEC_GFMS_EVENT_DEV_ADD = 2,
+	SWITCHTEC_GFMS_EVENT_DEV_DEL = 3,
+	SWITCHTEC_GFMS_EVENT_FAB_LINK_UP = 4,
+	SWITCHTEC_GFMS_EVENT_FAB_LINK_DOWN = 5,
+	SWITCHTEC_GFMS_EVENT_BIND = 6,
+	SWITCHTEC_GFMS_EVENT_UNBIND = 7,
+	SWITCHTEC_GFMS_EVENT_DATABASE_CHANGED = 8,
+	SWITCHTEC_GFMS_EVENT_HVD_INST_ENABLE = 9,
+	SWITCHTEC_GFMS_EVENT_HVD_INST_DISABLE = 10,
+	SWITCHTEC_GFMS_EVENT_EP_PORT_ADD = 11,
+	SWITCHTEC_GFMS_EVENT_EP_PORT_REMOVE = 12,
+	SWITCHTEC_GFMS_EVENT_AER = 13,
+	SWITCHTEC_GFMS_EVENT_MAX = 14
+};
+
+/**
+ * @brief The event data for SWITCHTEC_GFMS_EVENT_HOST_LINK_UP/DOWN
+ */
+struct switchtec_gfms_event_host {
+	uint16_t phys_port_id;
+};
+
+/**
+ * @brief The event data for SWITCHTEC_GFMS_EVENT_DEV_ADD/DEL
+ */
+struct switchtec_gfms_event_dev {
+	uint16_t phys_port_id;
+	uint16_t function_count;
+};
+
+/**
+ * @brief The event data for SWITCHTEC_GFMS_EVENT_BIND/UNBIND
+ */
+struct switchtec_gfms_event_bind {
+	uint8_t host_sw_idx;
+	uint8_t host_phys_port_id;
+	uint8_t log_port_id;
+	uint8_t reserved1;
+	uint16_t pdfid;
+};
+
+/**
+ * @brief The event data for SWITCHTEC_GFMS_EVENT_HVD_INST_ENABLE/DISABLE
+ */
+struct switchtec_gfms_event_hvd {
+	uint8_t hvd_inst_id;
+	uint8_t phys_port_id;
+	uint8_t clock_chan;
+};
+
+/**
+ * @brief The event data for SWITCHTEC_GFMS_EVENT_EP_PORT_ADD/REMOVE
+ */
+struct switchtec_gfms_event_ep_port {
+	uint8_t phys_port_id;
+};
+
+/**
+ * @brief The event data for SWITCHTEC_GFMS_EVENT_AER
+ */
+struct switchtec_gfms_event_aer {
+	uint16_t phys_port_id;
+	uint8_t handle;
+	uint8_t reserved1;
+	uint32_t ce_ue_err_sts;
+	uint32_t aer_err_log_time_stamp_high;
+	uint32_t aer_err_log_time_stamp_low;
+	uint32_t aer_header_log[4];
+};
+/** @brief Check if log saved in the AER */
+#define switchtec_gfms_aer_log(aer) (((aer)->handle) & 0x01)
+/** @brief Check if DPC triggered */
+#define switchtec_gfms_aer_dpc(aer) (((aer)->handle) & 0x02)
+/** @brief Return the CE/UE flag */
+#define switchtec_gfms_aer_ce_ue(aer) (((aer)->handle) & 0x04)
+
+/**
+ * @brief Represents the GFMS event
+ */
+struct switchtec_gfms_event {
+	int event_code;
+	int src_sw_id;
+	union {
+		struct switchtec_gfms_event_host host;
+		struct switchtec_gfms_event_dev dev;
+		struct switchtec_gfms_event_bind bind;
+		struct switchtec_gfms_event_hvd hvd;
+		struct switchtec_gfms_event_ep_port ep;
+		struct switchtec_gfms_event_aer aer;
+		uint32_t byte[8];
+	} data;
+};
+
+int switchtec_get_gfms_events(struct switchtec_dev *dev,
+                              struct switchtec_gfms_event *elist,
+                              size_t elist_len, int *overflow,
+                              size_t *remain_number);
+
+int switchtec_clear_gfms_events(struct switchtec_dev *dev);
 #ifdef __cplusplus
 }
 #endif
