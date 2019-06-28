@@ -51,7 +51,7 @@ int gasop_access_check(struct switchtec_dev *dev)
 {
 	uint32_t device_id;
 
-	device_id = gas_reg_read32(dev, sys_info.device_id);
+	device_id = __gas_read32(dev, &dev->gas_map->sys_info.device_id);
 	if (device_id == -1)
 		return -1;
 	return 0;
@@ -71,13 +71,13 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	int status;
 	int ret;
 
-	memcpy_to_gas(dev, &mrpc->input_data, payload, payload_len);
+	__memcpy_to_gas(dev, &mrpc->input_data, payload, payload_len);
 	gas_write32(dev, cmd, &mrpc->cmd);
 
 	while (1) {
 		usleep(5000);
 
-		status = gas_read32(dev, &mrpc->status);
+		status = __gas_read32(dev, &mrpc->status);
 		if (status != SWITCHTEC_MRPC_STATUS_INPROGRESS)
 			break;
 	}
@@ -92,12 +92,12 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		return -errno;
 	}
 
-	ret = gas_read32(dev, &mrpc->ret_value);
+	ret = __gas_read32(dev, &mrpc->ret_value);
 	if (ret)
 		errno = ret;
 
 	if(resp)
-		memcpy_from_gas(dev, resp, &mrpc->output_data, resp_len);
+		__memcpy_from_gas(dev, resp, &mrpc->output_data, resp_len);
 
 	return ret;
 }

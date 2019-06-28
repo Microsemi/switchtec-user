@@ -33,6 +33,9 @@
 #include "switchtec/errors.h"
 
 #include <errno.h>
+#include <unistd.h>
+#include <string.h>
+#include <signal.h>
 
 /**
  * @brief Open a switchtec device by path.
@@ -311,7 +314,11 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
  */
 uint8_t gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr)
 {
-	return dev->ops->gas_read8(dev, addr);
+
+	uint8_t val;
+
+	memcpy_from_gas(dev, &val, addr, 1);
+	return val;
 }
 
 /**
@@ -322,7 +329,10 @@ uint8_t gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr)
  */
 uint16_t gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr)
 {
-	return dev->ops->gas_read16(dev, addr);
+	uint16_t val;
+
+	memcpy_from_gas(dev, &val, addr, 2);
+	return val;
 }
 
 /**
@@ -333,7 +343,10 @@ uint16_t gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr)
  */
 uint32_t gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr)
 {
-	return dev->ops->gas_read32(dev, addr);
+	uint32_t val;
+
+	memcpy_from_gas(dev, &val, addr, 4);
+	return val;
 }
 
 /**
@@ -344,7 +357,10 @@ uint32_t gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr)
  */
 uint64_t gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr)
 {
-	return dev->ops->gas_read64(dev, addr);
+	uint64_t val;
+
+	memcpy_from_gas(dev, &val, addr, 8);
+	return val;
 }
 
 /**
@@ -355,7 +371,7 @@ uint64_t gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr)
  */
 void gas_write8(struct switchtec_dev *dev, uint8_t val, uint8_t __gas *addr)
 {
-	dev->ops->gas_write8(dev, val, addr);
+	memcpy_to_gas(dev, addr, &val, sizeof(val));
 }
 
 /**
@@ -366,7 +382,7 @@ void gas_write8(struct switchtec_dev *dev, uint8_t val, uint8_t __gas *addr)
  */
 void gas_write16(struct switchtec_dev *dev, uint16_t val, uint16_t __gas *addr)
 {
-	dev->ops->gas_write16(dev, val, addr);
+	memcpy_to_gas(dev, addr, &val, sizeof(val));
 }
 
 /**
@@ -377,7 +393,7 @@ void gas_write16(struct switchtec_dev *dev, uint16_t val, uint16_t __gas *addr)
  */
 void gas_write32(struct switchtec_dev *dev, uint32_t val, uint32_t __gas *addr)
 {
-	dev->ops->gas_write32(dev, val, addr);
+	memcpy_to_gas(dev, addr, &val, sizeof(val));
 }
 
 /**
@@ -388,7 +404,7 @@ void gas_write32(struct switchtec_dev *dev, uint32_t val, uint32_t __gas *addr)
  */
 void gas_write64(struct switchtec_dev *dev, uint64_t val, uint64_t __gas *addr)
 {
-	dev->ops->gas_write64(dev, val, addr);
+	memcpy_to_gas(dev, addr, &val, sizeof(val));
 }
 
 /**
@@ -401,7 +417,30 @@ void gas_write64(struct switchtec_dev *dev, uint64_t val, uint64_t __gas *addr)
 void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 		   const void *src, size_t n)
 {
-	dev->ops->memcpy_to_gas(dev, dest, src, n);
+
+	uint32_t gas_addr;
+	int ret;
+
+	gas_addr = (uint32_t)(dest - (void __gas *)dev->gas_map);
+
+	if (gas_addr < MRPC_MAX_DATA_LEN)
+		raise(SIGBUS);
+
+	struct mrpc_write {
+		uint32_t gas_offset;
+		uint32_t wr_byte_len;
+		uint8_t wr_data[];
+	} *cmd;
+
+	cmd = malloc(sizeof(*cmd) + n);
+	cmd->gas_offset = gas_addr;
+	cmd->wr_byte_len = n;
+	memcpy(cmd->wr_data, src, n);
+
+	ret = switchtec_cmd(dev, MRPC_GAS_WRITE , cmd,
+			    sizeof(*cmd) + n, NULL, 0);
+	if (ret)
+		raise(SIGBUS);
 }
 
 /**
@@ -414,7 +453,24 @@ void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 		     const void __gas *src, size_t n)
 {
-	dev->ops->memcpy_from_gas(dev, dest, src, n);
+
+	uint32_t gas_addr;
+	int ret;
+
+	gas_addr = (uint32_t)(src - (void __gas *)dev->gas_map);
+
+	struct mrpc_read {
+		uint32_t gas_offset;
+		uint32_t rd_byte_len;
+	} cmd = {
+		.gas_offset = gas_addr,
+		.rd_byte_len = n,
+	};
+
+	ret = switchtec_cmd(dev, MRPC_GAS_READ, &cmd,
+			sizeof(cmd), dest, n);
+	if (ret)
+		raise(SIGBUS);
 }
 
 /**
@@ -427,5 +483,20 @@ void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 ssize_t write_from_gas(struct switchtec_dev *dev, int fd,
 		       const void __gas *src, size_t n)
 {
-	return dev->ops->write_from_gas(dev, fd, src, n);
+	ssize_t ret;
+	void *buf;
+
+	buf = malloc(n);
+	if (!buf)
+		return -1;
+
+	memcpy_from_gas(dev, buf, src, n);
+
+	ret = write(fd, buf, n);
+	if (ret < 0)
+		return -1;
+
+	free(buf);
+
+	return ret;
 }
