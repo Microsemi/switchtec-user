@@ -41,7 +41,8 @@
  * may not.
  *
  * These functions should generally not be used unless you really know what
- * you are doing.
+ * you are doing. The regular gas accessors (ie. gas_*()) will call these
+ * functions when switchtec_set_pax_id() has been used.
  *
  * @{
  */

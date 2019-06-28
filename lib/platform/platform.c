@@ -30,6 +30,7 @@
 #include "../switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/gas.h"
+#include "switchtec/gas_mrpc.h"
 #include "switchtec/errors.h"
 
 #include <errno.h>
@@ -311,6 +312,9 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
  */
 uint8_t gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		return gas_mrpc_read8(dev, addr);
+
 	return __gas_read8(dev, addr);
 }
 
@@ -322,6 +326,9 @@ uint8_t gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr)
  */
 uint16_t gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		return gas_mrpc_read16(dev, addr);
+
 	return __gas_read16(dev, addr);
 }
 
@@ -333,6 +340,9 @@ uint16_t gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr)
  */
 uint32_t gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		return gas_mrpc_read32(dev, addr);
+
 	return __gas_read32(dev, addr);
 }
 
@@ -344,6 +354,9 @@ uint32_t gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr)
  */
 uint64_t gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		return gas_mrpc_read64(dev, addr);
+
 	return __gas_read64(dev, addr);
 }
 
@@ -355,6 +368,9 @@ uint64_t gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr)
  */
 void gas_write8(struct switchtec_dev *dev, uint8_t val, uint8_t __gas *addr)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		gas_mrpc_write8(dev, val, addr);
+
 	__gas_write8(dev, val, addr);
 }
 
@@ -366,6 +382,9 @@ void gas_write8(struct switchtec_dev *dev, uint8_t val, uint8_t __gas *addr)
  */
 void gas_write16(struct switchtec_dev *dev, uint16_t val, uint16_t __gas *addr)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		gas_mrpc_write16(dev, val, addr);
+
 	__gas_write16(dev, val, addr);
 }
 
@@ -377,6 +396,9 @@ void gas_write16(struct switchtec_dev *dev, uint16_t val, uint16_t __gas *addr)
  */
 void gas_write32(struct switchtec_dev *dev, uint32_t val, uint32_t __gas *addr)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		gas_mrpc_write32(dev, val, addr);
+
 	__gas_write32(dev, val, addr);
 }
 
@@ -388,6 +410,9 @@ void gas_write32(struct switchtec_dev *dev, uint32_t val, uint32_t __gas *addr)
  */
 void gas_write64(struct switchtec_dev *dev, uint64_t val, uint64_t __gas *addr)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		gas_mrpc_write64(dev, val, addr);
+
 	__gas_write64(dev, val, addr);
 }
 
@@ -401,6 +426,9 @@ void gas_write64(struct switchtec_dev *dev, uint64_t val, uint64_t __gas *addr)
 void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 		   const void *src, size_t n)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		gas_mrpc_memcpy_to_gas(dev, dest, src, n);
+
 	__memcpy_to_gas(dev, dest, src, n);
 }
 
@@ -414,6 +442,9 @@ void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 		     const void __gas *src, size_t n)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		gas_mrpc_memcpy_from_gas(dev, dest, src, n);
+
 	__memcpy_from_gas(dev, dest, src, n);
 }
 
@@ -427,5 +458,8 @@ void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 ssize_t write_from_gas(struct switchtec_dev *dev, int fd,
 		       const void __gas *src, size_t n)
 {
+	if (dev->pax_id != dev->local_pax_id)
+		gas_mrpc_write_from_gas(dev, fd, src, n);
+
 	return __write_from_gas(dev, fd, src, n);
 }
