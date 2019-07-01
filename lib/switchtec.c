@@ -317,7 +317,11 @@ int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id)
 	    (pax_id != SWITCHTEC_PAX_ID_LOCAL))
 		return -1;
 
-	dev->pax_id = pax_id;
+	if (pax_id == SWITCHTEC_PAX_ID_LOCAL)
+		dev->pax_id = dev->local_pax_id;
+	else
+		dev->pax_id = pax_id;
+
 	return 0;
 }
 
