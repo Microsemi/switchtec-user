@@ -94,6 +94,7 @@ struct switchtec_dev {
 	enum switchtec_gen gen;
 	enum switchtec_variant var;
 	int pax_id;
+	int local_pax_id;
 	int partition, partition_count;
 	char name[PATH_MAX];
 

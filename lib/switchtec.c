@@ -147,6 +147,25 @@ static int set_gen_variant(struct switchtec_dev * dev)
 	return 0;
 }
 
+static int set_local_pax_id(struct switchtec_dev *dev)
+{
+	unsigned char local_pax_id;
+	int ret;
+
+	dev->local_pax_id = -1;
+
+	if (!switchtec_is_pax(dev))
+		return 0;
+
+	ret = switchtec_cmd(dev, MRPC_GET_PAX_ID, NULL, 0,
+			    &local_pax_id, sizeof(local_pax_id));
+	if (ret)
+		return -1;
+
+	dev->local_pax_id = local_pax_id;
+	return 0;
+}
+
 /**
  * @brief Open a Switchtec device by string
  * @param[in] device A string representing the device to open
@@ -226,6 +245,9 @@ found:
 		errno = ENODEV;
 
 	if (set_gen_variant(ret))
+		return NULL;
+
+	if (set_local_pax_id(ret))
 		return NULL;
 
 	return ret;
