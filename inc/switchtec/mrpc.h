@@ -60,7 +60,10 @@ enum mrpc_cmd {
 	MRPC_MULTI_CFG = 29,
 	MRPC_SES = 30,
 	MRPC_RD_FLASH = 31,
+	MRPC_GAS_READ = 41,
 	MRPC_ECHO = 65,
+	MRPC_GET_PAX_ID = 129,
+	MRPC_GAS_WRITE = 135,  // CHECK ME
 };
 
 enum mrpc_bg_status {
