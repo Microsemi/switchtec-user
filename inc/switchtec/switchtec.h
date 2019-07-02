@@ -520,6 +520,125 @@ enum switchtec_fw_active_flags {
 };
 
 /**
+ * @brief Raw Gen3 Flash partition id.
+ *
+ * Avoid using this directly
+ */
+enum switchtec_fw_partition_id_gen3 {
+	SWITCHTEC_FW_PART_ID_BOOT_GEN3 = SWITCHTEC_FW_TYPE_BOOT,
+	SWITCHTEC_FW_PART_ID_MAP0_GEN3 = SWITCHTEC_FW_TYPE_MAP0,
+	SWITCHTEC_FW_PART_ID_MAP1_GEN3 = SWITCHTEC_FW_TYPE_MAP1,
+	SWITCHTEC_FW_PART_ID_IMG0_GEN3 = SWITCHTEC_FW_TYPE_IMG0,
+	SWITCHTEC_FW_PART_ID_CFG0_GEN3 = SWITCHTEC_FW_TYPE_DAT0,
+	SWITCHTEC_FW_PART_ID_CFG1_GEN3 = SWITCHTEC_FW_TYPE_DAT1,
+	SWITCHTEC_FW_PART_ID_NVLOG_GEN3 = SWITCHTEC_FW_TYPE_NVLOG,
+	SWITCHTEC_FW_PART_ID_IMG1_GEN3 = SWITCHTEC_FW_TYPE_IMG1,
+};
+
+/**
+ * @brief Raw Gen4 Flash partition id.
+ *
+ * Avoid using this directly
+ */
+enum switchtec_fw_partition_id_gen4 {
+	SWITCHTEC_FW_PART_ID_BOOT_GEN4 = 0,
+	SWITCHTEC_FW_PART_ID_BL20_GEN4 = 1,
+	SWITCHTEC_FW_PART_ID_BL21_GEN4 = 2,
+	SWITCHTEC_FW_PART_ID_MAP0_GEN4 = 3,
+	SWITCHTEC_FW_PART_ID_MAP1_GEN4 = 4,
+	SWITCHTEC_FW_PART_ID_CFG0_GEN4 = 5,
+	SWITCHTEC_FW_PART_ID_CFG1_GEN4 = 6,
+	SWITCHTEC_FW_PART_ID_IMG0_GEN4 = 7,
+	SWITCHTEC_FW_PART_ID_IMG1_GEN4 = 8,
+	SWITCHTEC_FW_PART_ID_NVLOG_GEN4 = 9,
+};
+
+/**
+ * @brief Flash partition id.
+ *
+ */
+enum switchtec_fw_partition_id {
+	SWITCHTEC_FW_PART_ID_BOOT = SWITCHTEC_FW_PART_ID_BOOT_GEN4 << 8 |
+				    SWITCHTEC_FW_PART_ID_BOOT_GEN3,
+	SWITCHTEC_FW_PART_ID_BL20 = SWITCHTEC_FW_PART_ID_BL20_GEN4 << 8,
+	SWITCHTEC_FW_PART_ID_BL21 = SWITCHTEC_FW_PART_ID_BL21_GEN4 << 8,
+	SWITCHTEC_FW_PART_ID_MAP0 = SWITCHTEC_FW_PART_ID_MAP0_GEN4 << 8 |
+				    SWITCHTEC_FW_PART_ID_MAP0_GEN3,
+	SWITCHTEC_FW_PART_ID_MAP1 = SWITCHTEC_FW_PART_ID_MAP1_GEN4 << 8 |
+				    SWITCHTEC_FW_PART_ID_MAP1_GEN3,
+	SWITCHTEC_FW_PART_ID_CFG0 = SWITCHTEC_FW_PART_ID_CFG0_GEN4 << 8 |
+				    SWITCHTEC_FW_PART_ID_CFG0_GEN3,
+	SWITCHTEC_FW_PART_ID_CFG1 = SWITCHTEC_FW_PART_ID_CFG1_GEN4 << 8 |
+				    SWITCHTEC_FW_PART_ID_CFG1_GEN3,
+	SWITCHTEC_FW_PART_ID_IMG0 = SWITCHTEC_FW_PART_ID_IMG0_GEN4 << 8 |
+				    SWITCHTEC_FW_PART_ID_IMG0_GEN3,
+	SWITCHTEC_FW_PART_ID_IMG1 = SWITCHTEC_FW_PART_ID_IMG1_GEN4 << 8 |
+				    SWITCHTEC_FW_PART_ID_IMG1_GEN3,
+	SWITCHTEC_FW_PART_ID_NVLOG = SWITCHTEC_FW_PART_ID_NVLOG_GEN4 << 8 |
+				     SWITCHTEC_FW_PART_ID_NVLOG_GEN3,
+};
+
+#define GEN3_FW_PART_ID(t) (t & 0xff)
+#define GEN4_FW_PART_ID(t) ((t & 0xff00) >> 8)
+
+/**
+ * @brief Gen3 FW partition type.
+ *
+ * Avoid using this directly
+ */
+enum switchtec_fw_part_type_gen3 {
+	SWITCHTEC_FW_PART_TYPE_BOOT_GEN3 = SWITCHTEC_FW_TYPE_BOOT,
+	SWITCHTEC_FW_PART_TYPE_MAP0_GEN3 = SWITCHTEC_FW_TYPE_MAP0,
+	SWITCHTEC_FW_PART_TYPE_MAP1_GEN3 = SWITCHTEC_FW_TYPE_MAP1,
+	SWITCHTEC_FW_PART_TYPE_CFG0_GEN3 = SWITCHTEC_FW_TYPE_DAT0,
+	SWITCHTEC_FW_PART_TYPE_CFG1_GEN3 = SWITCHTEC_FW_TYPE_DAT1,
+	SWITCHTEC_FW_PART_TYPE_IMG0_GEN3 = SWITCHTEC_FW_TYPE_IMG0,
+	SWITCHTEC_FW_PART_TYPE_IMG1_GEN3 = SWITCHTEC_FW_TYPE_IMG1,
+	SWITCHTEC_FW_PART_TYPE_NVLOG_GEN3 = SWITCHTEC_FW_TYPE_NVLOG,
+	SWITCHTEC_FW_PART_TYPE_SEEPROM_GEN3 = SWITCHTEC_FW_TYPE_SEEPROM,
+};
+
+/**
+ * @brief Gen4 FW partition type.
+ *
+ * Avoid using this directly
+ */
+enum switchtec_fw_part_type_gen4 {
+	SWITCHTEC_FW_PART_TYPE_BOOT_GEN4 = 0,
+	SWITCHTEC_FW_PART_TYPE_BL2_GEN4 = 1,
+	SWITCHTEC_FW_PART_TYPE_MAP_GEN4 = 2,
+	SWITCHTEC_FW_PART_TYPE_CFG_GEN4 = 3,
+	SWITCHTEC_FW_PART_TYPE_IMG_GEN4 = 4,
+	SWITCHTEC_FW_PART_TYPE_NVLOG_GEN4 = 5,
+	SWITCHTEC_FW_PART_TYPE_VENDOR_GEN4 = 6,
+	SWITCHTEC_FW_PART_TYPE_SEEPROM_GEN4 = 0xFE,
+};
+
+/**
+ * @brief FW partition type.
+ *
+ */
+enum switchtec_fw_partition_type {
+	SWITCHTEC_FW_PART_TYPE_BOOT = (SWITCHTEC_FW_PART_TYPE_BOOT_GEN4 << 8 |
+				      SWITCHTEC_FW_PART_TYPE_BOOT_GEN3),
+	SWITCHTEC_FW_PART_TYPE_BL2 = SWITCHTEC_FW_PART_TYPE_BL2_GEN4 << 8,
+	SWITCHTEC_FW_PART_TYPE_MAP = (SWITCHTEC_FW_PART_TYPE_MAP_GEN4 << 8 |
+				     SWITCHTEC_FW_PART_TYPE_MAP0_GEN3),
+	SWITCHTEC_FW_PART_TYPE_CFG = (SWITCHTEC_FW_PART_TYPE_CFG_GEN4 << 8 |
+				     SWITCHTEC_FW_PART_TYPE_CFG0_GEN3),
+	SWITCHTEC_FW_PART_TYPE_IMG = (SWITCHTEC_FW_PART_TYPE_IMG_GEN4 << 8 |
+				     SWITCHTEC_FW_PART_TYPE_IMG0_GEN3),
+	SWITCHTEC_FW_PART_TYPE_SEEPROM = (SWITCHTEC_FW_PART_TYPE_SEEPROM_GEN4 << 8 |
+					 SWITCHTEC_FW_PART_TYPE_SEEPROM_GEN3),
+	SWITCHTEC_FW_PART_TYPE_NVLOG = (SWITCHTEC_FW_PART_TYPE_NVLOG_GEN4 << 8 |
+				       SWITCHTEC_FW_PART_TYPE_NVLOG_GEN3),
+	SWITCHTEC_FW_PART_TYPE_UNKNOWN,
+};
+
+#define GEN3_FW_PART_TYPE(t) (t & 0xff)
+#define GEN4_FW_PART_TYPE(t) ((t & 0xff00) >> 8)
+
+/**
  * @brief Get whether a firmware partition is active.
  *
  * An active partition implies that it will be used the next
@@ -557,6 +676,40 @@ struct switchtec_fw_footer {
 	uint32_t image_crc;
 };
 
+struct switchtec_fw_metadata {
+	char magic[4];
+	uint32_t image_len;
+	uint32_t type;
+	uint32_t load_addr;
+	uint32_t version;
+	uint32_t sequence;
+	uint32_t auth_en;
+	uint32_t sign_len;
+	uint32_t xml_version;
+	char date_str[8];
+	char time_str[8];
+	char img_str[16];
+	uint8_t bl_baud_rate;
+	uint8_t stdio_uart_port;
+	uint32_t header_crc;
+	uint32_t image_crc;
+};
+
+struct switchtec_fw_partition_info {
+	enum switchtec_fw_partition_id part_id;
+	enum switchtec_fw_partition_type type;
+	uint32_t version;
+	char ver_str[16];
+	size_t part_addr;
+	size_t part_len;
+	size_t image_len;
+	unsigned long image_crc;
+	int valid;
+	int active;
+	int running;
+	int readonly;
+};
+
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus);
@@ -583,9 +736,23 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
 					struct switchtec_fw_footer *ftr,
 					char *version, size_t version_len);
+int switchtec_fw_partition_info(struct switchtec_dev *dev,
+				enum switchtec_fw_partition_id id,
+				struct switchtec_fw_partition_info *info);
+int switchtec_fw_get_multicfg(struct switchtec_dev *dev,
+			      struct switchtec_fw_partition_info *info,
+			      int *nr_mult);
+int switchtec_fw_read_metadata(struct switchtec_dev *dev,
+			       enum switchtec_fw_partition_id part_id,
+			       struct switchtec_fw_metadata *meta,
+			       char *version, size_t version_len);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
+int switchtec_fw_image_file_info(int fd,
+				 struct switchtec_fw_partition_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
+const char *switchtec_fw_part_type(
+		const struct switchtec_fw_partition_info *info);
 int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			   struct switchtec_fw_image_info *info);
 int switchtec_fw_img_info(struct switchtec_dev *dev,
@@ -598,6 +765,8 @@ int switchtec_fw_cfg_info(struct switchtec_dev *dev,
 			  int *nr_mult);
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type);
+int switchtec_fw_img_file_write_hdr(int fd, struct switchtec_fw_metadata *meta,
+				    enum switchtec_fw_partition_type type);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);
