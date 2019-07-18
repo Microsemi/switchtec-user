@@ -766,22 +766,6 @@ static int ep_port_func_type(uint8_t sriov_cap_pf, char *func_type, size_t len)
 	return 0;
 }
 
-static int ep_port_bar_type(uint8_t bar_type, char *bar_type_str, size_t len)
-{
-	if (bar_type == 0x4) {
-		strncpy(bar_type_str, "Memory, Non-prefechable, 64-bit", len);
-		bar_type_str[len - 1] = '\0';
-	} else if (bar_type == 0xc)  {
-		strncpy(bar_type_str, "Memory, Prefechable, 64-bit", len);
-		bar_type_str[len - 1] = '\0';
-	} else {
-		strncpy(bar_type_str, "Unknown", len);
-		bar_type_str[len - 1] = '\0';
-	}
-
-	return 0;
-}
-
 static int exp2_to_string(int exp, char *str)
 {
 	char unit[7] = {'\0', 'K', 'M', 'G', 'T', 'P', '\0'};
@@ -824,7 +808,9 @@ static int ep_port_function_print(
 
 	for (i = 0; i < 6; i++) {
 		if (func->bars[i].size) {
-			ep_port_bar_type(func->bars[i].type, bar_type, 64);
+			switchtec_ep_port_bar_type_str(func->bars[i].type,
+						       bar_type,
+						       sizeof(bar_type));
 
 			if (exp2_to_string(func->bars[i].size, bar_size))
 				sprintf(bar_size, "Invalid");
@@ -878,7 +864,7 @@ static int ep_port_print(struct switchtec_dev *dev,
 
 			for (j = 0; j < 6; j++)
 				if (switch_function->bar[j].size) {
-					ep_port_bar_type(
+					switchtec_ep_port_bar_type_str(
 						switch_function->bar[j].type,
 						bar_type, 64);
 

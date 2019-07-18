@@ -234,6 +234,17 @@ enum switchtec_gfms_db_vep_type {
 	SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT = 8,
 };
 
+enum switchtec_gfms_db_ep_port_bar_type {
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_32_PREFETCH = 0x8,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_64_PREFETCH = 0xc,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_32_NON_PREFETCH = 0x0,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_64_NON_PREFETCH = 0x4,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_32_PREFETCH = 0x9,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_64_PREFETCH = 0xd,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_32_NON_PREFETCH = 0x1,
+	SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_64_NON_PREFETCH = 0x5,
+};
+
 struct switchtec_gfms_db_dump_section_hdr {
 	uint8_t section_class;
 	uint8_t pax_idx;
@@ -468,6 +479,43 @@ struct switchtec_gfms_db_pax_all {
 	struct switchtec_gfms_db_pax_general pax_general;
 	struct switchtec_gfms_db_ep_port_all_section ep_port_all;
 };
+
+static inline const char *switchtec_ep_port_bar_type_str(uint8_t bar_type,
+							 char *bar_type_str,
+							 size_t len)
+{
+	switch (bar_type) {
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_32_PREFETCH:
+		strncpy(bar_type_str, "Memory, Prefetchable, 32-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_64_PREFETCH:
+		strncpy(bar_type_str, "Memory, Prefetchable, 64-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_32_NON_PREFETCH:
+		strncpy(bar_type_str, "Memory, Non-prefetchable, 32-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_MEM_64_NON_PREFETCH:
+		strncpy(bar_type_str, "Memory, Non-prefetchable, 64-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_32_PREFETCH:
+		strncpy(bar_type_str, "IO, Prefetchable, 32-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_64_PREFETCH:
+		strncpy(bar_type_str, "IO, Prefetchable, 64-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_32_NON_PREFETCH:
+		strncpy(bar_type_str, "IO, Non-prefetchable, 32-bit", len);
+		break;
+	case SWITCHTEC_GFMS_DB_EP_BAR_TYPE_IO_64_NON_PREFETCH:
+		strncpy(bar_type_str, "IO, Non-prefetchable, 64-bit", len);
+		break;
+	default:
+		strncpy(bar_type_str, "Unknown", len);
+	}
+
+	bar_type_str[len - 1] = '\0';
+	return 0;
+}
 
 int switchtec_fab_gfms_db_dump_fabric_general(
 		struct switchtec_dev *dev,
