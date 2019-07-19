@@ -231,7 +231,7 @@ enum switchtec_gfms_db_hvd_usp_link_state {
 };
 
 enum switchtec_gfms_db_vep_type {
-	SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT = 8,
+	SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT = 7,
 };
 
 enum switchtec_gfms_db_ep_port_bar_type {
