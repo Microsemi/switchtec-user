@@ -130,17 +130,20 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
  * @return 0 on success, error code on failure
  */
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
-					 int toggle_fw, int toggle_cfg)
+					 int toggle_fw, int toggle_cfg,
+					 int toggle_bl2)
 {
 	struct {
 		uint8_t subcmd;
 		uint8_t toggle_fw;
 		uint8_t toggle_cfg;
+		uint8_t toggle_bl2;
 	} cmd;
 
 	cmd.subcmd = MRPC_FWDNLD_TOGGLE;
 	cmd.toggle_fw = !!toggle_fw;
 	cmd.toggle_cfg = !!toggle_cfg;
+	cmd.toggle_bl2 = !!toggle_bl2;
 
 	return switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
 			     NULL, 0);
@@ -478,6 +481,8 @@ static enum switchtec_fw_partition_type flash_part_type(struct fw_image_header *
 		switch(hdr->gen4.type) {
 		case SWITCHTEC_FW_PART_TYPE_BOOT_GEN4:
 			return SWITCHTEC_FW_PART_TYPE_BOOT;
+		case SWITCHTEC_FW_PART_TYPE_BL2_GEN4:
+			return SWITCHTEC_FW_PART_TYPE_BL2;
 		case SWITCHTEC_FW_PART_TYPE_MAP_GEN4:
 			return SWITCHTEC_FW_PART_TYPE_MAP;
 		case SWITCHTEC_FW_PART_TYPE_IMG_GEN4:
@@ -566,6 +571,8 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 {
 	switch((unsigned long)info->type) {
 	case SWITCHTEC_FW_TYPE_BOOT: return "BOOT";
+	case SWITCHTEC_FW_TYPE_BL2_0: return "BL2";
+	case SWITCHTEC_FW_TYPE_BL2_1: return "BL2";
 	case SWITCHTEC_FW_TYPE_MAP0: return "MAP";
 	case SWITCHTEC_FW_TYPE_MAP1: return "MAP";
 	case SWITCHTEC_FW_TYPE_IMG0: return "IMG";
@@ -589,6 +596,7 @@ const char *switchtec_fw_part_type(
 {
 	switch((unsigned long)info->type) {
 	case SWITCHTEC_FW_PART_TYPE_BOOT: return "BOOT";
+	case SWITCHTEC_FW_PART_TYPE_BL2: return "BL2";
 	case SWITCHTEC_FW_PART_TYPE_MAP: return "MAP";
 	case SWITCHTEC_FW_PART_TYPE_IMG: return "IMG";
 	case SWITCHTEC_FW_PART_TYPE_CFG: return "DAT";
@@ -857,6 +865,43 @@ int switchtec_fw_img_info(struct switchtec_dev *dev,
 
 	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info),
 				     info);
+	if (ret < 0)
+		return ret;
+
+	if (switchtec_fw_active(&info[0])) {
+		if (act_img)
+			memcpy(act_img, &info[0], sizeof(*act_img));
+		if (inact_img)
+			memcpy(inact_img, &info[1], sizeof(*inact_img));
+	} else {
+		if (act_img)
+			memcpy(act_img, &info[1], sizeof(*act_img));
+		if (inact_img)
+			memcpy(inact_img, &info[0], sizeof(*inact_img));
+	}
+
+	return 0;
+}
+
+/*
+ * @brief Read a Switchtec device's bl2 data
+ * @param[in] dev		Switchtec device handle
+ * @param[out] act_img		Info structure for the active partition
+ * @param[out] inact_img	Info structure for the inactive partition
+ * @return 0 on success, error code on failure
+ */
+int switchtec_fw_bl2_info(struct switchtec_dev *dev,
+			  struct switchtec_fw_image_info *act_img,
+			  struct switchtec_fw_image_info *inact_img)
+{
+	int ret;
+	struct switchtec_fw_image_info info[2];
+
+	info[0].type = SWITCHTEC_FW_TYPE_BL2_0;
+	info[1].type = SWITCHTEC_FW_TYPE_BL2_1;
+
+	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info), info);
+
 	if (ret < 0)
 		return ret;
 

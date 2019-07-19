@@ -1244,10 +1244,12 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 {
 	int nr_mult = 16;
 	struct switchtec_fw_partition_info boot_info, map_info,
+					   bl20_info, bl21_info,
 					   img0_info, img1_info,
 					   cfg0_info, cfg1_info,
 					   mult_cfg[nr_mult];
-	struct switchtec_fw_partition_info *act_img_info, *inact_img_info,
+	struct switchtec_fw_partition_info *act_bl2_info, *inact_bl2_info,
+					   *act_img_info, *inact_img_info,
 					   *act_cfg_info, *inact_cfg_info;
 	int ret, i;
 
@@ -1271,6 +1273,27 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 			switchtec_perror("map1");
 			return ret;
 		}
+	}
+
+	ret = switchtec_fw_partition_info(dev, SWITCHTEC_FW_PART_ID_BL20,
+					  &bl20_info);
+	if (ret < 0) {
+		switchtec_perror("bl20");
+		return ret;
+	}
+
+	ret = switchtec_fw_partition_info(dev, SWITCHTEC_FW_PART_ID_BL21,
+					  &bl21_info);
+	if (ret < 0) {
+		switchtec_perror("bl21");
+		return ret;
+	}
+	if (bl20_info.active) {
+		act_bl2_info = &bl20_info;
+		inact_bl2_info = &bl21_info;
+	} else {
+		act_bl2_info = &bl21_info;
+		inact_bl2_info = &bl20_info;
 	}
 
 	ret = switchtec_fw_partition_info(dev, SWITCHTEC_FW_PART_ID_IMG0,
@@ -1328,6 +1351,9 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("  MAP \tVersion: %-8s\tCRC: %08lx%s\n",
 	       map_info.ver_str, (long)map_info.image_crc,
 	       fw_readonly_string(&map_info));
+	printf("  BL2 \tVersion: %-8s\tCRC: %08lx%s\n",
+	       act_bl2_info->ver_str, act_bl2_info->image_crc,
+	       fw_running_string(act_bl2_info));
 	printf("  IMG \tVersion: %-8s\tCRC: %08lx%s\n",
 	       act_img_info->ver_str, act_img_info->image_crc,
 	       fw_running_string(act_img_info));
@@ -1341,6 +1367,9 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	}
 
 	printf("Inactive Partition:\n");
+	printf("  BL2  \tVersion: %-8s\tCRC: %08lx%s\n",
+	       inact_bl2_info->ver_str, inact_bl2_info->image_crc,
+	       fw_running_string(inact_bl2_info));
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
 	       inact_img_info->ver_str, inact_img_info->image_crc,
 	       fw_running_string(inact_img_info));
@@ -1483,6 +1512,7 @@ static int fw_toggle(int argc, char **argv)
 		struct switchtec_dev *dev;
 		int firmware;
 		int config;
+		int bl2;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -1490,17 +1520,21 @@ static int fw_toggle(int argc, char **argv)
 		 "toggle IMG firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.config, no_argument,
 		 "toggle CFG data"},
+		{"bl2", 'b', "", CFG_NONE, &cfg.bl2, no_argument,
+		 "toggle BL2 firmware"},
+
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (!cfg.firmware && !cfg.config) {
+	if (!cfg.firmware && !cfg.config && !cfg.bl2) {
 		fprintf(stderr, "NOTE: Not toggling images seeing neither "
 			"--firmware nor --config were specified\n\n");
 	} else {
 		ret = switchtec_fw_toggle_active_partition(cfg.dev,
 							   cfg.firmware,
-							   cfg.config);
+							   cfg.config,
+							   cfg.bl2);
 	}
 
 	print_fw_part_info(cfg.dev);

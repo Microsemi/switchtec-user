@@ -182,6 +182,8 @@ enum switchtec_fw_image_type {
 	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
 	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
 	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
+	SWITCHTEC_FW_TYPE_BL2_0 = 0x8,
+	SWITCHTEC_FW_TYPE_BL2_1 = 0x9,
 	SWITCHTEC_FW_TYPE_SEEPROM = 0xFE,
 };
 
@@ -818,7 +820,8 @@ int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 int switchtec_fw_wait(struct switchtec_dev *dev,
 		      enum switchtec_fw_dlstatus *status);
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
-					 int toggle_fw, int toggle_cfg);
+					 int toggle_fw, int toggle_cfg,
+					 int toggle_bl2);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
 			  void (*progress_callback)(int cur, int tot));
