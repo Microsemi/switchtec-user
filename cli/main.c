@@ -1551,6 +1551,7 @@ static int fw_read(int argc, char **argv)
 	const char *desc = "Read the firmware image";
 	struct switchtec_fw_partition_info img0_info, img1_info,
 					   cfg0_info, cfg1_info,
+					   bl20_info, bl21_info,
 					   *info;
 	struct switchtec_fw_metadata meta;
 	enum switchtec_fw_partition_id id;
@@ -1564,10 +1565,12 @@ static int fw_read(int argc, char **argv)
 		int inactive;
 		int img;
 		int cfg;
+		int bl2;
 	} cfg = {
 		.inactive = 0,
 		.img = 0,
 		.cfg = 0,
+		.bl2 = 0,
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -1580,7 +1583,9 @@ static int fw_read(int argc, char **argv)
 		{"image", 'm', "", CFG_NONE, &cfg.img, no_argument,
 		 "read the main firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.cfg, no_argument,
-		 "read the data/config partiton instead of the main firmware"},
+		 "read the data/config partiton"},
+		{"bl2", 'b', "", CFG_NONE, &cfg.bl2, no_argument,
+		 "read the BL2 firmware"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -1625,6 +1630,26 @@ static int fw_read(int argc, char **argv)
 			}
 			info = &img1_info;
 		}
+	} else if (cfg.bl2) {
+		id = SWITCHTEC_FW_PART_ID_BL20;
+		ret = switchtec_fw_partition_info(cfg.dev, id, &bl20_info);
+		if (ret < 0) {
+			switchtec_perror("fw_read_BL20");
+			goto close_and_exit;
+		}
+		if ((!bl20_info.active && cfg.inactive) ||
+		    (bl20_info.active && !cfg.inactive)) {
+			info = &bl20_info;
+		} else {
+			id = SWITCHTEC_FW_PART_ID_BL21;
+			ret = switchtec_fw_partition_info(cfg.dev, id,
+							  &bl21_info);
+			if (ret < 0) {
+				switchtec_perror("fw_read_BL21");
+				goto close_and_exit;
+			}
+			info = &bl21_info;
+		}
 	} else {
 		argconfig_print_usage(opts);
 		fprintf(stderr, "Must specify image or config to read!\n");
@@ -1639,7 +1664,8 @@ static int fw_read(int argc, char **argv)
 	}
 
 	fprintf(stderr, "Version:  %s\n", version);
-	fprintf(stderr, "Type:     %s\n", cfg.img ? "IMG" : "DAT");
+	fprintf(stderr, "Type:     %s\n",
+		cfg.img ? "IMG" : cfg.cfg ? "DAT" : "BL2");
 	fprintf(stderr, "Img Len:  0x%x\n", (int) meta.image_len);
 	fprintf(stderr, "CRC:      0x%x\n", (int) meta.image_crc);
 
