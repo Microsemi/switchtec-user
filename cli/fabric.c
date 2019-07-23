@@ -107,7 +107,7 @@ static int gfms_unbind(int argc, char **argv)
 
 	return 0;
 }
-
+#if 0
 static int string_to_dword_data(char *str, unsigned int *dw_data, int *data_len)
 {
 	char *tmp;
@@ -200,7 +200,7 @@ static int device_manage(int argc, char **argv)
 
 	return 0;
 }
-
+#endif
 static int port_control(int argc, char **argv)
 {
 	const char *desc = "Initiate switchtec port control command";
@@ -1333,7 +1333,7 @@ static const struct cmd commands[] = {
 	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
 	{"gfms_dump", gfms_dump, "PAX only, dump the GFMS database"},
 	{"route", route, "Show routing info of the specific switch"},
-	{"device_manage", device_manage, "Initiate device specific manage command"},
+//	{"device_manage", device_manage, "Initiate device specific manage command"},
 	{"port_control", port_control, "Initiate port control command"},
 	{"portcfg_show", portcfg_show, "Get the port config info"},
 	{"portcfg_set", portcfg_set, "Set the port config"},
