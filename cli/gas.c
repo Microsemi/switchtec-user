@@ -35,7 +35,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <ctype.h>
-
+#if 0
 static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 {
 	int i;
@@ -318,7 +318,7 @@ static int gas_dump(int argc, char **argv)
 
 	return pipe_to_hd_less(cfg.dev, map, cfg.count);
 }
-
+#endif
 static int print_hex(struct switchtec_dev *dev, void __gas *addr,
 		     int offset, int bytes)
 {
@@ -515,7 +515,7 @@ static int gas_write(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
-	{"dump", gas_dump, "dump the global address space"},
+//	{"dump", gas_dump, "dump the global address space"},
 	{"read", gas_read, "read a register from the global address space"},
 	{"write", gas_write, "write a register in the global address space"},
 	{}
