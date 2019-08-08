@@ -94,6 +94,7 @@ struct switchtec_dev {
 	enum switchtec_gen gen;
 	enum switchtec_variant var;
 	int pax_id;
+	int local_pax_id;
 	int partition, partition_count;
 	char name[PATH_MAX];
 
@@ -113,5 +114,71 @@ static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
 }
 
 const char *platform_strerror();
+
+static inline uint8_t __gas_read8(struct switchtec_dev *dev,
+				  uint8_t __gas *addr)
+{
+	return dev->ops->gas_read8(dev, addr);
+}
+
+static inline uint16_t __gas_read16(struct switchtec_dev *dev,
+				    uint16_t __gas *addr)
+{
+	return dev->ops->gas_read16(dev, addr);
+}
+
+static inline uint32_t __gas_read32(struct switchtec_dev *dev,
+				    uint32_t __gas *addr)
+{
+	return dev->ops->gas_read32(dev, addr);
+}
+
+static inline uint64_t __gas_read64(struct switchtec_dev *dev,
+				    uint64_t __gas *addr)
+{
+	return dev->ops->gas_read64(dev, addr);
+}
+
+static inline void __gas_write8(struct switchtec_dev *dev, uint8_t val,
+				uint8_t __gas *addr)
+{
+	dev->ops->gas_write8(dev, val, addr);
+}
+
+static inline void __gas_write16(struct switchtec_dev *dev, uint16_t val,
+				 uint16_t __gas *addr)
+{
+	dev->ops->gas_write16(dev, val, addr);
+}
+
+static inline void __gas_write32(struct switchtec_dev *dev, uint32_t val,
+				 uint32_t __gas *addr)
+{
+	dev->ops->gas_write32(dev, val, addr);
+}
+
+static inline void __gas_write64(struct switchtec_dev *dev, uint64_t val,
+				 uint64_t __gas *addr)
+{
+	dev->ops->gas_write64(dev, val, addr);
+}
+
+static inline void __memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
+		   const void *src, size_t n)
+{
+	dev->ops->memcpy_to_gas(dev, dest, src, n);
+}
+
+static inline void __memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+		     const void __gas *src, size_t n)
+{
+	dev->ops->memcpy_from_gas(dev, dest, src, n);
+}
+
+static inline ssize_t __write_from_gas(struct switchtec_dev *dev, int fd,
+		       const void __gas *src, size_t n)
+{
+	return dev->ops->write_from_gas(dev, fd, src, n);
+}
 
 #endif
