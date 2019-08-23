@@ -53,8 +53,8 @@ struct switchtec_ops {
 			    size_t *map_size);
 	void (*gas_unmap)(struct switchtec_dev *dev, gasptr_t map);
 	int (*flash_part)(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *info,
-			  enum switchtec_fw_image_type part);
+			  struct switchtec_fw_partition_info *info,
+			  enum switchtec_fw_partition_id part);
 	int (*event_summary)(struct switchtec_dev *dev,
 			     struct switchtec_event_summary *sum);
 	int (*event_ctl)(struct switchtec_dev *dev,

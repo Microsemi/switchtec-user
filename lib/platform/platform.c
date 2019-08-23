@@ -249,9 +249,14 @@ void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
  * @returns 0 on success, negative on failure
  */
 int switchtec_flash_part(struct switchtec_dev *dev,
-			 struct switchtec_fw_image_info *info,
-			 enum switchtec_fw_image_type part)
+			 struct switchtec_fw_partition_info *info,
+			 enum switchtec_fw_partition_id part)
 {
+	if (!switchtec_is_gen3(dev)) {
+		errno = ENOTSUP;
+		return -1;
+	}
+
 	return dev->ops->flash_part(dev, info, part);
 }
 

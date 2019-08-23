@@ -765,27 +765,27 @@ static void linux_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
 }
 
 static int linux_flash_part(struct switchtec_dev *dev,
-			    struct switchtec_fw_image_info *info,
-			    enum switchtec_fw_image_type part)
+			    struct switchtec_fw_partition_info *info,
+			    enum switchtec_fw_partition_id part)
 {
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 	struct switchtec_ioctl_flash_part_info ioctl_info = {0};
 	int ret;
 
 	switch (part) {
-	case SWITCHTEC_FW_TYPE_IMG0:
+	case SWITCHTEC_FW_PART_ID_IMG0:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_IMG0;
 		break;
-	case SWITCHTEC_FW_TYPE_IMG1:
+	case SWITCHTEC_FW_PART_ID_IMG1:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_IMG1;
 		break;
-	case SWITCHTEC_FW_TYPE_DAT0:
+	case SWITCHTEC_FW_PART_ID_CFG0:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_CFG0;
 		break;
-	case SWITCHTEC_FW_TYPE_DAT1:
+	case SWITCHTEC_FW_PART_ID_CFG1:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_CFG1;
 		break;
-	case SWITCHTEC_FW_TYPE_NVLOG:
+	case SWITCHTEC_FW_PART_ID_NVLOG:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_NVLOG;
 		break;
 	default:
@@ -796,9 +796,13 @@ static int linux_flash_part(struct switchtec_dev *dev,
 	if (ret)
 		return ret;
 
-	info->image_addr = ioctl_info.address;
-	info->image_len = ioctl_info.length;
-	info->active = ioctl_info.active;
+	info->part_addr = ioctl_info.address;
+	info->part_len = ioctl_info.length;
+	if (ioctl_info.active & SWITCHTEC_FW_PART_ACTIVE)
+		info->active = 1;
+	if (ioctl_info.active & SWITCHTEC_FW_PART_RUNNING)
+		info->running = 1;
+
 	return 0;
 }
 

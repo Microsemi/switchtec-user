@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 
 /**
  * @defgroup Firmware Firmware Management
@@ -376,7 +377,7 @@ void switchtec_fw_perror(const char *s, int ret)
 	fprintf(stderr, "%s: %s\n", s, msg);
 }
 
-struct fw_image_header {
+struct fw_image_header_gen3 {
 	char magic[4];
 	uint32_t image_len;
 	uint32_t type;
@@ -387,34 +388,82 @@ struct fw_image_header {
 	uint32_t image_crc;
 };
 
+struct fw_image_header {
+	union {
+		char magic[4];
+		struct fw_image_header_gen3 gen3;
+	};
+};
+
+static enum switchtec_fw_partition_type flash_part_type(
+		struct fw_image_header *hdr)
+{
+	if (strncmp(hdr->magic, "PMC", sizeof(hdr->magic)) == 0) {
+		switch(hdr->gen3.type) {
+		case SWITCHTEC_FW_PART_ID_BOOT_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_BOOT;
+		case SWITCHTEC_FW_PART_ID_MAP0_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_MAP;
+		case SWITCHTEC_FW_PART_ID_MAP1_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_MAP;
+		case SWITCHTEC_FW_PART_ID_IMG0_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_IMG;
+		case SWITCHTEC_FW_PART_ID_IMG1_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_IMG;
+		case SWITCHTEC_FW_PART_ID_CFG0_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_CFG;
+		case SWITCHTEC_FW_PART_ID_CFG1_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_CFG;
+		case SWITCHTEC_FW_PART_ID_NVLOG_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_NVLOG;
+		case SWITCHTEC_FW_PART_TYPE_SEEPROM_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_SEEPROM;
+		default:
+			return SWITCHTEC_FW_PART_TYPE_UNKNOWN;
+		}
+	}
+
+	return SWITCHTEC_FW_PART_TYPE_UNKNOWN;
+}
+
 /**
  * @brief Retrieve information about a firmware image file
  * @param[in]  fd	File descriptor for the image file to inspect
  * @param[out] info	Structure populated with information about the file
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
+int switchtec_fw_image_file_info(int fd,
+				 struct switchtec_fw_partition_info *info)
 {
 	int ret;
-	struct fw_image_header hdr = {};
-
-	ret = read(fd, &hdr, sizeof(hdr));
-	lseek(fd, 0, SEEK_SET);
-
-	if (ret != sizeof(hdr))
-		goto invalid_file;
-
-	if (strcmp(hdr.magic, "PMC") != 0)
-		goto invalid_file;
+	int size;
 
 	if (info == NULL)
 		return 0;
 
-	info->type = hdr.type;
-	info->crc = le32toh(hdr.image_crc);
-	version_to_string(hdr.version, info->version, sizeof(info->version));
-	info->image_addr = le32toh(hdr.load_addr);
-	info->image_len = le32toh(hdr.image_len);
+	struct fw_image_header hdr = {};
+	size = offsetof(struct fw_image_header, magic) + sizeof(hdr.magic);
+	ret = read(fd, &hdr, size);
+	lseek(fd, 0, SEEK_SET);
+	if (ret != size)
+		goto invalid_file;
+
+	if (strncmp(hdr.magic, "PMC", sizeof(hdr.magic)) == 0) {
+		size = offsetof(struct fw_image_header, gen3) +
+		       sizeof(hdr.gen3);
+		ret = read(fd, &hdr, size);
+		lseek(fd, 0, SEEK_SET);
+		if (ret != size)
+			goto invalid_file;
+
+		info->type = flash_part_type(&hdr);
+		info->image_crc = le32toh(hdr.gen3.image_crc);
+		version_to_string(hdr.gen3.version, info->ver_str,
+				  sizeof(info->ver_str));
+		info->image_len = le32toh(hdr.gen3.image_len);
+	} else {
+		goto invalid_file;
+	}
 
 	return 0;
 
@@ -428,75 +477,20 @@ invalid_file:
  * @param[out] info Information structure to return the type string for
  * @return Type string
  */
-const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
+const char *switchtec_fw_part_type(
+		const struct switchtec_fw_partition_info *info)
 {
 	switch((unsigned long)info->type) {
-	case SWITCHTEC_FW_TYPE_BOOT: return "BOOT";
-	case SWITCHTEC_FW_TYPE_MAP0: return "MAP";
-	case SWITCHTEC_FW_TYPE_MAP1: return "MAP";
-	case SWITCHTEC_FW_TYPE_IMG0: return "IMG";
-	case SWITCHTEC_FW_TYPE_IMG1: return "IMG";
-	case SWITCHTEC_FW_TYPE_DAT0: return "DAT";
-	case SWITCHTEC_FW_TYPE_DAT1: return "DAT";
-	case SWITCHTEC_FW_TYPE_NVLOG: return "NVLOG";
-	case SWITCHTEC_FW_TYPE_SEEPROM: return "SEEPROM";
-
-	//Legacy
-	case 0xa8000000: return "BOOT (LEGACY)";
-	case 0xa8020000: return "MAP (LEGACY)";
-	case 0xa8060000: return "IMG (LEGACY)";
-	case 0xa8210000: return "DAT (LEGACY)";
-
+	case SWITCHTEC_FW_PART_TYPE_BOOT: return "BOOT";
+	case SWITCHTEC_FW_PART_TYPE_MAP: return "MAP";
+	case SWITCHTEC_FW_PART_TYPE_BL2: return "BL2";
+	case SWITCHTEC_FW_PART_TYPE_KEYMAN: return "KEYMAN";
+	case SWITCHTEC_FW_PART_TYPE_IMG: return "IMG";
+	case SWITCHTEC_FW_PART_TYPE_CFG: return "DAT";
+	case SWITCHTEC_FW_PART_TYPE_NVLOG: return "NVLOG";
+	case SWITCHTEC_FW_PART_TYPE_SEEPROM: return "SEEPROM";
 	default: return "UNKNOWN";
 	}
-}
-
-/**
- * @brief Return firmware information structures for a number of firmware
- *	partitions.
- * @param[in]  dev	Switchtec device handle
- * @param[in]  nr_info 	Number of partitions to retrieve the info for
- * @param[out] info	Pointer to a list of info structs of at least
- *	\p nr_info entries
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
-			   struct switchtec_fw_image_info *info)
-{
-	int ret;
-	int i;
-	struct switchtec_fw_footer ftr;
-
-	if (info == NULL || nr_info == 0)
-		return -EINVAL;
-
-	for (i = 0; i < nr_info; i++) {
-		struct switchtec_fw_image_info *inf = &info[i];
-
-		ret = switchtec_flash_part(dev, inf, inf->type);
-		if (ret)
-			return ret;
-
-
-		if (info[i].type == SWITCHTEC_FW_TYPE_NVLOG) {
-			inf->version[0] = 0;
-			inf->crc = 0;
-			continue;
-		}
-
-		ret = switchtec_fw_read_footer(dev, inf->image_addr,
-					       inf->image_len, &ftr,
-					       inf->version,
-					       sizeof(inf->version));
-		if (ret < 0) {
-			inf->version[0] = 0;
-			inf->crc = 0xFFFFFFFF;
-		} else {
-			inf->crc = ftr.image_crc;
-		}
-	}
-
-	return nr_info;
 }
 
 static long multicfg_subcmd(struct switchtec_dev *dev, uint32_t subcmd,
@@ -515,9 +509,9 @@ static long multicfg_subcmd(struct switchtec_dev *dev, uint32_t subcmd,
 	return result;
 }
 
-static int get_multicfg(struct switchtec_dev *dev,
-			struct switchtec_fw_image_info *info,
-			int *nr_mult)
+int switchtec_fw_get_multicfg(struct switchtec_dev *dev,
+			      struct switchtec_fw_partition_info *info,
+			      int *nr_mult)
 {
 	int ret;
 	int i;
@@ -539,14 +533,17 @@ static int get_multicfg(struct switchtec_dev *dev,
 		*nr_mult = ret;
 
 	for (i = 0; i < *nr_mult; i++) {
-		info[i].image_addr = multicfg_subcmd(dev,
-						     MRPC_MULTI_CFG_START_ADDR,
-						     i);
-		info[i].image_len = multicfg_subcmd(dev,
-						    MRPC_MULTI_CFG_LENGTH, i);
-		strcpy(info[i].version, "");
-		info[i].crc = 0;
+		info[i].part_addr = multicfg_subcmd(dev,
+						    MRPC_MULTI_CFG_START_ADDR,
+						    i);
+		info[i].part_len = multicfg_subcmd(dev,
+						   MRPC_MULTI_CFG_LENGTH, i);
+		info[i].version = 0;
+		info[i].image_crc = 0;
+		info[i].valid = 1;
 		info[i].active = 0;
+		info[i].running = 0;
+		info[i].readonly = 0;
 	}
 
 	ret = multicfg_subcmd(dev, MRPC_MULTI_CFG_ACTIVE, 0);
@@ -555,90 +552,6 @@ static int get_multicfg(struct switchtec_dev *dev,
 
 	if (ret < *nr_mult)
 		info[ret].active = 1;
-
-	return 0;
-}
-
-/**
- * @brief Return firmware information structures for the active, inactive
- *	and multi configuration partitions
- * @param[in]  dev		Switchtec device handle
- * @param[out] act_cfg		Info structure for the active partition
- * @param[out] inact_cfg	Info structure for the inactive partition
- * @param[out] mult_cfg		List of info structure for the multi-configs
- * @param[in,out] nr_mult	Maximum number of multi-config structures to
- * 	populate, on return the number actually populated.
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_cfg_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_cfg,
-			  struct switchtec_fw_image_info *inact_cfg,
-			  struct switchtec_fw_image_info *mult_cfg,
-			  int *nr_mult)
-{
-	int ret;
-	struct switchtec_fw_image_info info[2];
-
-	info[0].type = SWITCHTEC_FW_TYPE_DAT0;
-	info[1].type = SWITCHTEC_FW_TYPE_DAT1;
-
-	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info),
-				     info);
-	if (ret < 0)
-		return ret;
-
-	if (switchtec_fw_active(&info[0])) {
-		if (act_cfg)
-			memcpy(act_cfg, &info[0], sizeof(*act_cfg));
-		if (inact_cfg)
-			memcpy(inact_cfg, &info[1], sizeof(*inact_cfg));
-	} else {
-		if (act_cfg)
-			memcpy(act_cfg, &info[1], sizeof(*act_cfg));
-		if (inact_cfg)
-			memcpy(inact_cfg, &info[0], sizeof(*inact_cfg));
-	}
-
-	if (!nr_mult || !mult_cfg || *nr_mult == 0)
-		return 0;
-
-	return get_multicfg(dev, mult_cfg, nr_mult);
-}
-
-/**
- * @brief Return firmware information structures for the active and inactive
- *	image partitions
- * @param[in]  dev		Switchtec device handle
- * @param[out] act_img		Info structure for the active partition
- * @param[out] inact_img	Info structure for the inactive partition
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_img_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_img,
-			  struct switchtec_fw_image_info *inact_img)
-{
-	int ret;
-	struct switchtec_fw_image_info info[2];
-
-	info[0].type = SWITCHTEC_FW_TYPE_IMG0;
-	info[1].type = SWITCHTEC_FW_TYPE_IMG1;
-
-	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info),
-				     info);
-	if (ret < 0)
-		return ret;
-
-	if (switchtec_fw_active(&info[0])) {
-		if (act_img)
-			memcpy(act_img, &info[0], sizeof(*act_img));
-		if (inact_img)
-			memcpy(inact_img, &info[1], sizeof(*inact_img));
-	} else {
-		if (act_img)
-			memcpy(act_img, &info[1], sizeof(*act_img));
-		if (inact_img)
-			memcpy(inact_img, &info[0], sizeof(*inact_img));
-	}
 
 	return 0;
 }
@@ -735,6 +648,17 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	return read;
 }
 
+struct fw_footer_gen3 {
+	char magic[4];
+	uint32_t image_len;
+	uint32_t load_addr;
+	uint32_t version;
+	uint32_t rsvd;
+	uint32_t header_crc;
+	uint32_t image_crc;
+};
+
+
 /**
  * @brief Read a Switchtec device's firmware partition footer
  * @param[in]  dev		Switchtec device handle
@@ -746,20 +670,20 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
  * @param[in]  version_len	Maximum length of the version string
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_read_footer(struct switchtec_dev *dev,
-			     unsigned long partition_start,
-			     size_t partition_len,
-			     struct switchtec_fw_footer *ftr,
-			     char *version, size_t version_len)
+static int fw_read_footer_gen3(struct switchtec_dev *dev,
+			       unsigned long partition_start,
+			       size_t partition_len,
+			       struct fw_footer_gen3 *ftr,
+			       char *version, size_t version_len)
 {
 	int ret;
 	unsigned long addr = partition_start + partition_len -
-		sizeof(struct switchtec_fw_footer);
+		sizeof(struct fw_footer_gen3);
 
 	if (!ftr)
 		return -EINVAL;
 
-	ret = switchtec_fw_read(dev, addr, sizeof(struct switchtec_fw_footer),
+	ret = switchtec_fw_read(dev, addr, sizeof(struct fw_footer_gen3),
 				ftr);
 	if (ret < 0)
 		return ret;
@@ -775,41 +699,187 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 	return 0;
 }
 
+static int fw_flash_part_info_gen3(struct switchtec_dev *dev,
+				   enum switchtec_fw_partition_id id,
+				   struct switchtec_fw_partition_info *info)
+{
+	int ret;
+	struct fw_footer_gen3 ftr;
+	int img_cfg_nvlog = 0;
+	size_t part_start;
+	size_t part_len;
+
+	info->valid = 1;
+	info->readonly = 0;
+	info->running = 0;
+	info->active = 0;
+
+	switch(id) {
+	case SWITCHTEC_FW_PART_ID_BOOT:
+		part_start = SWITCHTEC_FLASH_BOOT_PART_START;
+		part_len = SWITCHTEC_FLASH_PART_LEN;
+
+		info->readonly = switchtec_fw_is_boot_ro(dev);
+		if (info->readonly != SWITCHTEC_FW_RO)
+			info->readonly = 0;
+		info->part_id = SWITCHTEC_FW_PART_ID_BOOT;
+		info->type = SWITCHTEC_FW_PART_TYPE_BOOT;
+		break;
+	case SWITCHTEC_FW_PART_ID_MAP0:
+		part_start = SWITCHTEC_FLASH_MAP0_PART_START;
+		part_len = SWITCHTEC_FLASH_PART_LEN;
+		info->part_id = SWITCHTEC_FW_PART_ID_MAP0;
+		info->type = SWITCHTEC_FW_PART_TYPE_MAP;
+		break;
+	case SWITCHTEC_FW_PART_ID_MAP1:
+		part_start = SWITCHTEC_FLASH_MAP1_PART_START;
+		part_len = SWITCHTEC_FLASH_PART_LEN;
+		info->part_id = SWITCHTEC_FW_PART_ID_MAP1;
+		info->type = SWITCHTEC_FW_PART_TYPE_MAP;
+		break;
+	case SWITCHTEC_FW_PART_ID_IMG0:
+		img_cfg_nvlog = 1;
+		info->part_id = SWITCHTEC_FW_PART_ID_IMG0;
+		info->type = SWITCHTEC_FW_PART_TYPE_IMG;
+		break;
+	case SWITCHTEC_FW_PART_ID_IMG1:
+		img_cfg_nvlog = 1;
+		info->part_id = SWITCHTEC_FW_PART_ID_IMG1;
+		info->type = SWITCHTEC_FW_PART_TYPE_IMG;
+		break;
+	case SWITCHTEC_FW_PART_ID_CFG0:
+		img_cfg_nvlog = 1;
+		info->part_id = SWITCHTEC_FW_PART_ID_CFG0;
+		info->type = SWITCHTEC_FW_PART_TYPE_CFG;
+		break;
+	case SWITCHTEC_FW_PART_ID_CFG1:
+		img_cfg_nvlog = 1;
+		info->part_id = SWITCHTEC_FW_PART_ID_CFG1;
+		info->type = SWITCHTEC_FW_PART_TYPE_CFG;
+		break;
+	case SWITCHTEC_FW_PART_ID_NVLOG:
+		img_cfg_nvlog = 1;
+		info->part_id = SWITCHTEC_FW_PART_ID_NVLOG;
+		info->type = SWITCHTEC_FW_PART_TYPE_NVLOG;
+		info->ver_str[0] = 0;
+		break;
+	default:
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (img_cfg_nvlog) {
+		ret = switchtec_flash_part(dev, info, info->part_id);
+		if (ret)
+			return ret;
+
+		if (switchtec_fw_active(info))
+			info->active = 1;
+
+		if (switchtec_fw_running(info))
+			info->running = 1;
+
+		part_start = info->part_addr;
+		part_len = info->part_len;
+	}
+
+	ret = fw_read_footer_gen3(dev, part_start, part_len, &ftr,
+				  info->ver_str, sizeof(info->ver_str));
+
+	info->part_addr = part_start;
+	info->part_len = part_len;
+
+	info->image_len = ftr.image_len;
+	info->image_crc = ftr.image_crc;
+
+	return 0;
+}
+
+int switchtec_fw_partition_info(struct switchtec_dev *dev,
+				enum switchtec_fw_partition_id id,
+				struct switchtec_fw_partition_info *info)
+{
+	if (!info)
+		return 0;
+
+	if (switchtec_is_gen3(dev)) {
+		return fw_flash_part_info_gen3(dev, id, info);
+	}
+
+	errno = ENOTSUP;
+	return -1;
+}
+
 /**
- * @brief Read Switchtec device's active map partition footer
+ * @brief Read a Switchtec device's firmware partition metadata
  * @param[in]  dev		Switchtec device handle
- * @param[out] ftr		The footer structure to populate
+ * @param[in]  part_id		Flash partition ID
+ * @param[out] meta		The metadata structure to populate
  * @param[out] version		Optional pointer to a string which will
  *	be populated with a human readable string of the version
  * @param[in]  version_len	Maximum length of the version string
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
-					struct switchtec_fw_footer *ftr,
-					char *version, size_t version_len)
+int switchtec_fw_read_metadata(struct switchtec_dev *dev,
+			       enum switchtec_fw_partition_id part_id,
+			       struct switchtec_fw_metadata *meta,
+			       char *version, size_t version_len)
 {
 	int ret;
-	uint32_t map0_update_index;
-	uint32_t map1_update_index;
-	unsigned long active_map_part_start = SWITCHTEC_FLASH_MAP0_PART_START;
 
-	ret = switchtec_fw_read(dev, SWITCHTEC_FLASH_MAP0_PART_START,
-				sizeof(uint32_t), &map0_update_index);
-	if (ret < 0)
-		return ret;
+	if (!meta)
+		return -EINVAL;
 
-	ret = switchtec_fw_read(dev, SWITCHTEC_FLASH_MAP1_PART_START,
-				sizeof(uint32_t), &map1_update_index);
-	if (ret < 0)
-		return ret;
+	if (switchtec_is_gen3(dev)) {
+		struct switchtec_fw_partition_info inf;
+		struct fw_footer_gen3 ftr;
+		unsigned long addr;
 
-	if (map0_update_index < map1_update_index)
-		active_map_part_start = SWITCHTEC_FLASH_MAP1_PART_START;
+		if (part_id == SWITCHTEC_FW_PART_ID_MAP0)
+			addr = SWITCHTEC_FLASH_MAP0_PART_START +
+			       SWITCHTEC_FLASH_PART_LEN -
+			       sizeof(struct fw_footer_gen3);
+		else if (part_id == SWITCHTEC_FW_PART_ID_MAP1)
+			addr = SWITCHTEC_FLASH_MAP1_PART_START +
+			       SWITCHTEC_FLASH_PART_LEN -
+			       sizeof(struct fw_footer_gen3);
+		else if (part_id == SWITCHTEC_FW_PART_ID_BOOT)
+			addr = SWITCHTEC_FLASH_BOOT_PART_START +
+			       SWITCHTEC_FLASH_PART_LEN -
+			       sizeof(struct fw_footer_gen3);
+		else {
+			inf.type = GEN3_FW_PART_ID(part_id);
+			ret = switchtec_flash_part(dev, &inf, part_id);
+			if (ret)
+				return ret;
 
+			addr = inf.part_addr + inf.part_len -
+			       sizeof(struct fw_footer_gen3);
+		}
+		ret = switchtec_fw_read(dev, addr, sizeof(ftr), &ftr);
+		if (ret < 0)
+			return ret;
 
-	return switchtec_fw_read_footer(dev, active_map_part_start,
-					SWITCHTEC_FLASH_PART_LEN, ftr, version,
-					version_len);
+		if (strncmp(ftr.magic, "PMC", sizeof(ftr.magic)) != 0) {
+			errno = ENOEXEC;
+			return -errno;
+		}
+
+		strncpy(meta->magic, "PMC", sizeof(meta->magic));
+		meta->load_addr = ftr.load_addr;
+		meta->version = ftr.version;
+		meta->image_len = ftr.image_len;
+		meta->header_crc = ftr.header_crc;
+		meta->image_crc = ftr.image_crc;
+	} else {
+		errno = ENOTSUP;
+		return -1;
+	}
+
+	if (version)
+		version_to_string(meta->version, version, version_len);
+
+	return 0;
 }
 
 /**
@@ -819,20 +889,28 @@ int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
  * @param[in]  type	File type to record in the header
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
-			       enum switchtec_fw_image_type type)
+int switchtec_fw_img_file_write_hdr(int fd, struct switchtec_fw_metadata *meta,
+				    enum switchtec_fw_partition_type type)
 {
 	struct fw_image_header hdr = {};
 
-	memcpy(hdr.magic, ftr->magic, sizeof(hdr.magic));
-	hdr.image_len = ftr->image_len;
-	hdr.type = type;
-	hdr.load_addr = ftr->load_addr;
-	hdr.version = ftr->version;
-	hdr.header_crc = ftr->header_crc;
-	hdr.image_crc = ftr->image_crc;
+	memcpy(hdr.magic, meta->magic, sizeof(hdr.magic));
 
-	return write(fd, &hdr, sizeof(hdr));
+	if (!strncmp(hdr.magic, "PMC", sizeof(hdr.magic))) {
+		hdr.gen3.image_len = meta->image_len;
+	        hdr.gen3.type = GEN3_FW_PART_TYPE(type);
+	        hdr.gen3.load_addr = meta->load_addr;
+	        hdr.gen3.version = meta->version;
+	        hdr.gen3.header_crc = meta->header_crc;
+	        hdr.gen3.image_crc = meta->image_crc;
+
+	        return write(fd, &hdr,
+			     offsetof(struct fw_image_header, gen3) +
+			     sizeof(hdr.gen3));
+	}
+
+	errno = ENOTSUP;
+	return -1;
 }
 
 struct switchtec_boot_ro {

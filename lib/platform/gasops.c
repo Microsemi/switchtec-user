@@ -195,16 +195,16 @@ int gasop_port_to_pff(struct switchtec_dev *dev, int partition,
 }
 
 static void set_fw_info_part(struct switchtec_dev *dev,
-			     struct switchtec_fw_image_info *info,
+			     struct switchtec_fw_partition_info *info,
 			     struct partition_info __gas *pi)
 {
-	info->image_addr = __gas_read32(dev, &pi->address);
-	info->image_len = __gas_read32(dev, &pi->length);
+	info->part_addr = __gas_read32(dev, &pi->address);
+	info->part_len = __gas_read32(dev, &pi->length);
 }
 
 int gasop_flash_part(struct switchtec_dev *dev,
-		     struct switchtec_fw_image_info *info,
-		     enum switchtec_fw_image_type part)
+		     struct switchtec_fw_partition_info *info,
+		     enum switchtec_fw_partition_id part)
 {
 	struct flash_info_regs __gas *fi = &dev->gas_map->flash_info;
 	struct sys_info_regs __gas *si = &dev->gas_map->sys_info;
@@ -214,43 +214,43 @@ int gasop_flash_part(struct switchtec_dev *dev,
 	memset(info, 0, sizeof(*info));
 
 	switch (part) {
-	case SWITCHTEC_FW_TYPE_IMG0:
+	case SWITCHTEC_FW_PART_ID_IMG0:
 		active_addr = __gas_read32(dev, &fi->active_img.address);
 		set_fw_info_part(dev, info, &fi->img0);
 
 		val = __gas_read16(dev, &si->img_running);
 		if (val == SWITCHTEC_IMG0_RUNNING)
-			info->active |= SWITCHTEC_FW_PART_RUNNING;
+			info->running = 1;
 		break;
 
-	case SWITCHTEC_FW_TYPE_IMG1:
+	case SWITCHTEC_FW_PART_ID_IMG1:
 		active_addr = __gas_read32(dev, &fi->active_img.address);
 		set_fw_info_part(dev, info, &fi->img1);
 
 		val = __gas_read16(dev, &si->img_running);
 		if (val == SWITCHTEC_IMG1_RUNNING)
-			info->active |= SWITCHTEC_FW_PART_RUNNING;
+			info->running = 1;
 		break;
 
-	case SWITCHTEC_FW_TYPE_DAT0:
+	case SWITCHTEC_FW_PART_ID_CFG0:
 		active_addr = __gas_read32(dev, &fi->active_cfg.address);
 		set_fw_info_part(dev, info, &fi->cfg0);
 
 		val = __gas_read16(dev, &si->cfg_running);
 		if (val == SWITCHTEC_CFG0_RUNNING)
-			info->active |= SWITCHTEC_FW_PART_RUNNING;
+			info->running = 1;
 		break;
 
-	case SWITCHTEC_FW_TYPE_DAT1:
+	case SWITCHTEC_FW_PART_ID_CFG1:
 		active_addr = __gas_read32(dev, &fi->active_cfg.address);
 		set_fw_info_part(dev, info, &fi->cfg1);
 
 		val = __gas_read16(dev, &si->cfg_running);
 		if (val == SWITCHTEC_CFG1_RUNNING)
-			info->active |= SWITCHTEC_FW_PART_RUNNING;
+			info->running = 1;
 		break;
 
-	case SWITCHTEC_FW_TYPE_NVLOG:
+	case SWITCHTEC_FW_PART_ID_NVLOG:
 		set_fw_info_part(dev, info, &fi->nvlog);
 		break;
 
@@ -258,8 +258,8 @@ int gasop_flash_part(struct switchtec_dev *dev,
 		return -EINVAL;
 	}
 
-	if (info->image_addr == active_addr)
-		info->active |= SWITCHTEC_FW_PART_ACTIVE;
+	if (info->part_addr == active_addr)
+		info->active = 1;
 
 	return 0;
 }
