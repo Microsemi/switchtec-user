@@ -1540,11 +1540,17 @@ static int fw_toggle(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
+		int bl2;
+		int keyman;
 		int firmware;
 		int config;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"bl2", 'b', "", CFG_NONE, &cfg.bl2, no_argument,
+		 "toggle BL2 firmware"},
+		{"keyman", 'k', "", CFG_NONE, &cfg.keyman, no_argument,
+		 "toggle Key manifest"},
 		{"firmware", 'f', "", CFG_NONE, &cfg.firmware, no_argument,
 		 "toggle IMG firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.config, no_argument,
@@ -1553,11 +1559,17 @@ static int fw_toggle(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (!cfg.firmware && !cfg.config) {
-		fprintf(stderr, "NOTE: Not toggling images seeing neither "
-			"--firmware nor --config were specified\n\n");
+	if (!cfg.bl2 && !cfg.keyman && !cfg.firmware && !cfg.config) {
+		fprintf(stderr, "NOTE: Not toggling images seeing no"
+			"partition type options were specified\n\n");
+	} else if ((cfg.bl2 || cfg.keyman) && switchtec_is_gen3(cfg.dev)) {
+		fprintf(stderr, "Firmware type BL2 and Key manifest"
+			"are not supported by Gen3 switch\n");
+		return 1;
 	} else {
 		ret = switchtec_fw_toggle_active_partition(cfg.dev,
+							   cfg.bl2,
+							   cfg.keyman,
 							   cfg.firmware,
 							   cfg.config);
 	}
