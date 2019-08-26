@@ -1308,11 +1308,17 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 {
 	int nr_mult = 16;
 	struct switchtec_fw_partition_info boot_info,
+					   keyman0_info, keyman1_info,
+					   bl20_info, bl21_info,
 					   map0_info, map1_info,
 					   img0_info, img1_info,
 					   cfg0_info, cfg1_info,
 					   mult_cfg[nr_mult];
 	struct switchtec_fw_partition_info *act_map_info = NULL,
+					   *act_keyman_info = NULL,
+					   *inact_keyman_info = NULL,
+					   *act_bl2_info = NULL,
+					   *inact_bl2_info = NULL,
 					   *inact_map_info = NULL,
 					   *act_img_info = NULL,
 					   *inact_img_info = NULL,
@@ -1333,6 +1339,16 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	get_part_pair_info(dev, SWITCHTEC_FW_PART_TYPE_MAP,
 			   &map0_info, &map1_info,
 			   &act_map_info, &inact_map_info);
+
+	if (switchtec_is_gen4(dev)) {
+		get_part_pair_info(dev, SWITCHTEC_FW_PART_TYPE_KEYMAN,
+				   &keyman0_info, &keyman1_info,
+				   &act_keyman_info, &inact_keyman_info);
+
+		get_part_pair_info(dev, SWITCHTEC_FW_PART_TYPE_BL2,
+				   &bl20_info, &bl21_info,
+				   &act_bl2_info, &inact_bl2_info);
+	}
 
 	get_part_pair_info(dev, SWITCHTEC_FW_PART_TYPE_IMG,
 			   &img0_info, &img1_info,
@@ -1357,6 +1373,14 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("  MAP \tVersion: %-8s\tCRC: %08lx%s\n",
 	       act_map_info->ver_str, (long)act_map_info->image_crc,
 	       fw_readonly_string(act_map_info));
+	if (switchtec_is_gen4(dev)) {
+		printf("  KEY \tVersion: %-8s\tCRC: %08lx%s\n",
+		       act_keyman_info->ver_str, act_keyman_info->image_crc,
+		       fw_running_string(act_keyman_info));
+		printf("  BL2 \tVersion: %-8s\tCRC: %08lx%s\n",
+		       act_bl2_info->ver_str, act_bl2_info->image_crc,
+		       fw_running_string(act_bl2_info));
+	}
 	printf("  IMG \tVersion: %-8s\tCRC: %08lx%s\n",
 	       act_img_info->ver_str, act_img_info->image_crc,
 	       fw_running_string(act_img_info));
@@ -1370,6 +1394,14 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	}
 
 	printf("Inactive Partition:\n");
+	if (switchtec_is_gen4(dev)) {
+		printf("  KEY  \tVersion: %-8s\tCRC: %08lx%s\n",
+		       inact_keyman_info->ver_str, inact_keyman_info->image_crc,
+		       fw_running_string(inact_keyman_info));
+		printf("  BL2  \tVersion: %-8s\tCRC: %08lx%s\n",
+		       inact_bl2_info->ver_str, inact_bl2_info->image_crc,
+		       fw_running_string(inact_bl2_info));
+	}
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
 	       inact_img_info->ver_str, inact_img_info->image_crc,
 	       fw_running_string(inact_img_info));
