@@ -1193,6 +1193,41 @@ int switchtec_fw_img_file_write_hdr(int fd, struct switchtec_fw_metadata *meta,
 	        return write(fd, &hdr,
 			     offsetof(struct fw_image_header, gen3) +
 			     sizeof(hdr.gen3));
+	} else if (!strncmp(hdr.magic, "MSCC", sizeof(hdr.magic)) &&
+		   !strncmp(meta->sub_magic, "_MD ",
+			    sizeof(hdr.gen4.sub_magic))) {
+		memcpy(hdr.gen4.sub_magic, meta->sub_magic,
+		       sizeof(hdr.gen4.sub_magic));
+		hdr.gen4.image_len = meta->image_len;
+		hdr.gen4.type = GEN4_FW_PART_TYPE(type);
+		hdr.gen4.version = meta->version;
+		hdr.gen4.secure_version = meta->secure_version;
+		hdr.gen4.sequence = meta->sequence;
+		hdr.gen4.uart_port = meta->uart_port;
+		hdr.gen4.uart_rate = meta->uart_rate;
+		hdr.gen4.bist_enable = meta->bist_enable;
+		hdr.gen4.bist_gpio_pin_cfg = meta->bist_gpio_pin_cfg;
+		hdr.gen4.bist_gpio_level_cfg = meta->bist_gpio_level_cfg;
+		hdr.gen4.xml_version = meta->xml_version;
+		hdr.gen4.relocatable_img_len = meta->relocatable_img_len;
+		hdr.gen4.link_addr = meta->link_addr;
+		memcpy(hdr.gen4.date_str, meta->date_str,
+		       sizeof(hdr.gen4.date_str));
+		memcpy(hdr.gen4.time_str, meta->time_str,
+		       sizeof(hdr.gen4.time_str));
+		memcpy(hdr.gen4.img_str, meta->img_str,
+		       sizeof(hdr.gen4.img_str));
+		memcpy(hdr.gen4.public_key_modulus, meta->public_key_modulus,
+		       sizeof(hdr.gen4.public_key_modulus));
+		memcpy(hdr.gen4.public_key_exponent, meta->public_key_exponent,
+		       sizeof(hdr.gen4.public_key_exponent));
+		hdr.gen4.image_len = meta->image_len;
+		hdr.gen4.header_crc = meta->header_crc;
+		hdr.gen4.image_crc = meta->image_crc;
+
+		return write(fd, &hdr,
+			     offsetof(struct fw_image_header, gen4) +
+			     sizeof(hdr.gen4));
 	}
 
 	errno = ENOTSUP;
