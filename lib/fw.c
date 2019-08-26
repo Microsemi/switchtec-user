@@ -424,6 +424,7 @@ struct fw_image_header {
 	union {
 		char magic[4];
 		struct fw_image_header_gen3 gen3;
+		struct fw_metadata_gen4 gen4;
 	};
 };
 
@@ -449,6 +450,27 @@ static enum switchtec_fw_partition_type flash_part_type(
 		case SWITCHTEC_FW_PART_ID_NVLOG_GEN3:
 			return SWITCHTEC_FW_PART_TYPE_NVLOG;
 		case SWITCHTEC_FW_PART_TYPE_SEEPROM_GEN3:
+			return SWITCHTEC_FW_PART_TYPE_SEEPROM;
+		default:
+			return SWITCHTEC_FW_PART_TYPE_UNKNOWN;
+		}
+	} else if (strncmp(hdr->magic, "MSCC", sizeof(hdr->magic)) == 0 &&
+		   strncmp(hdr->gen4.sub_magic, "_MD ",
+			   sizeof(hdr->gen4.sub_magic)) == 0) {
+		switch(hdr->gen4.type) {
+		case SWITCHTEC_FW_PART_TYPE_MAP_GEN4:
+			return SWITCHTEC_FW_PART_TYPE_MAP;
+		case SWITCHTEC_FW_PART_TYPE_KEYMAN_GEN4:
+			return SWITCHTEC_FW_PART_TYPE_KEYMAN;
+		case SWITCHTEC_FW_PART_TYPE_BL2_GEN4:
+			return SWITCHTEC_FW_PART_TYPE_BL2;
+		case SWITCHTEC_FW_PART_TYPE_CFG_GEN4:
+			return SWITCHTEC_FW_PART_TYPE_CFG;
+		case SWITCHTEC_FW_PART_TYPE_IMG_GEN4:
+			return SWITCHTEC_FW_PART_TYPE_IMG;
+		case SWITCHTEC_FW_PART_TYPE_NVLOG_GEN4:
+			return SWITCHTEC_FW_PART_TYPE_NVLOG;
+		case SWITCHTEC_FW_PART_TYPE_SEEPROM_GEN4:
 			return SWITCHTEC_FW_PART_TYPE_SEEPROM;
 		default:
 			return SWITCHTEC_FW_PART_TYPE_UNKNOWN;
@@ -493,6 +515,32 @@ int switchtec_fw_image_file_info(int fd,
 		version_to_string(hdr.gen3.version, info->ver_str,
 				  sizeof(info->ver_str));
 		info->image_len = le32toh(hdr.gen3.image_len);
+	} else if (strncmp(hdr.magic, "MSCC", sizeof(hdr.magic)) == 0) {
+		lseek(fd, offsetof(struct fw_metadata_gen4, sub_magic),
+				   SEEK_SET);
+
+		size = sizeof(hdr.gen4.sub_magic);
+		ret = read(fd, hdr.gen4.sub_magic, size);
+		if (ret != size)
+			goto invalid_file;
+
+		if (strncmp(hdr.gen4.sub_magic, "_MD ",
+			    sizeof(hdr.gen4.sub_magic)) != 0)
+			goto invalid_file;
+
+		lseek(fd, 0, SEEK_SET);
+
+		size = offsetof(struct fw_image_header, gen4) +
+		       sizeof(hdr.gen4);
+		ret = read(fd, &hdr, size);
+		lseek(fd, 0, SEEK_SET);
+		if (ret != size)
+			goto invalid_file;
+		info->type = flash_part_type(&hdr);
+		info->image_crc = le32toh(hdr.gen4.image_crc);
+		version_to_string(hdr.gen4.version, info->ver_str,
+				  sizeof(info->ver_str));
+		info->image_len = le32toh(hdr.gen4.image_len);
 	} else {
 		goto invalid_file;
 	}
