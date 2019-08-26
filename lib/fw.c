@@ -388,6 +388,38 @@ struct fw_image_header_gen3 {
 	uint32_t image_crc;
 };
 
+struct fw_metadata_gen4 {
+	char magic[4];
+	char sub_magic[4];
+	uint32_t hdr_version;
+	uint32_t secure_version;
+	uint32_t header_len;
+	uint32_t metadata_len;
+	uint32_t image_len;
+	uint32_t type;
+	uint32_t rsvd;
+	uint32_t version;
+	uint32_t sequence;
+	uint32_t reserved1;
+	uint8_t date_str[8];
+	uint8_t time_str[8];
+	uint8_t img_str[16];
+	uint8_t rsvd1[4];
+	uint32_t image_crc;
+	uint8_t public_key_modulus[512];
+	uint8_t public_key_exponent[4];
+	uint8_t uart_port;
+	uint8_t uart_rate;
+	uint8_t bist_enable;
+	uint8_t bist_gpio_pin_cfg;
+	uint8_t bist_gpio_level_cfg;
+	uint8_t rsvd2[3];
+	uint32_t xml_version;
+	uint32_t relocatable_img_len;
+	uint32_t link_addr;
+	uint32_t header_crc;
+};
+
 struct fw_image_header {
 	union {
 		char magic[4];
@@ -871,6 +903,56 @@ int switchtec_fw_read_metadata(struct switchtec_dev *dev,
 		meta->image_len = ftr.image_len;
 		meta->header_crc = ftr.header_crc;
 		meta->image_crc = ftr.image_crc;
+	} else if (switchtec_is_gen4(dev)) {
+		struct fw_metadata_gen4 fw_meta;
+
+		struct {
+			uint8_t subcmd;
+			uint8_t part_id;
+		} subcmd = {
+			.subcmd = MRPC_FLASH_GET_METADATA,
+			.part_id = GEN4_FW_PART_ID(part_id),
+		};
+
+		ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd,
+				    sizeof(subcmd), &fw_meta, sizeof(fw_meta));
+
+		if (ret)
+			return ret;
+
+		if (strncmp(fw_meta.magic, "MSCC",
+			    sizeof(fw_meta.magic)) != 0 ||
+		    strncmp(fw_meta.sub_magic, "_MD ",
+			    sizeof(fw_meta.sub_magic)) != 0) {
+			errno = ENOEXEC;
+			return -errno;
+		}
+
+		memcpy(meta->magic, "MSCC", sizeof(meta->magic));
+		memcpy(meta->sub_magic, "_MD ", sizeof(meta->sub_magic));
+		meta->type = fw_meta.type;
+		meta->version = fw_meta.version;
+		meta->secure_version = fw_meta.secure_version;
+		meta->sequence = fw_meta.sequence;
+		meta->uart_port = fw_meta.uart_port;
+		meta->uart_rate = fw_meta.uart_rate;
+		meta->bist_enable = fw_meta.bist_enable;
+		meta->bist_gpio_pin_cfg = fw_meta.bist_gpio_pin_cfg;
+		meta->bist_gpio_level_cfg = fw_meta.bist_gpio_level_cfg;
+		meta->xml_version = fw_meta.xml_version;
+		meta->relocatable_img_len = fw_meta.relocatable_img_len;
+		meta->link_addr = fw_meta.link_addr;
+		memcpy(meta->date_str, fw_meta.date_str,
+		       sizeof(meta->date_str));
+		memcpy(meta->time_str, fw_meta.time_str,sizeof(meta->time_str));
+		memcpy(meta->img_str, fw_meta.img_str, sizeof(meta->img_str));
+		memcpy(meta->public_key_modulus, fw_meta.public_key_modulus,
+		       sizeof(meta->public_key_modulus));
+		memcpy(meta->public_key_exponent, fw_meta.public_key_exponent,
+		       sizeof(meta->public_key_exponent));
+		meta->image_len = fw_meta.image_len;
+		meta->header_crc = fw_meta.header_crc;
+		meta->image_crc = fw_meta.image_crc;
 	} else {
 		errno = ENOTSUP;
 		return -1;
