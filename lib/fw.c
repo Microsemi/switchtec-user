@@ -495,6 +495,8 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			inf->image_crc = ftr.image_crc;
 			inf->image_addr = ftr.load_addr;
 			inf->image_len = ftr.image_len;
+			inf->header_crc = ftr.header_crc;
+			inf->version_packed = ftr.version;
 		}
 	}
 
@@ -821,18 +823,17 @@ int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
  * @param[in]  type	File type to record in the header
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
-			       enum switchtec_fw_image_type type)
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *inf)
 {
 	struct fw_image_header hdr = {};
 
-	memcpy(hdr.magic, ftr->magic, sizeof(hdr.magic));
-	hdr.image_len = ftr->image_len;
-	hdr.type = type;
-	hdr.load_addr = ftr->load_addr;
-	hdr.version = ftr->version;
-	hdr.header_crc = ftr->header_crc;
-	hdr.image_crc = ftr->image_crc;
+	memcpy(hdr.magic, "PMC", sizeof(hdr.magic));
+	hdr.image_len = inf->image_len;
+	hdr.type = inf->type;
+	hdr.load_addr = inf->image_addr;
+	hdr.version = inf->version_packed;
+	hdr.header_crc = inf->header_crc;
+	hdr.image_crc = inf->image_crc;
 
 	if (hdr.type == SWITCHTEC_FW_TYPE_MAP1)
 		hdr.type = SWITCHTEC_FW_TYPE_MAP0;

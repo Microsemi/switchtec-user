@@ -196,6 +196,8 @@ struct switchtec_fw_image_info {
 	size_t image_addr;			//!< Address of the image
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
+	unsigned long header_crc;		//!< CRC checksum of the header
+	unsigned long version_packed;		//!< Raw binary version number
 
 	/**
 	 * @brief Flags indicating if an image is active and/or running
@@ -598,8 +600,7 @@ int switchtec_fw_cfg_info(struct switchtec_dev *dev,
 			  struct switchtec_fw_image_info *inact_cfg,
 			  struct switchtec_fw_image_info *mult_cfg,
 			  int *nr_mult);
-int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
-			       enum switchtec_fw_image_type type);
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *inf);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);

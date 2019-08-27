@@ -1449,7 +1449,6 @@ static int fw_toggle(int argc, char **argv)
 static int fw_read(int argc, char **argv)
 {
 	const char *desc = "Flash the firmware with a new image";
-	struct switchtec_fw_footer ftr;
 	struct switchtec_fw_image_info active, inactive, *inf;
 	int ret = 0;
 	char version[16];
@@ -1490,20 +1489,12 @@ static int fw_read(int argc, char **argv)
 
 	inf = cfg.inactive ? &inactive : &active;
 
-	ret = switchtec_fw_read_footer(cfg.dev, inf->part_addr,
-				       inf->part_len, &ftr, version,
-				       sizeof(version));
-	if (ret < 0) {
-		switchtec_perror("fw_read_footer");
-		goto close_and_exit;
-	}
-
 	fprintf(stderr, "Version:  %s\n", version);
 	fprintf(stderr, "Type:     %s\n", cfg.data ? "DAT" : "IMG");
-	fprintf(stderr, "Img Len:  0x%x\n", (int) ftr.image_len);
-	fprintf(stderr, "CRC:      0x%x\n", (int) ftr.image_crc);
+	fprintf(stderr, "Img Len:  0x%zx\n", inf->image_len);
+	fprintf(stderr, "CRC:      0x%zx\n", inf->image_crc);
 
-	ret = switchtec_fw_img_write_hdr(cfg.out_fd, &ftr, inf->type);
+	ret = switchtec_fw_img_write_hdr(cfg.out_fd, inf);
 	if (ret < 0) {
 		switchtec_perror(cfg.out_filename);
 		goto close_and_exit;
@@ -1511,7 +1502,7 @@ static int fw_read(int argc, char **argv)
 
 	progress_start();
 	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, inf->part_addr,
-				   ftr.image_len, progress_update);
+				   inf->image_len, progress_update);
 	progress_finish();
 
 	if (ret < 0)
