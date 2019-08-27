@@ -832,6 +832,13 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 	hdr.header_crc = ftr->header_crc;
 	hdr.image_crc = ftr->image_crc;
 
+	if (hdr.type == SWITCHTEC_FW_TYPE_MAP1)
+		hdr.type = SWITCHTEC_FW_TYPE_MAP0;
+	else if (hdr.type == SWITCHTEC_FW_TYPE_IMG1)
+		hdr.type = SWITCHTEC_FW_TYPE_IMG0;
+	else if (hdr.type == SWITCHTEC_FW_TYPE_DAT1)
+		hdr.type = SWITCHTEC_FW_TYPE_DAT0;
+
 	return write(fd, &hdr, sizeof(hdr));
 }
 
