@@ -796,8 +796,8 @@ static int linux_flash_part(struct switchtec_dev *dev,
 	if (ret)
 		return ret;
 
-	info->image_addr = ioctl_info.address;
-	info->image_len = ioctl_info.length;
+	info->part_addr = ioctl_info.address;
+	info->part_len = ioctl_info.length;
 	info->active = ioctl_info.active;
 	return 0;
 }
