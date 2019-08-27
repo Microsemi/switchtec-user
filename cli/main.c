@@ -1450,12 +1450,9 @@ static int fw_read(int argc, char **argv)
 {
 	const char *desc = "Flash the firmware with a new image";
 	struct switchtec_fw_footer ftr;
-	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg;
+	struct switchtec_fw_image_info active, inactive, *inf;
 	int ret = 0;
 	char version[16];
-	unsigned long img_addr;
-	size_t img_size;
-	enum switchtec_fw_image_type type;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1480,34 +1477,22 @@ static int fw_read(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_fw_img_info(cfg.dev, &act_img, &inact_img);
+	if (cfg.data)
+		ret = switchtec_fw_cfg_info(cfg.dev, &active, &inactive,
+					    NULL, NULL);
+	else
+		ret = switchtec_fw_img_info(cfg.dev, &active, &inactive);
+
 	if (ret < 0) {
 		switchtec_perror("fw_img_info");
 		goto close_and_exit;
 	}
 
-	ret = switchtec_fw_cfg_info(cfg.dev, &act_cfg, &inact_cfg, NULL, NULL);
-	if (ret < 0) {
-		switchtec_perror("fw_cfg_info");
-		goto close_and_exit;
-	}
+	inf = cfg.inactive ? &inactive : &active;
 
-	if (cfg.data) {
-		img_addr = cfg.inactive ? inact_cfg.image_addr :
-			act_cfg.image_addr;
-		img_size = cfg.inactive ? inact_cfg.image_len :
-			act_cfg.image_len;;
-		type = SWITCHTEC_FW_TYPE_DAT0;
-	} else {
-		img_addr = cfg.inactive ? inact_img.image_addr :
-			act_img.image_addr;
-		img_size = cfg.inactive ? inact_img.image_len :
-			act_img.image_len;
-		type = SWITCHTEC_FW_TYPE_IMG0;
-	}
-
-	ret = switchtec_fw_read_footer(cfg.dev, img_addr, img_size, &ftr,
-				       version, sizeof(version));
+	ret = switchtec_fw_read_footer(cfg.dev, inf->image_addr,
+				       inf->image_len, &ftr, version,
+				       sizeof(version));
 	if (ret < 0) {
 		switchtec_perror("fw_read_footer");
 		goto close_and_exit;
@@ -1518,14 +1503,14 @@ static int fw_read(int argc, char **argv)
 	fprintf(stderr, "Img Len:  0x%x\n", (int) ftr.image_len);
 	fprintf(stderr, "CRC:      0x%x\n", (int) ftr.image_crc);
 
-	ret = switchtec_fw_img_write_hdr(cfg.out_fd, &ftr, type);
+	ret = switchtec_fw_img_write_hdr(cfg.out_fd, &ftr, inf->type);
 	if (ret < 0) {
 		switchtec_perror(cfg.out_filename);
 		goto close_and_exit;
 	}
 
 	progress_start();
-	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, img_addr,
+	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, inf->image_addr,
 				   ftr.image_len, progress_update);
 	progress_finish();
 
