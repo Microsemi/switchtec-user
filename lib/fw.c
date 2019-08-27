@@ -827,43 +827,6 @@ int switchtec_fw_read_footer(struct switchtec_dev *dev,
 }
 
 /**
- * @brief Read Switchtec device's active map partition footer
- * @param[in]  dev		Switchtec device handle
- * @param[out] ftr		The footer structure to populate
- * @param[out] version		Optional pointer to a string which will
- *	be populated with a human readable string of the version
- * @param[in]  version_len	Maximum length of the version string
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
-					struct switchtec_fw_footer *ftr,
-					char *version, size_t version_len)
-{
-	int ret;
-	uint32_t map0_update_index;
-	uint32_t map1_update_index;
-	unsigned long active_map_part_start = SWITCHTEC_FLASH_MAP0_PART_START;
-
-	ret = switchtec_fw_read(dev, SWITCHTEC_FLASH_MAP0_PART_START,
-				sizeof(uint32_t), &map0_update_index);
-	if (ret < 0)
-		return ret;
-
-	ret = switchtec_fw_read(dev, SWITCHTEC_FLASH_MAP1_PART_START,
-				sizeof(uint32_t), &map1_update_index);
-	if (ret < 0)
-		return ret;
-
-	if (map0_update_index < map1_update_index)
-		active_map_part_start = SWITCHTEC_FLASH_MAP1_PART_START;
-
-
-	return switchtec_fw_read_footer(dev, active_map_part_start,
-					SWITCHTEC_FLASH_PART_LEN, ftr, version,
-					version_len);
-}
-
-/**
  * @brief Write the header for a Switchtec firmware image file
  * @param[in]  fd	File descriptor for image file to write
  * @param[in]  ftr	Footer information to include in the header
