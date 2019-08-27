@@ -451,6 +451,55 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
+struct switchtec_fw_footer_gen3 {
+	char magic[4];
+	uint32_t image_len;
+	uint32_t load_addr;
+	uint32_t version;
+	uint32_t rsvd;
+	uint32_t header_crc;
+	uint32_t image_crc;
+};
+
+/**
+ * @brief Read a Switchtec device's firmware partition footer
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  partition_start	Partition start address
+ * @param[in]  partition_len	Partition length
+ * @param[out] ftr		The footer structure to populate
+ * @param[out] version		Optional pointer to a string which will
+ *	be populated with a human readable string of the version
+ * @param[in]  version_len	Maximum length of the version string
+ * @return 0 on success, error code on failure
+ */
+static int switchtec_fw_read_gen3_footer(struct switchtec_dev *dev,
+					 unsigned long partition_start,
+					 size_t partition_len,
+					 struct switchtec_fw_footer_gen3 *ftr,
+					 char *version, size_t version_len)
+{
+	int ret;
+	unsigned long addr = partition_start + partition_len -
+		sizeof(struct switchtec_fw_footer_gen3);
+
+	if (!ftr)
+		return -EINVAL;
+
+	ret = switchtec_fw_read(dev, addr, sizeof(*ftr), ftr);
+	if (ret < 0)
+		return ret;
+
+	if (strcmp(ftr->magic, "PMC") != 0) {
+		errno = ENOEXEC;
+		return -errno;
+	}
+
+	if (version)
+		version_to_string(ftr->version, version, version_len);
+
+	return 0;
+}
+
 static int switchtec_fw_map_get_active(struct switchtec_dev *dev,
 				       struct switchtec_fw_image_info *info)
 {
@@ -494,7 +543,7 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 {
 	int ret;
 	int i;
-	struct switchtec_fw_footer ftr;
+	struct switchtec_fw_footer_gen3 ftr;
 
 	if (info == NULL || nr_info == 0)
 		return -EINVAL;
@@ -531,10 +580,10 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			continue;
 		}
 
-		ret = switchtec_fw_read_footer(dev, inf->part_addr,
-					       inf->part_len, &ftr,
-					       inf->version,
-					       sizeof(inf->version));
+		ret = switchtec_fw_read_gen3_footer(dev, inf->part_addr,
+						    inf->part_len, &ftr,
+						    inf->version,
+						    sizeof(inf->version));
 		if (ret < 0) {
 			inf->version[0] = 0;
 			inf->image_crc = 0xFFFFFFFF;
@@ -784,46 +833,6 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	}
 
 	return read;
-}
-
-/**
- * @brief Read a Switchtec device's firmware partition footer
- * @param[in]  dev		Switchtec device handle
- * @param[in]  partition_start	Partition start address
- * @param[in]  partition_len	Partition length
- * @param[out] ftr		The footer structure to populate
- * @param[out] version		Optional pointer to a string which will
- *	be populated with a human readable string of the version
- * @param[in]  version_len	Maximum length of the version string
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_read_footer(struct switchtec_dev *dev,
-			     unsigned long partition_start,
-			     size_t partition_len,
-			     struct switchtec_fw_footer *ftr,
-			     char *version, size_t version_len)
-{
-	int ret;
-	unsigned long addr = partition_start + partition_len -
-		sizeof(struct switchtec_fw_footer);
-
-	if (!ftr)
-		return -EINVAL;
-
-	ret = switchtec_fw_read(dev, addr, sizeof(struct switchtec_fw_footer),
-				ftr);
-	if (ret < 0)
-		return ret;
-
-	if (strcmp(ftr->magic, "PMC") != 0) {
-		errno = ENOEXEC;
-		return -errno;
-	}
-
-	if (version)
-		version_to_string(ftr->version, version, version_len);
-
-	return 0;
 }
 
 /**
