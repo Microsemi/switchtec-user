@@ -1220,10 +1220,12 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	int nr_mult = 16;
 	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg,
 		mult_cfg[nr_mult];
-	struct switchtec_fw_footer map;
-	struct switchtec_fw_footer bootloader;
-	char map_ver[16];
-	char bootloader_ver[16];
+	struct switchtec_fw_image_info infos[] = {
+		[0] = {.type = SWITCHTEC_FW_TYPE_BOOT},
+		[1] = {.type = SWITCHTEC_FW_TYPE_MAP0},
+		[2] = {.type = SWITCHTEC_FW_TYPE_MAP1},
+	};
+	struct switchtec_fw_image_info *act_map;
 	int bootloader_ro;
 	int ret, i;
 
@@ -1237,20 +1239,12 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	if (ret < 0)
 		return ret;
 
-	ret = switchtec_fw_read_footer(dev, SWITCHTEC_FLASH_BOOT_PART_START,
-				       SWITCHTEC_FLASH_PART_LEN, &bootloader,
-				       bootloader_ver, sizeof(bootloader_ver));
+	ret = switchtec_fw_part_info(dev, ARRAY_SIZE(infos), infos);
 	if (ret < 0) {
-		switchtec_perror("BOOT");
+		switchtec_perror("fw_part_info");
 		return ret;
 	}
 
-	ret = switchtec_fw_read_active_map_footer(dev, &map, map_ver,
-						  sizeof(map_ver));
-	if (ret < 0) {
-		switchtec_perror("MAP");
-		return ret;
-	}
 
 	bootloader_ro = switchtec_fw_is_boot_ro(dev);
 	if (bootloader_ro != SWITCHTEC_FW_RO)
@@ -1258,10 +1252,11 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 
 	printf("Active Partition:\n");
 	printf("  BOOT \tVersion: %-8s\tCRC: %08lx   %s\n",
-	       bootloader_ver, (long)bootloader.image_crc,
+	       infos[0].version, infos[0].image_crc,
 	       bootloader_ro ? "(RO)" : "");
+	act_map = infos[1].active ? &infos[1] : &infos[2];
 	printf("  MAP \tVersion: %-8s\tCRC: %08lx   %s\n",
-	       map_ver, (long)map.image_crc,
+	       act_map->version, act_map->image_crc,
 	       bootloader_ro ? "(RO)" : "");
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
 	       act_img.version, act_img.image_crc,

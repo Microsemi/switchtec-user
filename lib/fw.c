@@ -451,6 +451,35 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
+static int switchtec_fw_map_get_active(struct switchtec_dev *dev,
+				       struct switchtec_fw_image_info *info)
+{
+	uint32_t map0_update_index;
+	uint32_t map1_update_index;
+	int ret;
+
+	ret = switchtec_fw_read(dev, SWITCHTEC_FLASH_MAP0_PART_START,
+				sizeof(uint32_t), &map0_update_index);
+	if (ret < 0)
+		return ret;
+
+	ret = switchtec_fw_read(dev, SWITCHTEC_FLASH_MAP1_PART_START,
+				sizeof(uint32_t), &map1_update_index);
+	if (ret < 0)
+		return ret;
+
+	info->active = 0;
+	if (map0_update_index < map1_update_index) {
+		if (info->part_addr == SWITCHTEC_FLASH_MAP0_PART_START)
+			info->active = 1;
+	} else {
+		if (info->part_addr == SWITCHTEC_FLASH_MAP1_PART_START)
+			info->active = 1;
+	}
+
+	return 0;
+}
+
 /**
  * @brief Return firmware information structures for a number of firmware
  *	partitions.
@@ -472,11 +501,29 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 
 	for (i = 0; i < nr_info; i++) {
 		struct switchtec_fw_image_info *inf = &info[i];
+		ret = 0;
 
-		ret = switchtec_flash_part(dev, inf, inf->type);
+		switch (inf->type) {
+		case SWITCHTEC_FW_TYPE_BOOT:
+			inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
+			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+			break;
+		case SWITCHTEC_FW_TYPE_MAP0:
+			inf->part_addr = SWITCHTEC_FLASH_MAP0_PART_START;
+			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+			ret = switchtec_fw_map_get_active(dev, inf);
+			break;
+		case SWITCHTEC_FW_TYPE_MAP1:
+			inf->part_addr = SWITCHTEC_FLASH_MAP0_PART_START;
+			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+			ret = switchtec_fw_map_get_active(dev, inf);
+			break;
+		default:
+			ret = switchtec_flash_part(dev, inf, inf->type);
+		}
+
 		if (ret)
 			return ret;
-
 
 		if (info[i].type == SWITCHTEC_FW_TYPE_NVLOG) {
 			inf->version[0] = 0;
