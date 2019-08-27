@@ -191,9 +191,11 @@ enum switchtec_fw_image_type {
 struct switchtec_fw_image_info {
 	enum switchtec_fw_image_type type;	//!< Image type
 	char version[32];			//!< Firmware/Config version
+	size_t part_addr;			//!< Address of the partition
+	size_t part_len;			//!< Length of the partition
 	size_t image_addr;			//!< Address of the image
 	size_t image_len;			//!< Length of the image
-	unsigned long crc;			//!< CRC checksum of the image
+	unsigned long image_crc;		//!< CRC checksum of the image
 
 	/**
 	 * @brief Flags indicating if an image is active and/or running

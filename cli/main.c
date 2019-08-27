@@ -1179,7 +1179,7 @@ static enum switchtec_fw_image_type check_and_print_fw_image(
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
 	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
-	printf("CRC:      0x%08lx\n", info.crc);
+	printf("CRC:      0x%08lx\n", info.image_crc);
 
 	return info.type;
 }
@@ -1268,10 +1268,10 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	       map_ver, (long)map.image_crc,
 	       bootloader_ro ? "(RO)" : "");
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       act_img.version, act_img.crc,
+	       act_img.version, act_img.image_crc,
 	       fw_running_string(&act_img));
 	printf("  CFG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       act_cfg.version, act_cfg.crc,
+	       act_cfg.version, act_cfg.image_crc,
 	       fw_running_string(&act_cfg));
 
 	for (i = 0; i < nr_mult; i++) {
@@ -1281,10 +1281,10 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 
 	printf("Inactive Partition:\n");
 	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       inact_img.version, inact_img.crc,
+	       inact_img.version, inact_img.image_crc,
 	       fw_running_string(&inact_img));
 	printf("  CFG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       inact_cfg.version, inact_cfg.crc,
+	       inact_cfg.version, inact_cfg.image_crc,
 	       fw_running_string(&inact_cfg));
 
 	return 0;
@@ -1494,8 +1494,8 @@ static int fw_read(int argc, char **argv)
 
 	inf = cfg.inactive ? &inactive : &active;
 
-	ret = switchtec_fw_read_footer(cfg.dev, inf->image_addr,
-				       inf->image_len, &ftr, version,
+	ret = switchtec_fw_read_footer(cfg.dev, inf->part_addr,
+				       inf->part_len, &ftr, version,
 				       sizeof(version));
 	if (ret < 0) {
 		switchtec_perror("fw_read_footer");
@@ -1514,7 +1514,7 @@ static int fw_read(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, inf->image_addr,
+	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, inf->part_addr,
 				   ftr.image_len, progress_update);
 	progress_finish();
 

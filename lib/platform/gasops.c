@@ -198,8 +198,8 @@ static void set_fw_info_part(struct switchtec_dev *dev,
 			     struct switchtec_fw_image_info *info,
 			     struct partition_info __gas *pi)
 {
-	info->image_addr = __gas_read32(dev, &pi->address);
-	info->image_len = __gas_read32(dev, &pi->length);
+	info->part_addr = __gas_read32(dev, &pi->address);
+	info->part_len = __gas_read32(dev, &pi->length);
 }
 
 int gasop_flash_part(struct switchtec_dev *dev,
@@ -258,7 +258,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 		return -EINVAL;
 	}
 
-	if (info->image_addr == active_addr)
+	if (info->part_addr == active_addr)
 		info->active |= SWITCHTEC_FW_PART_ACTIVE;
 
 	return 0;

@@ -411,7 +411,7 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 		return 0;
 
 	info->type = hdr.type;
-	info->crc = le32toh(hdr.image_crc);
+	info->image_crc = le32toh(hdr.image_crc);
 	version_to_string(hdr.version, info->version, sizeof(info->version));
 	info->image_addr = le32toh(hdr.load_addr);
 	info->image_len = le32toh(hdr.image_len);
@@ -480,19 +480,21 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 
 		if (info[i].type == SWITCHTEC_FW_TYPE_NVLOG) {
 			inf->version[0] = 0;
-			inf->crc = 0;
+			inf->image_crc = 0;
 			continue;
 		}
 
-		ret = switchtec_fw_read_footer(dev, inf->image_addr,
-					       inf->image_len, &ftr,
+		ret = switchtec_fw_read_footer(dev, inf->part_addr,
+					       inf->part_len, &ftr,
 					       inf->version,
 					       sizeof(inf->version));
 		if (ret < 0) {
 			inf->version[0] = 0;
-			inf->crc = 0xFFFFFFFF;
+			inf->image_crc = 0xFFFFFFFF;
 		} else {
-			inf->crc = ftr.image_crc;
+			inf->image_crc = ftr.image_crc;
+			inf->image_addr = ftr.load_addr;
+			inf->image_len = ftr.image_len;
 		}
 	}
 
@@ -539,13 +541,13 @@ static int get_multicfg(struct switchtec_dev *dev,
 		*nr_mult = ret;
 
 	for (i = 0; i < *nr_mult; i++) {
-		info[i].image_addr = multicfg_subcmd(dev,
-						     MRPC_MULTI_CFG_START_ADDR,
-						     i);
-		info[i].image_len = multicfg_subcmd(dev,
-						    MRPC_MULTI_CFG_LENGTH, i);
+		info[i].part_addr = multicfg_subcmd(dev,
+						    MRPC_MULTI_CFG_START_ADDR,
+						    i);
+		info[i].part_len = multicfg_subcmd(dev,
+						   MRPC_MULTI_CFG_LENGTH, i);
 		strcpy(info[i].version, "");
-		info[i].crc = 0;
+		info[i].image_crc = 0;
 		info[i].active = 0;
 	}
 
