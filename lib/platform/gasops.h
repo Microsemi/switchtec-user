@@ -26,6 +26,7 @@
 #define LIBSWITCHTEC_GASOPS_H
 
 #include "switchtec/switchtec.h"
+#include "../switchtec_priv.h"
 
 int gasop_access_check(struct switchtec_dev *dev);
 void gasop_set_partition_info(struct switchtec_dev *dev);

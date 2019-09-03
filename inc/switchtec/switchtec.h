@@ -171,21 +171,6 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_THRD,
 };
 
-/**
- * @brief The types of fw partitions
- */
-enum switchtec_fw_image_part_id_gen3 {
-	SWITCHTEC_FW_PART_ID_G3_BOOT = 0x0,
-	SWITCHTEC_FW_PART_ID_G3_MAP0 = 0x1,
-	SWITCHTEC_FW_PART_ID_G3_MAP1 = 0x2,
-	SWITCHTEC_FW_PART_ID_G3_IMG0 = 0x3,
-	SWITCHTEC_FW_PART_ID_G3_DAT0 = 0x4,
-	SWITCHTEC_FW_PART_ID_G3_DAT1 = 0x5,
-	SWITCHTEC_FW_PART_ID_G3_NVLOG = 0x6,
-	SWITCHTEC_FW_PART_ID_G3_IMG1 = 0x7,
-	SWITCHTEC_FW_PART_ID_G3_SEEPROM = 0xFE,
-};
-
 enum switchtec_fw_type {
 	SWITCHTEC_FW_TYPE_UNKNOWN = 0,
 	SWITCHTEC_FW_TYPE_BOOT,
@@ -200,7 +185,7 @@ enum switchtec_fw_type {
  * @brief Information about a firmware image or partition
  */
 struct switchtec_fw_image_info {
-	enum switchtec_fw_image_part_id_gen3 part_id; //!< Image partition ID
+	unsigned long part_id;			//!< Image partition ID
 	enum switchtec_fw_type type;		//!< Image partition type
 	char version[32];			//!< Firmware/Config version
 	size_t part_addr;			//!< Address of the partition
@@ -307,9 +292,6 @@ int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 			  int *partition, int *port);
 int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 			  int port, int *pff);
-int switchtec_flash_part(struct switchtec_dev *dev,
-			 struct switchtec_fw_image_info *info,
-			 enum switchtec_fw_image_part_id_gen3 part);
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum);
 int switchtec_event_check(struct switchtec_dev *dev,

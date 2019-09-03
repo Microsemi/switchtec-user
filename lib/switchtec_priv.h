@@ -34,6 +34,21 @@
 
 struct switchtec_dev;
 
+/**
+ * @brief The types of fw partitions
+ */
+enum switchtec_fw_image_part_id_gen3 {
+	SWITCHTEC_FW_PART_ID_G3_BOOT = 0x0,
+	SWITCHTEC_FW_PART_ID_G3_MAP0 = 0x1,
+	SWITCHTEC_FW_PART_ID_G3_MAP1 = 0x2,
+	SWITCHTEC_FW_PART_ID_G3_IMG0 = 0x3,
+	SWITCHTEC_FW_PART_ID_G3_DAT0 = 0x4,
+	SWITCHTEC_FW_PART_ID_G3_DAT1 = 0x5,
+	SWITCHTEC_FW_PART_ID_G3_NVLOG = 0x6,
+	SWITCHTEC_FW_PART_ID_G3_IMG1 = 0x7,
+	SWITCHTEC_FW_PART_ID_G3_SEEPROM = 0xFE,
+};
+
 struct switchtec_ops {
 	void (*close)(struct switchtec_dev *dev);
 	int (*get_device_id)(struct switchtec_dev *dev);
@@ -88,6 +103,10 @@ struct switchtec_ops {
 	ssize_t (*write_from_gas)(struct switchtec_dev *dev, int fd,
 				  const void __gas *src, size_t n);
 };
+
+int switchtec_flash_part(struct switchtec_dev *dev,
+			 struct switchtec_fw_image_info *info,
+			 enum switchtec_fw_image_part_id_gen3 part);
 
 struct switchtec_dev {
 	int device_id;
