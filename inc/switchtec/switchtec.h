@@ -193,7 +193,6 @@ struct switchtec_fw_image_info {
 	char version[32];			//!< Firmware/Config version
 	size_t part_addr;			//!< Address of the partition
 	size_t part_len;			//!< Length of the partition
-	size_t image_addr;			//!< Address of the image
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
 
