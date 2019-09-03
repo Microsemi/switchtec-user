@@ -544,7 +544,38 @@ static int switchtec_fw_info_metadata(struct switchtec_dev *dev,
 {
 	struct switchtec_fw_footer_gen3 *metadata;
 	unsigned long addr;
-	int ret;
+	int ret = 0;
+
+	switch (inf->part_id) {
+	case SWITCHTEC_FW_PART_ID_G3_BOOT:
+		inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
+		inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+		inf->active = true;
+		break;
+	case SWITCHTEC_FW_PART_ID_G3_MAP0:
+		inf->part_addr = SWITCHTEC_FLASH_MAP0_PART_START;
+		inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+		ret = switchtec_fw_map_get_active(dev, inf);
+		break;
+	case SWITCHTEC_FW_PART_ID_G3_MAP1:
+		inf->part_addr = SWITCHTEC_FLASH_MAP1_PART_START;
+		inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+		ret = switchtec_fw_map_get_active(dev, inf);
+		break;
+	default:
+		ret = switchtec_flash_part(dev, inf, inf->part_id);
+		inf->read_only = false;
+	}
+
+	if (ret)
+		return ret;
+
+	if (inf->part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG) {
+		inf->version[0] = 0;
+		inf->image_crc = 0xFFFFFFFF;
+		inf->metadata = NULL;
+		return 0;
+	}
 
 	metadata = malloc(sizeof(*metadata));
 	if (!metadata)
@@ -599,36 +630,6 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		inf->active = false;
 		inf->running = false;
 		inf->read_only = switchtec_fw_is_boot_ro(dev);
-
-		switch (inf->part_id) {
-		case SWITCHTEC_FW_PART_ID_G3_BOOT:
-			inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
-			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
-			inf->active = true;
-			break;
-		case SWITCHTEC_FW_PART_ID_G3_MAP0:
-			inf->part_addr = SWITCHTEC_FLASH_MAP0_PART_START;
-			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
-			ret = switchtec_fw_map_get_active(dev, inf);
-			break;
-		case SWITCHTEC_FW_PART_ID_G3_MAP1:
-			inf->part_addr = SWITCHTEC_FLASH_MAP1_PART_START;
-			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
-			ret = switchtec_fw_map_get_active(dev, inf);
-			break;
-		default:
-			ret = switchtec_flash_part(dev, inf, inf->part_id);
-			inf->read_only = false;
-		}
-
-		if (ret)
-			return ret;
-
-		if (info[i].part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG) {
-			inf->version[0] = 0;
-			inf->image_crc = 0;
-			continue;
-		}
 
 		ret = switchtec_fw_info_metadata(dev, inf);
 		if (ret)
