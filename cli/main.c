@@ -1162,8 +1162,8 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static enum switchtec_fw_image_part_id_gen3
-check_and_print_fw_image(int img_fd, const char *img_filename)
+static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
+		const char *img_filename)
 {
 	int ret;
 	struct switchtec_fw_image_info info;
@@ -1181,7 +1181,7 @@ check_and_print_fw_image(int img_fd, const char *img_filename)
 	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
 	printf("CRC:      0x%08lx\n", info.image_crc);
 
-	return info.part_id;
+	return info.type;
 }
 
 static int fw_img_info(int argc, char **argv)
@@ -1333,14 +1333,12 @@ static int fw_update(int argc, char **argv)
 		return ret;
 	}
 
-	if (cfg.set_boot_rw && type != SWITCHTEC_FW_PART_ID_G3_BOOT &&
-	    type != SWITCHTEC_FW_PART_ID_G3_MAP0 &&
-	    type != SWITCHTEC_FW_PART_ID_G3_MAP1) {
+	if (cfg.set_boot_rw && type != SWITCHTEC_FW_TYPE_BOOT &&
+	    type != SWITCHTEC_FW_TYPE_MAP) {
 		fprintf(stderr, "The --set-boot-rw option only applies for BOOT and MAP images\n");
 		return -1;
-	} else if (type == SWITCHTEC_FW_PART_ID_G3_BOOT ||
-		   type == SWITCHTEC_FW_PART_ID_G3_MAP0 ||
-		   type == SWITCHTEC_FW_PART_ID_G3_MAP1) {
+	} else if (type == SWITCHTEC_FW_TYPE_BOOT ||
+		   type == SWITCHTEC_FW_TYPE_MAP) {
 		if (cfg.set_boot_rw)
 			switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
 
