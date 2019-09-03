@@ -478,7 +478,6 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	info->part_id = hdr.type;
 	info->image_crc = le32toh(hdr.image_crc);
 	version_to_string(hdr.version, info->version, sizeof(info->version));
-	info->image_addr = le32toh(hdr.load_addr);
 	info->image_len = le32toh(hdr.image_len);
 
 	info->type = switchtec_fw_id_to_type(info);
@@ -589,7 +588,6 @@ static int switchtec_fw_info_metadata(struct switchtec_dev *dev,
 	version_to_string(metadata->version, inf->version,
 			  sizeof(inf->version));
 	inf->image_crc = metadata->image_crc;
-	inf->image_addr = metadata->load_addr;
 	inf->image_len = metadata->image_len;
 	inf->metadata = metadata;
 
