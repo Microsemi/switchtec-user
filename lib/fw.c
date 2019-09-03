@@ -913,18 +913,17 @@ int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
 /**
  * @brief Write the header for a Switchtec firmware image file
  * @param[in]  fd	File descriptor for image file to write
- * @param[in]  ftr	Footer information to include in the header
- * @param[in]  type	File type to record in the header
+ * @param[in]  info	Partition information structure
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
-			       enum switchtec_fw_image_type type)
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 {
+	struct switchtec_fw_footer *ftr = info->metadata;
 	struct fw_image_header hdr = {};
 
 	memcpy(hdr.magic, ftr->magic, sizeof(hdr.magic));
 	hdr.image_len = ftr->image_len;
-	hdr.type = type;
+	hdr.type = info->type;
 	hdr.load_addr = ftr->load_addr;
 	hdr.version = ftr->version;
 	hdr.header_crc = ftr->header_crc;

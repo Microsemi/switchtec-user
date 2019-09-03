@@ -571,8 +571,7 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 struct switchtec_fw_part_summary *
 switchtec_fw_part_summary(struct switchtec_dev *dev);
 void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary);
-int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
-			       enum switchtec_fw_image_type type);
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);
