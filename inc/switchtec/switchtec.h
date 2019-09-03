@@ -567,19 +567,9 @@ int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
-int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
-			   struct switchtec_fw_image_info *info);
 struct switchtec_fw_part_summary *
 switchtec_fw_part_summary(struct switchtec_dev *dev);
 void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary);
-int switchtec_fw_img_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_img,
-			  struct switchtec_fw_image_info *inact_img);
-int switchtec_fw_cfg_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_cfg,
-			  struct switchtec_fw_image_info *inact_cfg,
-			  struct switchtec_fw_image_info *mult_cfg,
-			  int *nr_mult);
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
 			       enum switchtec_fw_image_type type);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);

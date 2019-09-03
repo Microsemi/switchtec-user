@@ -490,8 +490,8 @@ static int switchtec_fw_map_get_active(struct switchtec_dev *dev,
  *	\p nr_info entries
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
-			   struct switchtec_fw_image_info *info)
+static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
+				  struct switchtec_fw_image_info *info)
 {
 	int ret;
 	int i;
@@ -611,90 +611,6 @@ static int get_multicfg(struct switchtec_dev *dev,
 
 	if (ret < *nr_mult)
 		info[ret].active = 1;
-
-	return 0;
-}
-
-/**
- * @brief Return firmware information structures for the active, inactive
- *	and multi configuration partitions
- * @param[in]  dev		Switchtec device handle
- * @param[out] act_cfg		Info structure for the active partition
- * @param[out] inact_cfg	Info structure for the inactive partition
- * @param[out] mult_cfg		List of info structure for the multi-configs
- * @param[in,out] nr_mult	Maximum number of multi-config structures to
- * 	populate, on return the number actually populated.
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_cfg_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_cfg,
-			  struct switchtec_fw_image_info *inact_cfg,
-			  struct switchtec_fw_image_info *mult_cfg,
-			  int *nr_mult)
-{
-	int ret;
-	struct switchtec_fw_image_info info[2];
-
-	info[0].type = SWITCHTEC_FW_TYPE_DAT0;
-	info[1].type = SWITCHTEC_FW_TYPE_DAT1;
-
-	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info),
-				     info);
-	if (ret < 0)
-		return ret;
-
-	if (info[0].active) {
-		if (act_cfg)
-			memcpy(act_cfg, &info[0], sizeof(*act_cfg));
-		if (inact_cfg)
-			memcpy(inact_cfg, &info[1], sizeof(*inact_cfg));
-	} else {
-		if (act_cfg)
-			memcpy(act_cfg, &info[1], sizeof(*act_cfg));
-		if (inact_cfg)
-			memcpy(inact_cfg, &info[0], sizeof(*inact_cfg));
-	}
-
-	if (!nr_mult || !mult_cfg || *nr_mult == 0)
-		return 0;
-
-	return get_multicfg(dev, mult_cfg, nr_mult);
-}
-
-/**
- * @brief Return firmware information structures for the active and inactive
- *	image partitions
- * @param[in]  dev		Switchtec device handle
- * @param[out] act_img		Info structure for the active partition
- * @param[out] inact_img	Info structure for the inactive partition
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_img_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_img,
-			  struct switchtec_fw_image_info *inact_img)
-{
-	int ret;
-	struct switchtec_fw_image_info info[2];
-
-	info[0].type = SWITCHTEC_FW_TYPE_IMG0;
-	info[1].type = SWITCHTEC_FW_TYPE_IMG1;
-
-	ret = switchtec_fw_part_info(dev, sizeof(info) / sizeof(*info),
-				     info);
-	if (ret < 0)
-		return ret;
-
-	if (info[0].active) {
-		if (act_img)
-			memcpy(act_img, &info[0], sizeof(*act_img));
-		if (inact_img)
-			memcpy(inact_img, &info[1], sizeof(*inact_img));
-	} else {
-		if (act_img)
-			memcpy(act_img, &info[1], sizeof(*act_img));
-		if (inact_img)
-			memcpy(inact_img, &info[0], sizeof(*inact_img));
-	}
 
 	return 0;
 }
