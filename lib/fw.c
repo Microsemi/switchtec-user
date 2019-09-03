@@ -571,12 +571,8 @@ static int switchtec_fw_info_metadata(struct switchtec_dev *dev,
 	if (ret)
 		return ret;
 
-	if (inf->part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG) {
-		inf->version[0] = 0;
-		inf->image_crc = 0xFFFFFFFF;
-		inf->metadata = NULL;
-		return 0;
-	}
+	if (inf->part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG)
+		return 1;
 
 	metadata = malloc(sizeof(*metadata));
 	if (!metadata)
@@ -585,23 +581,24 @@ static int switchtec_fw_info_metadata(struct switchtec_dev *dev,
 	addr = inf->part_addr + inf->part_len - sizeof(*metadata);
 
 	ret = switchtec_fw_read(dev, addr, sizeof(*metadata), metadata);
+	if (ret < 0)
+		goto err_out;
 
-	if (ret < 0 ||
-	    strncmp(metadata->magic, "PMC", sizeof(metadata->magic))) {
-		inf->version[0] = 0;
-		inf->image_crc = 0xFFFFFFFF;
-		inf->metadata = NULL;
-		free(metadata);
-	} else {
-		version_to_string(metadata->version, inf->version,
-				  sizeof(inf->version));
-		inf->image_crc = metadata->image_crc;
-		inf->image_addr = metadata->load_addr;
-		inf->image_len = metadata->image_len;
-		inf->metadata = metadata;
-	}
+	if (strncmp(metadata->magic, "PMC", sizeof(metadata->magic)))
+		goto err_out;
+
+	version_to_string(metadata->version, inf->version,
+			  sizeof(inf->version));
+	inf->image_crc = metadata->image_crc;
+	inf->image_addr = metadata->load_addr;
+	inf->image_len = metadata->image_len;
+	inf->metadata = metadata;
 
 	return 0;
+
+err_out:
+	free(metadata);
+	return 1;
 }
 
 /**
@@ -633,8 +630,15 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		inf->read_only = switchtec_fw_is_boot_ro(dev);
 
 		ret = switchtec_fw_info_metadata(dev, inf);
-		if (ret)
+		if (ret < 0)
 			return ret;
+
+		if (ret) {
+			errno = 0;
+			inf->version[0] = 0;
+			inf->image_crc = 0xFFFFFFFF;
+			inf->metadata = NULL;
+		}
 	}
 
 	return nr_info;
