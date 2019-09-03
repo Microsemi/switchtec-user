@@ -239,10 +239,12 @@ struct switchtec_dev *switchtec_open(const char *device)
 	return NULL;
 
 found:
-	if (ret)
-		snprintf(ret->name, sizeof(ret->name), "%s", device);
-	else
+	if (!ret) {
 		errno = ENODEV;
+		return NULL;
+	}
+
+	snprintf(ret->name, sizeof(ret->name), "%s", device);
 
 	if (set_gen_variant(ret))
 		return NULL;
