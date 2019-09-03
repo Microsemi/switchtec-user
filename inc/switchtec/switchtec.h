@@ -186,11 +186,22 @@ enum switchtec_fw_image_part_id_gen3 {
 	SWITCHTEC_FW_PART_ID_G3_SEEPROM = 0xFE,
 };
 
+enum switchtec_fw_type {
+	SWITCHTEC_FW_TYPE_UNKNOWN = 0,
+	SWITCHTEC_FW_TYPE_BOOT,
+	SWITCHTEC_FW_TYPE_MAP,
+	SWITCHTEC_FW_TYPE_IMG,
+	SWITCHTEC_FW_TYPE_CFG,
+	SWITCHTEC_FW_TYPE_NVLOG,
+	SWITCHTEC_FW_TYPE_SEEPROM,
+};
+
 /**
  * @brief Information about a firmware image or partition
  */
 struct switchtec_fw_image_info {
 	enum switchtec_fw_image_part_id_gen3 part_id; //!< Image partition ID
+	enum switchtec_fw_type type;		//!< Image partition type
 	char version[32];			//!< Firmware/Config version
 	size_t part_addr;			//!< Address of the partition
 	size_t part_len;			//!< Length of the partition

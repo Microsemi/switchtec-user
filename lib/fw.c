@@ -398,6 +398,30 @@ struct fw_image_header {
 	uint32_t image_crc;
 };
 
+static enum switchtec_fw_type
+switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
+{
+	switch ((unsigned long)info->part_id) {
+	case SWITCHTEC_FW_PART_ID_G3_BOOT: return SWITCHTEC_FW_TYPE_BOOT;
+	case SWITCHTEC_FW_PART_ID_G3_MAP0: return SWITCHTEC_FW_TYPE_MAP;
+	case SWITCHTEC_FW_PART_ID_G3_MAP1: return SWITCHTEC_FW_TYPE_MAP;
+	case SWITCHTEC_FW_PART_ID_G3_IMG0: return SWITCHTEC_FW_TYPE_IMG;
+	case SWITCHTEC_FW_PART_ID_G3_IMG1: return SWITCHTEC_FW_TYPE_IMG;
+	case SWITCHTEC_FW_PART_ID_G3_DAT0: return SWITCHTEC_FW_TYPE_CFG;
+	case SWITCHTEC_FW_PART_ID_G3_DAT1: return SWITCHTEC_FW_TYPE_CFG;
+	case SWITCHTEC_FW_PART_ID_G3_NVLOG: return SWITCHTEC_FW_TYPE_NVLOG;
+	case SWITCHTEC_FW_PART_ID_G3_SEEPROM: return SWITCHTEC_FW_TYPE_SEEPROM;
+
+	//Legacy
+	case 0xa8000000: return SWITCHTEC_FW_TYPE_BOOT;
+	case 0xa8020000: return SWITCHTEC_FW_TYPE_MAP;
+	case 0xa8060000: return SWITCHTEC_FW_TYPE_IMG;
+	case 0xa8210000: return SWITCHTEC_FW_TYPE_CFG;
+
+	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
+	}
+}
+
 /**
  * @brief Retrieve information about a firmware image file
  * @param[in]  fd	File descriptor for the image file to inspect
@@ -427,6 +451,8 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	info->image_addr = le32toh(hdr.load_addr);
 	info->image_len = le32toh(hdr.image_len);
 
+	info->type = switchtec_fw_id_to_type(info);
+
 	return 0;
 
 invalid_file:
@@ -441,24 +467,14 @@ invalid_file:
  */
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 {
-	switch ((unsigned long)info->part_id) {
-	case SWITCHTEC_FW_PART_ID_G3_BOOT: return "BOOT";
-	case SWITCHTEC_FW_PART_ID_G3_MAP0: return "MAP";
-	case SWITCHTEC_FW_PART_ID_G3_MAP1: return "MAP";
-	case SWITCHTEC_FW_PART_ID_G3_IMG0: return "IMG";
-	case SWITCHTEC_FW_PART_ID_G3_IMG1: return "IMG";
-	case SWITCHTEC_FW_PART_ID_G3_DAT0: return "DAT";
-	case SWITCHTEC_FW_PART_ID_G3_DAT1: return "DAT";
-	case SWITCHTEC_FW_PART_ID_G3_NVLOG: return "NVLOG";
-	case SWITCHTEC_FW_PART_ID_G3_SEEPROM: return "SEEPROM";
-
-	//Legacy
-	case 0xa8000000: return "BOOT (LEGACY)";
-	case 0xa8020000: return "MAP (LEGACY)";
-	case 0xa8060000: return "IMG (LEGACY)";
-	case 0xa8210000: return "DAT (LEGACY)";
-
-	default: return "UNKNOWN";
+	switch (info->type) {
+	case SWITCHTEC_FW_TYPE_BOOT:	return "BOOT";
+	case SWITCHTEC_FW_TYPE_MAP:	return "MAP";
+	case SWITCHTEC_FW_TYPE_IMG:	return "IMG";
+	case SWITCHTEC_FW_TYPE_CFG:	return "CFG";
+	case SWITCHTEC_FW_TYPE_NVLOG:	return "NVLOG";
+	case SWITCHTEC_FW_TYPE_SEEPROM:	return "SEEPROM";
+	default:			return "UNKNOWN";
 	}
 }
 
@@ -546,6 +562,7 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		struct switchtec_fw_image_info *inf = &info[i];
 		ret = 0;
 
+		inf->type = switchtec_fw_id_to_type(inf);
 		inf->active = false;
 		inf->running = false;
 		inf->read_only = switchtec_fw_is_boot_ro(dev);
