@@ -52,6 +52,16 @@
  * @{
  */
 
+struct switchtec_fw_footer_gen3 {
+	char magic[4];
+	uint32_t image_len;
+	uint32_t load_addr;
+	uint32_t version;
+	uint32_t rsvd;
+	uint32_t header_crc;
+	uint32_t image_crc;
+};
+
 /**
  * @brief Perform an MRPC echo command
  * @param[in]  dev      Switchtec device handle
@@ -495,18 +505,16 @@ static int switchtec_fw_map_get_active(struct switchtec_dev *dev,
 static int switchtec_fw_read_footer_gen3(struct switchtec_dev *dev,
 					 unsigned long partition_start,
 					 size_t partition_len,
-					 struct switchtec_fw_footer *ftr,
+					 struct switchtec_fw_footer_gen3 *ftr,
 					 char *version, size_t version_len)
 {
 	int ret;
-	unsigned long addr = partition_start + partition_len -
-		sizeof(struct switchtec_fw_footer);
+	unsigned long addr = partition_start + partition_len - sizeof(*ftr);
 
 	if (!ftr)
 		return -EINVAL;
 
-	ret = switchtec_fw_read(dev, addr, sizeof(struct switchtec_fw_footer),
-				ftr);
+	ret = switchtec_fw_read(dev, addr, sizeof(*ftr), ftr);
 	if (ret < 0)
 		return ret;
 
@@ -524,7 +532,7 @@ static int switchtec_fw_read_footer_gen3(struct switchtec_dev *dev,
 static int switchtec_fw_info_metadata(struct switchtec_dev *dev,
 				      struct switchtec_fw_image_info *inf)
 {
-	struct switchtec_fw_footer *metadata;
+	struct switchtec_fw_footer_gen3 *metadata;
 	int ret;
 
 	metadata = malloc(sizeof(*metadata));
@@ -881,7 +889,7 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
  */
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 {
-	struct switchtec_fw_footer *ftr = info->metadata;
+	struct switchtec_fw_footer_gen3 *ftr = info->metadata;
 	struct fw_image_header hdr = {};
 
 	memcpy(hdr.magic, ftr->magic, sizeof(hdr.magic));

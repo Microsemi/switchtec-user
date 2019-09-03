@@ -524,21 +524,6 @@ enum switchtec_fw_ro {
 	SWITCHTEC_FW_RO = 1,
 };
 
-/**
- * @brief Raw firmware image header/footer
- *
- * Avoid using this directly
- */
-struct switchtec_fw_footer {
-	char magic[4];
-	uint32_t image_len;
-	uint32_t load_addr;
-	uint32_t version;
-	uint32_t rsvd;
-	uint32_t header_crc;
-	uint32_t image_crc;
-};
-
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus);
