@@ -557,14 +557,6 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 			 void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
-int switchtec_fw_read_footer(struct switchtec_dev *dev,
-			     unsigned long partition_start,
-			     size_t partition_len,
-			     struct switchtec_fw_footer *ftr,
-			     char *version, size_t version_len);
-int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
-					struct switchtec_fw_footer *ftr,
-					char *version, size_t version_len);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
