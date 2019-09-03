@@ -1218,6 +1218,9 @@ static const char *fw_active_string(struct switchtec_fw_image_info *inf)
 static void print_fw_part_line(const char *tag,
 			       struct switchtec_fw_image_info *inf)
 {
+	if (!inf)
+		return;
+
 	printf("  %-4s\tVersion: %-8s\tCRC: %08lx%s%s\n",
 	       tag, inf->version, inf->image_crc,
 	       inf->read_only ? "\t(RO)" : "",
@@ -1237,6 +1240,8 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("Active Partitions:\n");
 	print_fw_part_line("BOOT", sum->boot.active);
 	print_fw_part_line("MAP", sum->map.active);
+	print_fw_part_line("KEY", sum->key.active);
+	print_fw_part_line("BL2", sum->bl2.active);
 	print_fw_part_line("IMG", sum->img.active);
 	print_fw_part_line("CFG", sum->cfg.active);
 
@@ -1245,6 +1250,8 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 
 	printf("Inactive Partitions:\n");
 	print_fw_part_line("MAP", sum->map.inactive);
+	print_fw_part_line("KEY", sum->key.inactive);
+	print_fw_part_line("BL2", sum->bl2.inactive);
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
 

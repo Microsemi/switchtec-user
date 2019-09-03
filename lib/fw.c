@@ -473,6 +473,8 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	case SWITCHTEC_FW_TYPE_MAP:	return "MAP";
 	case SWITCHTEC_FW_TYPE_IMG:	return "IMG";
 	case SWITCHTEC_FW_TYPE_CFG:	return "CFG";
+	case SWITCHTEC_FW_TYPE_KEY:	return "KEY";
+	case SWITCHTEC_FW_TYPE_BL2:	return "BL2";
 	case SWITCHTEC_FW_TYPE_NVLOG:	return "NVLOG";
 	case SWITCHTEC_FW_TYPE_SEEPROM:	return "SEEPROM";
 	default:			return "UNKNOWN";

@@ -179,6 +179,8 @@ enum switchtec_fw_type {
 	SWITCHTEC_FW_TYPE_CFG,
 	SWITCHTEC_FW_TYPE_NVLOG,
 	SWITCHTEC_FW_TYPE_SEEPROM,
+	SWITCHTEC_FW_TYPE_KEY,
+	SWITCHTEC_FW_TYPE_BL2,
 };
 
 /**
@@ -206,7 +208,7 @@ struct switchtec_fw_image_info {
 struct switchtec_fw_part_summary {
 	struct switchtec_fw_part_type {
 		struct switchtec_fw_image_info *active, *inactive;
-	} boot, map, img, cfg, nvlog, seeprom;
+	} boot, map, img, cfg, nvlog, seeprom, key, bl2;
 
 	struct switchtec_fw_image_info *mult_cfg;
 
