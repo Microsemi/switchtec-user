@@ -94,6 +94,17 @@ struct switchtec_fw_metadata_gen4 {
 	uint32_t header_crc;
 };
 
+struct switchtec_fw_image_header_gen3 {
+	char magic[4];
+	uint32_t image_len;
+	uint32_t type;
+	uint32_t load_addr;
+	uint32_t version;
+	uint32_t rsvd[9];
+	uint32_t header_crc;
+	uint32_t image_crc;
+};
+
 /**
  * @brief Perform an MRPC echo command
  * @param[in]  dev      Switchtec device handle
@@ -419,17 +430,6 @@ void switchtec_fw_perror(const char *s, int ret)
 	fprintf(stderr, "%s: %s\n", s, msg);
 }
 
-struct fw_image_header {
-	char magic[4];
-	uint32_t image_len;
-	uint32_t type;
-	uint32_t load_addr;
-	uint32_t version;
-	uint32_t rsvd[9];
-	uint32_t header_crc;
-	uint32_t image_crc;
-};
-
 static enum switchtec_fw_type
 switchtec_fw_id_to_type_gen3(const struct switchtec_fw_image_info *info)
 {
@@ -492,8 +492,8 @@ switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
  */
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 {
+	struct switchtec_fw_image_header_gen3 hdr = {};
 	int ret;
-	struct fw_image_header hdr = {};
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
@@ -1028,7 +1028,7 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 {
 	struct switchtec_fw_footer_gen3 *ftr = info->metadata;
-	struct fw_image_header hdr = {};
+	struct switchtec_fw_image_header_gen3 hdr = {};
 
 	memcpy(hdr.magic, ftr->magic, sizeof(hdr.magic));
 	hdr.image_len = ftr->image_len;
