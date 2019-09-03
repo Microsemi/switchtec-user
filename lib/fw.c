@@ -33,6 +33,7 @@
 #include "switchtec/switchtec.h"
 #include "switchtec/errors.h"
 #include "switchtec/endian.h"
+#include "switchtec/utils.h"
 
 #include <unistd.h>
 
@@ -696,6 +697,108 @@ int switchtec_fw_img_info(struct switchtec_dev *dev,
 	}
 
 	return 0;
+}
+
+static const enum switchtec_fw_image_type
+switchtec_fw_partitions_gen3[] = {
+	SWITCHTEC_FW_TYPE_BOOT,
+	SWITCHTEC_FW_TYPE_MAP0,
+	SWITCHTEC_FW_TYPE_MAP1,
+	SWITCHTEC_FW_TYPE_IMG0,
+	SWITCHTEC_FW_TYPE_DAT0,
+	SWITCHTEC_FW_TYPE_DAT1,
+	SWITCHTEC_FW_TYPE_NVLOG,
+	SWITCHTEC_FW_TYPE_IMG1,
+};
+
+static struct switchtec_fw_part_type *
+switchtec_fw_type_ptr(struct switchtec_fw_part_summary *summary,
+		      struct switchtec_fw_image_info *info)
+{
+	switch (info->type) {
+	case SWITCHTEC_FW_TYPE_BOOT:
+		return &summary->boot;
+	case SWITCHTEC_FW_TYPE_MAP0:
+	case SWITCHTEC_FW_TYPE_MAP1:
+		return &summary->map;
+	case SWITCHTEC_FW_TYPE_IMG0:
+	case SWITCHTEC_FW_TYPE_IMG1:
+		return &summary->img;
+	case SWITCHTEC_FW_TYPE_DAT0:
+	case SWITCHTEC_FW_TYPE_DAT1:
+		return &summary->cfg;
+	case SWITCHTEC_FW_TYPE_NVLOG:
+		return &summary->nvlog;
+	case SWITCHTEC_FW_TYPE_SEEPROM:
+		return &summary->seeprom;
+	}
+
+	return NULL;
+}
+
+/**
+ * @brief Return firmware summary information structure for the flash
+ *	partitfons in the device
+ * @param[in]  dev	Switchtec device handle
+ *	\p nr_info entries
+ * @return pointer to the structure on success, NULL on error. Free the
+ *	the structure with \ref switchtec_fw_part_summary_free.
+ */
+struct switchtec_fw_part_summary *
+switchtec_fw_part_summary(struct switchtec_dev *dev)
+{
+	struct switchtec_fw_part_summary *summary;
+	struct switchtec_fw_image_info **infp;
+	struct switchtec_fw_part_type *type;
+	int nr_info = ARRAY_SIZE(switchtec_fw_partitions_gen3);
+	int nr_mcfg = 16;
+	size_t st_sz;
+	int ret, i;
+
+	st_sz = sizeof(*summary) + sizeof(*summary->all) * (nr_info + nr_mcfg);
+
+	summary = malloc(st_sz);
+	if (!summary)
+		return NULL;
+
+	memset(summary, 0, st_sz);
+	summary->nr_info = nr_info;
+
+	for (i = 0; i < nr_info; i++)
+		summary->all[i].type = switchtec_fw_partitions_gen3[i];
+
+	ret = switchtec_fw_part_info(dev, nr_info, summary->all);
+	if (ret != nr_info) {
+		free(summary);
+		return NULL;
+	}
+
+	ret = get_multicfg(dev, &summary->all[nr_info], &nr_mcfg);
+	if (ret) {
+		free(summary);
+		return NULL;
+	}
+
+	for (i = 0; i < nr_info; i++) {
+		type = switchtec_fw_type_ptr(summary, &summary->all[i]);
+		if (summary->all[i].active)
+			type->active = &summary->all[i];
+		else
+			type->inactive = &summary->all[i];
+	}
+
+	infp = &summary->mult_cfg;
+	for (; i < nr_info + nr_mcfg; i++) {
+		*infp = &summary->all[i];
+		infp = &summary->all[i].next;
+	}
+
+	return summary;
+}
+
+void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary)
+{
+	free(summary);
 }
 
 /**

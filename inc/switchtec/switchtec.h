@@ -201,6 +201,19 @@ struct switchtec_fw_image_info {
 	bool active;
 	bool running;
 	bool read_only;
+
+	struct switchtec_fw_image_info *next;
+};
+
+struct switchtec_fw_part_summary {
+	struct switchtec_fw_part_type {
+		struct switchtec_fw_image_info *active, *inactive;
+	} boot, map, img, cfg, nvlog, seeprom;
+
+	struct switchtec_fw_image_info *mult_cfg;
+
+	int nr_info;
+	struct switchtec_fw_image_info all[];
 };
 
 /**
@@ -556,6 +569,9 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			   struct switchtec_fw_image_info *info);
+struct switchtec_fw_part_summary *
+switchtec_fw_part_summary(struct switchtec_dev *dev);
+void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary);
 int switchtec_fw_img_info(struct switchtec_dev *dev,
 			  struct switchtec_fw_image_info *act_img,
 			  struct switchtec_fw_image_info *inact_img);
