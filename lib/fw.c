@@ -503,10 +503,14 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		struct switchtec_fw_image_info *inf = &info[i];
 		ret = 0;
 
+		inf->active = false;
+		inf->running = false;
+
 		switch (inf->type) {
 		case SWITCHTEC_FW_TYPE_BOOT:
 			inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
 			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+			inf->active = true;
 			break;
 		case SWITCHTEC_FW_TYPE_MAP0:
 			inf->part_addr = SWITCHTEC_FLASH_MAP0_PART_START;
@@ -636,7 +640,7 @@ int switchtec_fw_cfg_info(struct switchtec_dev *dev,
 	if (ret < 0)
 		return ret;
 
-	if (switchtec_fw_active(&info[0])) {
+	if (info[0].active) {
 		if (act_cfg)
 			memcpy(act_cfg, &info[0], sizeof(*act_cfg));
 		if (inact_cfg)
@@ -677,7 +681,7 @@ int switchtec_fw_img_info(struct switchtec_dev *dev,
 	if (ret < 0)
 		return ret;
 
-	if (switchtec_fw_active(&info[0])) {
+	if (info[0].active) {
 		if (act_img)
 			memcpy(act_img, &info[0], sizeof(*act_img));
 		if (inact_img)

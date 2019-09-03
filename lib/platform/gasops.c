@@ -220,7 +220,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 
 		val = __gas_read16(dev, &si->img_running);
 		if (val == SWITCHTEC_IMG0_RUNNING)
-			info->active |= SWITCHTEC_FW_PART_RUNNING;
+			info->running = true;
 		break;
 
 	case SWITCHTEC_FW_TYPE_IMG1:
@@ -229,7 +229,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 
 		val = __gas_read16(dev, &si->img_running);
 		if (val == SWITCHTEC_IMG1_RUNNING)
-			info->active |= SWITCHTEC_FW_PART_RUNNING;
+			info->running = true;
 		break;
 
 	case SWITCHTEC_FW_TYPE_DAT0:
@@ -238,7 +238,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 
 		val = __gas_read16(dev, &si->cfg_running);
 		if (val == SWITCHTEC_CFG0_RUNNING)
-			info->active |= SWITCHTEC_FW_PART_RUNNING;
+			info->running = true;
 		break;
 
 	case SWITCHTEC_FW_TYPE_DAT1:
@@ -247,7 +247,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 
 		val = __gas_read16(dev, &si->cfg_running);
 		if (val == SWITCHTEC_CFG1_RUNNING)
-			info->active |= SWITCHTEC_FW_PART_RUNNING;
+			info->running = true;
 		break;
 
 	case SWITCHTEC_FW_TYPE_NVLOG:
@@ -259,7 +259,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 	}
 
 	if (info->part_addr == active_addr)
-		info->active |= SWITCHTEC_FW_PART_ACTIVE;
+		info->active = true;
 
 	return 0;
 }

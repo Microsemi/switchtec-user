@@ -1211,12 +1211,12 @@ static int fw_img_info(int argc, char **argv)
 
 static const char *fw_active_string(struct switchtec_fw_image_info *inf)
 {
-	return switchtec_fw_active(inf) ? " - Active" : "";
+	return inf->active ? " - Active" : "";
 }
 
 static const char *fw_running_string(struct switchtec_fw_image_info *inf)
 {
-	return switchtec_fw_running(inf) ? "\t(Running)" : "";
+	return inf->running ? "\t(Running)" : "";
 }
 
 static int print_fw_part_info(struct switchtec_dev *dev)

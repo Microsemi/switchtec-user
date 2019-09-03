@@ -798,7 +798,15 @@ static int linux_flash_part(struct switchtec_dev *dev,
 
 	info->part_addr = ioctl_info.address;
 	info->part_len = ioctl_info.length;
-	info->active = ioctl_info.active;
+	info->active = false;
+	info->running = false;
+
+	if (ioctl_info.active & SWITCHTEC_IOCTL_PART_ACTIVE)
+		info->active = true;
+
+	if (ioctl_info.active & SWITCHTEC_IOCTL_PART_RUNNING)
+		info->running = true;
+
 	return 0;
 }
 

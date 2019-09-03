@@ -35,6 +35,7 @@
 #include "portable.h"
 #include "registers.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -197,13 +198,8 @@ struct switchtec_fw_image_info {
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
 
-	/**
-	 * @brief Flags indicating if an image is active and/or running
-	 * @see switchtec_fw_active_flags
-	 * @see switchtec_fw_active()
-	 * @see switchtec_fw_running()
-	 */
-	int active;
+	bool active;
+	bool running;
 };
 
 /**
@@ -512,37 +508,6 @@ enum switchtec_fw_ro {
 	SWITCHTEC_FW_RW = 0,
 	SWITCHTEC_FW_RO = 1,
 };
-
-/**
- * @brief Flags which indicates if a partition is active or running.
- */
-enum switchtec_fw_active_flags {
-	SWITCHTEC_FW_PART_ACTIVE = 1,
-	SWITCHTEC_FW_PART_RUNNING = 2,
-};
-
-/**
- * @brief Get whether a firmware partition is active.
- *
- * An active partition implies that it will be used the next
- * time the switch is rebooted.
- */
-static inline int switchtec_fw_active(struct switchtec_fw_image_info *inf)
-{
-	return inf->active & SWITCHTEC_FW_PART_ACTIVE;
-}
-
-/**
- * @brief Get whether a firmware partition is active.
- *
- * An active partition implies that it will be used the next
- * time the switch is rebooted.
- */
-static inline int switchtec_fw_running(struct switchtec_fw_image_info *inf)
-{
-	return inf->active & SWITCHTEC_FW_PART_RUNNING;
-}
-
 
 /**
  * @brief Raw firmware image header/footer
