@@ -1214,73 +1214,40 @@ static const char *fw_active_string(struct switchtec_fw_image_info *inf)
 	return inf->active ? " - Active" : "";
 }
 
-static const char *fw_running_string(struct switchtec_fw_image_info *inf)
+static void print_fw_part_line(const char *tag,
+			       struct switchtec_fw_image_info *inf)
 {
-	return inf->running ? "\t(Running)" : "";
+	printf("  %-4s\tVersion: %-8s\tCRC: %08lx%s%s\n",
+	       tag, inf->version, inf->image_crc,
+	       inf->read_only ? "\t(RO)" : "",
+	       inf->running ? "\t(Running)" : "");
 }
 
 static int print_fw_part_info(struct switchtec_dev *dev)
 {
-	int nr_mult = 16;
-	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg,
-		mult_cfg[nr_mult];
-	struct switchtec_fw_image_info infos[] = {
-		[0] = {.type = SWITCHTEC_FW_TYPE_BOOT},
-		[1] = {.type = SWITCHTEC_FW_TYPE_MAP0},
-		[2] = {.type = SWITCHTEC_FW_TYPE_MAP1},
-	};
-	struct switchtec_fw_image_info *act_map;
-	int bootloader_ro;
-	int ret, i;
+	struct switchtec_fw_part_summary *sum;
+	struct switchtec_fw_image_info *inf;
+	int i;
 
-	ret = switchtec_fw_img_info(dev, &act_img, &inact_img);
-	if (ret < 0)
-		return ret;
+	sum = switchtec_fw_part_summary(dev);
+	if (!sum)
+		return -1;
 
-	ret = switchtec_fw_cfg_info(dev, &act_cfg, &inact_cfg, mult_cfg,
-				    &nr_mult);
+	printf("Active Partitions:\n");
+	print_fw_part_line("BOOT", sum->boot.active);
+	print_fw_part_line("MAP", sum->map.active);
+	print_fw_part_line("IMG", sum->img.active);
+	print_fw_part_line("CFG", sum->cfg.active);
 
-	if (ret < 0)
-		return ret;
+	for (i = 0, inf = sum->mult_cfg; inf; i++, inf = inf->next)
+		printf("   \tMulti Config %d%s\n", i, fw_active_string(inf));
 
-	ret = switchtec_fw_part_info(dev, ARRAY_SIZE(infos), infos);
-	if (ret < 0) {
-		switchtec_perror("fw_part_info");
-		return ret;
-	}
+	printf("Inactive Partitions:\n");
+	print_fw_part_line("MAP", sum->map.inactive);
+	print_fw_part_line("IMG", sum->img.inactive);
+	print_fw_part_line("CFG", sum->cfg.inactive);
 
-
-	bootloader_ro = switchtec_fw_is_boot_ro(dev);
-	if (bootloader_ro != SWITCHTEC_FW_RO)
-		bootloader_ro = 0;
-
-	printf("Active Partition:\n");
-	printf("  BOOT \tVersion: %-8s\tCRC: %08lx   %s\n",
-	       infos[0].version, infos[0].image_crc,
-	       bootloader_ro ? "(RO)" : "");
-	act_map = infos[1].active ? &infos[1] : &infos[2];
-	printf("  MAP \tVersion: %-8s\tCRC: %08lx   %s\n",
-	       act_map->version, act_map->image_crc,
-	       bootloader_ro ? "(RO)" : "");
-	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       act_img.version, act_img.image_crc,
-	       fw_running_string(&act_img));
-	printf("  CFG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       act_cfg.version, act_cfg.image_crc,
-	       fw_running_string(&act_cfg));
-
-	for (i = 0; i < nr_mult; i++) {
-		printf("   \tMulti Config %d%s\n", i,
-		       fw_active_string(&mult_cfg[i]));
-	}
-
-	printf("Inactive Partition:\n");
-	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       inact_img.version, inact_img.image_crc,
-	       fw_running_string(&inact_img));
-	printf("  CFG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       inact_cfg.version, inact_cfg.image_crc,
-	       fw_running_string(&inact_cfg));
+	switchtec_fw_part_summary_free(sum);
 
 	return 0;
 }
@@ -1307,7 +1274,7 @@ static int fw_info(int argc, char **argv)
 	}
 
 	printf("Currently Running:\n");
-	printf("  IMG Version: %s\n", version);
+	printf("  IMG\tVersion: %s\n", version);
 
 	ret = print_fw_part_info(cfg.dev);
 	if (ret) {
