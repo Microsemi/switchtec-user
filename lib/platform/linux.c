@@ -773,19 +773,19 @@ static int linux_flash_part(struct switchtec_dev *dev,
 	int ret;
 
 	switch (part) {
-	case SWITCHTEC_FW_TYPE_IMG0:
+	case SWITCHTEC_FW_PART_ID_G3_IMG0:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_IMG0;
 		break;
-	case SWITCHTEC_FW_TYPE_IMG1:
+	case SWITCHTEC_FW_PART_ID_G3_IMG1:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_IMG1;
 		break;
-	case SWITCHTEC_FW_TYPE_DAT0:
+	case SWITCHTEC_FW_PART_ID_G3_DAT0:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_CFG0;
 		break;
-	case SWITCHTEC_FW_TYPE_DAT1:
+	case SWITCHTEC_FW_PART_ID_G3_DAT1:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_CFG1;
 		break;
-	case SWITCHTEC_FW_TYPE_NVLOG:
+	case SWITCHTEC_FW_PART_ID_G3_NVLOG:
 		ioctl_info.flash_partition = SWITCHTEC_IOCTL_PART_NVLOG;
 		break;
 	default:

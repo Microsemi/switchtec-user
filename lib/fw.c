@@ -442,15 +442,15 @@ invalid_file:
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 {
 	switch ((unsigned long)info->part_id) {
-	case SWITCHTEC_FW_TYPE_BOOT: return "BOOT";
-	case SWITCHTEC_FW_TYPE_MAP0: return "MAP";
-	case SWITCHTEC_FW_TYPE_MAP1: return "MAP";
-	case SWITCHTEC_FW_TYPE_IMG0: return "IMG";
-	case SWITCHTEC_FW_TYPE_IMG1: return "IMG";
-	case SWITCHTEC_FW_TYPE_DAT0: return "DAT";
-	case SWITCHTEC_FW_TYPE_DAT1: return "DAT";
-	case SWITCHTEC_FW_TYPE_NVLOG: return "NVLOG";
-	case SWITCHTEC_FW_TYPE_SEEPROM: return "SEEPROM";
+	case SWITCHTEC_FW_PART_ID_G3_BOOT: return "BOOT";
+	case SWITCHTEC_FW_PART_ID_G3_MAP0: return "MAP";
+	case SWITCHTEC_FW_PART_ID_G3_MAP1: return "MAP";
+	case SWITCHTEC_FW_PART_ID_G3_IMG0: return "IMG";
+	case SWITCHTEC_FW_PART_ID_G3_IMG1: return "IMG";
+	case SWITCHTEC_FW_PART_ID_G3_DAT0: return "DAT";
+	case SWITCHTEC_FW_PART_ID_G3_DAT1: return "DAT";
+	case SWITCHTEC_FW_PART_ID_G3_NVLOG: return "NVLOG";
+	case SWITCHTEC_FW_PART_ID_G3_SEEPROM: return "SEEPROM";
 
 	//Legacy
 	case 0xa8000000: return "BOOT (LEGACY)";
@@ -551,17 +551,17 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		inf->read_only = switchtec_fw_is_boot_ro(dev);
 
 		switch (inf->part_id) {
-		case SWITCHTEC_FW_TYPE_BOOT:
+		case SWITCHTEC_FW_PART_ID_G3_BOOT:
 			inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
 			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
 			inf->active = true;
 			break;
-		case SWITCHTEC_FW_TYPE_MAP0:
+		case SWITCHTEC_FW_PART_ID_G3_MAP0:
 			inf->part_addr = SWITCHTEC_FLASH_MAP0_PART_START;
 			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
 			ret = switchtec_fw_map_get_active(dev, inf);
 			break;
-		case SWITCHTEC_FW_TYPE_MAP1:
+		case SWITCHTEC_FW_PART_ID_G3_MAP1:
 			inf->part_addr = SWITCHTEC_FLASH_MAP1_PART_START;
 			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
 			ret = switchtec_fw_map_get_active(dev, inf);
@@ -574,7 +574,7 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		if (ret)
 			return ret;
 
-		if (info[i].part_id == SWITCHTEC_FW_TYPE_NVLOG) {
+		if (info[i].part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG) {
 			inf->version[0] = 0;
 			inf->image_crc = 0;
 			continue;
@@ -650,14 +650,14 @@ static int get_multicfg(struct switchtec_dev *dev,
 
 static const enum switchtec_fw_image_part_id_gen3
 switchtec_fw_partitions_gen3[] = {
-	SWITCHTEC_FW_TYPE_BOOT,
-	SWITCHTEC_FW_TYPE_MAP0,
-	SWITCHTEC_FW_TYPE_MAP1,
-	SWITCHTEC_FW_TYPE_IMG0,
-	SWITCHTEC_FW_TYPE_DAT0,
-	SWITCHTEC_FW_TYPE_DAT1,
-	SWITCHTEC_FW_TYPE_NVLOG,
-	SWITCHTEC_FW_TYPE_IMG1,
+	SWITCHTEC_FW_PART_ID_G3_BOOT,
+	SWITCHTEC_FW_PART_ID_G3_MAP0,
+	SWITCHTEC_FW_PART_ID_G3_MAP1,
+	SWITCHTEC_FW_PART_ID_G3_IMG0,
+	SWITCHTEC_FW_PART_ID_G3_DAT0,
+	SWITCHTEC_FW_PART_ID_G3_DAT1,
+	SWITCHTEC_FW_PART_ID_G3_NVLOG,
+	SWITCHTEC_FW_PART_ID_G3_IMG1,
 };
 
 static struct switchtec_fw_part_type *
@@ -665,20 +665,20 @@ switchtec_fw_type_ptr(struct switchtec_fw_part_summary *summary,
 		      struct switchtec_fw_image_info *info)
 {
 	switch (info->part_id) {
-	case SWITCHTEC_FW_TYPE_BOOT:
+	case SWITCHTEC_FW_PART_ID_G3_BOOT:
 		return &summary->boot;
-	case SWITCHTEC_FW_TYPE_MAP0:
-	case SWITCHTEC_FW_TYPE_MAP1:
+	case SWITCHTEC_FW_PART_ID_G3_MAP0:
+	case SWITCHTEC_FW_PART_ID_G3_MAP1:
 		return &summary->map;
-	case SWITCHTEC_FW_TYPE_IMG0:
-	case SWITCHTEC_FW_TYPE_IMG1:
+	case SWITCHTEC_FW_PART_ID_G3_IMG0:
+	case SWITCHTEC_FW_PART_ID_G3_IMG1:
 		return &summary->img;
-	case SWITCHTEC_FW_TYPE_DAT0:
-	case SWITCHTEC_FW_TYPE_DAT1:
+	case SWITCHTEC_FW_PART_ID_G3_DAT0:
+	case SWITCHTEC_FW_PART_ID_G3_DAT1:
 		return &summary->cfg;
-	case SWITCHTEC_FW_TYPE_NVLOG:
+	case SWITCHTEC_FW_PART_ID_G3_NVLOG:
 		return &summary->nvlog;
-	case SWITCHTEC_FW_TYPE_SEEPROM:
+	case SWITCHTEC_FW_PART_ID_G3_SEEPROM:
 		return &summary->seeprom;
 	}
 
@@ -866,12 +866,12 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 	hdr.header_crc = ftr->header_crc;
 	hdr.image_crc = ftr->image_crc;
 
-	if (hdr.type == SWITCHTEC_FW_TYPE_MAP1)
-		hdr.type = SWITCHTEC_FW_TYPE_MAP0;
-	else if (hdr.type == SWITCHTEC_FW_TYPE_IMG1)
-		hdr.type = SWITCHTEC_FW_TYPE_IMG0;
-	else if (hdr.type == SWITCHTEC_FW_TYPE_DAT1)
-		hdr.type = SWITCHTEC_FW_TYPE_DAT0;
+	if (hdr.type == SWITCHTEC_FW_PART_ID_G3_MAP1)
+		hdr.type = SWITCHTEC_FW_PART_ID_G3_MAP0;
+	else if (hdr.type == SWITCHTEC_FW_PART_ID_G3_IMG1)
+		hdr.type = SWITCHTEC_FW_PART_ID_G3_IMG0;
+	else if (hdr.type == SWITCHTEC_FW_PART_ID_G3_DAT1)
+		hdr.type = SWITCHTEC_FW_PART_ID_G3_DAT0;
 
 	return write(fd, &hdr, sizeof(hdr));
 }

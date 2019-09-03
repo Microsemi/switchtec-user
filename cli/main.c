@@ -1333,14 +1333,14 @@ static int fw_update(int argc, char **argv)
 		return ret;
 	}
 
-	if (cfg.set_boot_rw && type != SWITCHTEC_FW_TYPE_BOOT &&
-	    type != SWITCHTEC_FW_TYPE_MAP0 &&
-	    type != SWITCHTEC_FW_TYPE_MAP1) {
+	if (cfg.set_boot_rw && type != SWITCHTEC_FW_PART_ID_G3_BOOT &&
+	    type != SWITCHTEC_FW_PART_ID_G3_MAP0 &&
+	    type != SWITCHTEC_FW_PART_ID_G3_MAP1) {
 		fprintf(stderr, "The --set-boot-rw option only applies for BOOT and MAP images\n");
 		return -1;
-	} else if (type == SWITCHTEC_FW_TYPE_BOOT ||
-		   type == SWITCHTEC_FW_TYPE_MAP0 ||
-		   type == SWITCHTEC_FW_TYPE_MAP1) {
+	} else if (type == SWITCHTEC_FW_PART_ID_G3_BOOT ||
+		   type == SWITCHTEC_FW_PART_ID_G3_MAP0 ||
+		   type == SWITCHTEC_FW_PART_ID_G3_MAP1) {
 		if (cfg.set_boot_rw)
 			switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
 

@@ -214,7 +214,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 	memset(info, 0, sizeof(*info));
 
 	switch (part) {
-	case SWITCHTEC_FW_TYPE_IMG0:
+	case SWITCHTEC_FW_PART_ID_G3_IMG0:
 		active_addr = __gas_read32(dev, &fi->active_img.address);
 		set_fw_info_part(dev, info, &fi->img0);
 
@@ -223,7 +223,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 			info->running = true;
 		break;
 
-	case SWITCHTEC_FW_TYPE_IMG1:
+	case SWITCHTEC_FW_PART_ID_G3_IMG1:
 		active_addr = __gas_read32(dev, &fi->active_img.address);
 		set_fw_info_part(dev, info, &fi->img1);
 
@@ -232,7 +232,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 			info->running = true;
 		break;
 
-	case SWITCHTEC_FW_TYPE_DAT0:
+	case SWITCHTEC_FW_PART_ID_G3_DAT0:
 		active_addr = __gas_read32(dev, &fi->active_cfg.address);
 		set_fw_info_part(dev, info, &fi->cfg0);
 
@@ -241,7 +241,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 			info->running = true;
 		break;
 
-	case SWITCHTEC_FW_TYPE_DAT1:
+	case SWITCHTEC_FW_PART_ID_G3_DAT1:
 		active_addr = __gas_read32(dev, &fi->active_cfg.address);
 		set_fw_info_part(dev, info, &fi->cfg1);
 
@@ -250,7 +250,7 @@ int gasop_flash_part(struct switchtec_dev *dev,
 			info->running = true;
 		break;
 
-	case SWITCHTEC_FW_TYPE_NVLOG:
+	case SWITCHTEC_FW_PART_ID_G3_NVLOG:
 		set_fw_info_part(dev, info, &fi->nvlog);
 		break;
 
