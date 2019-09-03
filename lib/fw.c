@@ -805,25 +805,17 @@ static struct switchtec_fw_part_type *
 switchtec_fw_type_ptr(struct switchtec_fw_part_summary *summary,
 		      struct switchtec_fw_image_info *info)
 {
-	switch (info->part_id) {
-	case SWITCHTEC_FW_PART_ID_G3_BOOT:
-		return &summary->boot;
-	case SWITCHTEC_FW_PART_ID_G3_MAP0:
-	case SWITCHTEC_FW_PART_ID_G3_MAP1:
-		return &summary->map;
-	case SWITCHTEC_FW_PART_ID_G3_IMG0:
-	case SWITCHTEC_FW_PART_ID_G3_IMG1:
-		return &summary->img;
-	case SWITCHTEC_FW_PART_ID_G3_DAT0:
-	case SWITCHTEC_FW_PART_ID_G3_DAT1:
-		return &summary->cfg;
-	case SWITCHTEC_FW_PART_ID_G3_NVLOG:
-		return &summary->nvlog;
-	case SWITCHTEC_FW_PART_ID_G3_SEEPROM:
-		return &summary->seeprom;
+	switch (info->type) {
+	case SWITCHTEC_FW_TYPE_BOOT:	return &summary->boot;
+	case SWITCHTEC_FW_TYPE_MAP:	return &summary->map;
+	case SWITCHTEC_FW_TYPE_IMG:	return &summary->img;
+	case SWITCHTEC_FW_TYPE_CFG:	return &summary->cfg;
+	case SWITCHTEC_FW_TYPE_NVLOG:	return &summary->nvlog;
+	case SWITCHTEC_FW_TYPE_SEEPROM: return &summary->seeprom;
+	case SWITCHTEC_FW_TYPE_KEY:	return &summary->key;
+	case SWITCHTEC_FW_TYPE_BL2:	return &summary->bl2;
+	default:			return NULL;
 	}
-
-	return NULL;
 }
 
 /**
