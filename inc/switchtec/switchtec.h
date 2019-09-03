@@ -174,7 +174,7 @@ enum switchtec_log_type {
 /**
  * @brief The types of fw partitions
  */
-enum switchtec_fw_image_type {
+enum switchtec_fw_image_part_id_gen3 {
 	SWITCHTEC_FW_TYPE_BOOT = 0x0,
 	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
 	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
@@ -190,7 +190,7 @@ enum switchtec_fw_image_type {
  * @brief Information about a firmware image or partition
  */
 struct switchtec_fw_image_info {
-	enum switchtec_fw_image_type type;	//!< Image type
+	enum switchtec_fw_image_part_id_gen3 part_id; //!< Image partition ID
 	char version[32];			//!< Firmware/Config version
 	size_t part_addr;			//!< Address of the partition
 	size_t part_len;			//!< Length of the partition
@@ -298,7 +298,7 @@ int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 			  int port, int *pff);
 int switchtec_flash_part(struct switchtec_dev *dev,
 			 struct switchtec_fw_image_info *info,
-			 enum switchtec_fw_image_type part);
+			 enum switchtec_fw_image_part_id_gen3 part);
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum);
 int switchtec_event_check(struct switchtec_dev *dev,

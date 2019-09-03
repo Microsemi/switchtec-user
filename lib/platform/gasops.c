@@ -204,7 +204,7 @@ static void set_fw_info_part(struct switchtec_dev *dev,
 
 int gasop_flash_part(struct switchtec_dev *dev,
 		     struct switchtec_fw_image_info *info,
-		     enum switchtec_fw_image_type part)
+		     enum switchtec_fw_image_part_id_gen3 part)
 {
 	struct flash_info_regs __gas *fi = &dev->gas_map->flash_info;
 	struct sys_info_regs __gas *si = &dev->gas_map->sys_info;

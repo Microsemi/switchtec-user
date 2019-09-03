@@ -766,7 +766,7 @@ static void linux_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
 
 static int linux_flash_part(struct switchtec_dev *dev,
 			    struct switchtec_fw_image_info *info,
-			    enum switchtec_fw_image_type part)
+			    enum switchtec_fw_image_part_id_gen3 part)
 {
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 	struct switchtec_ioctl_flash_part_info ioctl_info = {0};

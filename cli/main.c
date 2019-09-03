@@ -1162,8 +1162,8 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static enum switchtec_fw_image_type check_and_print_fw_image(
-	int img_fd, const char *img_filename)
+static enum switchtec_fw_image_part_id_gen3
+check_and_print_fw_image(int img_fd, const char *img_filename)
 {
 	int ret;
 	struct switchtec_fw_image_info info;
@@ -1181,7 +1181,7 @@ static enum switchtec_fw_image_type check_and_print_fw_image(
 	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
 	printf("CRC:      0x%08lx\n", info.image_crc);
 
-	return info.type;
+	return info.part_id;
 }
 
 static int fw_img_info(int argc, char **argv)

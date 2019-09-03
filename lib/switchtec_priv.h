@@ -54,7 +54,7 @@ struct switchtec_ops {
 	void (*gas_unmap)(struct switchtec_dev *dev, gasptr_t map);
 	int (*flash_part)(struct switchtec_dev *dev,
 			  struct switchtec_fw_image_info *info,
-			  enum switchtec_fw_image_type part);
+			  enum switchtec_fw_image_part_id_gen3 part);
 	int (*event_summary)(struct switchtec_dev *dev,
 			     struct switchtec_event_summary *sum);
 	int (*event_ctl)(struct switchtec_dev *dev,

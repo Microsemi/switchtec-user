@@ -421,7 +421,7 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	if (info == NULL)
 		return 0;
 
-	info->type = hdr.type;
+	info->part_id = hdr.type;
 	info->image_crc = le32toh(hdr.image_crc);
 	version_to_string(hdr.version, info->version, sizeof(info->version));
 	info->image_addr = le32toh(hdr.load_addr);
@@ -441,7 +441,7 @@ invalid_file:
  */
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 {
-	switch((unsigned long)info->type) {
+	switch ((unsigned long)info->part_id) {
 	case SWITCHTEC_FW_TYPE_BOOT: return "BOOT";
 	case SWITCHTEC_FW_TYPE_MAP0: return "MAP";
 	case SWITCHTEC_FW_TYPE_MAP1: return "MAP";
@@ -550,7 +550,7 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		inf->running = false;
 		inf->read_only = switchtec_fw_is_boot_ro(dev);
 
-		switch (inf->type) {
+		switch (inf->part_id) {
 		case SWITCHTEC_FW_TYPE_BOOT:
 			inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
 			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
@@ -567,14 +567,14 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			ret = switchtec_fw_map_get_active(dev, inf);
 			break;
 		default:
-			ret = switchtec_flash_part(dev, inf, inf->type);
+			ret = switchtec_flash_part(dev, inf, inf->part_id);
 			inf->read_only = false;
 		}
 
 		if (ret)
 			return ret;
 
-		if (info[i].type == SWITCHTEC_FW_TYPE_NVLOG) {
+		if (info[i].part_id == SWITCHTEC_FW_TYPE_NVLOG) {
 			inf->version[0] = 0;
 			inf->image_crc = 0;
 			continue;
@@ -648,7 +648,7 @@ static int get_multicfg(struct switchtec_dev *dev,
 	return 0;
 }
 
-static const enum switchtec_fw_image_type
+static const enum switchtec_fw_image_part_id_gen3
 switchtec_fw_partitions_gen3[] = {
 	SWITCHTEC_FW_TYPE_BOOT,
 	SWITCHTEC_FW_TYPE_MAP0,
@@ -664,7 +664,7 @@ static struct switchtec_fw_part_type *
 switchtec_fw_type_ptr(struct switchtec_fw_part_summary *summary,
 		      struct switchtec_fw_image_info *info)
 {
-	switch (info->type) {
+	switch (info->part_id) {
 	case SWITCHTEC_FW_TYPE_BOOT:
 		return &summary->boot;
 	case SWITCHTEC_FW_TYPE_MAP0:
@@ -714,7 +714,7 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 	summary->nr_info = nr_info;
 
 	for (i = 0; i < nr_info; i++)
-		summary->all[i].type = switchtec_fw_partitions_gen3[i];
+		summary->all[i].part_id = switchtec_fw_partitions_gen3[i];
 
 	ret = switchtec_fw_part_info(dev, nr_info, summary->all);
 	if (ret != nr_info) {
@@ -860,7 +860,7 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 
 	memcpy(hdr.magic, ftr->magic, sizeof(hdr.magic));
 	hdr.image_len = ftr->image_len;
-	hdr.type = info->type;
+	hdr.type = info->part_id;
 	hdr.load_addr = ftr->load_addr;
 	hdr.version = ftr->version;
 	hdr.header_crc = ftr->header_crc;
