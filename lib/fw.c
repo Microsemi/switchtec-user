@@ -505,6 +505,7 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 
 		inf->active = false;
 		inf->running = false;
+		inf->read_only = switchtec_fw_is_boot_ro(dev);
 
 		switch (inf->type) {
 		case SWITCHTEC_FW_TYPE_BOOT:
@@ -524,6 +525,7 @@ int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			break;
 		default:
 			ret = switchtec_flash_part(dev, inf, inf->type);
+			inf->read_only = false;
 		}
 
 		if (ret)
