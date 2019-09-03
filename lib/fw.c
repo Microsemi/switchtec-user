@@ -481,6 +481,35 @@ static int switchtec_fw_map_get_active(struct switchtec_dev *dev,
 	return 0;
 }
 
+static int switchtec_fw_info_metadata(struct switchtec_dev *dev,
+				      struct switchtec_fw_image_info *inf)
+{
+	struct switchtec_fw_footer *metadata;
+	int ret;
+
+	metadata = malloc(sizeof(*metadata));
+	if (!metadata)
+		return -1;
+
+	ret = switchtec_fw_read_footer(dev, inf->part_addr,
+				       inf->part_len, metadata,
+				       inf->version,
+				       sizeof(inf->version));
+	if (ret < 0) {
+		inf->version[0] = 0;
+		inf->image_crc = 0xFFFFFFFF;
+		inf->metadata = NULL;
+		free(metadata);
+	} else {
+		inf->image_crc = metadata->image_crc;
+		inf->image_addr = metadata->load_addr;
+		inf->image_len = metadata->image_len;
+		inf->metadata = metadata;
+	}
+
+	return 0;
+}
+
 /**
  * @brief Return firmware information structures for a number of firmware
  *	partitions.
@@ -495,7 +524,6 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 {
 	int ret;
 	int i;
-	struct switchtec_fw_footer ftr;
 
 	if (info == NULL || nr_info == 0)
 		return -EINVAL;
@@ -538,18 +566,9 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			continue;
 		}
 
-		ret = switchtec_fw_read_footer(dev, inf->part_addr,
-					       inf->part_len, &ftr,
-					       inf->version,
-					       sizeof(inf->version));
-		if (ret < 0) {
-			inf->version[0] = 0;
-			inf->image_crc = 0xFFFFFFFF;
-		} else {
-			inf->image_crc = ftr.image_crc;
-			inf->image_addr = ftr.load_addr;
-			inf->image_len = ftr.image_len;
-		}
+		ret = switchtec_fw_info_metadata(dev, inf);
+		if (ret)
+			return ret;
 	}
 
 	return nr_info;
@@ -714,6 +733,11 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 
 void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary)
 {
+	int i;
+
+	for (i = 0; i < summary->nr_info; i++)
+		free(summary->all[i].metadata);
+
 	free(summary);
 }
 

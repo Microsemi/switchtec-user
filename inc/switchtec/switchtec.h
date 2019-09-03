@@ -203,6 +203,7 @@ struct switchtec_fw_image_info {
 	bool read_only;
 
 	struct switchtec_fw_image_info *next;
+	void *metadata;
 };
 
 struct switchtec_fw_part_summary {
