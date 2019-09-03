@@ -399,7 +399,7 @@ struct fw_image_header {
 };
 
 static enum switchtec_fw_type
-switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
+switchtec_fw_id_to_type_gen3(const struct switchtec_fw_image_info *info)
 {
 	switch ((unsigned long)info->part_id) {
 	case SWITCHTEC_FW_PART_ID_G3_BOOT: return SWITCHTEC_FW_TYPE_BOOT;
@@ -418,6 +418,35 @@ switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
 	case 0xa8060000: return SWITCHTEC_FW_TYPE_IMG;
 	case 0xa8210000: return SWITCHTEC_FW_TYPE_CFG;
 
+	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
+	}
+}
+
+static enum switchtec_fw_type
+switchtec_fw_id_to_type_gen4(const struct switchtec_fw_image_info *info)
+{
+	switch (info->part_id) {
+	case SWITCHTEC_FW_PART_ID_G4_MAP0: return SWITCHTEC_FW_TYPE_MAP;
+	case SWITCHTEC_FW_PART_ID_G4_MAP1: return SWITCHTEC_FW_TYPE_MAP;
+	case SWITCHTEC_FW_PART_ID_G4_KEY0: return SWITCHTEC_FW_TYPE_KEY;
+	case SWITCHTEC_FW_PART_ID_G4_KEY1: return SWITCHTEC_FW_TYPE_KEY;
+	case SWITCHTEC_FW_PART_ID_G4_BL20: return SWITCHTEC_FW_TYPE_BL2;
+	case SWITCHTEC_FW_PART_ID_G4_BL21: return SWITCHTEC_FW_TYPE_BL2;
+	case SWITCHTEC_FW_PART_ID_G4_CFG0: return SWITCHTEC_FW_TYPE_CFG;
+	case SWITCHTEC_FW_PART_ID_G4_CFG1: return SWITCHTEC_FW_TYPE_CFG;
+	case SWITCHTEC_FW_PART_ID_G4_IMG0: return SWITCHTEC_FW_TYPE_IMG;
+	case SWITCHTEC_FW_PART_ID_G4_IMG1: return SWITCHTEC_FW_TYPE_IMG;
+	case SWITCHTEC_FW_PART_ID_G4_NVLOG: return SWITCHTEC_FW_TYPE_NVLOG;
+	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
+	}
+}
+
+static enum switchtec_fw_type
+switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
+{
+	switch (info->gen) {
+	case SWITCHTEC_GEN3: return switchtec_fw_id_to_type_gen3(info);
+	case SWITCHTEC_GEN4: return switchtec_fw_id_to_type_gen4(info);
 	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
 	}
 }

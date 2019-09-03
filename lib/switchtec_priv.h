@@ -49,6 +49,20 @@ enum switchtec_fw_image_part_id_gen3 {
 	SWITCHTEC_FW_PART_ID_G3_SEEPROM = 0xFE,
 };
 
+enum switchtec_fw_image_part_id_gen4 {
+	SWITCHTEC_FW_PART_ID_G4_MAP0 = 0x0,
+	SWITCHTEC_FW_PART_ID_G4_MAP1 = 0x1,
+	SWITCHTEC_FW_PART_ID_G4_KEY0 = 0x2,
+	SWITCHTEC_FW_PART_ID_G4_KEY1 = 0x3,
+	SWITCHTEC_FW_PART_ID_G4_BL20 = 0x4,
+	SWITCHTEC_FW_PART_ID_G4_BL21 = 0x5,
+	SWITCHTEC_FW_PART_ID_G4_CFG0 = 0x6,
+	SWITCHTEC_FW_PART_ID_G4_CFG1 = 0x7,
+	SWITCHTEC_FW_PART_ID_G4_IMG0 = 0x8,
+	SWITCHTEC_FW_PART_ID_G4_IMG1 = 0x9,
+	SWITCHTEC_FW_PART_ID_G4_NVLOG = 0xa,
+};
+
 struct switchtec_ops {
 	void (*close)(struct switchtec_dev *dev);
 	int (*get_device_id)(struct switchtec_dev *dev);
