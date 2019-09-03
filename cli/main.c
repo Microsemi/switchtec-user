@@ -1416,7 +1416,8 @@ static int fw_read(int argc, char **argv)
 {
 	const char *desc = "Flash the firmware with a new image";
 	struct switchtec_fw_footer ftr;
-	struct switchtec_fw_image_info active, inactive, *inf;
+	struct switchtec_fw_part_summary *sum;
+	struct switchtec_fw_image_info *inf;
 	int ret = 0;
 	char version[16];
 
@@ -1443,18 +1444,16 @@ static int fw_read(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (cfg.data)
-		ret = switchtec_fw_cfg_info(cfg.dev, &active, &inactive,
-					    NULL, NULL);
-	else
-		ret = switchtec_fw_img_info(cfg.dev, &active, &inactive);
-
-	if (ret < 0) {
-		switchtec_perror("fw_img_info");
+	sum = switchtec_fw_part_summary(cfg.dev);
+	if (!sum) {
+		switchtec_perror("fw_part_summary");
 		goto close_and_exit;
 	}
 
-	inf = cfg.inactive ? &inactive : &active;
+	if (cfg.data)
+		inf = cfg.inactive ? sum->cfg.inactive : sum->cfg.active;
+	else
+		inf = cfg.inactive ? sum->img.inactive : sum->img.active;
 
 	ret = switchtec_fw_read_footer(cfg.dev, inf->part_addr,
 				       inf->part_len, &ftr, version,
@@ -1484,6 +1483,8 @@ static int fw_read(int argc, char **argv)
 		switchtec_perror("fw_read");
 
 	fprintf(stderr, "\nFirmware read to %s.\n", cfg.out_filename);
+
+	switchtec_fw_part_summary_free(sum);
 
 close_and_exit:
 	close(cfg.out_fd);
