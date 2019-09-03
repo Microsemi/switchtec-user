@@ -1176,6 +1176,7 @@ static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 	}
 
 	printf("File:     %s\n", get_basename(img_filename));
+	printf("Gen:      %s\n", switchtec_fw_image_gen_str(&info));
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
 	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);

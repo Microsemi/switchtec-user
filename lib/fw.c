@@ -445,6 +445,7 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	if (info == NULL)
 		return 0;
 
+	info->gen = SWITCHTEC_GEN3;
 	info->part_id = hdr.type;
 	info->image_crc = le32toh(hdr.image_crc);
 	version_to_string(hdr.version, info->version, sizeof(info->version));
@@ -562,6 +563,7 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		struct switchtec_fw_image_info *inf = &info[i];
 		ret = 0;
 
+		inf->gen = dev->gen;
 		inf->type = switchtec_fw_id_to_type(inf);
 		inf->active = false;
 		inf->running = false;

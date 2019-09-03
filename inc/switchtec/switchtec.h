@@ -185,6 +185,7 @@ enum switchtec_fw_type {
  * @brief Information about a firmware image or partition
  */
 struct switchtec_fw_image_info {
+	enum switchtec_gen gen;			//!< Image generation
 	unsigned long part_id;			//!< Image partition ID
 	enum switchtec_fw_type type;		//!< Image partition type
 	char version[32];			//!< Firmware/Config version
@@ -409,6 +410,19 @@ static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
 	       switchtec_is_gen4(dev) ? "GEN4" : "Unknown";
 
 	return str;
+}
+
+/**
+ * @brief Return the generation string of a Switchtec fw image.
+ */
+static inline const char *
+switchtec_fw_image_gen_str(struct switchtec_fw_image_info *inf)
+{
+	switch (inf->gen) {
+	case SWITCHTEC_GEN3: return "GEN3";
+	case SWITCHTEC_GEN4: return "GEN4";
+	default:	     return "UNKNOWN";
+	}
 }
 
 /**
