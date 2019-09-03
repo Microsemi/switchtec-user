@@ -570,7 +570,11 @@ static int latency(int argc, char **argv)
 		return -1;
 	}
 
-	printf("Current: %d ns\n", cur_ns);
+	if (switchtec_is_gen3(cfg.dev))
+		printf("Current: %d ns\n", cur_ns);
+	else
+		printf("Minimum: %d ns\n", cur_ns);
+
 	printf("Maximum: %d ns\n", max_ns);
 
 	return 0;
