@@ -797,6 +797,21 @@ switchtec_fw_partitions_gen3[] = {
 	SWITCHTEC_FW_PART_ID_G3_IMG1,
 };
 
+static const enum switchtec_fw_image_part_id_gen4
+switchtec_fw_partitions_gen4[] = {
+	SWITCHTEC_FW_PART_ID_G4_MAP0,
+	SWITCHTEC_FW_PART_ID_G4_MAP1,
+	SWITCHTEC_FW_PART_ID_G4_KEY0,
+	SWITCHTEC_FW_PART_ID_G4_KEY1,
+	SWITCHTEC_FW_PART_ID_G4_BL20,
+	SWITCHTEC_FW_PART_ID_G4_BL21,
+	SWITCHTEC_FW_PART_ID_G4_CFG0,
+	SWITCHTEC_FW_PART_ID_G4_CFG1,
+	SWITCHTEC_FW_PART_ID_G4_IMG0,
+	SWITCHTEC_FW_PART_ID_G4_IMG1,
+	SWITCHTEC_FW_PART_ID_G4_NVLOG,
+};
+
 static struct switchtec_fw_part_type *
 switchtec_fw_type_ptr(struct switchtec_fw_part_summary *summary,
 		      struct switchtec_fw_image_info *info)
@@ -828,10 +843,21 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 	struct switchtec_fw_part_summary *summary;
 	struct switchtec_fw_image_info **infp;
 	struct switchtec_fw_part_type *type;
-	int nr_info = ARRAY_SIZE(switchtec_fw_partitions_gen3);
-	int nr_mcfg = 16;
+	int nr_info, nr_mcfg = 16;
 	size_t st_sz;
 	int ret, i;
+
+	switch (dev->gen) {
+	case SWITCHTEC_GEN3:
+		nr_info = ARRAY_SIZE(switchtec_fw_partitions_gen3);
+		break;
+	case SWITCHTEC_GEN4:
+		nr_info = ARRAY_SIZE(switchtec_fw_partitions_gen4);
+		break;
+	default:
+		errno = EINVAL;
+		return NULL;
+	}
 
 	st_sz = sizeof(*summary) + sizeof(*summary->all) * (nr_info + nr_mcfg);
 
@@ -842,8 +868,21 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 	memset(summary, 0, st_sz);
 	summary->nr_info = nr_info;
 
-	for (i = 0; i < nr_info; i++)
-		summary->all[i].part_id = switchtec_fw_partitions_gen3[i];
+	switch (dev->gen) {
+	case SWITCHTEC_GEN3:
+		for (i = 0; i < nr_info; i++)
+			summary->all[i].part_id =
+				switchtec_fw_partitions_gen3[i];
+		break;
+	case SWITCHTEC_GEN4:
+		for (i = 0; i < nr_info; i++)
+			summary->all[i].part_id =
+				switchtec_fw_partitions_gen4[i];
+		break;
+	default:
+		errno = EINVAL;
+		return NULL;
+	}
 
 	ret = switchtec_fw_part_info(dev, nr_info, summary->all);
 	if (ret != nr_info) {
