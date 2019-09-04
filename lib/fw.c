@@ -1113,13 +1113,8 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	return read;
 }
 
-/**
- * @brief Write the header for a Switchtec firmware image file
- * @param[in]  fd	File descriptor for image file to write
- * @param[in]  info	Partition information structure
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
+static int switchtec_fw_img_write_hdr_gen3(int fd,
+		struct switchtec_fw_image_info *info)
 {
 	struct switchtec_fw_footer_gen3 *ftr = info->metadata;
 	struct switchtec_fw_image_header_gen3 hdr = {};
@@ -1140,6 +1135,31 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 		hdr.type = SWITCHTEC_FW_PART_ID_G3_DAT0;
 
 	return write(fd, &hdr, sizeof(hdr));
+}
+
+static int switchtec_fw_img_write_hdr_gen4(int fd,
+		struct switchtec_fw_image_info *info)
+{
+	struct switchtec_fw_metadata_gen4 *hdr = info->metadata;
+
+	return write(fd, hdr, sizeof(*hdr));
+}
+
+/**
+ * @brief Write the header for a Switchtec firmware image file
+ * @param[in]  fd	File descriptor for image file to write
+ * @param[in]  info	Partition information structure
+ * @return 0 on success, error code on failure
+ */
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
+{
+	switch (info->gen) {
+	case SWITCHTEC_GEN3: return switchtec_fw_img_write_hdr_gen3(fd, info);
+	case SWITCHTEC_GEN4: return switchtec_fw_img_write_hdr_gen4(fd, info);
+	default:
+		errno = EINVAL;
+		return -1;
+	}
 }
 
 struct switchtec_boot_ro {
