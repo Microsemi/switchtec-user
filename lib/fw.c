@@ -62,6 +62,16 @@ struct switchtec_fw_footer_gen3 {
 	uint32_t image_crc;
 };
 
+enum switchtec_fw_part_type_gen4 {
+	SWITCHTEC_FW_IMG_TYPE_MAP_GEN4 = 0x0,
+	SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN4 = 0x1,
+	SWITCHTEC_FW_IMG_TYPE_BL2_GEN4 = 0x2,
+	SWITCHTEC_FW_IMG_TYPE_CFG_GEN4 = 0x3,
+	SWITCHTEC_FW_IMG_TYPE_IMG_GEN4 = 0x4,
+	SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4 = 0x5,
+	SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4 = 0xFE,
+};
+
 struct switchtec_fw_metadata_gen4 {
 	char magic[4];
 	char sub_magic[4];
@@ -483,13 +493,8 @@ switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
 	}
 }
 
-/**
- * @brief Retrieve information about a firmware image file
- * @param[in]  fd	File descriptor for the image file to inspect
- * @param[out] info	Structure populated with information about the file
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
+static int switchtec_fw_file_info_gen3(int fd,
+				       struct switchtec_fw_image_info *info)
 {
 	struct switchtec_fw_image_header_gen3 hdr = {};
 	int ret;
@@ -519,6 +524,99 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 invalid_file:
 	errno = ENOEXEC;
 	return -errno;
+}
+
+static int switchtec_fw_file_info_gen4(int fd,
+				       struct switchtec_fw_image_info *info)
+{
+	int ret;
+	struct switchtec_fw_metadata_gen4 hdr = {};
+
+	ret = read(fd, &hdr, sizeof(hdr));
+	lseek(fd, 0, SEEK_SET);
+
+	if (ret != sizeof(hdr))
+		goto invalid_file;
+
+	if (strncmp(hdr.magic, "MSCC", sizeof(hdr.magic)))
+		goto invalid_file;
+
+	if (strncmp(hdr.sub_magic, "_MD ", sizeof(hdr.sub_magic)))
+		goto invalid_file;
+
+	if (!info)
+		return 0;
+
+	info->gen = SWITCHTEC_GEN4;
+
+	switch (hdr.type) {
+	case SWITCHTEC_FW_IMG_TYPE_MAP_GEN4:
+		info->part_id = SWITCHTEC_FW_PART_ID_G4_MAP0;
+		break;
+	case SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN4:
+		info->part_id = SWITCHTEC_FW_PART_ID_G4_KEY0;
+		break;
+	case SWITCHTEC_FW_IMG_TYPE_BL2_GEN4:
+		info->part_id = SWITCHTEC_FW_PART_ID_G4_BL20;
+		break;
+	case SWITCHTEC_FW_IMG_TYPE_CFG_GEN4:
+		info->part_id = SWITCHTEC_FW_PART_ID_G4_CFG0;
+		break;
+	case SWITCHTEC_FW_IMG_TYPE_IMG_GEN4:
+		info->part_id = SWITCHTEC_FW_PART_ID_G4_IMG0;
+		break;
+	case SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4:
+		info->part_id = SWITCHTEC_FW_PART_ID_G4_NVLOG;
+		break;
+	case SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4:
+		info->part_id = SWITCHTEC_FW_PART_ID_G4_SEEPROM;
+		break;
+	default:
+		goto invalid_file;
+	};
+
+	info->image_crc = le32toh(hdr.image_crc);
+	version_to_string(hdr.version, info->version, sizeof(info->version));
+	info->image_len = le32toh(hdr.image_len);
+
+	info->type = switchtec_fw_id_to_type(info);
+
+	return 0;
+
+invalid_file:
+	errno = ENOEXEC;
+	return -errno;
+}
+
+/**
+ * @brief Retrieve information about a firmware image file
+ * @param[in]  fd	File descriptor for the image file to inspect
+ * @param[out] info	Structure populated with information about the file
+ * @return 0 on success, error code on failure
+ */
+int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
+{
+	char magic[4];
+	int ret;
+
+	ret = read(fd, &magic, sizeof(magic));
+	lseek(fd, 0, SEEK_SET);
+
+	if (ret != sizeof(magic)) {
+		errno = ENOEXEC;
+		return -1;
+	}
+
+	if (!strncmp(magic, "PMC", sizeof(magic))) {
+		switchtec_fw_file_info_gen3(fd, info);
+	} else if (!strncmp(magic, "MSCC", sizeof(magic))) {
+		switchtec_fw_file_info_gen4(fd, info);
+	} else {
+		errno = ENOEXEC;
+		return -1;
+	}
+
+	return 0;
 }
 
 /**

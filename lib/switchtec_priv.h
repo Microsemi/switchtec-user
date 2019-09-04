@@ -61,6 +61,7 @@ enum switchtec_fw_image_part_id_gen4 {
 	SWITCHTEC_FW_PART_ID_G4_IMG0 = 0x8,
 	SWITCHTEC_FW_PART_ID_G4_IMG1 = 0x9,
 	SWITCHTEC_FW_PART_ID_G4_NVLOG = 0xa,
+	SWITCHTEC_FW_PART_ID_G4_SEEPROM = 0xFE,
 };
 
 struct switchtec_ops {
