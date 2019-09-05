@@ -783,9 +783,92 @@ err_out:
 	return -1;
 }
 
+struct switchtec_flash_part_all_info_gen4 {
+	uint32_t firmware_version;
+	uint32_t flash_size;
+	uint8_t ecc_enable;
+	uint8_t rsvd1;
+	uint8_t running_bl2_flag;
+	uint8_t running_cfg_flag;
+	uint8_t running_img_flag;
+	uint8_t rsvd2;
+	uint32_t rsvd3[12];
+	struct switchtec_flash_part_info_gen4  {
+		uint32_t image_crc;
+		uint32_t image_len;
+		uint16_t image_version;
+		uint8_t valid;
+		uint8_t active;
+		uint32_t part_start;
+		uint32_t part_end;
+		uint32_t part_offset;
+		uint32_t part_size_dw;
+		uint8_t read_only;
+		uint8_t is_using;
+		uint8_t rsvd[2];
+	} map0, map1, keyman0, keyman1, bl20, bl21, cfg0, cfg1,
+	  img0, img1, nvlog, vendor[8];
+};
+
 static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 				       struct switchtec_fw_image_info *inf)
 {
+	struct switchtec_flash_part_all_info_gen4 all_info;
+	struct switchtec_flash_part_info_gen4 *part_info;
+
+	int ret;
+	uint8_t subcmd = MRPC_PART_INFO_GET_ALL_INFO;
+
+	ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd, sizeof(subcmd),
+			    &all_info, sizeof(all_info));
+	if (ret < 0)
+		return ret;
+
+	switch(inf->part_id) {
+	case SWITCHTEC_FW_PART_ID_G4_MAP0:
+		part_info = &all_info.map0;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_MAP1:
+		part_info = &all_info.map1;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_KEY0:
+		part_info = &all_info.keyman0;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_KEY1:
+		part_info = &all_info.keyman1;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_BL20:
+		part_info = &all_info.bl20;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_BL21:
+		part_info = &all_info.bl21;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_IMG0:
+		part_info = &all_info.img0;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_IMG1:
+		part_info = &all_info.img1;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_CFG0:
+		part_info = &all_info.cfg0;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_CFG1:
+		part_info = &all_info.cfg1;
+		break;
+	case SWITCHTEC_FW_PART_ID_G4_NVLOG:
+		part_info = &all_info.nvlog;
+		break;
+	default:
+		errno = EINVAL;
+		return -1;
+	}
+
+	inf->part_addr = part_info->part_start;
+	inf->part_len = part_info->part_size_dw * 4;
+	inf->active = part_info->active;
+	inf->running = part_info->is_using;
+	inf->read_only = part_info->read_only;
+
 	return switchtec_fw_info_metadata_gen4(dev, inf);
 }
 
