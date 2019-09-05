@@ -676,30 +676,6 @@ static int switchtec_fw_info_metadata_gen3(struct switchtec_dev *dev,
 	unsigned long addr;
 	int ret = 0;
 
-	switch (inf->part_id) {
-	case SWITCHTEC_FW_PART_ID_G3_BOOT:
-		inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
-		inf->part_len = SWITCHTEC_FLASH_PART_LEN;
-		inf->active = true;
-		break;
-	case SWITCHTEC_FW_PART_ID_G3_MAP0:
-		inf->part_addr = SWITCHTEC_FLASH_MAP0_PART_START;
-		inf->part_len = SWITCHTEC_FLASH_PART_LEN;
-		ret = switchtec_fw_map_get_active(dev, inf);
-		break;
-	case SWITCHTEC_FW_PART_ID_G3_MAP1:
-		inf->part_addr = SWITCHTEC_FLASH_MAP1_PART_START;
-		inf->part_len = SWITCHTEC_FLASH_PART_LEN;
-		ret = switchtec_fw_map_get_active(dev, inf);
-		break;
-	default:
-		ret = switchtec_flash_part(dev, inf, inf->part_id);
-		inf->read_only = false;
-	}
-
-	if (ret)
-		return ret;
-
 	if (inf->part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG)
 		return 1;
 
@@ -727,6 +703,40 @@ static int switchtec_fw_info_metadata_gen3(struct switchtec_dev *dev,
 err_out:
 	free(metadata);
 	return 1;
+}
+
+static int switchtec_fw_part_info_gen3(struct switchtec_dev *dev,
+				       struct switchtec_fw_image_info *inf)
+{
+	int ret = 0;
+
+	switch (inf->part_id) {
+		case SWITCHTEC_FW_PART_ID_G3_BOOT:
+			inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
+			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+			inf->active = true;
+			break;
+		case SWITCHTEC_FW_PART_ID_G3_MAP0:
+			inf->part_addr = SWITCHTEC_FLASH_MAP0_PART_START;
+			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+			ret = switchtec_fw_map_get_active(dev, inf);
+			break;
+		case SWITCHTEC_FW_PART_ID_G3_MAP1:
+			inf->part_addr = SWITCHTEC_FLASH_MAP1_PART_START;
+			inf->part_len = SWITCHTEC_FLASH_PART_LEN;
+			ret = switchtec_fw_map_get_active(dev, inf);
+			break;
+		default:
+			ret = switchtec_flash_part(dev, inf, inf->part_id);
+	}
+
+	if (ret)
+		return ret;
+
+	if (inf->part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG)
+		return 1;
+
+	return switchtec_fw_info_metadata_gen3(dev, inf);
 }
 
 static int switchtec_fw_info_metadata_gen4(struct switchtec_dev *dev,
@@ -773,6 +783,12 @@ err_out:
 	return -1;
 }
 
+static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
+				       struct switchtec_fw_image_info *inf)
+{
+	return switchtec_fw_info_metadata_gen4(dev, inf);
+}
+
 /**
  * @brief Return firmware information structures for a number of firmware
  *	partitions.
@@ -803,10 +819,10 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 
 		switch (info->gen) {
 		case SWITCHTEC_GEN3:
-			ret = switchtec_fw_info_metadata_gen3(dev, inf);
+			ret = switchtec_fw_part_info_gen3(dev, inf);
 			break;
 		case SWITCHTEC_GEN4:
-			ret = switchtec_fw_info_metadata_gen4(dev, inf);
+			ret = switchtec_fw_part_info_gen4(dev, inf);
 			break;
 		default:
 			errno = EINVAL;
