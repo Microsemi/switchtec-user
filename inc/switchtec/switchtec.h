@@ -538,6 +538,7 @@ int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 int switchtec_fw_wait(struct switchtec_dev *dev,
 		      enum switchtec_fw_dlstatus *status);
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
+					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,

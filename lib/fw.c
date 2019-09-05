@@ -193,15 +193,20 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
  * @return 0 on success, error code on failure
  */
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
+					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg)
 {
 	struct {
 		uint8_t subcmd;
 		uint8_t toggle_fw;
 		uint8_t toggle_cfg;
+		uint8_t toggle_bl2;
+		uint8_t toggle_key;
 	} cmd;
 
 	cmd.subcmd = MRPC_FWDNLD_TOGGLE;
+	cmd.toggle_bl2 = !!toggle_bl2;
+	cmd.toggle_key = !!toggle_key;
 	cmd.toggle_fw = !!toggle_fw;
 	cmd.toggle_cfg = !!toggle_cfg;
 
