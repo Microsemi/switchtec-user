@@ -710,6 +710,8 @@ static int switchtec_fw_part_info_gen3(struct switchtec_dev *dev,
 {
 	int ret = 0;
 
+	inf->read_only = switchtec_fw_is_boot_ro(dev);
+
 	switch (inf->part_id) {
 		case SWITCHTEC_FW_PART_ID_G3_BOOT:
 			inf->part_addr = SWITCHTEC_FLASH_BOOT_PART_START;
@@ -728,6 +730,7 @@ static int switchtec_fw_part_info_gen3(struct switchtec_dev *dev,
 			break;
 		default:
 			ret = switchtec_flash_part(dev, inf, inf->part_id);
+			inf->read_only = false;
 	}
 
 	if (ret)
@@ -898,7 +901,6 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		inf->type = switchtec_fw_id_to_type(inf);
 		inf->active = false;
 		inf->running = false;
-		inf->read_only = switchtec_fw_is_boot_ro(dev);
 
 		switch (info->gen) {
 		case SWITCHTEC_GEN3:
@@ -1292,6 +1294,11 @@ int switchtec_fw_is_boot_ro(struct switchtec_dev *dev)
 
 	int ret;
 
+	if (!switchtec_is_gen3(dev)) {
+		errno = ENOTSUP;
+		return -1;
+	}
+
 	ret = switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
 			    &result, sizeof(result));
 
@@ -1320,6 +1327,11 @@ int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 		.set_get = 1,
 		.status = ro,
 	};
+
+	if (!switchtec_is_gen3(dev)) {
+		errno = ENOTSUP;
+		return -1;
+	}
 
 	return switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
 			     NULL, 0);
