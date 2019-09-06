@@ -1162,8 +1162,8 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static enum switchtec_fw_image_type check_and_print_fw_image(
-	int img_fd, const char *img_filename)
+static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
+		const char *img_filename)
 {
 	int ret;
 	struct switchtec_fw_image_info info;
@@ -1176,10 +1176,11 @@ static enum switchtec_fw_image_type check_and_print_fw_image(
 	}
 
 	printf("File:     %s\n", get_basename(img_filename));
+	printf("Gen:      %s\n", switchtec_fw_image_gen_str(&info));
 	printf("Type:     %s\n", switchtec_fw_image_type(&info));
 	printf("Version:  %s\n", info.version);
 	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
-	printf("CRC:      0x%08lx\n", info.crc);
+	printf("CRC:      0x%08lx\n", info.image_crc);
 
 	return info.type;
 }
@@ -1211,81 +1212,50 @@ static int fw_img_info(int argc, char **argv)
 
 static const char *fw_active_string(struct switchtec_fw_image_info *inf)
 {
-	return switchtec_fw_active(inf) ? " - Active" : "";
+	return inf->active ? " - Active" : "";
 }
 
-static const char *fw_running_string(struct switchtec_fw_image_info *inf)
+static void print_fw_part_line(const char *tag,
+			       struct switchtec_fw_image_info *inf)
 {
-	return switchtec_fw_running(inf) ? "\t(Running)" : "";
+	if (!inf)
+		return;
+
+	printf("  %-4s\tVersion: %-8s\tCRC: %08lx%s%s\n",
+	       tag, inf->version, inf->image_crc,
+	       inf->read_only ? "\t(RO)" : "",
+	       inf->running ? "\t(Running)" : "");
 }
 
 static int print_fw_part_info(struct switchtec_dev *dev)
 {
-	int nr_mult = 16;
-	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg,
-		mult_cfg[nr_mult];
-	struct switchtec_fw_footer map;
-	struct switchtec_fw_footer bootloader;
-	char map_ver[16];
-	char bootloader_ver[16];
-	int bootloader_ro;
-	int ret, i;
+	struct switchtec_fw_part_summary *sum;
+	struct switchtec_fw_image_info *inf;
+	int i;
 
-	ret = switchtec_fw_img_info(dev, &act_img, &inact_img);
-	if (ret < 0)
-		return ret;
+	sum = switchtec_fw_part_summary(dev);
+	if (!sum)
+		return -1;
 
-	ret = switchtec_fw_cfg_info(dev, &act_cfg, &inact_cfg, mult_cfg,
-				    &nr_mult);
+	printf("Active Partitions:\n");
+	print_fw_part_line("BOOT", sum->boot.active);
+	print_fw_part_line("MAP", sum->map.active);
+	print_fw_part_line("KEY", sum->key.active);
+	print_fw_part_line("BL2", sum->bl2.active);
+	print_fw_part_line("IMG", sum->img.active);
+	print_fw_part_line("CFG", sum->cfg.active);
 
-	if (ret < 0)
-		return ret;
+	for (i = 0, inf = sum->mult_cfg; inf; i++, inf = inf->next)
+		printf("   \tMulti Config %d%s\n", i, fw_active_string(inf));
 
-	ret = switchtec_fw_read_footer(dev, SWITCHTEC_FLASH_BOOT_PART_START,
-				       SWITCHTEC_FLASH_PART_LEN, &bootloader,
-				       bootloader_ver, sizeof(bootloader_ver));
-	if (ret < 0) {
-		switchtec_perror("BOOT");
-		return ret;
-	}
+	printf("Inactive Partitions:\n");
+	print_fw_part_line("MAP", sum->map.inactive);
+	print_fw_part_line("KEY", sum->key.inactive);
+	print_fw_part_line("BL2", sum->bl2.inactive);
+	print_fw_part_line("IMG", sum->img.inactive);
+	print_fw_part_line("CFG", sum->cfg.inactive);
 
-	ret = switchtec_fw_read_active_map_footer(dev, &map, map_ver,
-						  sizeof(map_ver));
-	if (ret < 0) {
-		switchtec_perror("MAP");
-		return ret;
-	}
-
-	bootloader_ro = switchtec_fw_is_boot_ro(dev);
-	if (bootloader_ro != SWITCHTEC_FW_RO)
-		bootloader_ro = 0;
-
-	printf("Active Partition:\n");
-	printf("  BOOT \tVersion: %-8s\tCRC: %08lx   %s\n",
-	       bootloader_ver, (long)bootloader.image_crc,
-	       bootloader_ro ? "(RO)" : "");
-	printf("  MAP \tVersion: %-8s\tCRC: %08lx   %s\n",
-	       map_ver, (long)map.image_crc,
-	       bootloader_ro ? "(RO)" : "");
-	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       act_img.version, act_img.crc,
-	       fw_running_string(&act_img));
-	printf("  CFG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       act_cfg.version, act_cfg.crc,
-	       fw_running_string(&act_cfg));
-
-	for (i = 0; i < nr_mult; i++) {
-		printf("   \tMulti Config %d%s\n", i,
-		       fw_active_string(&mult_cfg[i]));
-	}
-
-	printf("Inactive Partition:\n");
-	printf("  IMG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       inact_img.version, inact_img.crc,
-	       fw_running_string(&inact_img));
-	printf("  CFG  \tVersion: %-8s\tCRC: %08lx%s\n",
-	       inact_cfg.version, inact_cfg.crc,
-	       fw_running_string(&inact_cfg));
+	switchtec_fw_part_summary_free(sum);
 
 	return 0;
 }
@@ -1312,7 +1282,7 @@ static int fw_info(int argc, char **argv)
 	}
 
 	printf("Currently Running:\n");
-	printf("  IMG Version: %s\n", version);
+	printf("  IMG\tVersion: %s\n", version);
 
 	ret = print_fw_part_info(cfg.dev);
 	if (ret) {
@@ -1372,13 +1342,11 @@ static int fw_update(int argc, char **argv)
 	}
 
 	if (cfg.set_boot_rw && type != SWITCHTEC_FW_TYPE_BOOT &&
-	    type != SWITCHTEC_FW_TYPE_MAP0 &&
-	    type != SWITCHTEC_FW_TYPE_MAP1) {
+	    type != SWITCHTEC_FW_TYPE_MAP) {
 		fprintf(stderr, "The --set-boot-rw option only applies for BOOT and MAP images\n");
 		return -1;
 	} else if (type == SWITCHTEC_FW_TYPE_BOOT ||
-		   type == SWITCHTEC_FW_TYPE_MAP0 ||
-		   type == SWITCHTEC_FW_TYPE_MAP1) {
+		   type == SWITCHTEC_FW_TYPE_MAP) {
 		if (cfg.set_boot_rw)
 			switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RW);
 
@@ -1420,11 +1388,17 @@ static int fw_toggle(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
+		int bl2;
+		int key;
 		int firmware;
 		int config;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"bl2", 'b', "", CFG_NONE, &cfg.bl2, no_argument,
+			"toggle BL2 firmware"},
+		{"key", 'k', "", CFG_NONE, &cfg.key, no_argument,
+			"toggle Key manifest"},
 		{"firmware", 'f', "", CFG_NONE, &cfg.firmware, no_argument,
 		 "toggle IMG firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.config, no_argument,
@@ -1433,11 +1407,17 @@ static int fw_toggle(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (!cfg.firmware && !cfg.config) {
-		fprintf(stderr, "NOTE: Not toggling images seeing neither "
-			"--firmware nor --config were specified\n\n");
+	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config) {
+		fprintf(stderr, "NOTE: Not toggling images seeing no "
+			"partition type options were specified\n\n");
+	} else if ((cfg.bl2 || cfg.key) && switchtec_is_gen3(cfg.dev)) {
+		fprintf(stderr, "Firmware type BL2 and Key manifest"
+			"are not supported by Gen3 switch\n");
+		return 1;
 	} else {
 		ret = switchtec_fw_toggle_active_partition(cfg.dev,
+							   cfg.bl2,
+							   cfg.key,
 							   cfg.firmware,
 							   cfg.config);
 	}
@@ -1453,13 +1433,9 @@ static int fw_toggle(int argc, char **argv)
 static int fw_read(int argc, char **argv)
 {
 	const char *desc = "Flash the firmware with a new image";
-	struct switchtec_fw_footer ftr;
-	struct switchtec_fw_image_info act_img, inact_img, act_cfg, inact_cfg;
+	struct switchtec_fw_part_summary *sum;
+	struct switchtec_fw_image_info *inf;
 	int ret = 0;
-	char version[16];
-	unsigned long img_addr;
-	size_t img_size;
-	enum switchtec_fw_image_type type;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1484,59 +1460,39 @@ static int fw_read(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_fw_img_info(cfg.dev, &act_img, &inact_img);
-	if (ret < 0) {
-		switchtec_perror("fw_img_info");
+	sum = switchtec_fw_part_summary(cfg.dev);
+	if (!sum) {
+		switchtec_perror("fw_part_summary");
 		goto close_and_exit;
 	}
 
-	ret = switchtec_fw_cfg_info(cfg.dev, &act_cfg, &inact_cfg, NULL, NULL);
-	if (ret < 0) {
-		switchtec_perror("fw_cfg_info");
-		goto close_and_exit;
-	}
+	if (cfg.data)
+		inf = cfg.inactive ? sum->cfg.inactive : sum->cfg.active;
+	else
+		inf = cfg.inactive ? sum->img.inactive : sum->img.active;
 
-	if (cfg.data) {
-		img_addr = cfg.inactive ? inact_cfg.image_addr :
-			act_cfg.image_addr;
-		img_size = cfg.inactive ? inact_cfg.image_len :
-			act_cfg.image_len;;
-		type = SWITCHTEC_FW_TYPE_DAT0;
-	} else {
-		img_addr = cfg.inactive ? inact_img.image_addr :
-			act_img.image_addr;
-		img_size = cfg.inactive ? inact_img.image_len :
-			act_img.image_len;
-		type = SWITCHTEC_FW_TYPE_IMG0;
-	}
-
-	ret = switchtec_fw_read_footer(cfg.dev, img_addr, img_size, &ftr,
-				       version, sizeof(version));
-	if (ret < 0) {
-		switchtec_perror("fw_read_footer");
-		goto close_and_exit;
-	}
-
-	fprintf(stderr, "Version:  %s\n", version);
+	fprintf(stderr, "Version:  %s\n", inf->version);
 	fprintf(stderr, "Type:     %s\n", cfg.data ? "DAT" : "IMG");
-	fprintf(stderr, "Img Len:  0x%x\n", (int) ftr.image_len);
-	fprintf(stderr, "CRC:      0x%x\n", (int) ftr.image_crc);
+	fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
+	fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
 
-	ret = switchtec_fw_img_write_hdr(cfg.out_fd, &ftr, type);
+	ret = switchtec_fw_img_write_hdr(cfg.out_fd, inf);
 	if (ret < 0) {
 		switchtec_perror(cfg.out_filename);
 		goto close_and_exit;
 	}
 
 	progress_start();
-	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, img_addr,
-				   ftr.image_len, progress_update);
+	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, inf->part_addr,
+				   inf->image_len, progress_update);
 	progress_finish();
 
 	if (ret < 0)
 		switchtec_perror("fw_read");
 
 	fprintf(stderr, "\nFirmware read to %s.\n", cfg.out_filename);
+
+	switchtec_fw_part_summary_free(sum);
 
 close_and_exit:
 	close(cfg.out_fd);

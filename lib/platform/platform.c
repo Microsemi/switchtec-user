@@ -250,7 +250,7 @@ void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map)
  */
 int switchtec_flash_part(struct switchtec_dev *dev,
 			 struct switchtec_fw_image_info *info,
-			 enum switchtec_fw_image_type part)
+			 enum switchtec_fw_image_part_id_gen3 part)
 {
 	return dev->ops->flash_part(dev, info, part);
 }

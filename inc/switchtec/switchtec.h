@@ -35,6 +35,7 @@
 #include "portable.h"
 #include "registers.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -170,38 +171,48 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_THRD,
 };
 
-/**
- * @brief The types of fw partitions
- */
-enum switchtec_fw_image_type {
-	SWITCHTEC_FW_TYPE_BOOT = 0x0,
-	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
-	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
-	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
-	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
-	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
-	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
-	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
-	SWITCHTEC_FW_TYPE_SEEPROM = 0xFE,
+enum switchtec_fw_type {
+	SWITCHTEC_FW_TYPE_UNKNOWN = 0,
+	SWITCHTEC_FW_TYPE_BOOT,
+	SWITCHTEC_FW_TYPE_MAP,
+	SWITCHTEC_FW_TYPE_IMG,
+	SWITCHTEC_FW_TYPE_CFG,
+	SWITCHTEC_FW_TYPE_NVLOG,
+	SWITCHTEC_FW_TYPE_SEEPROM,
+	SWITCHTEC_FW_TYPE_KEY,
+	SWITCHTEC_FW_TYPE_BL2,
 };
 
 /**
  * @brief Information about a firmware image or partition
  */
 struct switchtec_fw_image_info {
-	enum switchtec_fw_image_type type;	//!< Image type
+	enum switchtec_gen gen;			//!< Image generation
+	unsigned long part_id;			//!< Image partition ID
+	enum switchtec_fw_type type;		//!< Image partition type
 	char version[32];			//!< Firmware/Config version
-	size_t image_addr;			//!< Address of the image
+	size_t part_addr;			//!< Address of the partition
+	size_t part_len;			//!< Length of the partition
 	size_t image_len;			//!< Length of the image
-	unsigned long crc;			//!< CRC checksum of the image
+	unsigned long image_crc;		//!< CRC checksum of the image
 
-	/**
-	 * @brief Flags indicating if an image is active and/or running
-	 * @see switchtec_fw_active_flags
-	 * @see switchtec_fw_active()
-	 * @see switchtec_fw_running()
-	 */
-	int active;
+	bool active;
+	bool running;
+	bool read_only;
+
+	struct switchtec_fw_image_info *next;
+	void *metadata;
+};
+
+struct switchtec_fw_part_summary {
+	struct switchtec_fw_part_type {
+		struct switchtec_fw_image_info *active, *inactive;
+	} boot, map, img, cfg, nvlog, seeprom, key, bl2;
+
+	struct switchtec_fw_image_info *mult_cfg;
+
+	int nr_info;
+	struct switchtec_fw_image_info all[];
 };
 
 /**
@@ -283,9 +294,6 @@ int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 			  int *partition, int *port);
 int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 			  int port, int *pff);
-int switchtec_flash_part(struct switchtec_dev *dev,
-			 struct switchtec_fw_image_info *info,
-			 enum switchtec_fw_image_type part);
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum);
 int switchtec_event_check(struct switchtec_dev *dev,
@@ -406,6 +414,19 @@ static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return the generation string of a Switchtec fw image.
+ */
+static inline const char *
+switchtec_fw_image_gen_str(struct switchtec_fw_image_info *inf)
+{
+	switch (inf->gen) {
+	case SWITCHTEC_GEN3: return "GEN3";
+	case SWITCHTEC_GEN4: return "GEN4";
+	default:	     return "UNKNOWN";
+	}
+}
+
+/**
  * @brief Return the variant string of a Switchtec device.
  */
 static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
@@ -511,58 +532,13 @@ enum switchtec_fw_ro {
 	SWITCHTEC_FW_RO = 1,
 };
 
-/**
- * @brief Flags which indicates if a partition is active or running.
- */
-enum switchtec_fw_active_flags {
-	SWITCHTEC_FW_PART_ACTIVE = 1,
-	SWITCHTEC_FW_PART_RUNNING = 2,
-};
-
-/**
- * @brief Get whether a firmware partition is active.
- *
- * An active partition implies that it will be used the next
- * time the switch is rebooted.
- */
-static inline int switchtec_fw_active(struct switchtec_fw_image_info *inf)
-{
-	return inf->active & SWITCHTEC_FW_PART_ACTIVE;
-}
-
-/**
- * @brief Get whether a firmware partition is active.
- *
- * An active partition implies that it will be used the next
- * time the switch is rebooted.
- */
-static inline int switchtec_fw_running(struct switchtec_fw_image_info *inf)
-{
-	return inf->active & SWITCHTEC_FW_PART_RUNNING;
-}
-
-
-/**
- * @brief Raw firmware image header/footer
- *
- * Avoid using this directly
- */
-struct switchtec_fw_footer {
-	char magic[4];
-	uint32_t image_len;
-	uint32_t load_addr;
-	uint32_t version;
-	uint32_t rsvd;
-	uint32_t header_crc;
-	uint32_t image_crc;
-};
-
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus);
 int switchtec_fw_wait(struct switchtec_dev *dev,
 		      enum switchtec_fw_dlstatus *status);
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
+					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
@@ -575,29 +551,13 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 			 void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
-int switchtec_fw_read_footer(struct switchtec_dev *dev,
-			     unsigned long partition_start,
-			     size_t partition_len,
-			     struct switchtec_fw_footer *ftr,
-			     char *version, size_t version_len);
-int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
-					struct switchtec_fw_footer *ftr,
-					char *version, size_t version_len);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
-int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
-			   struct switchtec_fw_image_info *info);
-int switchtec_fw_img_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_img,
-			  struct switchtec_fw_image_info *inact_img);
-int switchtec_fw_cfg_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_cfg,
-			  struct switchtec_fw_image_info *inact_cfg,
-			  struct switchtec_fw_image_info *mult_cfg,
-			  int *nr_mult);
-int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
-			       enum switchtec_fw_image_type type);
+struct switchtec_fw_part_summary *
+switchtec_fw_part_summary(struct switchtec_dev *dev);
+void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary);
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);

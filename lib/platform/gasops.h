@@ -26,6 +26,7 @@
 #define LIBSWITCHTEC_GASOPS_H
 
 #include "switchtec/switchtec.h"
+#include "../switchtec_priv.h"
 
 int gasop_access_check(struct switchtec_dev *dev);
 void gasop_set_partition_info(struct switchtec_dev *dev);
@@ -41,7 +42,7 @@ int gasop_port_to_pff(struct switchtec_dev *dev, int partition,
 		      int port, int *pff);
 int gasop_flash_part(struct switchtec_dev *dev,
 		     struct switchtec_fw_image_info *info,
-		     enum switchtec_fw_image_type part);
+		     enum switchtec_fw_image_part_id_gen3 part);
 int gasop_event_summary(struct switchtec_dev *dev,
 			struct switchtec_event_summary *sum);
 int gasop_event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
