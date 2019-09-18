@@ -1444,6 +1444,8 @@ static int fw_read(int argc, char **argv)
 		const char *out_filename;
 		int inactive;
 		int data;
+		int bl2;
+		int key;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -1457,6 +1459,10 @@ static int fw_read(int argc, char **argv)
 		 "read the data/config partiton instead of the main firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.data, no_argument,
 		 "read the data/config partiton instead of the main firmware"},
+		{"bl2", 'b', "", CFG_NONE, &cfg.bl2, no_argument,
+		 "read the bl2 partiton instead of the main firmware"},
+		{"key", 'k', "", CFG_NONE, &cfg.key, no_argument,
+		 "read the key manifest partiton instead of the main firmware"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -1469,11 +1475,16 @@ static int fw_read(int argc, char **argv)
 
 	if (cfg.data)
 		inf = cfg.inactive ? sum->cfg.inactive : sum->cfg.active;
+	else if (cfg.bl2)
+		inf = cfg.inactive ? sum->bl2.inactive : sum->bl2.active;
+	else if (cfg.key)
+		inf = cfg.inactive ? sum->key.inactive : sum->key.active;
 	else
 		inf = cfg.inactive ? sum->img.inactive : sum->img.active;
 
 	fprintf(stderr, "Version:  %s\n", inf->version);
-	fprintf(stderr, "Type:     %s\n", cfg.data ? "DAT" : "IMG");
+	fprintf(stderr, "Type:     %s\n",
+		cfg.data ? "DAT" : cfg.bl2? "BL2" : cfg.key? "KEY" : "IMG");
 	fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
 	fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
 
