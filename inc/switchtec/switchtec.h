@@ -35,6 +35,7 @@
 #include "portable.h"
 #include "registers.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -170,38 +171,48 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_THRD,
 };
 
-/**
- * @brief The types of fw partitions
- */
-enum switchtec_fw_image_type {
-	SWITCHTEC_FW_TYPE_BOOT = 0x0,
-	SWITCHTEC_FW_TYPE_MAP0 = 0x1,
-	SWITCHTEC_FW_TYPE_MAP1 = 0x2,
-	SWITCHTEC_FW_TYPE_IMG0 = 0x3,
-	SWITCHTEC_FW_TYPE_DAT0 = 0x4,
-	SWITCHTEC_FW_TYPE_DAT1 = 0x5,
-	SWITCHTEC_FW_TYPE_NVLOG = 0x6,
-	SWITCHTEC_FW_TYPE_IMG1 = 0x7,
-	SWITCHTEC_FW_TYPE_SEEPROM = 0xFE,
+enum switchtec_fw_type {
+	SWITCHTEC_FW_TYPE_UNKNOWN = 0,
+	SWITCHTEC_FW_TYPE_BOOT,
+	SWITCHTEC_FW_TYPE_MAP,
+	SWITCHTEC_FW_TYPE_IMG,
+	SWITCHTEC_FW_TYPE_CFG,
+	SWITCHTEC_FW_TYPE_NVLOG,
+	SWITCHTEC_FW_TYPE_SEEPROM,
+	SWITCHTEC_FW_TYPE_KEY,
+	SWITCHTEC_FW_TYPE_BL2,
 };
 
 /**
  * @brief Information about a firmware image or partition
  */
 struct switchtec_fw_image_info {
-	enum switchtec_fw_image_type type;	//!< Image type
+	enum switchtec_gen gen;			//!< Image generation
+	unsigned long part_id;			//!< Image partition ID
+	enum switchtec_fw_type type;		//!< Image partition type
 	char version[32];			//!< Firmware/Config version
-	size_t image_addr;			//!< Address of the image
+	size_t part_addr;			//!< Address of the partition
+	size_t part_len;			//!< Length of the partition
 	size_t image_len;			//!< Length of the image
-	unsigned long crc;			//!< CRC checksum of the image
+	unsigned long image_crc;		//!< CRC checksum of the image
 
-	/**
-	 * @brief Flags indicating if an image is active and/or running
-	 * @see switchtec_fw_active_flags
-	 * @see switchtec_fw_active()
-	 * @see switchtec_fw_running()
-	 */
-	int active;
+	bool active;
+	bool running;
+	bool read_only;
+
+	struct switchtec_fw_image_info *next;
+	void *metadata;
+};
+
+struct switchtec_fw_part_summary {
+	struct switchtec_fw_part_type {
+		struct switchtec_fw_image_info *active, *inactive;
+	} boot, map, img, cfg, nvlog, seeprom, key, bl2;
+
+	struct switchtec_fw_image_info *mult_cfg;
+
+	int nr_info;
+	struct switchtec_fw_image_info all[];
 };
 
 /**
@@ -283,9 +294,6 @@ int switchtec_pff_to_port(struct switchtec_dev *dev, int pff,
 			  int *partition, int *port);
 int switchtec_port_to_pff(struct switchtec_dev *dev, int partition,
 			  int port, int *pff);
-int switchtec_flash_part(struct switchtec_dev *dev,
-			 struct switchtec_fw_image_info *info,
-			 enum switchtec_fw_image_type part);
 int switchtec_event_summary(struct switchtec_dev *dev,
 			    struct switchtec_event_summary *sum);
 int switchtec_event_check(struct switchtec_dev *dev,
@@ -406,6 +414,19 @@ static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return the generation string of a Switchtec fw image.
+ */
+static inline const char *
+switchtec_fw_image_gen_str(struct switchtec_fw_image_info *inf)
+{
+	switch (inf->gen) {
+	case SWITCHTEC_GEN3: return "GEN3";
+	case SWITCHTEC_GEN4: return "GEN4";
+	default:	     return "UNKNOWN";
+	}
+}
+
+/**
  * @brief Return the variant string of a Switchtec device.
  */
 static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
@@ -425,6 +446,108 @@ static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
 static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16};
 /** @brief Number of GB/s capable for each PCI generation or \p link_rate */
 static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969};
+
+static inline const char *switchtec_ltssm_str(int ltssm, int show_minor)
+{
+	if (!show_minor)
+		ltssm |= 0xFF00;
+
+	switch(ltssm) {
+	case 0x0000: return "Detect (INACTIVE)";
+	case 0x0100: return "Detect (QUIET)";
+	case 0x0200: return "Detect (SPD_CHD0)";
+	case 0x0300: return "Detect (SPD_CHD1)";
+	case 0x0400: return "Detect (ACTIVE0)";
+	case 0x0500: return "Detect (ACTIVE1)";
+	case 0x0600: return "Detect (P1_TO_P0)";
+	case 0x0700: return "Detect (P0_TO_P1_0)";
+	case 0x0800: return "Detect (P0_TO_P1_1)";
+	case 0x0900: return "Detect (P0_TO_P1_2)";
+	case 0xFF00: return "Detect";
+	case 0x0001: return "Polling (INACTIVE)";
+	case 0x0101: return "Polling (ACTIVE_ENTRY)";
+	case 0x0201: return "Polling (ACTIVE)";
+	case 0x0301: return "Polling (CFG)";
+	case 0x0401: return "Polling (COMP)";
+	case 0x0501: return "Polling (COMP_ENTRY)";
+	case 0x0601: return "Polling (COMP_EIOS)";
+	case 0x0701: return "Polling (COMP_EIOS_ACK)";
+	case 0x0801: return "Polling (COMP_IDLE)";
+	case 0xFF01: return "Polling";
+	case 0x0002: return "Config (INACTIVE)";
+	case 0x0102: return "Config (US_LW_START)";
+	case 0x0202: return "Config (US_LW_ACCEPT)";
+	case 0x0302: return "Config (US_LN_WAIT)";
+	case 0x0402: return "Config (US_LN_ACCEPT)";
+	case 0x0502: return "Config (DS_LW_START)";
+	case 0x0602: return "Config (DS_LW_ACCEPT)";
+	case 0x0702: return "Config (DS_LN_WAIT)";
+	case 0x0802: return "Config (DS_LN_ACCEPT)";
+	case 0x0902: return "Config (COMPLETE)";
+	case 0x0A02: return "Config (IDLE)";
+	case 0xFF02: return "Config";
+	case 0x0003: return "L0 (INACTIVE)";
+	case 0x0103: return "L0 (L0)";
+	case 0x0203: return "L0 (TX_EL_IDLE)";
+	case 0x0303: return "L0 (TX_IDLE_MIN)";
+	case 0xFF03: return "L0";
+	case 0x0004: return "Recovery (INACTIVE)";
+	case 0x0104: return "Recovery (RCVR_LOCK)";
+	case 0x0204: return "Recovery (RCVR_CFG)";
+	case 0x0304: return "Recovery (IDLE)";
+	case 0x0404: return "Recovery (SPEED0)";
+	case 0x0504: return "Recovery (SPEED1)";
+	case 0x0604: return "Recovery (SPEED2)";
+	case 0x0704: return "Recovery (SPEED3)";
+	case 0x0804: return "Recovery (EQ_PH0)";
+	case 0x0904: return "Recovery (EQ_PH1)";
+	case 0x0A04: return "Recovery (EQ_PH2)";
+	case 0x0B04: return "Recovery (EQ_PH3)";
+	case 0xFF04: return "Recovery";
+	case 0x0005: return "Disable (INACTIVE)";
+	case 0x0105: return "Disable (DISABLE0)";
+	case 0x0205: return "Disable (DISABLE1)";
+	case 0x0305: return "Disable (DISABLE2)";
+	case 0x0405: return "Disable (DISABLE3)";
+	case 0xFF05: return "Disable";
+	case 0x0006: return "Loop Back (INACTIVE)";
+	case 0x0106: return "Loop Back (ENTRY)";
+	case 0x0206: return "Loop Back (ENTRY_EXIT)";
+	case 0x0306: return "Loop Back (EIOS)";
+	case 0x0406: return "Loop Back (EIOS_ACK)";
+	case 0x0506: return "Loop Back (IDLE)";
+	case 0x0606: return "Loop Back (ACTIVE)";
+	case 0x0706: return "Loop Back (EXIT0)";
+	case 0x0806: return "Loop Back (EXIT1)";
+	case 0xFF06: return "Loop Back";
+	case 0x0007: return "Hot Reset (INACTIVE)";
+	case 0x0107: return "Hot Reset (HOT_RESET)";
+	case 0x0207: return "Hot Reset (MASTER_UP)";
+	case 0x0307: return "Hot Reset (MASTER_DOWN)";
+	case 0xFF07: return "Hot Reset";
+	case 0x0008: return "TxL0s (INACTIVE)";
+	case 0x0108: return "TxL0s (IDLE)";
+	case 0x0208: return "TxL0s (T0_L0)";
+	case 0x0308: return "TxL0s (FTS0)";
+	case 0x0408: return "TxL0s (FTS1)";
+	case 0xFF08: return "TxL0s";
+	case 0x0009: return "L1 (INACTIVE)";
+	case 0x0109: return "L1 (IDLE)";
+	case 0x0209: return "L1 (SUBSTATE)";
+	case 0x0309: return "L1 (SPD_CHG1)";
+	case 0x0409: return "L1 (T0_L0)";
+	case 0xFF09: return "L1";
+	case 0x000A: return "L2 (INACTIVE)";
+	case 0x010A: return "L2 (IDLE)";
+	case 0x020A: return "L2 (TX_WAKE0)";
+	case 0x030A: return "L2 (TX_WAKE1)";
+	case 0x040A: return "L2 (EXIT)";
+	case 0x050A: return "L2 (SPEED)";
+	case 0xFF0A: return "L2";
+	default: return "UNKNOWN";
+	}
+
+}
 
 /*********** EVENT Handling ***********/
 
@@ -511,58 +634,13 @@ enum switchtec_fw_ro {
 	SWITCHTEC_FW_RO = 1,
 };
 
-/**
- * @brief Flags which indicates if a partition is active or running.
- */
-enum switchtec_fw_active_flags {
-	SWITCHTEC_FW_PART_ACTIVE = 1,
-	SWITCHTEC_FW_PART_RUNNING = 2,
-};
-
-/**
- * @brief Get whether a firmware partition is active.
- *
- * An active partition implies that it will be used the next
- * time the switch is rebooted.
- */
-static inline int switchtec_fw_active(struct switchtec_fw_image_info *inf)
-{
-	return inf->active & SWITCHTEC_FW_PART_ACTIVE;
-}
-
-/**
- * @brief Get whether a firmware partition is active.
- *
- * An active partition implies that it will be used the next
- * time the switch is rebooted.
- */
-static inline int switchtec_fw_running(struct switchtec_fw_image_info *inf)
-{
-	return inf->active & SWITCHTEC_FW_PART_RUNNING;
-}
-
-
-/**
- * @brief Raw firmware image header/footer
- *
- * Avoid using this directly
- */
-struct switchtec_fw_footer {
-	char magic[4];
-	uint32_t image_len;
-	uint32_t load_addr;
-	uint32_t version;
-	uint32_t rsvd;
-	uint32_t header_crc;
-	uint32_t image_crc;
-};
-
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus);
 int switchtec_fw_wait(struct switchtec_dev *dev,
 		      enum switchtec_fw_dlstatus *status);
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
+					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
@@ -575,29 +653,13 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 			 void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
-int switchtec_fw_read_footer(struct switchtec_dev *dev,
-			     unsigned long partition_start,
-			     size_t partition_len,
-			     struct switchtec_fw_footer *ftr,
-			     char *version, size_t version_len);
-int switchtec_fw_read_active_map_footer(struct switchtec_dev *dev,
-					struct switchtec_fw_footer *ftr,
-					char *version, size_t version_len);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
-int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
-			   struct switchtec_fw_image_info *info);
-int switchtec_fw_img_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_img,
-			  struct switchtec_fw_image_info *inact_img);
-int switchtec_fw_cfg_info(struct switchtec_dev *dev,
-			  struct switchtec_fw_image_info *act_cfg,
-			  struct switchtec_fw_image_info *inact_cfg,
-			  struct switchtec_fw_image_info *mult_cfg,
-			  int *nr_mult);
-int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_footer *ftr,
-			       enum switchtec_fw_image_type type);
+struct switchtec_fw_part_summary *
+switchtec_fw_part_summary(struct switchtec_dev *dev);
+void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary);
+int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);

@@ -34,6 +34,36 @@
 
 struct switchtec_dev;
 
+/**
+ * @brief The types of fw partitions
+ */
+enum switchtec_fw_image_part_id_gen3 {
+	SWITCHTEC_FW_PART_ID_G3_BOOT = 0x0,
+	SWITCHTEC_FW_PART_ID_G3_MAP0 = 0x1,
+	SWITCHTEC_FW_PART_ID_G3_MAP1 = 0x2,
+	SWITCHTEC_FW_PART_ID_G3_IMG0 = 0x3,
+	SWITCHTEC_FW_PART_ID_G3_DAT0 = 0x4,
+	SWITCHTEC_FW_PART_ID_G3_DAT1 = 0x5,
+	SWITCHTEC_FW_PART_ID_G3_NVLOG = 0x6,
+	SWITCHTEC_FW_PART_ID_G3_IMG1 = 0x7,
+	SWITCHTEC_FW_PART_ID_G3_SEEPROM = 0xFE,
+};
+
+enum switchtec_fw_image_part_id_gen4 {
+	SWITCHTEC_FW_PART_ID_G4_MAP0 = 0x0,
+	SWITCHTEC_FW_PART_ID_G4_MAP1 = 0x1,
+	SWITCHTEC_FW_PART_ID_G4_KEY0 = 0x2,
+	SWITCHTEC_FW_PART_ID_G4_KEY1 = 0x3,
+	SWITCHTEC_FW_PART_ID_G4_BL20 = 0x4,
+	SWITCHTEC_FW_PART_ID_G4_BL21 = 0x5,
+	SWITCHTEC_FW_PART_ID_G4_CFG0 = 0x6,
+	SWITCHTEC_FW_PART_ID_G4_CFG1 = 0x7,
+	SWITCHTEC_FW_PART_ID_G4_IMG0 = 0x8,
+	SWITCHTEC_FW_PART_ID_G4_IMG1 = 0x9,
+	SWITCHTEC_FW_PART_ID_G4_NVLOG = 0xa,
+	SWITCHTEC_FW_PART_ID_G4_SEEPROM = 0xFE,
+};
+
 struct switchtec_ops {
 	void (*close)(struct switchtec_dev *dev);
 	int (*get_device_id)(struct switchtec_dev *dev);
@@ -54,7 +84,7 @@ struct switchtec_ops {
 	void (*gas_unmap)(struct switchtec_dev *dev, gasptr_t map);
 	int (*flash_part)(struct switchtec_dev *dev,
 			  struct switchtec_fw_image_info *info,
-			  enum switchtec_fw_image_type part);
+			  enum switchtec_fw_image_part_id_gen3 part);
 	int (*event_summary)(struct switchtec_dev *dev,
 			     struct switchtec_event_summary *sum);
 	int (*event_ctl)(struct switchtec_dev *dev,
@@ -89,11 +119,16 @@ struct switchtec_ops {
 				  const void __gas *src, size_t n);
 };
 
+int switchtec_flash_part(struct switchtec_dev *dev,
+			 struct switchtec_fw_image_info *info,
+			 enum switchtec_fw_image_part_id_gen3 part);
+
 struct switchtec_dev {
 	int device_id;
 	enum switchtec_gen gen;
 	enum switchtec_variant var;
 	int pax_id;
+	int local_pax_id;
 	int partition, partition_count;
 	char name[PATH_MAX];
 
@@ -113,5 +148,71 @@ static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
 }
 
 const char *platform_strerror();
+
+static inline uint8_t __gas_read8(struct switchtec_dev *dev,
+				  uint8_t __gas *addr)
+{
+	return dev->ops->gas_read8(dev, addr);
+}
+
+static inline uint16_t __gas_read16(struct switchtec_dev *dev,
+				    uint16_t __gas *addr)
+{
+	return dev->ops->gas_read16(dev, addr);
+}
+
+static inline uint32_t __gas_read32(struct switchtec_dev *dev,
+				    uint32_t __gas *addr)
+{
+	return dev->ops->gas_read32(dev, addr);
+}
+
+static inline uint64_t __gas_read64(struct switchtec_dev *dev,
+				    uint64_t __gas *addr)
+{
+	return dev->ops->gas_read64(dev, addr);
+}
+
+static inline void __gas_write8(struct switchtec_dev *dev, uint8_t val,
+				uint8_t __gas *addr)
+{
+	dev->ops->gas_write8(dev, val, addr);
+}
+
+static inline void __gas_write16(struct switchtec_dev *dev, uint16_t val,
+				 uint16_t __gas *addr)
+{
+	dev->ops->gas_write16(dev, val, addr);
+}
+
+static inline void __gas_write32(struct switchtec_dev *dev, uint32_t val,
+				 uint32_t __gas *addr)
+{
+	dev->ops->gas_write32(dev, val, addr);
+}
+
+static inline void __gas_write64(struct switchtec_dev *dev, uint64_t val,
+				 uint64_t __gas *addr)
+{
+	dev->ops->gas_write64(dev, val, addr);
+}
+
+static inline void __memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
+		   const void *src, size_t n)
+{
+	dev->ops->memcpy_to_gas(dev, dest, src, n);
+}
+
+static inline void __memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+		     const void __gas *src, size_t n)
+{
+	dev->ops->memcpy_from_gas(dev, dest, src, n);
+}
+
+static inline ssize_t __write_from_gas(struct switchtec_dev *dev, int fd,
+		       const void __gas *src, size_t n)
+{
+	return dev->ops->write_from_gas(dev, fd, src, n);
+}
 
 #endif
