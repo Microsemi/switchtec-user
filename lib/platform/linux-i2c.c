@@ -374,15 +374,24 @@ static void i2c_gas_write(struct switchtec_dev *dev, void __gas *dest,
 	uint8_t tag;
 	uint8_t status;
 	uint8_t retry_count = 0;
+	uint8_t status_retry_count = 0;
 
 	do {
 		tag = get_tag(idev);
 		i2c_gas_data_write(dev, dest, src, n, tag);
-		status = i2c_gas_write_status_get(dev, tag);
-		if (status == 0 || status == GAS_TWI_MRPC_ERR)
+		do {
+			usleep(20000);
+			status = i2c_gas_write_status_get(dev, tag);
+			if (status == 0 || status == GAS_TWI_MRPC_ERR)
+				break;
+			status_retry_count++;
+		} while (status_retry_count < MAX_RETRY_COUNT);
+
+		if (status_retry_count < MAX_RETRY_COUNT)
 			break;
+
 		retry_count++;
-	}while (retry_count < MAX_RETRY_COUNT);
+	} while (retry_count < MAX_RETRY_COUNT);
 
 	if (retry_count == MAX_RETRY_COUNT)
 		raise(SIGBUS);
