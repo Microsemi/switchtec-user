@@ -1285,7 +1285,7 @@ static int fw_info(int argc, char **argv)
 	}
 	if (phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL2 or Main Firmware!\n");
 		return -1;
 	}
 	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
@@ -1353,7 +1353,9 @@ static int fw_update(int argc, char **argv)
 	}
 	if(phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL2 or Main Firmware!\n");
+		fprintf(stderr,
+			"Use 'fw-transfer' instead to download a BL2 image.\n");
 		return -1;
 	}
 	if(phase_id == SWITCHTEC_BOOT_PHASE_BL2)
@@ -1447,7 +1449,9 @@ static int fw_toggle(int argc, char **argv)
 	}
 	if(phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL2 or Main Firmware!\n");
+		fprintf(stderr,
+			"Use 'fw-execute' instead for this operation.\n");
 		return -1;
 	}
 

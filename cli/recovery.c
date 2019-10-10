@@ -247,7 +247,7 @@ static int info(int argc, char **argv)
 
 	if(phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL1 or Main Firmware!\n");
 		return -1;
 	}
 
@@ -355,7 +355,7 @@ static int image_list(int argc, char **argv)
 	}
 	if(phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL1!\n");
 		return -1;
 	}
 
@@ -422,7 +422,7 @@ static int image_select(int argc, char **argv)
 	}
 	if(phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL1!\n");
 		return -2;
 	}
 
@@ -473,27 +473,15 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
-		const char *img_filename)
+static void print_fw_image_info(const char *filename,
+				struct switchtec_fw_image_info *info)
 {
-	int ret;
-	struct switchtec_fw_image_info info;
-	ret = switchtec_fw_file_info(img_fd, &info);
-
-	if (ret < 0) {
-		fprintf(stderr, "%s: Invalid image file format\n",
-			img_filename);
-		return ret;
-	}
-
-	printf("File:     %s\n", get_basename(img_filename));
-	printf("Gen:      %s\n", switchtec_fw_image_gen_str(&info));
-	printf("Type:     %s\n", switchtec_fw_image_type(&info));
-	printf("Version:  %s\n", info.version);
-	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
-	printf("CRC:      0x%08lx\n", info.image_crc);
-
-	return info.type;
+	printf("File:     %s\n", get_basename(filename));
+	printf("Gen:      %s\n", switchtec_fw_image_gen_str(info));
+	printf("Type:     %s\n", switchtec_fw_image_type(info));
+	printf("Version:  %s\n", info->version);
+	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info->image_len);
+	printf("CRC:      0x%08lx\n", info->image_crc);
 }
 
 static int fw_transfer(int argc, char **argv)
@@ -501,6 +489,7 @@ static int fw_transfer(int argc, char **argv)
 	int ret;
 	int type;
 	enum switchtec_boot_phase phase_id;
+	struct switchtec_fw_image_info finfo;
 
 	const char *desc = "Transfer a firmware image to device";
 	static struct {
@@ -527,25 +516,34 @@ static int fw_transfer(int argc, char **argv)
 
 	ret = switchtec_get_boot_phase(cfg.dev, &phase_id);
 	if (ret != 0) {
-		switchtec_fw_perror("security fw-transfer", ret);
+		switchtec_fw_perror("recovery fw-transfer", ret);
 		return ret;
 	}
 	if (phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
-		return -2;
+			"This command is only available in BL1!\n");
+		fprintf(stderr,
+			"Use 'fw-update' instead to update an image.\n");
+		return -1;
 	}
 
+	ret = switchtec_fw_file_info(fileno(cfg.fimg), &finfo);
+	if (ret) {
+		fprintf(stderr, "%s: Invalid image file format.\n",
+			cfg.img_filename);
+		return ret;
+	}
+
+	if (finfo.type != SWITCHTEC_FW_TYPE_BL2) {
+		fprintf(stderr,
+			"Only BL2 image is supported by this command.\n");
+		return -2;
+	}
+	
 	printf("Writing the following firmware image to %s:\n",
 		switchtec_name(cfg.dev));
 
-	type = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename);
-	if (type < 0) {
-		fprintf(stderr, "%s - Invalid image file format!\n",
-			cfg.img_filename);
-		fclose(cfg.fimg);
-		return type;
-	}
+	print_fw_image_info(cfg.img_filename, &finfo);
 
 	ret = ask_if_sure(!cfg.confirm);
 	if (ret) {
@@ -561,8 +559,8 @@ static int fw_transfer(int argc, char **argv)
 
 	if (ret) {
 		printf("\n");
-		switchtec_fw_perror("security fw-transfer", ret);
-		return -1;
+		switchtec_fw_perror("recovery fw-transfer", ret);
+		return -3;
 	}
 
 	progress_finish();
@@ -609,7 +607,9 @@ static int fw_execute(int argc, char **argv)
 	}
 	if(phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL1!\n");
+		fprintf(stderr,
+			"Use 'fw-toggle' instead for this operation.\n");
 		return -2;
 	}
 
@@ -658,7 +658,7 @@ static int security_config_set(int argc, char **argv)
 	}
 	if(phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL1 or Main Firmware!\n");
 		return -1;
 	}
 
@@ -669,7 +669,7 @@ static int security_config_set(int argc, char **argv)
 	}
 	if(state.secure_state != SWITCHTEC_UNINITIALIZED_UNSECURED) {
 		fprintf(stderr,
-			"This command is not valid for the current secure state!\n");
+			"This command is only available when secure state is UNINITIALIZED_UNSECURED!\n");
 		return -2;
 	}
 
@@ -754,7 +754,7 @@ static int kmsk_add(int argc, char **argv)
 	}
 	if(phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL1 or Main Firmware!\n");
 		return -2;
 	}
 
@@ -765,7 +765,7 @@ static int kmsk_add(int argc, char **argv)
 	}
 	if(state.secure_state == SWITCHTEC_INITIALIZED_UNSECURED) {
 		fprintf(stderr,
-			"This command is not valid for the current secure state!\n");
+			"This command is only valid when secure state is not INITIALIZED_UNSECURED!\n");
 		return -3;
 	}
 
@@ -852,7 +852,7 @@ static int secure_state_set(int argc, char **argv)
 	}
 	if(phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL1 or Main Firmware!\n");
 		return -2;
 	}
 
@@ -863,7 +863,7 @@ static int secure_state_set(int argc, char **argv)
 	}
 	if(state.secure_state != SWITCHTEC_UNINITIALIZED_UNSECURED) {
 		fprintf(stderr,
-			"This command is not valid for the current secure state!\n");
+			"This command is only valid when secure state is UNINITIALIZED_UNSECURED!\n");
 		return -3;
 	}
 
@@ -897,7 +897,7 @@ static int boot_resume(int argc, char **argv)
 	}
 	if(phase_id == SWITCHTEC_BOOT_PHASE_FW) {
 		fprintf(stderr,
-			"This command is not available in this phase!\n");
+			"This command is only available in BL1 or BL2!\n");
 		return -1;
 	}
 
