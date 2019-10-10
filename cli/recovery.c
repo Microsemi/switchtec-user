@@ -509,17 +509,12 @@ static int fw_transfer(int argc, char **argv)
 		const char *img_filename;
 		int confirm;
 		int force;
-		enum switchtec_bl2_recovery_mode bl2_rec_mode;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
 			.argument_type=required_positional,
 			.help="firmware image file to transfer"},
-		{"bl2_recovery_mode", 'm', "MODE",
-			CFG_CHOICES, &cfg.bl2_rec_mode,
-			required_argument, "BL2 recovery mode",
-			.choices=recovery_mode_choices},
 		{"yes", 'y', "", CFG_NONE, &cfg.confirm, no_argument,
 			"double confirm before execution"},
 		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
@@ -528,15 +523,7 @@ static int fw_transfer(int argc, char **argv)
 		{NULL}
 	};
 
-	cfg.bl2_rec_mode = SWITCHTEC_BL2_RECOVERY_NOT_SET;
-
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
-
-	if (cfg.bl2_rec_mode == SWITCHTEC_BL2_RECOVERY_NOT_SET) {
-		fprintf(stderr,
-			"BL2 recovery mode must be set in this command!\n");
-		return -1;
-	}
 
 	ret = switchtec_get_boot_phase(cfg.dev, &phase_id);
 	if (ret != 0) {
