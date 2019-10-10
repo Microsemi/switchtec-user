@@ -487,7 +487,6 @@ static void print_fw_image_info(const char *filename,
 static int fw_transfer(int argc, char **argv)
 {
 	int ret;
-	int type;
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_fw_image_info finfo;
 
