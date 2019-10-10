@@ -508,7 +508,6 @@ static int fw_transfer(int argc, char **argv)
 		FILE *fimg;
 		const char *img_filename;
 		int confirm;
-		int dont_execute;
 		int force;
 		enum switchtec_bl2_recovery_mode bl2_rec_mode;
 	} cfg = {};
@@ -523,10 +522,6 @@ static int fw_transfer(int argc, char **argv)
 			.choices=recovery_mode_choices},
 		{"yes", 'y', "", CFG_NONE, &cfg.confirm, no_argument,
 			"double confirm before execution"},
-		{"dont-execute", 'E', "", CFG_NONE, &cfg.dont_execute,
-			no_argument,
-			"don't execute the new image, use fw-execute to do "
-			"so when it is safe"},
 		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
 			"force interrupting an existing fw-update command "
 			"in case firmware is stuck in the busy state"},
@@ -573,7 +568,7 @@ static int fw_transfer(int argc, char **argv)
 
 	progress_start();
 	ret = switchtec_fw_write_file_ex(cfg.dev, MRPC_FW_TX,
-					 cfg.fimg, cfg.dont_execute,
+					 cfg.fimg, 1,
 					 cfg.force, progress_update);
 	fclose(cfg.fimg);
 
@@ -585,15 +580,6 @@ static int fw_transfer(int argc, char **argv)
 
 	progress_finish();
 	printf("\n");
-
-	if(cfg.dont_execute)
-		return 0;
-
-	ret = switchtec_fw_exec(cfg.dev, cfg.bl2_rec_mode);
-	if (ret) {
-		switchtec_fw_perror("security fw-transfer", ret);
-		return ret;
-	}
 
 	return 0;
 }
