@@ -220,7 +220,7 @@ static void print_security_config(struct switchtec_security_cfg_stat *state)
 
 static int info(int argc, char **argv)
 {
-	const char *desc = "Display security settings";
+	const char *desc = "Display security settings (BL1 and Main Firmware only)";
 	int ret;
 	enum switchtec_boot_phase phase_id;
 
@@ -332,7 +332,7 @@ static void print_image_list(struct switchtec_active_index *idx)
 static int image_list(int argc, char **argv)
 {
 
-	const char *desc = "Display active image list";
+	const char *desc = "Display active image list (BL1 only)";
 	int ret;
 	enum switchtec_boot_phase phase_id;
 
@@ -373,7 +373,7 @@ static int image_list(int argc, char **argv)
 static int image_select(int argc, char **argv)
 {
 
-	const char *desc = "Select active image index";
+	const char *desc = "Select active image index (BL1 only)";
 	int ret;
 	enum switchtec_boot_phase phase_id;
 
@@ -490,7 +490,7 @@ static int fw_transfer(int argc, char **argv)
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_fw_image_info finfo;
 
-	const char *desc = "Transfer a firmware image to device";
+	const char *desc = "Transfer a firmware image to device (BL1 only)";
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *fimg;
@@ -573,7 +573,7 @@ static int fw_execute(int argc, char **argv)
 	int ret;
 	enum switchtec_boot_phase phase_id;
 
-	const char *desc = "Execute the transferred firmware image";
+	const char *desc = "Execute the transferred firmware image (BL1 only)";
 	static struct {
 		struct switchtec_dev *dev;
 		int confirm;
@@ -633,7 +633,7 @@ static int security_config_set(int argc, char **argv)
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_security_cfg_stat state = {};
 
-	const char *desc = "Set the device security settings";
+	const char *desc = "Set the device security settings (BL1 and Main Firmware only)";
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *setting_fimg;
@@ -711,7 +711,7 @@ static int kmsk_add(int argc, char **argv)
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_security_cfg_stat state = {};
 
-	const char *desc = "Add a KSMK entry";
+	const char *desc = "Add a KSMK entry (BL1 and Main Firmware only)";
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *pubk_fimg;
@@ -820,7 +820,7 @@ static int secure_state_set(int argc, char **argv)
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_security_cfg_stat state = {};
 
-	const char *desc = "Set device secure state";
+	const char *desc = "Set device secure state (BL1 and Main Firmware only)";
 	static struct {
 		struct switchtec_dev *dev;
 		enum switchtec_secure_state state;
@@ -878,7 +878,7 @@ static int boot_resume(int argc, char **argv)
 	int ret;
 	enum switchtec_boot_phase phase_id;
 
-	const char *desc = "Resume device boot";
+	const char *desc = "Resume device boot (BL1 and BL2 only)";
 	static struct {
 		struct switchtec_dev *dev;
 	} cfg = {};
