@@ -37,6 +37,9 @@
 #include <errno.h>
 #include <ctype.h>
 
+#include <inttypes.h>
+#include <stdint.h>
+
 static int gfms_bind(int argc, char **argv)
 {
 	const char *desc = "Unbind the EP(function) to the specified host";
@@ -586,7 +589,7 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 	enable_bitmap <<= 32;
 	enable_bitmap |= body->log_port_p2p_enable_bitmap_low;
 
-	printf("        Logical Port P2P enable bitmap:\t0x%016lx\n",
+	printf("        Logical Port P2P enable bitmap:\t0x%016" PRIx64 "\n",
 	       enable_bitmap);
 	for (i = 0; i < body->log_port_count; i++) {
 		pos = ffs(enable_bitmap);
@@ -597,13 +600,13 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 			bitmap = body->log_port_p2p_bitmap[i].config_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].config_bitmap_low;
-			printf("        Logical Port %u P2P config bitmap:    \t0x%016lx\n",
+			printf("        Logical Port %u P2P config bitmap:    \t0x%016" PRIx64 "\n",
 			       pos, bitmap);
 
 			bitmap = body->log_port_p2p_bitmap[i].active_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].active_bitmap_low;
-			printf("        Logical Port %u P2P active bitmap:    \t0x%016lx\n",
+			printf("        Logical Port %u P2P active bitmap:    \t0x%016" PRIx64 "\n",
 			       pos, bitmap);
 		}
 	}
