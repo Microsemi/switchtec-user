@@ -9,6 +9,12 @@ AC_ARG_WITH([curses],
              [],
 	     [with_curses=check])
 
+AC_ARG_WITH([crypto],
+             [AS_HELP_STRING([--with-crypto],
+	                   [support recovery commands @<:@default=check@:>@])],
+             [],
+	     [with_crypto=check])
+
 AS_IF([test "x$with_curses" != xno],
        [AC_CHECK_LIB([ncurses], [initscr], [], [], [])])
 
@@ -18,6 +24,9 @@ AS_IF([test "x$with_curses" != xno &&
         AC_CHECK_LIB([curses], [initscr], [], [], [-ltinfo])])
 
 AC_CHECK_HEADERS([curses.h ncurses/curses.h])
+
+AS_IF([test "x$with_ssl" != xno],
+       [AC_CHECK_LIB([crypto], [RSA_free], [], [], [])])
 
 AC_CONFIG_FILES([Makefile])
 

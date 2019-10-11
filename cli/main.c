@@ -32,6 +32,7 @@
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
 #include <switchtec/pci.h>
+#include <switchtec/recovery.h>
 
 #include <locale.h>
 #include <time.h>
@@ -1266,6 +1267,7 @@ static int fw_info(int argc, char **argv)
 	const char *desc = "Test if switchtec interface is working";
 	int ret;
 	char version[64];
+	enum switchtec_boot_phase phase_id;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1276,15 +1278,27 @@ static int fw_info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_fw_version(cfg.dev, version, sizeof(version));
-	if (ret < 0) {
-		switchtec_perror("fw info");
+	ret = switchtec_get_boot_phase(cfg.dev, &phase_id);
+	if (ret != 0) {
+		switchtec_perror("print fw info");
 		return ret;
 	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL2 or Main Firmware!\n");
+		return -1;
+	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
+		ret = switchtec_get_fw_version(cfg.dev, version,
+					       sizeof(version));
+		if (ret < 0) {
+			switchtec_perror("fw info");
+			return ret;
+		}
 
-	printf("Currently Running:\n");
-	printf("  IMG\tVersion: %s\n", version);
-
+		printf("Currently Running:\n");
+		printf("  IMG\tVersion: %s\n", version);
+	}
 	ret = print_fw_part_info(cfg.dev);
 	if (ret) {
 		switchtec_perror("print fw info");
@@ -1300,6 +1314,9 @@ static int fw_update(int argc, char **argv)
 	int ret;
 	int type;
 	const char *desc = "Flash the firmware with a new image";
+
+	enum switchtec_boot_phase phase_id;
+	enum mrpc_cmd rpc_cmd = MRPC_FWDNLD;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1328,6 +1345,21 @@ static int fw_update(int argc, char **argv)
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_get_boot_phase(cfg.dev, &phase_id);
+	if (ret != 0) {
+		switchtec_fw_perror("firmware update", ret);
+		return ret;
+	}
+	if(phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL2 or Main Firmware!\n");
+		fprintf(stderr,
+			"Use 'fw-transfer' instead to download a BL2 image.\n");
+		return -1;
+	}
+	if(phase_id == SWITCHTEC_BOOT_PHASE_BL2)
+		rpc_cmd = MRPC_FW_TX;
 
 	printf("Writing the following firmware image to %s.\n",
 	       switchtec_name(cfg.dev));
@@ -1359,8 +1391,9 @@ static int fw_update(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
-				      cfg.force, progress_update);
+	ret = switchtec_fw_write_file_ex(cfg.dev, rpc_cmd, cfg.fimg,
+					 cfg.dont_activate, cfg.force,
+					 progress_update);
 	fclose(cfg.fimg);
 
 	if (ret) {
@@ -1386,6 +1419,7 @@ static int fw_toggle(int argc, char **argv)
 {
 	const char *desc = "Toggle active and inactive firmware partitions";
 	int ret = 0;
+	enum switchtec_boot_phase phase_id;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1407,6 +1441,19 @@ static int fw_toggle(int argc, char **argv)
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_get_boot_phase(cfg.dev, &phase_id);
+	if (ret != 0) {
+		switchtec_perror("firmware toggle");
+		return ret;
+	}
+	if(phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL2 or Main Firmware!\n");
+		fprintf(stderr,
+			"Use 'fw-execute' instead for this operation.\n");
+		return -1;
+	}
 
 	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config) {
 		fprintf(stderr, "NOTE: Not toggling images seeing no "

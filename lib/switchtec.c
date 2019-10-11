@@ -36,6 +36,7 @@
 #include "switchtec/errors.h"
 #include "switchtec/log.h"
 #include "switchtec/endian.h"
+#include "switchtec/recovery.h"
 
 #include <string.h>
 #include <unistd.h>
@@ -122,6 +123,17 @@ static const struct switchtec_device_id switchtec_device_id_tbl[] = {
 static int set_gen_variant(struct switchtec_dev * dev)
 {
 	const struct switchtec_device_id *id = switchtec_device_id_tbl;
+	int ret;
+	enum switchtec_boot_phase phase_id;
+	
+	ret = switchtec_get_boot_phase(dev, &phase_id);
+	if (ret == 0 &&
+	    ((phase_id == SWITCHTEC_BOOT_PHASE_BL1) ||
+	     (phase_id == SWITCHTEC_BOOT_PHASE_BL2))) {
+		dev->gen = SWITCHTEC_GEN4;
+		dev->var = SWITCHTEC_PSX;
+		return 0;
+	}
 
 	dev->device_id = dev->ops->get_device_id(dev);
 	if (dev->device_id < 0) {

@@ -87,6 +87,15 @@ enum switchtec_gen {
 };
 
 /**
+ * @brief Device boot phase
+ */
+enum switchtec_boot_phase {
+	SWITCHTEC_BOOT_PHASE_BL1 = 1,
+	SWITCHTEC_BOOT_PHASE_BL2,
+	SWITCHTEC_BOOT_PHASE_FW
+};
+
+/**
  * @brief The variant types of Switchtec device
  */
 enum switchtec_variant {
@@ -637,17 +646,32 @@ enum switchtec_fw_ro {
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus);
+int switchtec_fw_dlstatus_ex(struct switchtec_dev *dev,
+			     enum mrpc_cmd rpc_cmd,
+			     enum switchtec_fw_dlstatus *status,
+			     enum mrpc_bg_status *bgstatus);
 int switchtec_fw_wait(struct switchtec_dev *dev,
 		      enum switchtec_fw_dlstatus *status);
+int switchtec_fw_wait_ex(struct switchtec_dev *dev,
+			 enum mrpc_cmd rpc_cmd,
+			 enum switchtec_fw_dlstatus *status);
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
 			  void (*progress_callback)(int cur, int tot));
+int switchtec_fw_write_fd_ex(struct switchtec_dev *dev,  
+			     enum mrpc_cmd rpc_cmd, int img_fd, 
+			     int dont_activate, int force,
+			     void (*progress_callback)(int cur, int tot));
 int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 			    int dont_activate, int force,
 			    void (*progress_callback)(int cur, int tot));
+int switchtec_fw_write_file_ex(struct switchtec_dev *dev, 
+			       enum mrpc_cmd rpc_cmd, FILE *fimg,
+			       int dont_activate, int force,
+			       void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 			 unsigned long addr, size_t len,
 			 void (*progress_callback)(int cur, int tot));

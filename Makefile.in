@@ -133,7 +133,7 @@ examples/%.o: examples/%.c
 
 examples/%: examples/%.o | $(SHLIBNAME)
 	@$(NQ) echo "  LD    $@"
-	$(Q)$(LINK.o) $^ $(IMPLIBNAME) -o $@
+	$(Q)$(LINK.o) $^ $(IMPLIBNAME) $(LDLIBS) -o $@
 
 install-bash-completion:
 	@$(NQ) echo "  INSTALL  $(SYSCONFDIR)/bash_completion.d/bash-switchtec-completion.sh"
