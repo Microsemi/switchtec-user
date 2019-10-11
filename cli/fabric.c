@@ -651,7 +651,7 @@ static int fab_port_print(struct switchtec_dev *dev,
 	       fab_port->body.attached_sw_idx);
 	printf("        Attached SWFID:       \t0x%04hx\n",
 	       fab_port->body.attached_swfid);
-	printf("        Attached FW Version:  \t0x%hx\n",
+	printf("        Attached FW Version:  \t0x%x\n",
 	       fab_port->body.attached_fw_version);
 
 	return 0;
