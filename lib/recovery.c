@@ -39,9 +39,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/rsa.h>
+//#include <openssl/err.h>
+//#include <openssl/evp.h>
+//#include <openssl/rsa.h>
 #include <openssl/pem.h>
 
 #include "lib/crc32.h"
