@@ -1314,6 +1314,10 @@ static int fw_update(int argc, char **argv)
 	int ret;
 	int type;
 	const char *desc = "Flash the firmware with a new image";
+	int bl2 = 0;
+	int key = 0;
+	int cfg_part = 0;
+	int fw = 0;
 
 	enum switchtec_boot_phase phase_id;
 	enum mrpc_cmd rpc_cmd = MRPC_FWDNLD;
@@ -1404,6 +1408,27 @@ static int fw_update(int argc, char **argv)
 
 	progress_finish();
 	printf("\n");
+
+	if ((phase_id == SWITCHTEC_BOOT_PHASE_BL2) && !cfg.dont_activate) {
+		if (type == SWITCHTEC_FW_TYPE_BL2)
+			bl2 = 1;
+		else if (type == SWITCHTEC_FW_TYPE_CFG)
+			cfg_part = 1;
+		else if (type == SWITCHTEC_FW_TYPE_IMG)
+			fw = 1;
+		else if (type == SWITCHTEC_FW_TYPE_KEY)
+			key = 1;
+
+		ret = switchtec_fw_toggle_active_partition(cfg.dev,
+							   bl2,
+							   key,
+							   fw,
+							   cfg_part);
+		if (ret) {
+			switchtec_perror("firmware update");
+			return ret;
+		}
+	}
 
 	print_fw_part_info(cfg.dev);
 	printf("\n");
