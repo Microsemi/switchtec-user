@@ -357,6 +357,22 @@ static int compare_status(const void *aa, const void *bb)
 	return compare_port_id(&a->port, &b->port);
 }
 
+static const char *lane_reversal_str(int link_up,
+				     int lane_reversal)
+{
+	if (!link_up)
+		return "N/A";
+
+	switch(lane_reversal) {
+	case 0: return "Normal Lane Ordering";
+	case 1: return "x16 (Full) Lane Reversal";
+	case 2: return "x2 Lane Reversal";
+	case 4: return "x4 Lane Reversal";
+	case 8: return "x8 Lane Reversal";
+	default: return "Unknown Lane Ordering";
+	}
+}
+
 /**
  * @brief Get the status of all the ports on a switchtec device
  * @param[in]  dev    Switchtec device handle
@@ -392,7 +408,8 @@ int switchtec_status(struct switchtec_dev *dev,
 		uint8_t usp_flag;
 		uint8_t linkup_linkrate;
 		uint16_t LTSSM;
-		uint16_t reserved;
+		uint8_t lane_reversal;
+		uint8_t first_act_lane;
 	} ports[SWITCHTEC_MAX_PORTS];
 
 	ret = switchtec_cmd(dev, MRPC_LNKSTAT, &port_bitmap, sizeof(port_bitmap),
@@ -428,7 +445,10 @@ int switchtec_status(struct switchtec_dev *dev,
 		s[p].link_rate = ports[i].linkup_linkrate & 0x7F;
 		s[p].ltssm = le16toh(ports[i].LTSSM);
 		s[p].ltssm_str = switchtec_ltssm_str(s[i].ltssm, 1);
-
+		s[p].lane_reversal = ports[i].lane_reversal;
+		s[p].lane_reversal_str = lane_reversal_str(s[p].link_up,
+							   s[p].lane_reversal);
+		s[p].first_act_lane = ports[i].first_act_lane & 0xF;
 		s[p].acs_ctrl = -1;
 
 		p++;

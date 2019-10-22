@@ -147,6 +147,9 @@ struct switchtec_status {
 	unsigned char link_rate;	//!< Link rate/gen
 	uint16_t ltssm;			//!< Link state
 	const char *ltssm_str;		//!< Link state as a string
+	unsigned char lane_reversal;	//!< Lane reversal
+	const char *lane_reversal_str;	//!< Lane reversal as a string
+	unsigned char first_act_lane;	//!< First active lane
 
 	char *pci_bdf;			//!< PCI BDF of the port
 	char *pci_bdf_path;		//!< PCI BDF path of the port
