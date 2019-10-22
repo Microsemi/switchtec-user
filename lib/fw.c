@@ -960,6 +960,10 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 		return -1;
 	}
 
+	inf->valid = part_info->valid;
+	if(!inf->valid)
+		return 0;
+
 	inf->part_addr = part_info->part_start;
 	inf->part_len = part_info->part_size_dw * 4;
 	inf->active = part_info->active;
@@ -1206,6 +1210,9 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 
 	for (i = 0; i < nr_info; i++) {
 		type = switchtec_fw_type_ptr(summary, &summary->all[i]);
+		if(!summary->all[i].valid)
+			continue;
+
 		if (summary->all[i].active)
 			type->active = &summary->all[i];
 		else

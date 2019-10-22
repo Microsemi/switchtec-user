@@ -1220,7 +1220,7 @@ static const char *fw_active_string(struct switchtec_fw_image_info *inf)
 static void print_fw_part_line(const char *tag,
 			       struct switchtec_fw_image_info *inf)
 {
-	if (!inf)
+	if (!inf || !inf->valid)
 		return;
 
 	printf("  %-4s\tVersion: %-8s\tCRC: %08lx%s%s\n",
