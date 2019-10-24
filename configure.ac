@@ -28,6 +28,9 @@ AC_CHECK_HEADERS([curses.h ncurses/curses.h])
 AS_IF([test "x$with_ssl" != xno],
        [AC_CHECK_LIB([crypto], [RSA_free], [], [], [])])
 
+AS_IF([test "x$with_ssl" != xno],
+       [AC_CHECK_DECLS([RSA_get0_key], [], [], [#include <openssl/pem.h>])])
+
 AC_CONFIG_FILES([Makefile])
 
 AC_CONFIG_HEADER([config.h])

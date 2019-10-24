@@ -45,6 +45,7 @@
 #include <openssl/pem.h>
 
 #include "lib/crc32.h"
+#include "config.h"
 
 #define SWITCHTEC_ACTV_IMG_ID_KMAN		1
 #define SWITCHTEC_ACTV_IMG_ID_BL2		2
@@ -64,7 +65,7 @@
 #define SWITCHTEC_I2C_ADDR_BITSHIFT		22
 #define SWITCHTEC_CMD_MAP_BITSHIFT		29
 
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#if !HAVE_DECL_RSA_GET0_KEY
 /**
 *  openssl1.0 or older versions don't have this function, so copy
 *  the code from openssl1.1 here
