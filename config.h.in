@@ -3,8 +3,15 @@
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
 
+/* Define to 1 if you have the declaration of `RSA_get0_key', and to 0 if you
+   don't. */
+#undef HAVE_DECL_RSA_GET0_KEY
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `crypto' library (-lcrypto). */
+#undef HAVE_LIBCRYPTO
 
 /* Define to 1 if you have the `curses' library (-lcurses). */
 #undef HAVE_LIBCURSES
