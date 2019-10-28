@@ -504,7 +504,7 @@ static int fw_transfer(int argc, char **argv)
 			.argument_type=required_positional,
 			.help="firmware image file to transfer"},
 		{"yes", 'y', "", CFG_NONE, &cfg.confirm, no_argument,
-			"double confirm before execution"},
+			"assume yes when prompted"},
 		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
 			"force interrupting an existing fw-update command "
 			"in case firmware is stuck in the busy state"},
@@ -544,7 +544,7 @@ static int fw_transfer(int argc, char **argv)
 
 	print_fw_image_info(cfg.img_filename, &finfo);
 
-	ret = ask_if_sure(!cfg.confirm);
+	ret = ask_if_sure(cfg.confirm);
 	if (ret) {
 		fclose(cfg.fimg);
 		return ret;
@@ -582,7 +582,7 @@ static int fw_execute(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"yes", 'y', "", CFG_NONE, &cfg.confirm, no_argument,
-			"double confirm before execution"},
+			"assume yes when prompted"},
 		{"bl2_recovery_mode", 'm', "MODE", CFG_CHOICES, &cfg.bl2_rec_mode,
 			required_argument, "BL2 recovery mode",
 			.choices = recovery_mode_choices},
@@ -612,7 +612,7 @@ static int fw_execute(int argc, char **argv)
 		return -2;
 	}
 
-	ret = ask_if_sure(!cfg.confirm);
+	ret = ask_if_sure(cfg.confirm);
 	if (ret) {
 		return ret;
 	}
@@ -1022,7 +1022,7 @@ static int dport_lock_update(int argc, char **argv)
 			.argument_type=required_argument,
 			.help="signature file"},
 		{"yes", 'y', "", CFG_NONE, &cfg.confirm, no_argument,
-			"double confirm before update"},
+			"assume yes when prompted"},
 		{NULL}
 	};
 
@@ -1040,7 +1040,7 @@ static int dport_lock_update(int argc, char **argv)
 		return -2;
 	}
 
-	ret = ask_if_sure(!cfg.confirm);
+	ret = ask_if_sure(cfg.confirm);
 	if (ret) {
 		return ret;
 	}
