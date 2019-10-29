@@ -835,6 +835,8 @@ static int switchtec_fw_part_info_gen3(struct switchtec_dev *dev,
 	if (ret)
 		return ret;
 
+	inf->valid = 1;
+
 	if (inf->part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG)
 		return 1;
 
