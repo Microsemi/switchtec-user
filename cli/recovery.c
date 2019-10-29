@@ -681,7 +681,7 @@ static int security_config_set(int argc, char **argv)
 	}
 
 	fprintf(stderr, 
-		"WARNING: This operation makes changes to the device OTP memory and is not reversable!\n");
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(0);
 	if(ret)
 		return -3;
@@ -805,7 +805,7 @@ static int kmsk_add(int argc, char **argv)
 	}
 
 	fprintf(stderr, 
-		"WARNING: This operation makes changes to the device OTP memory and is not reversable!\n");
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(0);
 	if(ret)
 		return -7;
@@ -879,7 +879,7 @@ static int secure_state_set(int argc, char **argv)
 	}
 
 	fprintf(stderr, 
-		"WARNING: This operation makes changes to the device OTP memory and is not reversable!\n");
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(0);
 	if(ret)
 		return -4;
@@ -1080,7 +1080,7 @@ static int dport_lock_update(int argc, char **argv)
 	}
 
 	fprintf(stderr, 
-		"WARNING: This operation makes changes to the device OTP memory and is not reversable!\n");
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(0);
 	if(ret)
 		return -5;
