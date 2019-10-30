@@ -649,6 +649,11 @@ enum switchtec_fw_ro {
 	SWITCHTEC_FW_RO = 1,
 };
 
+enum switchtec_fw_redundancy {
+	SWITCHTEC_FW_REDUNDANCY_SET = 1,
+	SWITCHTEC_FW_REDUNDANCY_CLEAR = 0,
+};
+
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus);
@@ -664,6 +669,9 @@ int switchtec_fw_wait_ex(struct switchtec_dev *dev,
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg);
+int switchtec_fw_setup_redundancy(struct switchtec_dev *dev,
+				  enum switchtec_fw_redundancy redund,
+				  enum switchtec_fw_type type);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
 			  void (*progress_callback)(int cur, int tot));
