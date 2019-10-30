@@ -838,6 +838,8 @@ static int switchtec_fw_part_info_gen3(struct switchtec_dev *dev,
 	if (ret)
 		return ret;
 
+	inf->valid = 1;
+
 	if (inf->part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG)
 		return 1;
 
@@ -962,6 +964,10 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 		errno = EINVAL;
 		return -1;
 	}
+
+	inf->valid = part_info->valid;
+	if(!inf->valid)
+		return 0;
 
 	inf->part_addr = part_info->part_start;
 	inf->part_len = part_info->part_size_dw * 4;
@@ -1209,6 +1215,9 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 
 	for (i = 0; i < nr_info; i++) {
 		type = switchtec_fw_type_ptr(summary, &summary->all[i]);
+		if(!summary->all[i].valid)
+			continue;
+
 		if (summary->all[i].active)
 			type->active = &summary->all[i];
 		else
