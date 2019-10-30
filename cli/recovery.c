@@ -937,8 +937,8 @@ static int dport_unlock(int argc, char **argv)
 		struct switchtec_dev *dev;
 		FILE *pubkey_fimg;
 		char *pubkey_file;
-		unsigned int unlock_version;
-		unsigned int serial;
+		unsigned long unlock_version;
+		unsigned long serial;
 		FILE *sig_fimg;
 		char *sig_file;
 	} cfg = {};
@@ -1015,8 +1015,8 @@ static int dport_lock_update(int argc, char **argv)
 		struct switchtec_dev *dev;
 		FILE *pubkey_fimg;
 		char *pubkey_file;
-		unsigned int unlock_version;
-		unsigned int serial;
+		unsigned long unlock_version;
+		unsigned long serial;
 		FILE *sig_fimg;
 		char *sig_file;
 		unsigned int assume_yes;
@@ -1031,7 +1031,7 @@ static int dport_lock_update(int argc, char **argv)
 			.value_addr=&cfg.serial,
 			.argument_type=required_argument,
 			.help="device serial number"},
-		{"new_unlock_version", 'v', .cfg_type=CFG_POSITIVE,
+		{"new_unlock_version", 'v', .cfg_type=CFG_LONG,
 			.value_addr=&cfg.unlock_version,
 			.argument_type=required_argument,
 			.help="unlock version"},
