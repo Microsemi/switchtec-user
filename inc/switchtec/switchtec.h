@@ -211,6 +211,8 @@ struct switchtec_fw_image_info {
 
 	struct switchtec_fw_image_info *next;
 	void *metadata;
+
+	unsigned long secure_version;
 };
 
 struct switchtec_fw_part_summary {

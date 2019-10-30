@@ -680,6 +680,12 @@ static int security_config_set(int argc, char **argv)
 		return -1;
 	}
 
+	fprintf(stderr, 
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+	ret = ask_if_sure(0);
+	if(ret)
+		return -3;
+
 	ret = switchtec_security_config_set(cfg.dev, &settings);
 	if (ret) {
 		switchtec_perror("recovery config-set");
@@ -798,6 +804,12 @@ static int kmsk_add(int argc, char **argv)
 		}
 	}
 
+	fprintf(stderr, 
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+	ret = ask_if_sure(0);
+	if(ret)
+		return -7;
+
 	if(cfg.pubk_file && cfg.sig_file) {
 		ret = switchtec_kmsk_set(cfg.dev, pubk, exponent,
 				sig, kmsk);
@@ -865,6 +877,12 @@ static int secure_state_set(int argc, char **argv)
 			"This command is only valid when secure state is UNINITIALIZED_UNSECURED!\n");
 		return -3;
 	}
+
+	fprintf(stderr, 
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+	ret = ask_if_sure(0);
+	if(ret)
+		return -4;
 
 	ret = switchtec_secure_state_set(cfg.dev, cfg.state);
 	if(ret)
@@ -1060,6 +1078,12 @@ static int dport_lock_update(int argc, char **argv)
 			cfg.sig_file);
 		return -4;
 	}
+
+	fprintf(stderr, 
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+	ret = ask_if_sure(0);
+	if(ret)
+		return -5;
 
 	ret = switchtec_secure_unlock_version_update(cfg.dev, cfg.serial,
 						     cfg.unlock_version,

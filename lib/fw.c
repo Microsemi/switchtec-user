@@ -619,6 +619,8 @@ static int switchtec_fw_file_info_gen3(int fd,
 
 	info->type = switchtec_fw_id_to_type(info);
 
+	info->secure_version = 0;
+
 	return 0;
 
 invalid_file:
@@ -681,6 +683,7 @@ static int switchtec_fw_file_info_gen4(int fd,
 
 	info->type = switchtec_fw_id_to_type(info);
 
+	info->secure_version = le32toh(hdr.secure_version);
 	return 0;
 
 invalid_file:

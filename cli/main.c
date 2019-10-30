@@ -1165,7 +1165,7 @@ static const char *get_basename(const char *buf)
 }
 
 static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
-		const char *img_filename)
+		const char *img_filename, unsigned long *sec_version)
 {
 	int ret;
 	struct switchtec_fw_image_info info;
@@ -1177,12 +1177,15 @@ static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 		return ret;
 	}
 
-	printf("File:     %s\n", get_basename(img_filename));
-	printf("Gen:      %s\n", switchtec_fw_image_gen_str(&info));
-	printf("Type:     %s\n", switchtec_fw_image_type(&info));
-	printf("Version:  %s\n", info.version);
-	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
-	printf("CRC:      0x%08lx\n", info.image_crc);
+	printf("File:           %s\n", get_basename(img_filename));
+	printf("Gen:            %s\n", switchtec_fw_image_gen_str(&info));
+	printf("Type:           %s\n", switchtec_fw_image_type(&info));
+	printf("Version:        %s\n", info.version);
+	printf("Secure version: 0x%08x\n", (unsigned int)info.secure_version);
+	printf("Img Len:        0x%" FMT_SIZE_T_x "\n", info.image_len);
+	printf("CRC:            0x%08lx\n", info.image_crc);
+
+	*sec_version = info.secure_version;
 
 	return info.type;
 }
@@ -1191,6 +1194,7 @@ static int fw_img_info(int argc, char **argv)
 {
 	const char *desc = "Display information for a firmware image";
 	int ret;
+	unsigned long sec_version;
 
 	static struct {
 		int img_fd;
@@ -1204,7 +1208,8 @@ static int fw_img_info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = check_and_print_fw_image(cfg.img_fd, cfg.img_filename);
+	ret = check_and_print_fw_image(cfg.img_fd, cfg.img_filename,
+				       &sec_version);
 	if (ret < 0)
 		return ret;
 
@@ -1319,6 +1324,11 @@ static int fw_update(int argc, char **argv)
 	int cfg_part = 0;
 	int fw = 0;
 
+	unsigned long img_sec_ver = 0;
+	struct switchtec_sn_ver_info sn_info = {};
+	char* img_type_str = NULL;
+	unsigned long dev_sec_ver = 0xffffffff;
+
 	enum switchtec_boot_phase phase_id;
 	enum mrpc_cmd rpc_cmd = MRPC_FWDNLD;
 
@@ -1368,7 +1378,8 @@ static int fw_update(int argc, char **argv)
 	printf("Writing the following firmware image to %s.\n",
 	       switchtec_name(cfg.dev));
 
-	type = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename);
+	type = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename,
+					&img_sec_ver);
 	if (type < 0)
 		return type;
 
@@ -1391,6 +1402,57 @@ static int fw_update(int argc, char **argv)
 			fprintf(stderr, "\nfirmware update: the BOOT and MAP partition are read-only. "
 				"use --set-boot-rw to override\n");
 			return -1;
+		}
+	}
+
+	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
+	if (ret != 0) {
+		sn_info.ver_bl2 = 0xffffffff;
+		sn_info.ver_main = 0xffffffff;
+		sn_info.ver_km = 0xffffffff;
+	}
+
+	cfg.assume_yes = 1;
+	switch (type) {
+	case SWITCHTEC_FW_TYPE_BL2:
+		if (img_sec_ver > sn_info.ver_bl2) {
+			cfg.assume_yes = 0;
+			img_type_str = "BL2";
+			dev_sec_ver = sn_info.ver_bl2;
+		}
+		break;
+
+	case SWITCHTEC_FW_TYPE_IMG:
+		if (img_sec_ver > sn_info.ver_main) {
+			cfg.assume_yes = 0;
+			img_type_str = "MAIN FIRMWARE";
+			dev_sec_ver = sn_info.ver_main;
+		}
+		break;
+
+	case SWITCHTEC_FW_TYPE_KEY:
+		if (img_sec_ver > sn_info.ver_km) {
+			cfg.assume_yes = 0;
+			img_type_str = "KEY MANIFEST";
+			dev_sec_ver = sn_info.ver_km;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	if (cfg.assume_yes == 0) {
+		fprintf(stderr, "\n\nWARNING:\n"
+			"Updating this image will INRREVERSIBLY update device %s image\n"
+			"secure version from 0x%08x to 0x%08x!\n\n",
+			img_type_str, (unsigned int)dev_sec_ver,
+			(unsigned int)img_sec_ver);
+
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret) {
+			fclose(cfg.fimg);
+			return ret;
 		}
 	}
 
