@@ -1224,10 +1224,10 @@ static void print_fw_part_line(const char *tag,
 	if (!inf)
 		return;
 
-	printf("  %-4s\tVersion: %-8s\tCRC: %08lx%s%s\n",
+	printf("  %-4s\tVersion: %-8s\tCRC: %08lx\t%4s%s\n",
 	       tag, inf->version, inf->image_crc,
-	       inf->read_only ? "\t(RO)" : "",
-	       inf->running ? "\t(Running)" : "");
+	       inf->read_only ? "(RO)" : "",
+	       inf->running ? "  (Running)" : "");
 }
 
 static int print_fw_part_info(struct switchtec_dev *dev)
