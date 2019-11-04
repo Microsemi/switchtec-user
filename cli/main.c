@@ -1444,7 +1444,7 @@ static int fw_update(int argc, char **argv)
 
 	if (cfg.assume_yes == 0) {
 		fprintf(stderr, "\n\nWARNING:\n"
-			"Updating this image will INRREVERSIBLY update device %s image\n"
+			"Updating this image will IRREVERSIBLY update device %s image\n"
 			"secure version from 0x%08x to 0x%08x!\n\n",
 			img_type_str, (unsigned int)dev_sec_ver,
 			(unsigned int)img_sec_ver);
