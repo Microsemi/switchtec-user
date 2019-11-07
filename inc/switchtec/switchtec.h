@@ -205,6 +205,7 @@ struct switchtec_fw_image_info {
 	char version[32];			//!< Firmware/Config version
 	size_t part_addr;			//!< Address of the partition
 	size_t part_len;			//!< Length of the partition
+	size_t part_body_offset;		//!< Partition image body offset
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
 
@@ -690,6 +691,9 @@ int switchtec_fw_write_file_ex(struct switchtec_dev *dev,
 int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 			 unsigned long addr, size_t len,
 			 void (*progress_callback)(int cur, int tot));
+int switchtec_fw_body_read_fd(struct switchtec_dev *dev, int fd,
+			      struct switchtec_fw_image_info *info,
+			      void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 void switchtec_fw_perror(const char *s, int ret);
