@@ -592,7 +592,7 @@ void switchtec_fw_perror(const char *s, int ret)
 	case SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT:
 		msg = "Download Timeout";  break;
 	default:
-		fprintf(stderr, "%s: Unknown Error (%d)\n", s, ret);
+		fprintf(stderr, "%s: Unknown Error (0x%x)\n", s, ret);
 		return;
 	}
 
