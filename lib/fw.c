@@ -759,6 +759,7 @@ static int switchtec_fw_info_metadata_gen3(struct switchtec_dev *dev,
 
 	version_to_string(metadata->version, inf->version,
 			  sizeof(inf->version));
+	inf->part_body_offset = 0;
 	inf->image_crc = metadata->image_crc;
 	inf->image_len = metadata->image_len;
 	inf->metadata = metadata;
@@ -840,6 +841,7 @@ static int switchtec_fw_info_metadata_gen4(struct switchtec_dev *dev,
 
 	version_to_string(metadata->version, inf->version,
 			  sizeof(inf->version));
+	inf->part_body_offset = metadata->header_len;
 	inf->image_crc = metadata->image_crc;
 	inf->image_len = metadata->image_len;
 	inf->metadata = metadata;
@@ -1296,6 +1298,24 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	return read;
 }
 
+/**
+ * @brief Read a Switchtec device's flash image body into a file
+ * @param[in]  dev     Switchtec device handle
+ * @param[in]  fd      File descriptor for image file to write
+ * @param[in]  info    Partition information structure
+ * @param[in]  progress_callback This function is called periodically to
+ *     indicate the progress of the read. May be NULL.
+ * @return number of bytes written on success, error code on failure
+ */
+int switchtec_fw_body_read_fd(struct switchtec_dev *dev, int fd,
+			      struct switchtec_fw_image_info *info,
+			      void (*progress_callback)(int cur, int tot))
+{
+	return switchtec_fw_read_fd(dev, fd,
+				    info->part_addr + info->part_body_offset,
+				    info->image_len, progress_callback);
+}
+
 static int switchtec_fw_img_write_hdr_gen3(int fd,
 		struct switchtec_fw_image_info *info)
 {
@@ -1323,16 +1343,28 @@ static int switchtec_fw_img_write_hdr_gen3(int fd,
 static int switchtec_fw_img_write_hdr_gen4(int fd,
 		struct switchtec_fw_image_info *info)
 {
+	int ret;
 	struct switchtec_fw_metadata_gen4 *hdr = info->metadata;
 
-	return write(fd, hdr, sizeof(*hdr));
+	ret = write(fd, hdr, sizeof(*hdr));
+	if (ret < 0)
+		return ret;
+
+	return lseek(fd, info->part_body_offset, SEEK_SET);
 }
 
 /**
  * @brief Write the header for a Switchtec firmware image file
  * @param[in]  fd	File descriptor for image file to write
  * @param[in]  info	Partition information structure
- * @return 0 on success, error code on failure
+ * @return number of bytes written on success, error code on failure
+ *
+ * The offset of image body in the image file is greater than or equal to
+ * the image header length. This function also repositions the read/write
+ * file offset of fd to the offset of image body in the image file if
+ * needed. This will facilitate the switchtec_fw_read_fd() function which
+ * is usually called following this function to complete a firmware image
+ * read.
  */
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 {

@@ -1570,8 +1570,8 @@ static int fw_read(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, inf->part_addr,
-				   inf->image_len, progress_update);
+	ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
+					inf, progress_update);
 	progress_finish();
 
 	if (ret < 0)
