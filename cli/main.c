@@ -1618,7 +1618,7 @@ static int fw_read(int argc, char **argv)
 
 	if (!inf || !inf->valid) {
 		ret = -1;
-		fprintf(stderr, "fw_part_summary: No valid image for this partition!\n");
+		fprintf(stderr, "No valid image for this partition!\n");
 		goto close_and_exit;
 	}
 
