@@ -1201,7 +1201,7 @@ static int gfms_events(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"status", 's', "", CFG_NONE, &cfg.status, no_argument,
-		 "show events in all partitions"},
+		 "show event status"},
 		{"reset", 'r', "", CFG_NONE, &cfg.clear, no_argument,
 		 "clear all GFMS events"},
 		{NULL}};
