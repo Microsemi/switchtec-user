@@ -1147,6 +1147,7 @@ static void print_gfms_event_list(struct switchtec_gfms_event *e, size_t cnt,
 			break;
 		case SWITCHTEC_GFMS_EVENT_BIND:
 			printf("BIND (PAX ID %d)\n", e->src_sw_id);
+			print_gfms_event_bind(e);
 			break;
 		case SWITCHTEC_GFMS_EVENT_UNBIND:
 			printf("UNBIND (PAX ID %d):\n", e->src_sw_id);
@@ -1154,11 +1155,11 @@ static void print_gfms_event_list(struct switchtec_gfms_event *e, size_t cnt,
 			break;
 		case SWITCHTEC_GFMS_EVENT_DATABASE_CHANGED:
 			printf("DATABASE_CHANGED (PAX ID %d):\n", e->src_sw_id);
-			print_gfms_event_bind(e);
 			break;
 		case SWITCHTEC_GFMS_EVENT_HVD_INST_ENABLE:
 			printf("HVD_INSTANCE_ENABLE (PAX ID %d):\n", e->src_sw_id);
 			print_gfms_event_hvd(e);
+			break;
 		case SWITCHTEC_GFMS_EVENT_HVD_INST_DISABLE:
 			printf("HVD_INSTANCE_DISABLE (PAX ID %d):\n", e->src_sw_id);
 			print_gfms_event_hvd(e);
