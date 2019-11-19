@@ -977,7 +977,22 @@ static int dport_unlock(int argc, char **argv)
 		{NULL}
 	};
 
+	cfg.serial = 0;
+	cfg.unlock_version = 0xffff;
+
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if(cfg.serial == 0) {
+		fprintf(stderr,
+			"Serial number must be set in this command!\n");
+		return -1;
+	}
+
+	if(cfg.unlock_version == 0xffff) {
+		fprintf(stderr,
+			"Unlock version must be set in this command!\n");
+		return -1;
+	}
 
 	if (cfg.pubkey_file == NULL) {
 		fprintf(stderr,
@@ -1058,7 +1073,22 @@ static int dport_lock_update(int argc, char **argv)
 		{NULL}
 	};
 
+	cfg.serial = 0;
+	cfg.unlock_version = 0xffff;
+
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if(cfg.serial == 0) {
+		fprintf(stderr,
+			"Serial number must be set in this command!\n");
+		return -1;
+	}
+
+	if(cfg.unlock_version == 0xffff) {
+		fprintf(stderr,
+			"Unlock version must be set in this command!\n");
+		return -1;
+	}
 
 	if (cfg.pubkey_file == NULL) {
 		fprintf(stderr,
