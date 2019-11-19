@@ -782,6 +782,13 @@ static int kmsk_add(int argc, char **argv)
 		return -4;
 	}
 
+	if(state.secure_state == SWITCHTEC_INITIALIZED_SECURED &&
+	   cfg.pubk_file == NULL) {
+		fprintf(stderr,
+			"Public key file must be specified when secure state is INITIALIZED_SECURED!\n");
+		return -4;
+	}
+	
 	if(cfg.pubk_file) {
 		ret = switchtec_read_pubk_file(cfg.pubk_fimg, pubk, &exponent);
 		fclose(cfg.pubk_fimg);
@@ -793,6 +800,13 @@ static int kmsk_add(int argc, char **argv)
 		}
 	}
 
+	if(state.secure_state == SWITCHTEC_INITIALIZED_SECURED &&
+	   cfg.sig_file == NULL) {
+		fprintf(stderr,
+			"Signature file must be specified when secure state is INITIALIZED_SECURED!\n");
+		return -5;
+	}
+	
 	if(cfg.sig_file) {
 		ret = load_sig_from_file(cfg.sig_fimg, sig);
 		fclose(cfg.sig_fimg);
