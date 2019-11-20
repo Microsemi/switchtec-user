@@ -561,7 +561,7 @@ static int latency(int argc, char **argv)
 	}
 
 	ret = switchtec_lat_setup(cfg.dev, cfg.egress, cfg.ingress, 1);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("latency");
 		return -1;
 	}
