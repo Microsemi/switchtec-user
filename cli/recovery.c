@@ -955,7 +955,9 @@ static int dport_unlock(int argc, char **argv)
 		unsigned long serial;
 		FILE *sig_fimg;
 		char *sig_file;
-	} cfg = {};
+	} cfg = {
+		.unlock_version = 0xffff,
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
@@ -976,9 +978,6 @@ static int dport_unlock(int argc, char **argv)
 			.help="signature file"},
 		{NULL}
 	};
-
-	cfg.serial = 0;
-	cfg.unlock_version = 0xffff;
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
@@ -1049,7 +1048,9 @@ static int dport_lock_update(int argc, char **argv)
 		FILE *sig_fimg;
 		char *sig_file;
 		unsigned int assume_yes;
-	} cfg = {};
+	} cfg = {
+		.unlock_version = 0xffff,
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
@@ -1072,9 +1073,6 @@ static int dport_lock_update(int argc, char **argv)
 			"assume yes when prompted"},
 		{NULL}
 	};
-
-	cfg.serial = 0;
-	cfg.unlock_version = 0xffff;
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
