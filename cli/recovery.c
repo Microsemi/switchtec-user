@@ -782,6 +782,13 @@ static int kmsk_add(int argc, char **argv)
 		return -4;
 	}
 
+	if(state.secure_state == SWITCHTEC_INITIALIZED_SECURED &&
+	   cfg.pubk_file == NULL) {
+		fprintf(stderr,
+			"Public key file must be specified when secure state is INITIALIZED_SECURED!\n");
+		return -4;
+	}
+	
 	if(cfg.pubk_file) {
 		ret = switchtec_read_pubk_file(cfg.pubk_fimg, pubk, &exponent);
 		fclose(cfg.pubk_fimg);
@@ -793,6 +800,13 @@ static int kmsk_add(int argc, char **argv)
 		}
 	}
 
+	if(state.secure_state == SWITCHTEC_INITIALIZED_SECURED &&
+	   cfg.sig_file == NULL) {
+		fprintf(stderr,
+			"Signature file must be specified when secure state is INITIALIZED_SECURED!\n");
+		return -5;
+	}
+	
 	if(cfg.sig_file) {
 		ret = load_sig_from_file(cfg.sig_fimg, sig);
 		fclose(cfg.sig_fimg);
@@ -941,7 +955,9 @@ static int dport_unlock(int argc, char **argv)
 		unsigned long serial;
 		FILE *sig_fimg;
 		char *sig_file;
-	} cfg = {};
+	} cfg = {
+		.unlock_version = 0xffff,
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
@@ -964,6 +980,18 @@ static int dport_unlock(int argc, char **argv)
 	};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if(cfg.serial == 0) {
+		fprintf(stderr,
+			"Serial number must be set in this command!\n");
+		return -1;
+	}
+
+	if(cfg.unlock_version == 0xffff) {
+		fprintf(stderr,
+			"Unlock version must be set in this command!\n");
+		return -1;
+	}
 
 	if (cfg.pubkey_file == NULL) {
 		fprintf(stderr,
@@ -1020,7 +1048,9 @@ static int dport_lock_update(int argc, char **argv)
 		FILE *sig_fimg;
 		char *sig_file;
 		unsigned int assume_yes;
-	} cfg = {};
+	} cfg = {
+		.unlock_version = 0xffff,
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
@@ -1045,6 +1075,18 @@ static int dport_lock_update(int argc, char **argv)
 	};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if(cfg.serial == 0) {
+		fprintf(stderr,
+			"Serial number must be set in this command!\n");
+		return -1;
+	}
+
+	if(cfg.unlock_version == 0xffff) {
+		fprintf(stderr,
+			"Unlock version must be set in this command!\n");
+		return -1;
+	}
 
 	if (cfg.pubkey_file == NULL) {
 		fprintf(stderr,
