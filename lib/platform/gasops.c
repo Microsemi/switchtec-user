@@ -270,6 +270,9 @@ int gasop_event_summary(struct switchtec_dev *dev,
 	int i;
 	uint32_t reg;
 
+	if (!sum)
+		return 0;
+
 	memset(sum, 0, sizeof(*sum));
 
 	sum->global = gas_reg_read32(dev, sw_event.global_summary);
