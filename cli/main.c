@@ -1104,6 +1104,7 @@ int ask_if_sure(int always_yes)
 		return 0;
 
 	fprintf(stderr, "Do you want to continue? [y/N] ");
+	fflush(stderr);
 	ret = fgets(buf, sizeof(buf), stdin);
 
 	if (!ret)
