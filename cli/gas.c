@@ -282,7 +282,7 @@ static int gas_dump(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-		int count;
+		size_t count;
 		int text;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
@@ -404,7 +404,7 @@ static int gas_read(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		unsigned long addr;
-		unsigned long count;
+		size_t count;
 		unsigned bytes;
 		unsigned print_style;
 	} cfg = {
@@ -414,7 +414,7 @@ static int gas_read(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"addr", 'a', "ADDR", CFG_SIZE_SUFFIX, &cfg.addr, required_argument,
+		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
 		 "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to read per access (default 4)"},
@@ -468,7 +468,7 @@ static int gas_write(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"addr", 'a', "ADDR", CFG_SIZE_SUFFIX, &cfg.addr, required_argument,
+		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
 		 "address to write"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to write (default 4)"},
