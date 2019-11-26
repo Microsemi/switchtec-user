@@ -132,7 +132,7 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
  * @param[in]  payload_len	Input data length (in bytes)
  * @param[out] resp		Output data
  * @param[in]  resp_len		Output data length (in bytes)
- * @return 0 on success, negative on failure
+ * @return 0 on success, negative on system error, positive on MRPC error
  */
 int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
 		  const void *payload, size_t payload_len, void *resp,
@@ -144,7 +144,7 @@ int switchtec_cmd(struct switchtec_dev *dev,  uint32_t cmd,
 	cmd |= dev->pax_id << SWITCHTEC_PAX_ID_SHIFT;
 
 	ret = dev->ops->cmd(dev, cmd, payload, payload_len, resp, resp_len);
-	if (ret) {
+	if (ret > 0) {
 		mrpc_error_cmd = cmd & SWITCHTEC_CMD_MASK;
 		errno |= SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
 	}
