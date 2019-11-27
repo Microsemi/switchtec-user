@@ -138,7 +138,7 @@ int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 	ret = switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
 			    &result, sizeof(result));
 
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	if (status != NULL)
@@ -347,7 +347,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
 				    NULL, 0);
 
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		ret = switchtec_fw_wait(dev, &status);
@@ -439,7 +439,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
 				    NULL, 0);
 
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		ret = switchtec_fw_wait(dev, &status);
@@ -896,7 +896,7 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 
 	ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd, sizeof(subcmd),
 			    &all_info, sizeof(all_info));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	switch(inf->part_id) {
