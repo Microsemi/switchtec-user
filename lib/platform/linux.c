@@ -873,7 +873,7 @@ static int linux_event_summary(struct switchtec_dev *dev,
 	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
 	if (!sum)
-		return -EINVAL;
+		return 0;
 
 	ret = ioctl(ldev->fd, SWITCHTEC_IOCTL_EVENT_SUMMARY, &isum);
 	if (!ret) {

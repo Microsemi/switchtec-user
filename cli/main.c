@@ -381,6 +381,8 @@ static int status(int argc, char **argv)
 		if (!s->link_up) continue;
 
 		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
+		printf("\tLane Reversal:   \t%s\n", s->lane_reversal_str);
+		printf("\tFirst Act Lane:  \t%d\n", s->first_act_lane);
 		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
 		       s->link_rate, switchtec_gen_transfers[s->link_rate],
 		       switchtec_gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
@@ -1102,6 +1104,7 @@ int ask_if_sure(int always_yes)
 		return 0;
 
 	fprintf(stderr, "Do you want to continue? [y/N] ");
+	fflush(stderr);
 	ret = fgets(buf, sizeof(buf), stdin);
 
 	if (!ret)
@@ -1222,10 +1225,11 @@ static void print_fw_part_line(const char *tag,
 	if (!inf)
 		return;
 
-	printf("  %-4s\tVersion: %-8s\tCRC: %08lx%s%s\n",
+	printf("  %-4s\tVersion: %-8s\tCRC: %08lx\t%4s%11s%s\n",
 	       tag, inf->version, inf->image_crc,
-	       inf->read_only ? "\t(RO)" : "",
-	       inf->running ? "\t(Running)" : "");
+	       inf->read_only ? "(RO)" : "",
+	       inf->running ? "  (Running)" : "",
+	       inf->redundant ? "  (Redundant)" : "");
 }
 
 static int print_fw_part_info(struct switchtec_dev *dev)
@@ -1431,6 +1435,78 @@ static int fw_toggle(int argc, char **argv)
 	return ret;
 }
 
+static int fw_redund_setup(int argc, char **argv)
+{
+	const char *desc = "Set redundancy flag for a partition type";
+	int ret = 0;
+
+	const struct argconfig_choice types[] = {
+		{"KEY", SWITCHTEC_FW_TYPE_KEY,
+		 "Set the redundancy flag for the key manifest partitions"},
+		{"BL2", SWITCHTEC_FW_TYPE_BL2,
+		 "Set the redundancy flag for the bl2 partitions"},
+		{"CFG", SWITCHTEC_FW_TYPE_CFG,
+		 "Set the redundancy flag for the config partitions"},
+		{"IMG", SWITCHTEC_FW_TYPE_IMG,
+		 "Set the redundancy flag for the main firmware partitions"},
+		{}
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		enum switchtec_fw_type type;
+		int set;
+		int clear;
+	} cfg = {
+		.set = 0,
+		.clear = 0,
+		.type = SWITCHTEC_FW_TYPE_UNKNOWN,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"set", 's', "", CFG_NONE, &cfg.set, no_argument,
+		 "set the redundancy flag"},
+		{"clear", 'c', "", CFG_NONE, &cfg.clear, no_argument,
+		 "clear the redundancy flag"},
+		{"type", 't', "FW PARTITION TYPE", CFG_CHOICES, &cfg.type,
+		  required_argument,
+		 "firmware partition type to set", .choices=types},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_is_gen3(cfg.dev)) {
+		fprintf(stderr, "This command is not supported on Gen3 switch.\n");
+		return 1;
+	}
+
+	if (!cfg.set && !cfg.clear) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "Must specify the redundancy operation!\n");
+		return 2;
+	}
+
+	if (cfg.set && cfg.clear) {
+		argconfig_print_usage(opts);
+		fprintf(stderr,
+			"Use either the --set or the --clear argument!\n");
+		return 3;
+	}
+
+	if (cfg.type == SWITCHTEC_FW_TYPE_UNKNOWN) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --type argument is required!\n");
+		return 4;
+	}
+
+	ret = switchtec_fw_setup_redundancy(cfg.dev, cfg.set, cfg.type);
+	if (ret)
+		switchtec_perror("setup fw redundancy");
+
+	return ret;
+}
+
 static int fw_read(int argc, char **argv)
 {
 	const char *desc = "Flash the firmware with a new image";
@@ -1495,8 +1571,8 @@ static int fw_read(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, inf->part_addr,
-				   inf->image_len, progress_update);
+	ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
+					inf, progress_update);
 	progress_finish();
 
 	if (ret < 0)
@@ -1955,6 +2031,7 @@ static const struct cmd commands[] = {
 	CMD(fw_update, "Upload a new firmware image"),
 	CMD(fw_info, "Return information on currently flashed firmware"),
 	CMD(fw_toggle, "Toggle the active and inactive firmware partition"),
+	CMD(fw_redund_setup, "Setup the redundancy for a partition type"),
 	CMD(fw_read, "Read back firmware image from hardware"),
 	CMD(fw_img_info, "Display information for a firmware image"),
 	CMD(evcntr, "Display event counters"),

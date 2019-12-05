@@ -70,6 +70,7 @@ enum switchtec_fw_part_type_gen4 {
 	SWITCHTEC_FW_IMG_TYPE_IMG_GEN4 = 0x4,
 	SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4 = 0x5,
 	SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4 = 0xFE,
+	SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN4,
 };
 
 struct switchtec_fw_metadata_gen4 {
@@ -137,7 +138,7 @@ int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 	ret = switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
 			    &result, sizeof(result));
 
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	if (status != NULL)
@@ -214,6 +215,65 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 			     NULL, 0);
 }
 
+static enum switchtec_fw_part_type_gen4
+switchtec_fw_type_gen4(enum switchtec_fw_type type)
+{
+	switch (type) {
+	case SWITCHTEC_FW_TYPE_MAP:
+		return SWITCHTEC_FW_IMG_TYPE_MAP_GEN4;
+	case SWITCHTEC_FW_TYPE_IMG:
+		return SWITCHTEC_FW_IMG_TYPE_IMG_GEN4;
+	case SWITCHTEC_FW_TYPE_CFG:
+		return SWITCHTEC_FW_IMG_TYPE_CFG_GEN4;
+	case SWITCHTEC_FW_TYPE_NVLOG:
+		return SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4;
+	case SWITCHTEC_FW_TYPE_SEEPROM:
+		return SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4;
+	case SWITCHTEC_FW_TYPE_KEY:
+		return SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN4;
+	case SWITCHTEC_FW_TYPE_BL2:
+		return SWITCHTEC_FW_IMG_TYPE_BL2_GEN4;
+	default:
+		return SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN4;
+	};
+}
+
+/**
+ * @brief Set or clear the redundancy flag of a partition type
+ * @param[in] dev		Switchtec device handle
+ * @param[in] redund		Whether to set or clear the redundancy flag
+ * @param[in] type		Switchtec fw partition type
+ * @return 0 on success, error code on failure
+ *
+ * This function does not support Gen3 switch.
+ */
+int switchtec_fw_setup_redundancy(struct switchtec_dev *dev,
+				  enum switchtec_fw_redundancy redund,
+				  enum switchtec_fw_type type)
+{
+	int ret;
+
+	struct set_fw_redundancy{
+		uint8_t sub_cmd;
+		uint8_t part_type;
+		uint8_t flag;
+		uint8_t rsvd;
+	} cmd = {
+		.sub_cmd = MRPC_FWDNLD_SET_REDUNDANCY,
+		.part_type = switchtec_fw_type_gen4(type),
+		.flag = redund,
+	};
+
+	if (switchtec_is_gen3(dev)) {
+		errno = ENOTSUP;
+		return -1;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd), NULL, 0);
+
+	return ret;
+}
+
 struct cmd_fwdl {
 	struct cmd_fwdl_hdr {
 		uint8_t subcmd;
@@ -287,7 +347,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
 				    NULL, 0);
 
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		ret = switchtec_fw_wait(dev, &status);
@@ -379,7 +439,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
 				    NULL, 0);
 
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		ret = switchtec_fw_wait(dev, &status);
@@ -438,7 +498,7 @@ void switchtec_fw_perror(const char *s, int ret)
 	case SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT:
 		msg = "Download Timeout";  break;
 	default:
-		fprintf(stderr, "%s: Unknown Error (%d)\n", s, ret);
+		fprintf(stderr, "%s: Unknown Error (0x%x)\n", s, ret);
 		return;
 	}
 
@@ -699,6 +759,7 @@ static int switchtec_fw_info_metadata_gen3(struct switchtec_dev *dev,
 
 	version_to_string(metadata->version, inf->version,
 			  sizeof(inf->version));
+	inf->part_body_offset = 0;
 	inf->image_crc = metadata->image_crc;
 	inf->image_len = metadata->image_len;
 	inf->metadata = metadata;
@@ -780,6 +841,7 @@ static int switchtec_fw_info_metadata_gen4(struct switchtec_dev *dev,
 
 	version_to_string(metadata->version, inf->version,
 			  sizeof(inf->version));
+	inf->part_body_offset = metadata->header_len;
 	inf->image_crc = metadata->image_crc;
 	inf->image_len = metadata->image_len;
 	inf->metadata = metadata;
@@ -794,13 +856,18 @@ err_out:
 struct switchtec_flash_part_all_info_gen4 {
 	uint32_t firmware_version;
 	uint32_t flash_size;
+	uint16_t device_id;
 	uint8_t ecc_enable;
 	uint8_t rsvd1;
 	uint8_t running_bl2_flag;
 	uint8_t running_cfg_flag;
 	uint8_t running_img_flag;
-	uint8_t rsvd2;
-	uint32_t rsvd3[12];
+	uint8_t running_key_flag;
+	uint8_t redundancy_key_flag;
+	uint8_t redundancy_bl2_flag;
+	uint8_t redundancy_cfg_flag;
+	uint8_t redundancy_img_flag;
+	uint32_t rsvd2[11];
 	struct switchtec_flash_part_info_gen4  {
 		uint32_t image_crc;
 		uint32_t image_len;
@@ -829,7 +896,7 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 
 	ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd, sizeof(subcmd),
 			    &all_info, sizeof(all_info));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	switch(inf->part_id) {
@@ -841,27 +908,35 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_KEY0:
 		part_info = &all_info.keyman0;
+		inf->redundant = all_info.redundancy_key_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_KEY1:
 		part_info = &all_info.keyman1;
+		inf->redundant = all_info.redundancy_key_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_BL20:
 		part_info = &all_info.bl20;
+		inf->redundant = all_info.redundancy_bl2_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_BL21:
 		part_info = &all_info.bl21;
+		inf->redundant = all_info.redundancy_bl2_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_IMG0:
 		part_info = &all_info.img0;
+		inf->redundant = all_info.redundancy_img_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_IMG1:
 		part_info = &all_info.img1;
+		inf->redundant = all_info.redundancy_img_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_CFG0:
 		part_info = &all_info.cfg0;
+		inf->redundant = all_info.redundancy_cfg_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_CFG1:
 		part_info = &all_info.cfg1;
+		inf->redundant = all_info.redundancy_cfg_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_NVLOG:
 		part_info = &all_info.nvlog;
@@ -1223,6 +1298,24 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	return read;
 }
 
+/**
+ * @brief Read a Switchtec device's flash image body into a file
+ * @param[in]  dev     Switchtec device handle
+ * @param[in]  fd      File descriptor for image file to write
+ * @param[in]  info    Partition information structure
+ * @param[in]  progress_callback This function is called periodically to
+ *     indicate the progress of the read. May be NULL.
+ * @return number of bytes written on success, error code on failure
+ */
+int switchtec_fw_body_read_fd(struct switchtec_dev *dev, int fd,
+			      struct switchtec_fw_image_info *info,
+			      void (*progress_callback)(int cur, int tot))
+{
+	return switchtec_fw_read_fd(dev, fd,
+				    info->part_addr + info->part_body_offset,
+				    info->image_len, progress_callback);
+}
+
 static int switchtec_fw_img_write_hdr_gen3(int fd,
 		struct switchtec_fw_image_info *info)
 {
@@ -1250,16 +1343,28 @@ static int switchtec_fw_img_write_hdr_gen3(int fd,
 static int switchtec_fw_img_write_hdr_gen4(int fd,
 		struct switchtec_fw_image_info *info)
 {
+	int ret;
 	struct switchtec_fw_metadata_gen4 *hdr = info->metadata;
 
-	return write(fd, hdr, sizeof(*hdr));
+	ret = write(fd, hdr, sizeof(*hdr));
+	if (ret < 0)
+		return ret;
+
+	return lseek(fd, info->part_body_offset, SEEK_SET);
 }
 
 /**
  * @brief Write the header for a Switchtec firmware image file
  * @param[in]  fd	File descriptor for image file to write
  * @param[in]  info	Partition information structure
- * @return 0 on success, error code on failure
+ * @return number of bytes written on success, error code on failure
+ *
+ * The offset of image body in the image file is greater than or equal to
+ * the image header length. This function also repositions the read/write
+ * file offset of fd to the offset of image body in the image file if
+ * needed. This will facilitate the switchtec_fw_read_fd() function which
+ * is usually called following this function to complete a firmware image
+ * read.
  */
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 {

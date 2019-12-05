@@ -1144,6 +1144,7 @@ static void print_gfms_event_list(struct switchtec_gfms_event *e, size_t cnt,
 			break;
 		case SWITCHTEC_GFMS_EVENT_BIND:
 			printf("BIND (PAX ID %d)\n", e->src_sw_id);
+			print_gfms_event_bind(e);
 			break;
 		case SWITCHTEC_GFMS_EVENT_UNBIND:
 			printf("UNBIND (PAX ID %d):\n", e->src_sw_id);
@@ -1151,11 +1152,11 @@ static void print_gfms_event_list(struct switchtec_gfms_event *e, size_t cnt,
 			break;
 		case SWITCHTEC_GFMS_EVENT_DATABASE_CHANGED:
 			printf("DATABASE_CHANGED (PAX ID %d):\n", e->src_sw_id);
-			print_gfms_event_bind(e);
 			break;
 		case SWITCHTEC_GFMS_EVENT_HVD_INST_ENABLE:
 			printf("HVD_INSTANCE_ENABLE (PAX ID %d):\n", e->src_sw_id);
 			print_gfms_event_hvd(e);
+			break;
 		case SWITCHTEC_GFMS_EVENT_HVD_INST_DISABLE:
 			printf("HVD_INSTANCE_DISABLE (PAX ID %d):\n", e->src_sw_id);
 			print_gfms_event_hvd(e);
@@ -1197,7 +1198,7 @@ static int gfms_events(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"status", 's', "", CFG_NONE, &cfg.status, no_argument,
-		 "show events in all partitions"},
+		 "show event status"},
 		{"reset", 'r', "", CFG_NONE, &cfg.clear, no_argument,
 		 "clear all GFMS events"},
 		{NULL}};
