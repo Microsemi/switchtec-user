@@ -853,7 +853,7 @@ err_out:
 	return -1;
 }
 
-struct switchtec_flash_part_all_info_gen4 {
+struct switchtec_flash_info_gen4 {
 	uint32_t firmware_version;
 	uint32_t flash_size;
 	uint16_t device_id;
@@ -886,60 +886,52 @@ struct switchtec_flash_part_all_info_gen4 {
 };
 
 static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
-				       struct switchtec_fw_image_info *inf)
+				       struct switchtec_fw_image_info *inf,
+				       struct switchtec_flash_info_gen4 *all)
 {
-	struct switchtec_flash_part_all_info_gen4 all_info;
 	struct switchtec_flash_part_info_gen4 *part_info;
-
-	int ret;
-	uint8_t subcmd = MRPC_PART_INFO_GET_ALL_INFO;
-
-	ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd, sizeof(subcmd),
-			    &all_info, sizeof(all_info));
-	if (ret)
-		return ret;
 
 	switch(inf->part_id) {
 	case SWITCHTEC_FW_PART_ID_G4_MAP0:
-		part_info = &all_info.map0;
+		part_info = &all->map0;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_MAP1:
-		part_info = &all_info.map1;
+		part_info = &all->map1;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_KEY0:
-		part_info = &all_info.keyman0;
-		inf->redundant = all_info.redundancy_key_flag;
+		part_info = &all->keyman0;
+		inf->redundant = all->redundancy_key_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_KEY1:
-		part_info = &all_info.keyman1;
-		inf->redundant = all_info.redundancy_key_flag;
+		part_info = &all->keyman1;
+		inf->redundant = all->redundancy_key_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_BL20:
-		part_info = &all_info.bl20;
-		inf->redundant = all_info.redundancy_bl2_flag;
+		part_info = &all->bl20;
+		inf->redundant = all->redundancy_bl2_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_BL21:
-		part_info = &all_info.bl21;
-		inf->redundant = all_info.redundancy_bl2_flag;
+		part_info = &all->bl21;
+		inf->redundant = all->redundancy_bl2_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_IMG0:
-		part_info = &all_info.img0;
-		inf->redundant = all_info.redundancy_img_flag;
+		part_info = &all->img0;
+		inf->redundant = all->redundancy_img_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_IMG1:
-		part_info = &all_info.img1;
-		inf->redundant = all_info.redundancy_img_flag;
+		part_info = &all->img1;
+		inf->redundant = all->redundancy_img_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_CFG0:
-		part_info = &all_info.cfg0;
-		inf->redundant = all_info.redundancy_cfg_flag;
+		part_info = &all->cfg0;
+		inf->redundant = all->redundancy_cfg_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_CFG1:
-		part_info = &all_info.cfg1;
-		inf->redundant = all_info.redundancy_cfg_flag;
+		part_info = &all->cfg1;
+		inf->redundant = all->redundancy_cfg_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_NVLOG:
-		part_info = &all_info.nvlog;
+		part_info = &all->nvlog;
 		break;
 	default:
 		errno = EINVAL;
@@ -969,9 +961,19 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 {
 	int ret;
 	int i;
+	uint8_t subcmd = MRPC_PART_INFO_GET_ALL_INFO;
+	struct switchtec_flash_info_gen4 all_info;
 
 	if (info == NULL || nr_info == 0)
 		return -EINVAL;
+
+	if (dev->gen == SWITCHTEC_GEN4) {
+		ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd,
+				    sizeof(subcmd), &all_info,
+				    sizeof(all_info));
+		if (ret)
+			return ret;
+	}
 
 	for (i = 0; i < nr_info; i++) {
 		struct switchtec_fw_image_info *inf = &info[i];
@@ -987,7 +989,7 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			ret = switchtec_fw_part_info_gen3(dev, inf);
 			break;
 		case SWITCHTEC_GEN4:
-			ret = switchtec_fw_part_info_gen4(dev, inf);
+			ret = switchtec_fw_part_info_gen4(dev, inf, &all_info);
 			break;
 		default:
 			errno = EINVAL;
