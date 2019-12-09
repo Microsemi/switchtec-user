@@ -1270,6 +1270,7 @@ static int fw_info(int argc, char **argv)
 	const char *desc = "Test if switchtec interface is working";
 	int ret;
 	char version[64];
+	enum switchtec_boot_phase phase_id;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1280,15 +1281,27 @@ static int fw_info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_fw_version(cfg.dev, version, sizeof(version));
-	if (ret < 0) {
-		switchtec_perror("fw info");
+	ret = switchtec_get_boot_phase(cfg.dev, &phase_id);
+	if (ret != 0) {
+		switchtec_perror("print fw info");
 		return ret;
 	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL2 or Main Firmware!\n");
+		return -1;
+	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
+		ret = switchtec_get_fw_version(cfg.dev, version,
+					       sizeof(version));
+		if (ret < 0) {
+			switchtec_perror("fw info");
+			return ret;
+		}
 
-	printf("Currently Running:\n");
-	printf("  IMG\tVersion: %s\n", version);
-
+		printf("Currently Running:\n");
+		printf("  IMG\tVersion: %s\n", version);
+	}
 	ret = print_fw_part_info(cfg.dev);
 	if (ret) {
 		switchtec_perror("print fw info");
