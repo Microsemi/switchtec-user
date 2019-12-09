@@ -1177,8 +1177,8 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 
 	ret = get_multicfg(dev, &summary->all[nr_info], &nr_mcfg);
 	if (ret) {
-		free(summary);
-		return NULL;
+		nr_mcfg = 0;
+		errno = 0;
 	}
 
 	for (i = 0; i < nr_info; i++) {
