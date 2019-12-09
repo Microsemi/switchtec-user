@@ -101,3 +101,24 @@ int switchtec_ping(struct switchtec_dev *dev, uint32_t ping_dw,
 	}
 	return 0;
 }
+
+/**
+ * @brief Get current boot phase
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] phase	Current boot phase
+ * @return 0 on success, error code on failure
+ */
+int switchtec_get_boot_phase(struct switchtec_dev *dev,
+			     enum switchtec_boot_phase *phase_id)
+{
+	int ret;
+	enum switchtec_gen gen;
+	uint32_t t = 0;
+	uint32_t r = 0;
+	uint32_t rev;
+
+	ret = switchtec_ping(dev, t, &r, phase_id, &gen, &rev);
+	if (ret)
+		return -1;
+	return 0;
+}

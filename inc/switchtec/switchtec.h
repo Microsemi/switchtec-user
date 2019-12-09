@@ -346,6 +346,8 @@ void switchtec_status_free(struct switchtec_status *status, int ports);
 int switchtec_ping(struct switchtec_dev *dev, uint32_t ping_dw,
 		   uint32_t *reply_dw, enum switchtec_boot_phase *phase,
 		   enum switchtec_gen *gen, enum switchtec_rev *rev);
+int switchtec_get_boot_phase(struct switchtec_dev *dev,
+			     enum switchtec_boot_phase *phase_id);
 const char *switchtec_strerror(void);
 void switchtec_perror(const char *str);
 int switchtec_log_to_file(struct switchtec_dev *dev,
