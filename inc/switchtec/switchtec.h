@@ -87,6 +87,26 @@ enum switchtec_gen {
 };
 
 /**
+ * @brief Device hardware revision
+ */
+enum switchtec_rev {
+	SWITCHTEC_REVA = 0x0f,
+	SWITCHTEC_REVB = 0x00,
+	SWITCHTEC_REVC = 0x01,
+	SWITCHTEC_REV_UNKNOWN = 0xff
+};
+
+/**
+ * @brief Device boot phase
+ */
+enum switchtec_boot_phase {
+	SWITCHTEC_BOOT_PHASE_BL1 = 1,
+	SWITCHTEC_BOOT_PHASE_BL2,
+	SWITCHTEC_BOOT_PHASE_FW,
+	SWITCHTEC_BOOT_PHASE_UNKNOWN
+};
+
+/**
  * @brief The variant types of Switchtec device
  */
 enum switchtec_variant {
@@ -323,7 +343,9 @@ int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
 void switchtec_status_free(struct switchtec_status *status, int ports);
-
+int switchtec_ping(struct switchtec_dev *dev, uint32_t ping_dw,
+		   uint32_t *reply_dw, enum switchtec_boot_phase *phase,
+		   enum switchtec_gen *gen, enum switchtec_rev *rev);
 const char *switchtec_strerror(void);
 void switchtec_perror(const char *str);
 int switchtec_log_to_file(struct switchtec_dev *dev,

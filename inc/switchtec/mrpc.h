@@ -72,6 +72,8 @@ enum mrpc_cmd {
 	MRPC_PORT_CONFIG = 0x88,
 	MRPC_GFMS_EVENT = 0x89,
 	MRPC_PORT_CONTROL = 0x8D,
+
+	MRPC_PING = 256,
 };
 
 enum mrpc_bg_status {
