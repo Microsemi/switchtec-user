@@ -718,6 +718,70 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 	return -errno;
 }
 
+static enum switchtec_gen map_to_gen(uint32_t gen)
+{
+	enum switchtec_gen ret = SWITCHTEC_GEN_UNKNOWN;
+
+	switch (gen) {
+	case 0:
+		ret = SWITCHTEC_GEN4;
+		break;
+	default:
+		ret = SWITCHTEC_GEN_UNKNOWN;
+		break;
+	}
+
+	return ret;
+}
+
+/**
+ * @brief Get device generation, revision, and boot phase info
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] phase	The current boot phase
+ * @param[out] gen	Device generation
+ * @param[out] rev	Device revision
+ * @return 0 on success, error code on failure
+ */
+int switchtec_get_device_info(struct switchtec_dev *dev,
+			      enum switchtec_boot_phase *phase,
+			      enum switchtec_gen *gen,
+			      enum switchtec_rev *rev)
+{
+	int ret;
+	uint32_t in = 0;
+	uint32_t dev_info;
+	struct get_dev_info_reply {
+		uint32_t dev_info;
+		uint32_t rsvd;
+	} reply;
+
+	ret = switchtec_cmd(dev, MRPC_GET_DEV_INFO, &in,
+			    sizeof(in),
+			    &reply, sizeof(reply));
+	if (ret == 0) {
+		dev_info = le32toh(reply.dev_info);
+		if (phase)
+			*phase = dev_info & 0xff;
+		if (rev)
+			*rev = (dev_info >> 8) & 0x0f;
+		if (gen)
+			*gen = map_to_gen((dev_info >> 12) & 0x0f);
+	} else if (ERRNO_MRPC(errno) == ERR_MPRC_UNSUPPORTED) {
+		if (phase)
+			*phase = SWITCHTEC_BOOT_PHASE_FW;
+		if (gen)
+			*gen = SWITCHTEC_GEN3;
+		if (rev)
+			*rev = SWITCHTEC_REV_UNKNOWN;
+
+		errno = 0;
+	} else {
+		return -1;
+	}
+
+	return 0;
+}
+
 /**
  * @brief Get the die temperature of the switchtec device
  * @param[in]  dev    Switchtec device handle
