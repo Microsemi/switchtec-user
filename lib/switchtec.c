@@ -122,27 +122,30 @@ static const struct switchtec_device_id switchtec_device_id_tbl[] = {
 static int set_gen_variant(struct switchtec_dev * dev)
 {
 	const struct switchtec_device_id *id = switchtec_device_id_tbl;
-
-	dev->device_id = dev->ops->get_device_id(dev);
-	if (dev->device_id < 0) {
-		errno = ENOTSUP;
-		return -1;
-	}
+	int ret;
+	enum switchtec_gen gen;
 
 	dev->gen = SWITCHTEC_GEN_UNKNOWN;
+	dev->var = SWITCHTEC_VAR_UNKNOWN;
+
+	dev->device_id = dev->ops->get_device_id(dev);
+
 	while (id->device_id) {
 		if (id->device_id == dev->device_id) {
 			dev->gen = id->gen;
 			dev->var = id->var;
+
+			return 0;
 		}
 
 		id++;
 	}
 
-	if (dev->gen == SWITCHTEC_GEN_UNKNOWN) {
-		errno = ENOTSUP;
+	ret = switchtec_get_device_info(dev, NULL, &gen, NULL);
+	if (ret)
 		return -1;
-	}
+
+	dev->gen = gen;
 
 	return 0;
 }
