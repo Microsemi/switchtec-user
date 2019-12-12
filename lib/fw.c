@@ -954,7 +954,7 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
  * @param[in]  nr_info 	Number of partitions to retrieve the info for
  * @param[out] info	Pointer to a list of info structs of at least
  *	\p nr_info entries
- * @return 0 on success, error code on failure
+ * @return number of part info on success, negative on failure
  */
 static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 				  struct switchtec_fw_image_info *info)
@@ -1000,7 +1000,6 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			return ret;
 
 		if (ret) {
-			errno = 0;
 			inf->version[0] = 0;
 			inf->image_crc = 0xFFFFFFFF;
 			inf->metadata = NULL;
