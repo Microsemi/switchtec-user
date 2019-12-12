@@ -40,6 +40,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
 /**
  * @defgroup Device Switchtec Management
@@ -751,17 +752,21 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 			      enum switchtec_rev *rev)
 {
 	int ret;
-	uint32_t in = 0;
+	uint32_t ping_dw = 0;
 	uint32_t dev_info;
 	struct get_dev_info_reply {
 		uint32_t dev_info;
-		uint32_t rsvd;
+		uint32_t ping_reply;
 	} reply;
 
-	ret = switchtec_cmd(dev, MRPC_GET_DEV_INFO, &in,
-			    sizeof(in),
+	ping_dw = time(NULL);
+	ret = switchtec_cmd(dev, MRPC_GET_DEV_INFO, &ping_dw,
+			    sizeof(ping_dw),
 			    &reply, sizeof(reply));
 	if (ret == 0) {
+		if (ping_dw != ~reply.ping_reply)
+			return -1;
+
 		dev_info = le32toh(reply.dev_info);
 		if (phase)
 			*phase = dev_info & 0xff;
