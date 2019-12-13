@@ -31,7 +31,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
 int pax_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt);
 
-#define DEVICE_OPTION \
+#define DEVICE_OPTION_NO_PAX \
 	{ \
 			"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
 			.argument_type=required_positional, \
@@ -44,7 +44,9 @@ int pax_handler(const char *optarg, void *value_addr,
 			" * a pci address (3:00.1)\n" \
 			" * An I2C path with slave address (/dev/i2c-1@0x20)\n" \
 			" * A UART path (/dev/ttyUSB0)\n" \
-	}, \
+	}
+
+#define DEVICE_OPTION DEVICE_OPTION_NO_PAX, \
 	{ \
 			"pax", 'x', .cfg_type=CFG_CUSTOM, \
 			.value_addr=&cfg.dev, \

@@ -76,9 +76,8 @@ struct switchtec_fab_port_info {
 struct switchtec_fab_topo_info {
 	uint8_t sw_idx;			//!< Switch index
 	uint8_t rsvd[3];
-	uint32_t stack_bif[6]; 		//!< Port bifurcation
+	uint32_t stack_bif[7]; 		//!< Port bifurcation
 	uint8_t route_port[16];		//!< Route port
-	uint32_t rsvd1;
 	uint64_t port_bitmap;		//!< Enabled physical port bitmap
 
 	/**

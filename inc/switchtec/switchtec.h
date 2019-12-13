@@ -87,6 +87,26 @@ enum switchtec_gen {
 };
 
 /**
+ * @brief Device hardware revision
+ */
+enum switchtec_rev {
+	SWITCHTEC_REVA = 0x0f,
+	SWITCHTEC_REVB = 0x00,
+	SWITCHTEC_REVC = 0x01,
+	SWITCHTEC_REV_UNKNOWN = 0xff
+};
+
+/**
+ * @brief Device boot phase
+ */
+enum switchtec_boot_phase {
+	SWITCHTEC_BOOT_PHASE_BL1 = 1,
+	SWITCHTEC_BOOT_PHASE_BL2,
+	SWITCHTEC_BOOT_PHASE_FW,
+	SWITCHTEC_BOOT_PHASE_UNKNOWN
+};
+
+/**
  * @brief The variant types of Switchtec device
  */
 enum switchtec_variant {
@@ -196,6 +216,7 @@ struct switchtec_fw_image_info {
 	char version[32];			//!< Firmware/Config version
 	size_t part_addr;			//!< Address of the partition
 	size_t part_len;			//!< Length of the partition
+	size_t part_body_offset;		//!< Partition image body offset
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
 
@@ -322,7 +343,10 @@ int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
 void switchtec_status_free(struct switchtec_status *status, int ports);
-
+int switchtec_get_device_info(struct switchtec_dev *dev,
+			      enum switchtec_boot_phase *phase,
+			      enum switchtec_gen *gen,
+			      enum switchtec_rev *rev);
 const char *switchtec_strerror(void);
 void switchtec_perror(const char *str);
 int switchtec_log_to_file(struct switchtec_dev *dev,
@@ -663,6 +687,9 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 			 unsigned long addr, size_t len,
 			 void (*progress_callback)(int cur, int tot));
+int switchtec_fw_body_read_fd(struct switchtec_dev *dev, int fd,
+			      struct switchtec_fw_image_info *info,
+			      void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 void switchtec_fw_perror(const char *s, int ret);
