@@ -37,9 +37,19 @@
 #include <errno.h>
 #include <ctype.h>
 
+static const char * const cmd_desc_topo_info = "Show topology information";
+static const char * const cmd_desc_gfms_bind = "Bind the EP (function) to the specified host";
+static const char * const cmd_desc_gfms_unbind = "Unbind the EP (function) from the specified host";
+static const char * const cmd_desc_gfms_dump = "Dump the GFMS database";
+static const char * const cmd_desc_route = "Show routing information";
+static const char * const cmd_desc_port_control = "Control a port";
+static const char * const cmd_desc_portcfg_show = "Display a port's configuration information";
+static const char * const cmd_desc_portcfg_set = "Configure a port";
+static const char * const cmd_desc_gfms_events = "Display GFMS event information";
+
 static int gfms_bind(int argc, char **argv)
 {
-	const char *desc = "Unbind the EP(function) to the specified host";
+	const char *desc = cmd_desc_gfms_bind;
 	int ret;
 
 	static struct {
@@ -53,11 +63,11 @@ static int gfms_bind(int argc, char **argv)
 		 required_argument,"Host switch index", .require_in_usage = 1},
 		{"phys_port_id", 'p', "NUM", CFG_INT,
 		 &cfg.bind_req.host_phys_port_id,
-		 required_argument,"Host physical port id",
+		 required_argument,"Host physical port ID",
 		 .require_in_usage = 1},
 		{"log_port_id", 'l', "NUM", CFG_INT,
 		 &cfg.bind_req.host_log_port_id, required_argument,
-		 "Host logical port id", .require_in_usage = 1},
+		 "Host logical port ID", .require_in_usage = 1},
 		{"pdfid", 'f', "NUM", CFG_INT, &cfg.bind_req.pdfid,
 		 required_argument,"Endpoint function's PDFID",
 		 .require_in_usage = 1},
@@ -76,7 +86,7 @@ static int gfms_bind(int argc, char **argv)
 
 static int gfms_unbind(int argc, char **argv)
 {
-	const char *desc = "Unbind the EP(function) from the specified host";
+	const char *desc = cmd_desc_gfms_unbind;
 	int ret;
 
 	static struct {
@@ -91,10 +101,10 @@ static int gfms_unbind(int argc, char **argv)
 		 "Host switch index", .require_in_usage = 1,},
 		{"phys_port_id", 'p', "NUM", CFG_INT,
 		 &cfg.unbind_req.host_phys_port_id, required_argument,
-		 .require_in_usage = 1, .help = "Host physical port id"},
+		 .require_in_usage = 1, .help = "Host physical port ID"},
 		{"log_port_id", 'l', "NUM", CFG_INT,
 		 &cfg.unbind_req.host_log_port_id, required_argument,
-		 .require_in_usage = 1,.help = "Host logical port id"},
+		 .require_in_usage = 1,.help = "Host logical port ID"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -110,7 +120,7 @@ static int gfms_unbind(int argc, char **argv)
 
 static int port_control(int argc, char **argv)
 {
-	const char *desc = "Initiate switchtec port control command";
+	const char *desc = cmd_desc_port_control;
 	int ret;
 	struct argconfig_choice control_type_choices[5] = {
 		{"DISABLE", 0, "disable port"},
@@ -175,7 +185,7 @@ static const char * const clock_mode_strs[] = {
 
 static int portcfg_set(int argc, char **argv)
 {
-	const char *desc = "Set the port config";
+	const char *desc = cmd_desc_portcfg_set;
 	int ret;
 
 	struct argconfig_choice port_type_choices[4] = {
@@ -209,7 +219,7 @@ static int portcfg_set(int argc, char **argv)
 		DEVICE_OPTION,
 		{"phys_port_id", 'p', "NUM", CFG_INT,
 		 &cfg.phys_port_id, required_argument,
-		 "physical port id", .require_in_usage = 1},
+		 "Physical port ID", .require_in_usage = 1},
 		{"port_type", 't', "TYPE", CFG_MULT_CHOICES,
 		 &cfg.port_cfg.port_type, required_argument,
 		.choices=port_type_choices, .require_in_usage = 1,
@@ -241,7 +251,7 @@ static int portcfg_set(int argc, char **argv)
 
 static int portcfg_show(int argc, char **argv)
 {
-	const char *desc = "Get the port config info";
+	const char *desc = cmd_desc_portcfg_show;
 	int ret;
 	struct switchtec_fab_port_config port_info;
 	int port_type, clock_mode;
@@ -256,7 +266,7 @@ static int portcfg_show(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"phys_port_id", 'p', "NUM", CFG_NONNEGATIVE, &cfg.phys_port_id,
-		 required_argument,"physical port id", .require_in_usage = 1},
+		 required_argument,"Physical port ID", .require_in_usage = 1},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -284,14 +294,14 @@ static int portcfg_show(int argc, char **argv)
 		clock_mode = SWITCHTEC_FAB_PORT_CLOCK_INVALID;
 
 	printf("Clock Mode:   %s\n", clock_mode_strs[clock_mode]);
-	printf("Hvd Instance: %d\n", port_info.hvd_inst);
+	printf("HVD Instance: %d\n", port_info.hvd_inst);
 
 	return 0;
 }
 
 static int topo_info(int argc, char **argv)
 {
-	const char *desc = "Show topology info of the specific switch";
+	const char *desc = cmd_desc_topo_info;
 	struct switchtec_fab_topo_info topo_info;
 	int i;
 	int port_type, port_rate, ltssm;
@@ -836,7 +846,7 @@ enum switchtec_gfms_db_dump_type {
 
 static int gfms_dump(int argc, char **argv)
 {
-	const char *desc = "PAX only, dump the GFMS database";
+	const char *desc = cmd_desc_gfms_dump;
 
 	int ret = 0;
 
@@ -854,15 +864,15 @@ static int gfms_dump(int argc, char **argv)
 		{"PAX_ALL", SWITCHTEC_GFMS_PAX_ALL,
 		 "Dump all topology information of one PAX"},
 		{"PAX", SWITCHTEC_GFMS_PAX,
-		 "Dump specific PAX's general information"},
+		 "Dump specified PAX's general information"},
 		{"HVD", SWITCHTEC_GFMS_HVD,
-		 "Dump specific HVD's information"},
+		 "Dump specified HVD's information"},
 		{"FAB_PORT", SWITCHTEC_GFMS_FAB_PORT,
-		 "Dump specific Fabric port's information"},
+		 "Dump specified fabric port's information"},
 		{"EP_PORT", SWITCHTEC_GFMS_EP_PORT,
-		 "Dump specific ep port's information"},
+		 "Dump specified EP port's information"},
 		{"HVD_DETAIL", SWITCHTEC_GFMS_HVD_DETAIL,
-		 "Dump specific HVD's detail information"},
+		 "Dump specified HVD's detailed information"},
 		{}
 	};
 
@@ -886,9 +896,9 @@ static int gfms_dump(int argc, char **argv)
 		{"hvd_id", 'd', "ID", CFG_INT, &cfg.hvd_idx,
 		  required_argument, .help="HVM domain index for USP"},
 		{"fab_pid", 'f', "PID", CFG_INT, &cfg.fab_pid,
-		  required_argument, .help="Fabric port id"},
+		  required_argument, .help="Fabric port ID"},
 		{"ep_pid", 'e', "PID", CFG_INT, &cfg.ep_pid,
-		  required_argument, .help="EP port id"},
+		  required_argument, .help="EP port ID"},
 		{NULL}
 	};
 
@@ -991,7 +1001,7 @@ static int gfms_dump(int argc, char **argv)
 
 static int route(int argc, char **argv)
 {
-	const char *desc = "Show topology info of the specific switch";
+	const char *desc = cmd_desc_route;
 	struct switchtec_fab_topo_info topo_info;
 	struct switchtec_gfms_db_fabric_general fg;
 	uint8_t r_type;
@@ -1180,8 +1190,7 @@ static void print_gfms_event_list(struct switchtec_gfms_event *e, size_t cnt,
 
 static int gfms_events(int argc, char **argv)
 {
-	const char *desc =
-		"Display information on GFMS events that have occurred";
+	const char *desc = cmd_desc_gfms_events;
 	struct switchtec_gfms_event elist[128];
 	int overflow;
 	size_t num;
@@ -1198,9 +1207,9 @@ static int gfms_events(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"status", 's', "", CFG_NONE, &cfg.status, no_argument,
-		 "show event status"},
+		 "Show event status"},
 		{"reset", 'r', "", CFG_NONE, &cfg.clear, no_argument,
-		 "clear all GFMS events"},
+		 "Clear all GFMS events"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -1236,15 +1245,15 @@ static int gfms_events(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
-	{"topo_info", topo_info, "Show topology info of the specific switch"},
-	{"gfms_bind", gfms_bind, "Bind the EP(function) to the specified host"},
-	{"gfms_unbind", gfms_unbind, "Unbind the EP(function) from the specified host"},
-	{"gfms_dump", gfms_dump, "PAX only, dump the GFMS database"},
-	{"route", route, "Show routing info of the specific switch"},
-	{"port_control", port_control, "Initiate port control command"},
-	{"portcfg_show", portcfg_show, "Get the port config info"},
-	{"portcfg_set", portcfg_set, "Set the port config"},
-	{"gfms_events", gfms_events, "Display information on GFMS events that have occurred"},
+	{"topo_info", topo_info, cmd_desc_topo_info},
+	{"gfms_bind", gfms_bind, cmd_desc_gfms_bind},
+	{"gfms_unbind", gfms_unbind, cmd_desc_gfms_unbind},
+	{"gfms_dump", gfms_dump, cmd_desc_gfms_dump},
+	{"route", route, cmd_desc_route},
+	{"port_control", port_control, cmd_desc_port_control},
+	{"portcfg_show", portcfg_show, cmd_desc_portcfg_show},
+	{"portcfg_set", portcfg_set, cmd_desc_portcfg_set},
+	{"gfms_events", gfms_events, cmd_desc_gfms_events},
 	{}
 };
 

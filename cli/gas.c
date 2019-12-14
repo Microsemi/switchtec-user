@@ -36,6 +36,10 @@
 #include <errno.h>
 #include <ctype.h>
 
+static const char * const cmd_desc_dump = "Dump all Global Address Space registers";
+static const char * const cmd_desc_read = "Read a register from the Global Address Space";
+static const char * const cmd_desc_write = "Write a register in the Global Address Space";
+
 static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 {
 	int i;
@@ -275,7 +279,7 @@ static int pipe_to_hd_less(struct switchtec_dev *dev, gasptr_t map,
 
 static int gas_dump(int argc, char **argv)
 {
-	const char *desc = "Dump all gas registers";
+	const char *desc = cmd_desc_dump;
 	gasptr_t map;
 	size_t map_size;
 	int ret;
@@ -288,9 +292,9 @@ static int gas_dump(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"count", 'n', "NUM", CFG_SIZE_SUFFIX, &cfg.count, required_argument,
-		 "number of bytes to dump (default is the entire gas space)"},
+		 "number of bytes to dump (default is the entire GAS space)"},
 		{"text", 't', "", CFG_NONE, &cfg.text, no_argument,
-		 "force outputing data in text format, default is to output in "
+		 "force outputting data in text format, default is to output in "
 		 "text unless the output is a pipe, in which case binary is "
 		 "output"},
 		{NULL}};
@@ -388,7 +392,7 @@ static int (*print_funcs[])(struct switchtec_dev *dev, void __gas *addr,
 
 static int gas_read(int argc, char **argv)
 {
-	const char *desc = "Read a gas register";
+	const char *desc = cmd_desc_read;
 	gasptr_t map;
 	size_t map_size;
 	int i;
@@ -397,7 +401,7 @@ static int gas_read(int argc, char **argv)
 	struct argconfig_choice print_choices[] = {
 		{"hex", HEX, "print in hexadecimal"},
 		{"dec", DEC, "print in decimal"},
-		{"str", STR, "print as an ascii string"},
+		{"str", STR, "print as an ASCII string"},
 		{},
 	};
 
@@ -452,7 +456,7 @@ static int gas_read(int argc, char **argv)
 
 static int gas_write(int argc, char **argv)
 {
-	const char *desc = "Write a gas register";
+	const char *desc = cmd_desc_write;
 	void __gas *map;
 	size_t map_size;
 	int ret = 0;
@@ -515,9 +519,9 @@ static int gas_write(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
-	{"dump", gas_dump, "dump the global address space"},
-	{"read", gas_read, "read a register from the global address space"},
-	{"write", gas_write, "write a register in the global address space"},
+	{"dump", gas_dump, cmd_desc_dump},
+	{"read", gas_read, cmd_desc_read},
+	{"write", gas_write, cmd_desc_write},
 	{}
 };
 
@@ -527,7 +531,7 @@ static struct subcommand subcmd = {
 	.desc = "Global Address Space Access (dangerous)",
 	.long_desc = "These functions should be used with extreme caution only "
 	      "if you know what you are doing. Any register accesses through "
-	      "this interface is unsupported by Microsemi unless specifically "
+	      "this interface are unsupported by Microsemi unless specifically "
 	      "otherwise specified.",
 };
 

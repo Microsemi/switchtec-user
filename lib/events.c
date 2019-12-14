@@ -92,7 +92,7 @@ static const struct {
 	EV(PART, DYN_PART_BIND_COMP, 3,
 	   "Dynamic Partition Binding Completion"),
 	EV(PFF, AER_IN_P2P, 0, "Advanced Error Reporting in P2P Port"),
-	EV(PFF, AER_IN_VEP, 1, "Advancde Error Reporting in vEP"),
+	EV(PFF, AER_IN_VEP, 1, "Advanced Error Reporting in vEP"),
 	EV(PFF, DPC, 2, "Downstream Port Containment Event"),
 	EV(PFF, CTS, 3, "Completion Timeout Synthesis Event"),
 	EV(PFF, UEC, 4, "Upstream Error Containment Event"),
