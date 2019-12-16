@@ -88,9 +88,26 @@ struct switchtec_security_cfg_stat {
 	uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
 };
 
+enum switchtec_active_index_id {
+	SWITCHTEC_ACTIVE_INDEX_0 = 0,
+	SWITCHTEC_ACTIVE_INDEX_1 = 1,
+	SWITCHTEC_ACTIVE_INDEX_NOT_SET = 0xfe
+};
+
+struct switchtec_active_index {
+	enum switchtec_active_index_id bl2;
+	enum switchtec_active_index_id firmware;
+	enum switchtec_active_index_id config;
+	enum switchtec_active_index_id keyman;
+};
+
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info);
 int switchtec_security_config_get(struct switchtec_dev *dev,
 			          struct switchtec_security_cfg_stat *state);
+int switchtec_active_image_index_get(struct switchtec_dev *dev,
+				     struct switchtec_active_index *index);
+int switchtec_active_image_index_set(struct switchtec_dev *dev,
+				     struct switchtec_active_index *index);
 
 #endif // LIBSWITCHTEC_MFG_H
