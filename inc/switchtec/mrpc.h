@@ -74,6 +74,8 @@ enum mrpc_cmd {
 	MRPC_PORT_CONTROL = 0x8D,
 
 	MRPC_GET_DEV_INFO = 256,
+	MRPC_SECURITY_CONFIG_GET = 257,
+	MRPC_SN_VER_GET = 265,
 };
 
 enum mrpc_bg_status {
