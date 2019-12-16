@@ -229,9 +229,152 @@ static int info(int argc, char **argv)
 	return 0;
 }
 
+static void print_image_list(struct switchtec_active_index *idx)
+{
+	printf("IMAGE\t\tINDEX\n");
+	printf("Key Manifest\t%d\n", idx->keyman);
+	printf("BL2\t\t%d\n", idx->bl2);
+	printf("Config\t\t%d\n", idx->config);
+	printf("Firmware\t%d\n", idx->firmware);
+}
+
+static int image_list(int argc, char **argv)
+{
+	const char *desc = "Display active image list (BL1 only)";
+	int ret;
+	enum switchtec_boot_phase phase_id;
+	struct switchtec_active_index index;
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
+	if (ret < 0) {
+		switchtec_perror("image list");
+		return ret;
+	}
+	if (phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr, "This command is only available in BL1!\n");
+		return -1;
+	}
+
+	ret = switchtec_active_image_index_get(cfg.dev, &index);
+	if (ret < 0) {
+		switchtec_perror("image list");
+		return ret;
+	}
+
+	print_image_list(&index);
+
+	return 0;
+}
+
+static int image_select(int argc, char **argv)
+{
+	const char *desc = "Select active image index (BL1 only)";
+	int ret;
+	enum switchtec_boot_phase phase_id;
+	struct switchtec_active_index index;
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned char bl2;
+		unsigned char firmware;
+		unsigned char config;
+		unsigned char keyman;
+	} cfg = {
+		.bl2 = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
+		.firmware = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
+		.config = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
+		.keyman = SWITCHTEC_ACTIVE_INDEX_NOT_SET
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"bl2", 'b', "", CFG_BYTE, &cfg.bl2,
+			required_argument, "Active image index for BL2"},
+		{"firmware", 'm', "", CFG_BYTE, &cfg.firmware,
+			required_argument, "Active image index for FIRMWARE"},
+		{"config", 'c', "", CFG_BYTE, &cfg.config,
+			required_argument, "Active image index for CONFIG"},
+		{"keyman", 'k', "", CFG_BYTE, &cfg.keyman, required_argument,
+			"Active image index for KEY MANIFEST"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.bl2 == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
+	    cfg.firmware == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
+	    cfg.config == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
+	    cfg.keyman == SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		fprintf(stderr,
+			"One of BL2, Config, Key Manifest or Firmware indices must be set in this command!\n");
+		return -1;
+	}
+
+	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
+	if (ret < 0) {
+		switchtec_perror("image select");
+		return ret;
+	}
+	if (phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL1!\n");
+		return -2;
+	}
+
+	if (cfg.bl2 > 1 && cfg.bl2 != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		fprintf(stderr, "Active index of BL2 must be within 0-1!\n");
+		return -3;
+	}
+	index.bl2 = cfg.bl2;
+
+	if (cfg.firmware > 1 &&
+	    cfg.firmware != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		fprintf(stderr,
+			"Active index of FIRMWARE must be within 0-1!\n");
+		return -4;
+	}
+	index.firmware = cfg.firmware;
+
+	if (cfg.config > 1 && cfg.config != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		fprintf(stderr,
+			"Active index of CONFIG must be within 0-1!\n");
+		return -5;
+	}
+	index.config = cfg.config;
+
+	if (cfg.keyman > 1 && cfg.keyman != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		fprintf(stderr,
+			"Active index of KEY MANIFEST must be within 0-1!\n");
+		return -6;
+	}
+	index.keyman = cfg.keyman;
+
+	ret = switchtec_active_image_index_set(cfg.dev, &index);
+	if (ret < 0) {
+		switchtec_perror("image select");
+		return ret;
+	}
+
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	{"ping", ping, "Ping firmware and get current boot phase"},
 	{"info", info, "Display security settings"},
+	{"image_list", image_list, "Display active image list (BL1 only)"},
+	{"image_select", image_select, "Select active image index (BL1 only)"},
+	{}
 };
 
 static struct subcommand subcmd = {
