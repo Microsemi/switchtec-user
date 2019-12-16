@@ -40,6 +40,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#define SWITCHTEC_ACTV_IMG_ID_KMAN		1
+#define SWITCHTEC_ACTV_IMG_ID_BL2		2
+#define SWITCHTEC_ACTV_IMG_ID_CFG		3
+#define SWITCHTEC_ACTV_IMG_ID_FW		4
+#define SWITCHTEC_ACTV_IDX_MAX_ENTRIES		32
+#define SWITCHTEC_ACTV_IDX_SET_ENTRIES		4
+
 #define SWITCHTEC_CLK_RATE_BITSHIFT		10
 #define SWITCHTEC_RC_TMO_BITSHIFT		14
 #define SWITCHTEC_I2C_PORT_BITSHIFT		18
@@ -136,4 +143,86 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 	       SWITCHTEC_KMSK_NUM * SWITCHTEC_KMSK_LEN);
 
 	return 0;
+}
+
+/**
+ * @brief Get active image index
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] index	Active images indices
+ * @return 0 on success, error code on failure
+ */
+int switchtec_active_image_index_get(struct switchtec_dev *dev,
+				     struct switchtec_active_index *index)
+{
+	int ret;
+	struct active_indices {
+		uint8_t index[SWITCHTEC_ACTV_IDX_MAX_ENTRIES];
+	} reply;
+
+	ret = switchtec_cmd(dev, MRPC_ACT_IMG_IDX_GET, NULL,
+			    0, &reply, sizeof(reply));
+	if (ret < 0)
+		return ret;
+
+	index->keyman = reply.index[SWITCHTEC_ACTV_IMG_ID_KMAN];
+	index->bl2 = reply.index[SWITCHTEC_ACTV_IMG_ID_BL2];
+	index->config = reply.index[SWITCHTEC_ACTV_IMG_ID_CFG];
+	index->firmware = reply.index[SWITCHTEC_ACTV_IMG_ID_FW];
+
+	return 0;
+}
+
+/**
+ * @brief Set active image index
+ * @param[in]  dev	Switchtec device handle
+ * @param[in] index	Active image indices
+ * @return 0 on success, error code on failure
+ */
+int switchtec_active_image_index_set(struct switchtec_dev *dev,
+				     struct switchtec_active_index *index)
+{
+	int ret;
+	int i = 0;
+	struct active_idx {
+		uint32_t count;
+		struct entry {
+			uint8_t image_id;
+			uint8_t index;
+		} idx[SWITCHTEC_ACTV_IDX_SET_ENTRIES];
+	} set;
+
+	memset(&set, 0, sizeof(set));
+
+	if (index->keyman != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_KMAN;
+		set.idx[i].index = index->keyman;
+		i++;
+	}
+
+	if (index->bl2 != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_BL2;
+		set.idx[i].index = index->bl2;
+		i++;
+	}
+
+	if (index->config != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id =  SWITCHTEC_ACTV_IMG_ID_CFG;
+		set.idx[i].index = index->config;
+		i++;
+	}
+
+	if (index->firmware != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_FW;
+		set.idx[i].index = index->firmware;
+		i++;
+	}
+
+	if (i == 0)
+		return 0;
+
+	set.count = htole32(i);
+
+	ret = switchtec_cmd(dev, MRPC_ACT_IMG_IDX_SET, &set,
+			    sizeof(set), NULL, 0);
+	return ret;
 }
