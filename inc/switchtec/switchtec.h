@@ -220,6 +220,7 @@ struct switchtec_fw_image_info {
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
 
+	bool valid;
 	bool active;
 	bool running;
 	bool read_only;
