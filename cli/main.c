@@ -1532,6 +1532,7 @@ static int fw_read(int argc, char **argv)
 		struct switchtec_dev *dev;
 		int out_fd;
 		const char *out_filename;
+		int assume_yes;
 		int inactive;
 		int data;
 		int bl2;
@@ -1543,6 +1544,8 @@ static int fw_read(int argc, char **argv)
 		  .argument_type=optional_positional,
 		  .force_default="image.pmc",
 		  .help="image file to display information for"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
 		 "read the inactive partition"},
 		{"data", 'd', "", CFG_NONE, &cfg.data, no_argument,
@@ -1577,6 +1580,17 @@ static int fw_read(int argc, char **argv)
 		cfg.data ? "DAT" : cfg.bl2? "BL2" : cfg.key? "KEY" : "IMG");
 	fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
 	fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
+
+	if (!inf->valid && !cfg.assume_yes) {
+		fprintf(stderr,
+			"\nWARNING: The firmware image for this partition is INVALID!\n");
+
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret) {
+			close(cfg.out_fd);
+			return ret;
+		}
+	}
 
 	ret = switchtec_fw_img_write_hdr(cfg.out_fd, inf);
 	if (ret < 0) {
