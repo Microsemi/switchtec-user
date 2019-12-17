@@ -127,6 +127,7 @@ int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus)
 {
+	uint32_t cmd = MRPC_FWDNLD;
 	uint32_t subcmd = MRPC_FWDNLD_GET_STATUS;
 	struct {
 		uint8_t dlstatus;
@@ -135,7 +136,10 @@ int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 	} result;
 	int ret;
 
-	ret = switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
+	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
+		cmd = MRPC_FW_TX;
+
+	ret = switchtec_cmd(dev, cmd, &subcmd, sizeof(subcmd),
 			    &result, sizeof(result));
 
 	if (ret)
@@ -306,6 +310,10 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 	ssize_t image_size, offset = 0;
 	int ret;
 	struct cmd_fwdl cmd = {};
+	uint32_t cmd_id = MRPC_FWDNLD;
+
+	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
+		cmd_id = MRPC_FW_TX;
 
 	image_size = lseek(img_fd, 0, SEEK_END);
 	if (image_size < 0)
@@ -344,7 +352,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 		cmd.hdr.offset = htole32(offset);
 		cmd.hdr.blk_length = htole32(blklen);
 
-		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
+		ret = switchtec_cmd(dev, cmd_id, &cmd, sizeof(cmd),
 				    NULL, 0);
 
 		if (ret)
@@ -396,6 +404,10 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 	ssize_t image_size, offset = 0;
 	int ret;
 	struct cmd_fwdl cmd = {};
+	uint32_t cmd_id = MRPC_FWDNLD;
+
+	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
+		cmd_id = MRPC_FW_TX;
 
 	ret = fseek(fimg, 0, SEEK_END);
 	if (ret)
@@ -436,7 +448,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 		cmd.hdr.offset = htole32(offset);
 		cmd.hdr.blk_length = htole32(blklen);
 
-		ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
+		ret = switchtec_cmd(dev, cmd_id, &cmd, sizeof(cmd),
 				    NULL, 0);
 
 		if (ret)

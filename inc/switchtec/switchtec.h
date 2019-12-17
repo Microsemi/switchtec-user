@@ -338,6 +338,8 @@ _PURE int switchtec_partition(struct switchtec_dev *dev);
 _PURE int switchtec_device_id(struct switchtec_dev *dev);
 _PURE enum switchtec_gen switchtec_gen(struct switchtec_dev *dev);
 _PURE enum switchtec_variant switchtec_variant(struct switchtec_dev *dev);
+_PURE enum switchtec_boot_phase
+switchtec_boot_phase(struct switchtec_dev *dev);
 int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
