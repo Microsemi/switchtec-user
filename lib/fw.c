@@ -802,6 +802,8 @@ static int switchtec_fw_part_info_gen3(struct switchtec_dev *dev,
 	if (ret)
 		return ret;
 
+	inf->valid = true;
+
 	if (inf->part_id == SWITCHTEC_FW_PART_ID_G3_NVLOG)
 		return 1;
 
@@ -943,6 +945,7 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 	inf->active = part_info->active;
 	inf->running = part_info->is_using;
 	inf->read_only = part_info->read_only;
+	inf->valid = part_info->valid;
 
 	return switchtec_fw_info_metadata_gen4(dev, inf);
 }
@@ -983,6 +986,7 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 		inf->type = switchtec_fw_id_to_type(inf);
 		inf->active = false;
 		inf->running = false;
+		inf->valid = false;
 
 		switch (info->gen) {
 		case SWITCHTEC_GEN3:
