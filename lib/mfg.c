@@ -264,3 +264,21 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 			    sizeof(set), NULL, 0);
 	return ret;
 }
+
+/**
+ * @brief Resume device boot.
+ *        Note that after calling this function, the current
+ *        'dev' pointer is no longer valid. Before making further
+ *        calls to switchtec library functions, be sure to close
+ *        this pointer and get a new one by calling switchtec_open().
+ * 	  Also be sure to check the return value of switchtec_open()
+ * 	  for error, as the device might not be immediately 
+ * 	  accessible after normal boot process.
+ * @param[in]  dev	Switchtec device handle
+ * @return 0 on success, error code on failure
+ */
+int switchtec_boot_resume(struct switchtec_dev *dev)
+{
+	return switchtec_cmd(dev, MRPC_BOOTUP_RESUME, NULL, 0,
+			     NULL, 0);
+}

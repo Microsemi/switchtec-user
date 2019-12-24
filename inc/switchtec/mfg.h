@@ -111,5 +111,6 @@ int switchtec_active_image_index_get(struct switchtec_dev *dev,
 				     struct switchtec_active_index *index);
 int switchtec_active_image_index_set(struct switchtec_dev *dev,
 				     struct switchtec_active_index *index);
+int switchtec_boot_resume(struct switchtec_dev *dev);
 
 #endif // LIBSWITCHTEC_MFG_H
