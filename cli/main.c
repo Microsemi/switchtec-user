@@ -1404,6 +1404,7 @@ static int fw_toggle(int argc, char **argv)
 {
 	const char *desc = "Toggle active and inactive firmware partitions";
 	int ret = 0;
+	int err = 0;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1439,11 +1440,16 @@ static int fw_toggle(int argc, char **argv)
 							   cfg.key,
 							   cfg.firmware,
 							   cfg.config);
+		err = errno;
 	}
 
-	print_fw_part_info(cfg.dev);
+	ret = print_fw_part_info(cfg.dev);
+	if (ret)
+		switchtec_perror("print fw info");
+
 	printf("\n");
 
+	errno = err;
 	switchtec_perror("firmware toggle");
 
 	return ret;
