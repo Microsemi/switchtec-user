@@ -155,6 +155,8 @@ enum mrpc_sub_cmd {
 	MRPC_GFMS_DB_DUMP_FAB_PORT,
 	MRPC_GFMS_DB_DUMP_EP_PORT,
 	MRPC_GFMS_DB_DUMP_HVD_DETAIL,
+
+	MRPC_FW_TX_EXEC = 2,
 };
 
 #endif

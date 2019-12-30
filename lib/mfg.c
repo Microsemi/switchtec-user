@@ -264,3 +264,25 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 			    sizeof(set), NULL, 0);
 	return ret;
 }
+
+/**
+ * @brief Execute the transferred firmware
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  recovery_mode	Recovery mode in case of a boot failure
+ * @return 0 on success, error code on failure
+ */
+int switchtec_fw_exec(struct switchtec_dev *dev,
+		      enum switchtec_bl2_recovery_mode recovery_mode)
+{
+	struct fw_exec_struct {
+		uint8_t subcmd;
+		uint8_t recovery_mode;
+		uint8_t rsvd[2];
+	} cmd;
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.subcmd = MRPC_FW_TX_EXEC;
+	cmd.recovery_mode = recovery_mode;
+
+	return switchtec_cmd(dev, MRPC_FW_TX, &cmd, sizeof(cmd), NULL, 0);
+}
