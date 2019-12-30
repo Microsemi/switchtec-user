@@ -229,6 +229,41 @@ static int info(int argc, char **argv)
 	return 0;
 }
 
+static int mailbox(int argc, char **argv)
+{
+	const char *desc = "Retrieve mailbox logs";
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int out_fd;
+		const char *out_filename;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
+		  .argument_type=optional_positional,
+		  .force_default="switchtec_mailbox.log",
+		  .help="file to log mailbox data"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_mailbox_to_file(cfg.dev, cfg.out_fd);
+	if (ret < 0) {
+		switchtec_perror("mfg mailbox");
+		close(cfg.out_fd);
+		return ret;
+	}
+
+	close(cfg.out_fd);
+
+	fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
+
+	return 0;
+}
+
 static void print_image_list(struct switchtec_active_index *idx)
 {
 	printf("IMAGE\t\tINDEX\n");
@@ -372,6 +407,7 @@ static int image_select(int argc, char **argv)
 static const struct cmd commands[] = {
 	{"ping", ping, "Ping firmware and get current boot phase"},
 	{"info", info, "Display security settings"},
+	{"mailbox", mailbox, "Retrieve mailbox logs"},
 	{"image_list", image_list, "Display active image list (BL1 only)"},
 	{"image_select", image_select, "Select active image index (BL1 only)"},
 	{}

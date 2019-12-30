@@ -44,6 +44,8 @@
 #define SWITCHTEC_ACTV_IMG_ID_BL2		2
 #define SWITCHTEC_ACTV_IMG_ID_CFG		3
 #define SWITCHTEC_ACTV_IMG_ID_FW		4
+
+#define SWITCHTEC_MB_MAX_ENTRIES		16
 #define SWITCHTEC_ACTV_IDX_MAX_ENTRIES		32
 #define SWITCHTEC_ACTV_IDX_SET_ENTRIES		4
 
@@ -141,6 +143,42 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 	state->public_key_ver = reply.public_key_ver;
 	memcpy(state->public_key, reply.public_key,
 	       SWITCHTEC_KMSK_NUM * SWITCHTEC_KMSK_LEN);
+
+	return 0;
+}
+
+/**
+ * @brief Retrieve mailbox entries
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  fd	File handle to write the log data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd)
+{
+	int ret;
+	int num_to_read = htole32(SWITCHTEC_MB_MAX_ENTRIES);
+	struct mb_reply {
+		uint8_t num_returned;
+		uint8_t num_remaining;
+		uint8_t rsvd[2];
+		uint8_t data[SWITCHTEC_MB_MAX_ENTRIES *
+			     SWITCHTEC_MB_LOG_LEN];
+	} reply;
+
+	do {
+		ret = switchtec_cmd(dev, MRPC_MAILBOX_GET, &num_to_read,
+				    sizeof(int), &reply,  sizeof(reply));
+		if (ret < 0)
+			return ret;
+
+		reply.num_remaining = le32toh(reply.num_remaining);
+		reply.num_returned = le32toh(reply.num_returned);
+
+		ret = write(fd, reply.data,
+			    (reply.num_returned) * SWITCHTEC_MB_LOG_LEN);
+		if (ret < 0)
+			return ret;
+	} while (reply.num_remaining > 0);
 
 	return 0;
 }
