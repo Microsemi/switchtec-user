@@ -44,6 +44,14 @@
 #include <stdio.h>
 #include <string.h>
 
+static const struct argconfig_choice recovery_mode_choices[] = {
+	{"I2C", SWITCHTEC_BL2_RECOVERY_I2C, "I2C"},
+	{"XMODEM", SWITCHTEC_BL2_RECOVERY_XMODEM, "XModem"},
+	{"BOTH", SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM,
+		"both I2C and XModem (default)"},
+	{}
+};
+
 static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 {
 	switch(phase_id) {
@@ -404,12 +412,153 @@ static int image_select(int argc, char **argv)
 	return ret;
 }
 
+static int fw_transfer(int argc, char **argv)
+{
+	const char *desc = "Transfer a firmware image to device (BL1 phase only)\n\n"
+			   "This command only supports transferring firmware "
+			   "image when device is in BL1 boot phase. Use "
+			   "'fw-execute' after this command to excute the "
+			   "transferred image. Note that the image is stored "
+			   "in device RAM and is lost after device reboot.\n\n"
+			   "To update an image in BL2 or MAIN boot phase, use "
+			   "'fw-update' command instead.\n\n"
+			   BOOT_PHASE_HELP_TEXT;
+	int ret;
+	enum switchtec_fw_type type;
+
+	static struct {
+		struct switchtec_dev *dev;
+		FILE *fimg;
+		const char *img_filename;
+		int assume_yes;
+		int force;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
+			.argument_type=required_positional,
+			.help="firmware image file to transfer"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
+			"force interrupting an existing fw-update command "
+			"in case firmware is stuck in the busy state"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL1 boot phase!\n");
+		fprintf(stderr,
+			"Use 'fw-update' instead to update an image in other boot phases.\n");
+		return -1;
+	}
+
+	printf("Writing the following firmware image to %s:\n",
+		switchtec_name(cfg.dev));
+
+	type = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename);
+
+	if (type != SWITCHTEC_FW_TYPE_BL2) {
+		fprintf(stderr,
+			"Only transferring BL2 image is supported in this command.\n");
+		return -2;
+	}
+
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret) {
+		fclose(cfg.fimg);
+		return ret;
+	}
+
+	progress_start();
+	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, 1, cfg.force,
+				      progress_update);
+	fclose(cfg.fimg);
+
+	if (ret) {
+		printf("\n");
+		switchtec_fw_perror("mfg fw-transfer", ret);
+		return -3;
+	}
+
+	progress_finish();
+	printf("\n");
+
+	return 0;
+}
+
+static int fw_execute(int argc, char **argv)
+{
+	const char *desc = "Execute previously transferred firmware image (BL1 phase only)\n\n"
+			   "This command is only supported when device is "
+			   "in BL1 boot phase. The firmware image must have "
+			   "been transferred using 'fw-transfer' command. "
+			   "After firmware initializes, it listens for activity from "
+			   "I2C, UART (XModem), or both interfaces for input. "
+			   "Once activity is detected from an interface, "
+			   "firmware falls into recovery mode on that interface. "
+			   "The interface to listen on can be specified using "
+			   "'bl2_recovery_mode' option. \n\n"
+			   "To activate an image in BL2 or MAIN boot "
+			   "phase, use 'fw-toggle' command instead.\n\n"
+			   BOOT_PHASE_HELP_TEXT;
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int assume_yes;
+		enum switchtec_bl2_recovery_mode bl2_rec_mode;
+	} cfg = {
+		.bl2_rec_mode = SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{"bl2_recovery_mode", 'm', "MODE",
+			CFG_CHOICES, &cfg.bl2_rec_mode,
+			required_argument, "BL2 recovery mode",
+			.choices = recovery_mode_choices},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL1 phase!\n");
+		return -2;
+	}
+
+	if (!cfg.assume_yes)
+		printf("This command will execute the previously transferred image.\n");
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret) {
+		return ret;
+	}
+
+	ret = switchtec_fw_exec(cfg.dev, cfg.bl2_rec_mode);
+	if (ret) {
+		switchtec_fw_perror("mfg fw-execute", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	{"ping", ping, "Ping firmware and get current boot phase"},
 	{"info", info, "Display security settings"},
 	{"mailbox", mailbox, "Retrieve mailbox logs"},
 	{"image_list", image_list, "Display active image list (BL1 only)"},
 	{"image_select", image_select, "Select active image index (BL1 only)"},
+	{"fw_transfer", fw_transfer,
+		"Transfer a firmware image to device (BL1 only)"},
+	{"fw_execute", fw_execute,
+		"Execute the firmware image tranferred (BL1 only)"},
 	{}
 };
 
