@@ -31,6 +31,23 @@ int switchtec_handler(const char *optarg, void *value_addr,
 int pax_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt);
 
+#define BOOT_PHASE_HELP_TEXT \
+	"NOTE - A device can be in one of these three boot phases: \n" \
+	"BOOTLOADER1 (BL1): in this phase, a device runs " \
+	"a BL1 image that resides on the device's on-chip boot ROM. " \
+	"BL1 image is implemented to facilitate device recovery -- it " \
+	"supports transferring and executing a Bootloader2 image. " \
+	"To enter BL1 boot phase, set device BOOT_RECOVERY " \
+	"PIN 0 to LOW and reset the device.\n\n" \
+	"BOOTLOADER2 (BL2): in this phase, a device runs " \
+	"BL2 image stored on flash, or transferred during BL1 boot phase. " \
+	"BL2 is the phase for device recovery -- it provides commands " \
+	"to update and activate device partitions. " \
+	"To enter BL2 boot phase, set device BOOT_RECOVERY PIN[0] to HIGH " \
+	"and PIN[1] to LOW and reset the device.\n\n" \
+	"MAIN FIRMWARE (MAIN): this is the full-featured firmware that runs " \
+	"on your device during normal operation.\n\n"
+
 #define DEVICE_OPTION_NO_PAX \
 	{ \
 			"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \

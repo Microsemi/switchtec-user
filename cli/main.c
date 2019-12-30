@@ -1317,8 +1317,12 @@ static int fw_update(int argc, char **argv)
 {
 	int ret;
 	int type;
-	const char *desc = "Flash the firmware with a new image";
-
+	const char *desc = "Flash device with a new firmware image\n\n"
+			   "This command only supports flashing firmware "
+			   "when device is in BL2 or MAIN boot phase. To "
+			   "transfer an image in BL1 boot phase, use "
+			   "'mfg fw-transfer' command instead.\n\n"
+			   BOOT_PHASE_HELP_TEXT;
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *fimg;
@@ -1353,6 +1357,14 @@ static int fw_update(int argc, char **argv)
 	type = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename);
 	if (type < 0)
 		return type;
+
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL2 or Main Firmware!\n");
+		fprintf(stderr,
+			"Use 'mfg fw-transfer' instead to transfer a BL2 image.\n");
+		return -1;
+	}
 
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
