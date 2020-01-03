@@ -119,5 +119,6 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 				     struct switchtec_active_index *index);
 int switchtec_fw_exec(struct switchtec_dev *dev,
 		      enum switchtec_bl2_recovery_mode recovery_mode);
+int switchtec_boot_resume(struct switchtec_dev *dev);
 
 #endif // LIBSWITCHTEC_MFG_H

@@ -412,6 +412,66 @@ static int image_select(int argc, char **argv)
 	return ret;
 }
 
+static int boot_resume(int argc, char **argv)
+{
+	const char *desc = "Resume device boot process (BL1 and BL2 only)\n\n"
+			   "A normal device boot process includes BL1, "
+			   "BL2 and Main Firmware boot phases. In the case "
+			   "when boot process is paused at BL1 or BL2 phase "
+			   "(due to boot failure or BOOT_RECOVERY PIN[0:1] "
+			   "being set to LOW), sending this command requests "
+			   "device to try resuming normal boot process.\n\n"
+			   "NOTE: if your system does not support hotplug, "
+			   "your device might not be immediately accessible "
+			   "after normal boot process. In this case, be sure "
+			   "to reboot your system after sending this command.";
+	int ret;
+	enum switchtec_boot_phase phase_id;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int assume_yes;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
+	if (ret) {
+		switchtec_perror("mfg boot-resume");
+		return ret;
+	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
+		fprintf(stderr,
+			"This command is only available in BL1 or BL2!\n");
+		return -1;
+	}
+
+	if (!cfg.assume_yes)
+		fprintf(stderr,
+			"WARNING: if your system does not support hotplug,\n"
+			"your device might not be immediately accessible\n"
+			"after normal boot process. In this case, be sure\n"
+			"to reboot your system after sending this command.\n\n");
+
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return ret;
+
+	ret = switchtec_boot_resume(cfg.dev);
+	if (ret) {
+		switchtec_perror("mfg boot-resume");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int fw_transfer(int argc, char **argv)
 {
 	const char *desc = "Transfer a firmware image to device (BL1 phase only)\n\n"
@@ -559,6 +619,8 @@ static const struct cmd commands[] = {
 		"Transfer a firmware image to device (BL1 only)"},
 	{"fw_execute", fw_execute,
 		"Execute the firmware image tranferred (BL1 only)"},
+	{"boot_resume", boot_resume,
+		"Resume device boot process (BL1 and BL2 only)"},
 	{}
 };
 
