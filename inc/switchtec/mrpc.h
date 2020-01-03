@@ -80,6 +80,7 @@ enum mrpc_cmd {
 	MRPC_FW_TX = 263,
 	MRPC_MAILBOX_GET = 264,
 	MRPC_SN_VER_GET = 265,
+	MRPC_BOOTUP_RESUME = 267,
 };
 
 enum mrpc_bg_status {
