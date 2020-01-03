@@ -509,6 +509,8 @@ void switchtec_fw_perror(const char *s, int ret)
 		msg = "Hardware Error";  break;
 	case SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT:
 		msg = "Download Timeout";  break;
+	case SWITCHTEC_DLSTAT_NO_FILE:
+		msg = "No Image Transferred"; break;
 	default:
 		fprintf(stderr, "%s: Unknown Error (0x%x)\n", s, ret);
 		return;

@@ -30,6 +30,8 @@ int switchtec_handler(const char *optarg, void *value_addr,
 		      const struct argconfig_options *opt);
 int pax_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt);
+enum switchtec_fw_type check_and_print_fw_image(int img_fd,
+						const char *img_filename);
 
 #define BOOT_PHASE_HELP_TEXT \
 	"NOTE - A device can be in one of these three boot phases: \n" \

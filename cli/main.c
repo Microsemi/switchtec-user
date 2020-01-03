@@ -1166,8 +1166,8 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
-		const char *img_filename)
+enum switchtec_fw_type check_and_print_fw_image(int img_fd,
+						const char *img_filename)
 {
 	int ret;
 	struct switchtec_fw_image_info info;

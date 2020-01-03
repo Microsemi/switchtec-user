@@ -102,6 +102,12 @@ struct switchtec_active_index {
 	enum switchtec_active_index_id keyman;
 };
 
+enum switchtec_bl2_recovery_mode {
+	SWITCHTEC_BL2_RECOVERY_I2C = 1,
+	SWITCHTEC_BL2_RECOVERY_XMODEM = 2,
+	SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM = 3
+};
+
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info);
 int switchtec_security_config_get(struct switchtec_dev *dev,
@@ -111,6 +117,8 @@ int switchtec_active_image_index_get(struct switchtec_dev *dev,
 				     struct switchtec_active_index *index);
 int switchtec_active_image_index_set(struct switchtec_dev *dev,
 				     struct switchtec_active_index *index);
+int switchtec_fw_exec(struct switchtec_dev *dev,
+		      enum switchtec_bl2_recovery_mode recovery_mode);
 int switchtec_boot_resume(struct switchtec_dev *dev);
 
 #endif // LIBSWITCHTEC_MFG_H
