@@ -304,3 +304,24 @@ int switchtec_boot_resume(struct switchtec_dev *dev)
 	return switchtec_cmd(dev, MRPC_BOOTUP_RESUME, NULL, 0,
 			     NULL, 0);
 }
+
+/**
+ * @brief Set device secure state
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  state	Secure state
+ * @return 0 on success, error code on failure
+ */
+int switchtec_secure_state_set(struct switchtec_dev *dev,
+			       enum switchtec_secure_state state)
+{
+	uint32_t data;
+
+	if ((state != SWITCHTEC_INITIALIZED_UNSECURED)
+	   && (state != SWITCHTEC_INITIALIZED_SECURED)) {
+		return ERR_PARAM_INVALID;
+	}
+	data = htole32(state);
+
+	return switchtec_cmd(dev, MRPC_SECURE_STATE_SET, &data, sizeof(data),
+			     NULL, 0);
+}

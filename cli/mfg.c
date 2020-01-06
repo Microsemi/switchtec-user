@@ -52,6 +52,14 @@ static const struct argconfig_choice recovery_mode_choices[] = {
 	{}
 };
 
+static const struct argconfig_choice secure_state_choices[] = {
+	{"INITIALIZED_UNSECURED", SWITCHTEC_INITIALIZED_UNSECURED,
+		"unsecured state"},
+	{"INITIALIZED_SECURED", SWITCHTEC_INITIALIZED_SECURED,
+		"secured state"},
+	{}
+};
+
 static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 {
 	switch(phase_id) {
@@ -609,6 +617,102 @@ static int fw_execute(int argc, char **argv)
 	return 0;
 }
 
+static int secure_state_set(int argc, char **argv)
+{
+	int ret;
+	enum switchtec_boot_phase phase_id;
+	struct switchtec_security_cfg_stat state = {};
+
+	const char *desc = "Set device secure state (BL1 and Main Firmware only)\n\n"
+			   "This command can only be used when device "
+			   "secure state is UNINITIALIZED_UNSECURED.\n\n"
+			   "NOTE - A device can be in one of these "
+			   "three secure states: \n"
+			   "UNINITIALIZED_UNSECURED: this is the default state "
+			   "when chip is shipped. All security-related settings "
+			   "are 'uninitialized', and the chip is in 'unsecured' "
+			   "state. \n"
+			   "INITIALIZED_UNSECURED: this is the state when "
+			   "security-related settings are 'initialized', and "
+			   "the chip is set to 'unsecured' state. \n"
+			   "INITIALIZED_SECURED: this is the state when "
+			   "security-related settings are 'initialized', and "
+			   "the chip is set to 'secured' state. \n\n"
+			   "Use 'config-set' or other mfg commands to "
+			   "initialize security settings when chip is in "
+			   "UNINITIALIZED_UNSECURED state, then use this "
+			   "command to switch chip to INITIALIZED_SECURED "
+			   "or INITIALIZED_UNSECURED state. \n\n"
+			   "WARNING: ONCE THE CHIP STATE IS SUCCESSFULLY SET, "
+			   "IT CAN NO LONGER BE CHANGED. USE CAUTION WHEN ISSUING "
+			   "THIS COMMAND.";
+
+	static struct {
+		struct switchtec_dev *dev;
+		enum switchtec_secure_state state;
+		int assume_yes;
+	} cfg = {
+		.state = SWITCHTEC_SECURE_STATE_UNKNOWN,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"state", 't', "state",
+			CFG_CHOICES, &cfg.state,
+			required_argument, "secure state",
+			.choices=secure_state_choices},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes for prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.state == SWITCHTEC_SECURE_STATE_UNKNOWN) {
+		fprintf(stderr,
+			"Secure state must be set in this command!\n");
+		return -1;
+	}
+
+	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
+	if (ret) {
+		switchtec_perror("mfg state-set");
+		return ret;
+	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
+		fprintf(stderr,
+			"This command is only available in BL1 or Main Firmware!\n");
+		return -2;
+	}
+
+	ret = switchtec_security_config_get(cfg.dev, &state);
+	if (ret) {
+		switchtec_perror("mfg state-set");
+		return ret;
+	}
+	if (state.secure_state != SWITCHTEC_UNINITIALIZED_UNSECURED) {
+		fprintf(stderr,
+			"This command is only valid when secure state is UNINITIALIZED_UNSECURED!\n");
+		return -3;
+	}
+
+	if (!cfg.assume_yes) {
+		fprintf(stderr,
+			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret)
+			return -4;
+	}
+
+	ret = switchtec_secure_state_set(cfg.dev, cfg.state);
+	if (ret) {
+		switchtec_perror("mfg state-set");
+		return ret;
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	{"ping", ping, "Ping firmware and get current boot phase"},
 	{"info", info, "Display security settings"},
@@ -621,6 +725,8 @@ static const struct cmd commands[] = {
 		"Execute the firmware image tranferred (BL1 only)"},
 	{"boot_resume", boot_resume,
 		"Resume device boot process (BL1 and BL2 only)"},
+	{"state_set", secure_state_set,
+		"Set device secure state (BL1 and Main Firmware only)"},
 	{}
 };
 
