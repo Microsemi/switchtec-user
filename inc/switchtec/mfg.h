@@ -89,20 +89,6 @@ struct switchtec_security_cfg_stat {
 	uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
 };
 
-struct switchtec_security_cfg_set {
-	uint8_t jtag_lock_after_reset;
-	uint8_t jtag_lock_after_bl1;
-	uint8_t jtag_bl1_unlock_allowed;
-	uint8_t jtag_post_bl1_unlock_allowed;
-
-	uint32_t spi_clk_rate;
-	uint32_t i2c_recovery_tmo;
-	uint32_t i2c_port;
-	uint32_t i2c_addr;
-	uint32_t i2c_cmd_map;
-	uint32_t public_key_exponent;
-};
-
 enum switchtec_active_index_id {
 	SWITCHTEC_ACTIVE_INDEX_0 = 0,
 	SWITCHTEC_ACTIVE_INDEX_1 = 1,
@@ -127,8 +113,6 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 int switchtec_security_config_get(struct switchtec_dev *dev,
 			          struct switchtec_security_cfg_stat *state);
 int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd);
-int switchtec_security_config_set(struct switchtec_dev *dev,
-				  struct switchtec_security_cfg_set *setting);
 int switchtec_active_image_index_get(struct switchtec_dev *dev,
 				     struct switchtec_active_index *index);
 int switchtec_active_image_index_set(struct switchtec_dev *dev,
@@ -138,7 +122,5 @@ int switchtec_fw_exec(struct switchtec_dev *dev,
 int switchtec_boot_resume(struct switchtec_dev *dev);
 int switchtec_secure_state_set(struct switchtec_dev *dev,
 			       enum switchtec_secure_state state);
-int switchtec_read_sec_cfg_file(FILE *setting_file,
-			        struct switchtec_security_cfg_set *set);
 
 #endif // LIBSWITCHTEC_MFG_H

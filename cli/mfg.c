@@ -713,79 +713,6 @@ static int secure_state_set(int argc, char **argv)
 	return 0;
 }
 
-static int security_config_set(int argc, char **argv)
-{
-	const char *desc = "Set the device security settings (BL1 and Main Firmware only)";
-	int ret;
-	enum switchtec_boot_phase phase_id;
-	struct switchtec_security_cfg_stat state = {};
-	struct switchtec_security_cfg_set settings = {};
-
-	static struct {
-		struct switchtec_dev *dev;
-		FILE *setting_fimg;
-		char *setting_file;
-		int assume_yes_otp;
-	} cfg = {};
-	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
-		{"setting_file", .cfg_type=CFG_FILE_R,
-			.value_addr=&cfg.setting_fimg,
-			.argument_type=required_positional,
-			.help="security setting file"},
-		{"otp", 'o', "", CFG_NONE, &cfg.assume_yes_otp, no_argument,
-			"assume yes for OTP writing prompt"},
-		{NULL}
-	};
-
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
-
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg config-set");
-		return ret;
-	}
-	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
-		fprintf(stderr,
-			"This command is only available in BL1 or Main Firmware!\n");
-		return -1;
-	}
-
-	ret = switchtec_security_config_get(cfg.dev, &state);
-	if (ret) {
-		switchtec_perror("mfg config-set");
-		return ret;
-	}
-	if (state.secure_state != SWITCHTEC_UNINITIALIZED_UNSECURED) {
-		fprintf(stderr,
-			"This command is only available when secure state is UNINITIALIZED_UNSECURED!\n");
-		return -2;
-	}
-
-	ret = switchtec_read_sec_cfg_file(cfg.setting_fimg, &settings);
-	fclose(cfg.setting_fimg);
-	if (ret) {
-		fprintf(stderr, "Invalid secure setting file: %s!\n",
-			cfg.setting_file);
-		return -3;
-	}
-
-	if (!cfg.assume_yes_otp)
-		fprintf(stderr,
-			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
-	ret = ask_if_sure(cfg.assume_yes_otp);
-	if (ret)
-		return -4;
-
-	ret = switchtec_security_config_set(cfg.dev, &settings);
-	if (ret < 0) {
-		switchtec_perror("mfg config-set");
-		return ret;
-	}
-
-	return 0;
-}
-
 static const struct cmd commands[] = {
 	{"ping", ping, "Ping firmware and get current boot phase"},
 	{"info", info, "Display security settings"},
@@ -800,8 +727,6 @@ static const struct cmd commands[] = {
 		"Resume device boot process (BL1 and BL2 only)"},
 	{"state_set", secure_state_set,
 		"Set device secure state (BL1 and Main Firmware only)"},
-	{"config_set", security_config_set,
-		"Set the device security settings (BL1 and Main Firmware only)"},
 	{}
 };
 

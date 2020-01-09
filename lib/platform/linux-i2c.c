@@ -25,7 +25,7 @@
 #ifdef __linux__
 
 #include "../switchtec_priv.h"
-#include "../crc.h"
+#include "../crc8.h"
 #include "switchtec/switchtec.h"
 #include "gasops.h"
 

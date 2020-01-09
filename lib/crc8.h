@@ -24,8 +24,8 @@
  */
 
 
-#ifndef CRC_H
-#define CRC_H
+#ifndef CRC8_H
+#define CRC8_H
 
 
 #include <stdint.h>
@@ -33,12 +33,5 @@
 
 uint8_t crc8(uint8_t *msg_ptr, uint32_t byte_cnt, uint32_t oldchksum,
 	      bool init);
-
-/*
-* This is an implementation of CRC-32/CKSUM:
-*      x^32+x^26+x^23+x^22+x^16+x^12+x^11+x^10+x^8+x^7+x^5+x^4+x^2+x^1+1
-*/
-uint32_t crc32(const uint8_t *msg_ptr, uint32_t byte_cnt,
-	       uint32_t oldchksum, int init, int last);
 
 #endif
