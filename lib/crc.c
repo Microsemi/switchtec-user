@@ -24,7 +24,7 @@
 
 #ifdef __linux__
 
-#include "crc8.h"
+#include "crc.h"
 static uint8_t crc8_0107_lut[] =
 {
 	0x00, 0x07, 0x0e, 0x09, 0x1c, 0x1b, 0x12, 0x15,

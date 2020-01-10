@@ -24,8 +24,8 @@
  */
 
 
-#ifndef CRC8_H
-#define CRC8_H
+#ifndef CRC_H
+#define CRC_H
 
 
 #include <stdint.h>
