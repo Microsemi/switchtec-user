@@ -22,8 +22,6 @@
  *
  */
 
-#ifdef __linux__
-
 #include "crc.h"
 static uint8_t crc8_0107_lut[] =
 {
@@ -76,4 +74,3 @@ uint8_t crc8(uint8_t *msg_ptr, uint32_t byte_cnt, uint32_t oldchksum,
 
 	return remainder;
 }
-#endif
