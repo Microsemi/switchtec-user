@@ -27,6 +27,8 @@
  * @brief Switchtec core library functions for mfg operations
  */
 
+#ifdef __linux__
+
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/mfg.h"
@@ -463,3 +465,5 @@ int switchtec_read_sec_cfg_file(FILE *setting_file,
 
 	return 0;
 }
+
+#endif
