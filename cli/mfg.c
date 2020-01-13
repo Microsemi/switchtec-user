@@ -30,6 +30,8 @@
 #include "common.h"
 #include "progress.h"
 
+#include "config.h"
+
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
 #include <switchtec/mfg.h>
@@ -786,6 +788,157 @@ static int security_config_set(int argc, char **argv)
 	return 0;
 }
 
+#if HAVE_LIBCRYPTO
+static int kmsk_entry_add(int argc, char **argv)
+{
+	int ret;
+	struct switchtec_kmsk kmsk;
+	struct switchtec_pubkey pubk;
+	struct switchtec_signature sig;
+	struct switchtec_security_cfg_stat state = {};
+
+	const char *desc = "Add a KSMK entry (BL1 and Main Firmware only)\n\n"
+			   "KMSK stands for Key Manifest Secure Key. It is a "
+			   "key used to verify Key Manifest partition, which "
+			   "contains keys used to verify all other partitions.\n";
+	static struct {
+		struct switchtec_dev *dev;
+		FILE *pubk_fimg;
+		char *pubk_file;
+		FILE *sig_fimg;
+		char *sig_file;
+		FILE *kmsk_fimg;
+		char *kmsk_file;
+		int assume_yes;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"pub_key_file", 'p', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.pubk_fimg,
+			.argument_type=required_argument,
+			.help="public key file"},
+		{"signature_file", 's', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.sig_fimg,
+			.argument_type=required_argument,
+			.help="signature file"},
+		{"kmsk_entry_file", 'k', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.kmsk_fimg,
+			.argument_type=required_argument,
+			.help="KMSK entry file"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.kmsk_file == NULL) {
+		fprintf(stderr,
+			"KSMK entry file must be set in this command!\n");
+		return -1;
+	}
+
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2) {
+		fprintf(stderr,
+			"This command is only available in BL1 or Main Firmware!\n");
+		return -2;
+	}
+
+	ret = switchtec_security_config_get(cfg.dev, &state);
+	if (ret) {
+		switchtec_perror("mfg ksmk-entry-add");
+		return ret;
+	}
+	if (state.secure_state == SWITCHTEC_INITIALIZED_UNSECURED) {
+		fprintf(stderr,
+			"This command is only valid when secure state is not INITIALIZED_UNSECURED!\n");
+		return -3;
+	}
+
+	ret = switchtec_read_kmsk_file(cfg.kmsk_fimg, &kmsk);
+	fclose(cfg.kmsk_fimg);
+	if (ret) {
+		fprintf(stderr, "Invalid KMSK file %s!\n", cfg.kmsk_file);
+		return -4;
+	}
+
+	if (switchtec_security_state_has_kmsk(&state, &kmsk)) {
+		if (!cfg.assume_yes)
+			fprintf(stderr,
+				"WARNING: the specified KMSK entry already exists on device.\n"
+				"Writing duplicate KMSK entry could make your device unbootable!\n");
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret)
+			return ret;
+	}
+
+	if (state.secure_state == SWITCHTEC_INITIALIZED_SECURED &&
+	   cfg.pubk_file == NULL) {
+		fprintf(stderr,
+			"Public key file must be specified when secure state is INITIALIZED_SECURED!\n");
+		return -4;
+	}
+
+	if (cfg.pubk_file) {
+		ret = switchtec_read_pubk_file(cfg.pubk_fimg, &pubk);
+		fclose(cfg.pubk_fimg);
+
+		if (ret) {
+			fprintf(stderr, "Invalid public key file %s!\n",
+				cfg.pubk_file);
+			return -5;
+		}
+	}
+
+	if (state.secure_state == SWITCHTEC_INITIALIZED_SECURED &&
+	   cfg.sig_file == NULL) {
+		fprintf(stderr,
+			"Signature file must be specified when secure state is INITIALIZED_SECURED!\n");
+		return -5;
+	}
+
+	if (cfg.sig_file) {
+		ret = switchtec_read_signature_file(cfg.sig_fimg, &sig);
+		fclose(cfg.sig_fimg);
+
+		if (ret) {
+			fprintf(stderr, "Invalid signature file %s!\n",
+				cfg.sig_file);
+			return -6;
+		}
+	}
+
+	if (!cfg.assume_yes)
+		fprintf(stderr,
+			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return -7;
+
+	if (cfg.pubk_file && cfg.sig_file) {
+		ret = switchtec_kmsk_set(cfg.dev, &pubk, &sig, &kmsk);
+
+	}
+	else {
+		ret = switchtec_kmsk_set(cfg.dev, NULL,	NULL, &kmsk);
+	}
+
+	if (ret)
+		switchtec_perror("mfg kmsk-entry-add");
+
+	return ret;
+}
+#else
+static int kmsk_entry_add(int argc, char **argv)
+{
+	fprintf(stderr,
+		"This command is only available when OpenSSL development library is installed.\n"
+		"Try installing OpenSSL development library in your system and rebuild this\n"
+		"program by doing 'configure' and then 'make'.\n");
+	return -1;
+}
+#endif
+
 static const struct cmd commands[] = {
 	{"ping", ping, "Ping firmware and get current boot phase"},
 	{"info", info, "Display security settings"},
@@ -802,6 +955,8 @@ static const struct cmd commands[] = {
 		"Set device secure state (BL1 and Main Firmware only)"},
 	{"config_set", security_config_set,
 		"Set the device security settings (BL1 and Main Firmware only)"},
+	{"kmsk_entry_add", kmsk_entry_add,
+		"Add a KMSK entry (BL1 and Main Firmware only)"},
 	{}
 };
 
