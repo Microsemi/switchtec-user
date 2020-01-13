@@ -26,6 +26,9 @@
 #define LIBSWITCHTEC_MFG_H
 
 #define SWITCHTEC_MB_LOG_LEN	64
+
+#define SWITCHTEC_PUB_KEY_LEN	512
+#define SWITCHTEC_SIG_LEN	512
 #define SWITCHTEC_KMSK_LEN	64
 #define SWITCHTEC_KMSK_NUM	4
 
@@ -122,6 +125,19 @@ enum switchtec_bl2_recovery_mode {
 	SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM = 3
 };
 
+struct switchtec_kmsk {
+	uint8_t kmsk[SWITCHTEC_KMSK_LEN];
+};
+
+struct switchtec_pubkey {
+	uint8_t pubkey[SWITCHTEC_PUB_KEY_LEN];
+	uint32_t pubkey_exp;
+};
+
+struct switchtec_signature{
+	uint8_t signature[SWITCHTEC_SIG_LEN];
+};
+
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info);
 int switchtec_security_config_get(struct switchtec_dev *dev,
@@ -136,9 +152,20 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 int switchtec_fw_exec(struct switchtec_dev *dev,
 		      enum switchtec_bl2_recovery_mode recovery_mode);
 int switchtec_boot_resume(struct switchtec_dev *dev);
+int switchtec_kmsk_set(struct switchtec_dev *dev,
+		       struct switchtec_pubkey *public_key,
+		       struct switchtec_signature *signature,
+		       struct switchtec_kmsk *kmsk);
 int switchtec_secure_state_set(struct switchtec_dev *dev,
 			       enum switchtec_secure_state state);
 int switchtec_read_sec_cfg_file(FILE *setting_file,
 			        struct switchtec_security_cfg_set *set);
+int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk);
+int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk);
+int switchtec_read_signature_file(FILE *sig_file,
+				  struct switchtec_signature *sigature);
+int
+switchtec_security_state_has_kmsk(struct switchtec_security_cfg_stat *state,
+				  struct switchtec_kmsk *kmsk);
 
 #endif // LIBSWITCHTEC_MFG_H
