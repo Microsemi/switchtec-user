@@ -158,6 +158,15 @@ int switchtec_kmsk_set(struct switchtec_dev *dev,
 		       struct switchtec_kmsk *kmsk);
 int switchtec_secure_state_set(struct switchtec_dev *dev,
 			       enum switchtec_secure_state state);
+int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
+			 uint32_t ver_sec_unlock,
+			 struct switchtec_pubkey *public_key,
+			 struct switchtec_signature *signature);
+int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
+					uint32_t serial,
+					uint32_t ver_sec_unlock,
+					struct switchtec_pubkey *public_key,
+			 		struct switchtec_signature *signature);
 int switchtec_read_sec_cfg_file(FILE *setting_file,
 			        struct switchtec_security_cfg_set *set);
 int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk);
