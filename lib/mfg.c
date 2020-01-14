@@ -41,6 +41,11 @@
 #include <string.h>
 
 #include "lib/crc.h"
+#include "config.h"
+
+#if HAVE_LIBCRYPTO
+#include <openssl/pem.h>
+#endif
 
 #define SWITCHTEC_ACTV_IMG_ID_KMAN		1
 #define SWITCHTEC_ACTV_IMG_ID_BL2		2
@@ -66,6 +71,23 @@
 #define SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK	0x80
 #define SWITCHTEC_JTAG_UNLOCK_BL1_BITMASK	0x0100
 #define SWITCHTEC_JTAG_UNLOCK_AFT_BL1_BITMASK	0x0200
+
+#if (HAVE_LIBCRYPTO && !HAVE_DECL_RSA_GET0_KEY)
+/**
+*  openssl1.0 or older versions don't have this function, so copy
+*  the code from openssl1.1 here
+*/
+static void RSA_get0_key(const RSA *r, const BIGNUM **n,
+			 const BIGNUM **e, const BIGNUM **d)
+{
+	if (n != NULL)
+		*n = r->n;
+	if (e != NULL)
+		*e = r->e;
+	if (d != NULL)
+		*d = r->d;
+}
+#endif
 
 /**
  * @brief Get serial number and security version
@@ -460,6 +482,205 @@ int switchtec_read_sec_cfg_file(FILE *setting_file,
 		SWITCHTEC_CMD_MAP_BITMASK;
 
 	set->public_key_exponent = le32toh(file_data.data.pub_key_exponent);
+
+	return 0;
+}
+
+static int kmsk_set_send_pubkey(struct switchtec_dev *dev,
+				struct switchtec_pubkey *public_key)
+{
+	struct kmsk_pubk_cmd {
+		uint8_t subcmd;
+		uint8_t reserved[3];
+		uint8_t pub_key[SWITCHTEC_PUB_KEY_LEN];
+		uint32_t pub_key_exponent;
+	} cmd = {};
+
+	cmd.subcmd = MRPC_KMSK_ENTRY_SET_PKEY;
+	memcpy(cmd.pub_key, public_key->pubkey,
+	       SWITCHTEC_PUB_KEY_LEN);
+	cmd.pub_key_exponent = htole32(public_key->pubkey_exp);
+
+	return switchtec_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd,
+			     sizeof(cmd), NULL, 0);
+}
+
+static int kmsk_set_send_signature(struct switchtec_dev *dev,
+				   struct switchtec_signature *signature)
+{
+	struct kmsk_signature_cmd {
+		uint8_t subcmd;
+		uint8_t reserved[3];
+		uint8_t signature[SWITCHTEC_SIG_LEN];
+	} cmd = {};
+
+	cmd.subcmd = MRPC_KMSK_ENTRY_SET_SIG;
+	memcpy(cmd.signature, signature->signature,
+	       SWITCHTEC_SIG_LEN);
+
+	return switchtec_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd,
+		    	     sizeof(cmd), NULL, 0);
+}
+
+static int kmsk_set_send_kmsk(struct switchtec_dev *dev,
+			      struct switchtec_kmsk *kmsk)
+{
+	struct kmsk_kmsk_cmd {
+		uint8_t subcmd;
+		uint8_t num_entries;
+		uint8_t reserved[2];
+		uint8_t kmsk[SWITCHTEC_KMSK_LEN];
+	} cmd = {};
+
+	cmd.subcmd = MRPC_KMSK_ENTRY_SET_KMSK;
+	cmd.num_entries = 1;
+	memcpy(cmd.kmsk, kmsk->kmsk, SWITCHTEC_KMSK_LEN);
+
+	return switchtec_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd, sizeof(cmd),
+			     NULL, 0);
+}
+
+/**
+ * @brief Set KMSK entry
+ * 	  KMSK stands for Key Manifest Secure Key.
+ * 	  It is a key used to verify Key Manifest
+ * 	  partition, which contains keys to verify
+ * 	  all other partitions.
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  public_key	Public key
+ * @param[in]  signature	Signature
+ * @param[in]  kmsk		KMSK entry data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_kmsk_set(struct switchtec_dev *dev,
+		       struct switchtec_pubkey *public_key,
+		       struct switchtec_signature *signature,
+		       struct switchtec_kmsk *kmsk)
+{
+	int ret;
+
+	if (public_key) {
+		ret = kmsk_set_send_pubkey(dev, public_key);
+		if (ret < 0)
+			return ret;
+	}
+
+	if (signature) {
+		ret = kmsk_set_send_signature(dev, signature);
+		if (ret < 0)
+			return ret;
+	}
+
+	return kmsk_set_send_kmsk(dev, kmsk);
+}
+
+#if HAVE_LIBCRYPTO
+/**
+ * @brief Read public key from public key file
+ * @param[in]  pubk_file Public key file
+ * @param[out] pubk	 Public key
+ * @return 0 on success, error code on failure
+ */
+int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk)
+{
+	RSA *RSAKey = NULL;
+	const BIGNUM *modulus_bn;
+	const BIGNUM *exponent_bn;
+	uint32_t exponent_tmp = 0;
+
+	RSAKey = PEM_read_RSA_PUBKEY(pubk_file, NULL, NULL, NULL);
+	if (RSAKey == NULL)
+		return -1;
+
+	RSA_get0_key(RSAKey, &modulus_bn, &exponent_bn, NULL);
+
+	BN_bn2bin(modulus_bn, pubk->pubkey);
+	BN_bn2bin(exponent_bn, (uint8_t *)&exponent_tmp);
+
+	pubk->pubkey_exp = be32toh(exponent_tmp);
+	RSA_free(RSAKey);
+
+	return 0;
+}
+#endif
+
+/**
+ * @brief Read KMSK data from KMSK file
+ * @param[in]  kmsk_file KMSK file
+ * @param[out] kmsk   	 KMSK entry data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk)
+{
+	ssize_t rlen;
+	struct kmsk_struct {
+		uint8_t magic[4];
+		uint32_t version;
+		uint32_t reserved;
+		uint32_t crc32;
+		uint8_t kmsk[SWITCHTEC_KMSK_LEN];
+	} data;
+
+	char magic[4] = {'K', 'M', 'S', 'K'};
+	uint32_t crc;
+
+	rlen = fread(&data, 1, sizeof(data), kmsk_file);
+
+	if (rlen < sizeof(data))
+		return -EBADF;
+
+	if (memcmp(data.magic, magic, sizeof(magic)))
+		return -EBADF;
+
+	crc = crc32(data.kmsk, SWITCHTEC_KMSK_LEN, 0, 1, 1);
+	if (crc != le32toh(data.crc32))
+		return -EBADF;
+
+	memcpy(kmsk->kmsk, data.kmsk, SWITCHTEC_KMSK_LEN);
+
+	return 0;
+}
+
+/**
+ * @brief Read signature data from signature file
+ * @param[in]  sig_file  Signature file
+ * @param[out] signature Signature data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_read_signature_file(FILE *sig_file,
+				  struct switchtec_signature *sigature)
+{
+	ssize_t rlen;
+
+	rlen = fread(sigature->signature, 1, SWITCHTEC_SIG_LEN, sig_file);
+
+	if (rlen < SWITCHTEC_SIG_LEN)
+		return -EBADF;
+
+	return 0;
+}
+
+/**
+ * @brief Check if secure config already has a KMSK entry
+ * 	  KMSK stands for Key Manifest Secure Key.
+ * 	  It is a key used to verify Key Manifest
+ * 	  partition, which contains keys used to
+ * 	  verify all other partitions.
+ * @param[in]  state  Secure config
+ * @param[out] kmsk   KMSK entry to check for
+ * @return 0 on success, error code on failure
+ */
+int
+switchtec_security_state_has_kmsk(struct switchtec_security_cfg_stat *state,
+				  struct switchtec_kmsk *kmsk)
+{
+	int key_idx;
+
+	for(key_idx = 0; key_idx < state->public_key_num; key_idx++) {
+		if (memcmp(state->public_key[key_idx], kmsk->kmsk,
+			   SWITCHTEC_KMSK_LEN) == 0)
+			return 1;
+	}
 
 	return 0;
 }
