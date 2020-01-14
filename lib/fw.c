@@ -34,6 +34,7 @@
 #include "switchtec/errors.h"
 #include "switchtec/endian.h"
 #include "switchtec/utils.h"
+#include "switchtec/mfg.h"
 
 #include <unistd.h>
 
@@ -697,6 +698,58 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	} else {
 		errno = ENOEXEC;
 		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Check if the secure version of an image file is newer
+ * 	  than that of the image on device.
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  img_fd	Image file descriptor
+ * @return 1 if image file secure version > device secure version
+ * 	   0 if image file secure version <= device secure version, or error
+ */
+int switchtec_fw_file_secure_version_newer(struct switchtec_dev *dev,
+					   int img_fd)
+{
+	int ret;
+	struct switchtec_fw_image_info info;
+	struct switchtec_sn_ver_info sn_info = {};
+
+	if (switchtec_is_gen3(dev))
+		return 0;
+
+	ret = switchtec_fw_file_info(img_fd, &info);
+	if (ret)
+		return 0;
+
+	ret = switchtec_sn_ver_get(dev, &sn_info);
+	if (ret) {
+		sn_info.ver_bl2 = 0xffffffff;
+		sn_info.ver_main = 0xffffffff;
+		sn_info.ver_km = 0xffffffff;
+	}
+
+	switch (info.type) {
+	case SWITCHTEC_FW_TYPE_BL2:
+		if (info.secure_version > sn_info.ver_bl2)
+			return 1;
+
+		break;
+	case SWITCHTEC_FW_TYPE_IMG:
+		if (info.secure_version > sn_info.ver_main)
+			return 1;
+
+		break;
+	case SWITCHTEC_FW_TYPE_KEY:
+		if (info.secure_version > sn_info.ver_km) 
+			return 1;
+
+		break;
+	default:
+		break;
 	}
 
 	return 0;
