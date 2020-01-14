@@ -1179,12 +1179,14 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 		return ret;
 	}
 
-	printf("File:     %s\n", get_basename(img_filename));
-	printf("Gen:      %s\n", switchtec_fw_image_gen_str(&info));
-	printf("Type:     %s\n", switchtec_fw_image_type(&info));
-	printf("Version:  %s\n", info.version);
-	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
-	printf("CRC:      0x%08lx\n", info.image_crc);
+	printf("File:           %s\n", get_basename(img_filename));
+	printf("Gen:            %s\n", switchtec_fw_image_gen_str(&info));
+	printf("Type:           %s\n", switchtec_fw_image_type(&info));
+	printf("Version:        %s\n", info.version);
+	printf("Img Len:        0x%" FMT_SIZE_T_x "\n", info.image_len);
+	printf("CRC:            0x%08lx\n", info.image_crc);
+	if (info.gen != SWITCHTEC_GEN3)
+		printf("Secure version: 0x%08lx\n", info.secure_version);
 
 	return info.type;
 }
@@ -1317,6 +1319,7 @@ static int fw_update(int argc, char **argv)
 {
 	int ret;
 	int type;
+	struct switchtec_fw_image_info info;
 	const char *desc = "Flash device with a new firmware image\n\n"
 			   "This command only supports flashing firmware "
 			   "when device is in BL2 or MAIN boot phase. To "
@@ -1385,6 +1388,21 @@ static int fw_update(int argc, char **argv)
 			fprintf(stderr, "\nfirmware update: the BOOT and MAP partition are read-only. "
 				"use --set-boot-rw to override\n");
 			return -1;
+		}
+	}
+
+	if(switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
+		switchtec_fw_file_info(fileno(cfg.fimg), &info);
+		fprintf(stderr, "\n\nWARNING:\n"
+			"Updating this image will IRREVERSIBLY update device %s image\n"
+			"secure version to 0x%08lx!\n\n",
+			switchtec_fw_image_type(&info),
+			info.secure_version);
+
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret) {
+			fclose(cfg.fimg);
+			return ret;
 		}
 	}
 
