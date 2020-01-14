@@ -228,6 +228,8 @@ struct switchtec_fw_image_info {
 
 	struct switchtec_fw_image_info *next;
 	void *metadata;
+
+	unsigned long secure_version;
 };
 
 struct switchtec_fw_part_summary {
@@ -699,6 +701,8 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
+int switchtec_fw_file_secure_version_newer(struct switchtec_dev *dev,
+					   int img_fd);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 struct switchtec_fw_part_summary *
 switchtec_fw_part_summary(struct switchtec_dev *dev);
