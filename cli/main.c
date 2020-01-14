@@ -1423,6 +1423,16 @@ static int fw_update(int argc, char **argv)
 	print_fw_part_info(cfg.dev);
 	printf("\n");
 
+	if (type == SWITCHTEC_FW_TYPE_MAP) {
+		printf("\nNOTE: Device partition map has been updated. Be sure to update\n"
+		       "all other partitions as well to ensure your device can boot properly.\n");
+	}
+
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2 &&
+	    !cfg.dont_activate) {
+		printf("\nNOTE: This command does not automatically activate the image when used in BL2 boot phase.\n"
+		       "Be sure to use 'fw-toggle' after this command to activate the updated image.\n");
+	}
 set_boot_ro:
 	if (cfg.set_boot_rw)
 		switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RO);
