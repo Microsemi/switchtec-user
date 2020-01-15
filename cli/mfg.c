@@ -92,7 +92,7 @@ static int ping(int argc, char **argv)
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("mfg ping");
 		return ret;
 	}
@@ -214,14 +214,14 @@ static int info(int argc, char **argv)
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("mfg info");
 		return ret;
 	}
 	printf("Current Boot Phase: \t\t\t%s\n", phase_id_to_string(phase_id));
 
 	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("mfg info");
 		return ret;
 	}
@@ -237,7 +237,7 @@ static int info(int argc, char **argv)
 	}
 
 	ret = switchtec_security_config_get(cfg.dev, &state);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("mfg info");
 		return ret;
 	}
@@ -269,7 +269,7 @@ static int mailbox(int argc, char **argv)
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_mailbox_to_file(cfg.dev, cfg.out_fd);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("mfg mailbox");
 		close(cfg.out_fd);
 		return ret;
@@ -310,7 +310,7 @@ static int image_list(int argc, char **argv)
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("image list");
 		return ret;
 	}
@@ -320,7 +320,7 @@ static int image_list(int argc, char **argv)
 	}
 
 	ret = switchtec_active_image_index_get(cfg.dev, &index);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("image list");
 		return ret;
 	}
@@ -375,7 +375,7 @@ static int image_select(int argc, char **argv)
 	}
 
 	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("image select");
 		return ret;
 	}
@@ -414,7 +414,7 @@ static int image_select(int argc, char **argv)
 	index.keyman = cfg.keyman;
 
 	ret = switchtec_active_image_index_set(cfg.dev, &index);
-	if (ret < 0) {
+	if (ret) {
 		switchtec_perror("image select");
 		return ret;
 	}
