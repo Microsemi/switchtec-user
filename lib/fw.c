@@ -202,6 +202,7 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg)
 {
+	uint32_t cmd_id;
 	struct {
 		uint8_t subcmd;
 		uint8_t toggle_fw;
@@ -210,13 +211,20 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 		uint8_t toggle_key;
 	} cmd;
 
-	cmd.subcmd = MRPC_FWDNLD_TOGGLE;
+	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2) {
+		cmd_id = MRPC_FW_TX;
+		cmd.subcmd = MRPC_FW_TX_TOGGLE;
+	} else {
+		cmd_id = MRPC_FWDNLD;
+		cmd.subcmd = MRPC_FWDNLD_TOGGLE;
+	}
+
 	cmd.toggle_bl2 = !!toggle_bl2;
 	cmd.toggle_key = !!toggle_key;
 	cmd.toggle_fw = !!toggle_fw;
 	cmd.toggle_cfg = !!toggle_cfg;
 
-	return switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd),
+	return switchtec_cmd(dev, cmd_id, &cmd, sizeof(cmd),
 			     NULL, 0);
 }
 
@@ -333,7 +341,11 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 		return -EBUSY;
 	}
 
-	cmd.hdr.subcmd = MRPC_FWDNLD_DOWNLOAD;
+	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
+		cmd.hdr.subcmd = MRPC_FW_TX_FLASH;
+	else
+		cmd.hdr.subcmd = MRPC_FWDNLD_DOWNLOAD;
+
 	cmd.hdr.dont_activate = !!dont_activate;
 	cmd.hdr.img_length = htole32(image_size);
 
@@ -432,7 +444,11 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 		return -EBUSY;
 	}
 
-	cmd.hdr.subcmd = MRPC_FWDNLD_DOWNLOAD;
+	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
+		cmd.hdr.subcmd = MRPC_FW_TX_FLASH;
+	else
+		cmd.hdr.subcmd = MRPC_FWDNLD_DOWNLOAD;
+
 	cmd.hdr.dont_activate = !!dont_activate;
 	cmd.hdr.img_length = htole32(image_size);
 
