@@ -102,7 +102,7 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 
 	ret = switchtec_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
 			    sizeof(struct switchtec_sn_ver_info));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	info->chip_serial = le32toh(info->chip_serial);
@@ -139,7 +139,7 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 
 	ret = switchtec_cmd(dev, MRPC_SECURITY_CONFIG_GET, NULL, 0,
 			    &reply, sizeof(reply));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	reply.valid = le32toh(reply.valid);
@@ -202,7 +202,7 @@ int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd)
 	do {
 		ret = switchtec_cmd(dev, MRPC_MAILBOX_GET, &num_to_read,
 				    sizeof(int), &reply,  sizeof(reply));
-		if (ret < 0)
+		if (ret)
 			return ret;
 
 		reply.num_remaining = le32toh(reply.num_remaining);
@@ -284,7 +284,7 @@ int switchtec_active_image_index_get(struct switchtec_dev *dev,
 
 	ret = switchtec_cmd(dev, MRPC_ACT_IMG_IDX_GET, NULL,
 			    0, &reply, sizeof(reply));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	index->keyman = reply.index[SWITCHTEC_ACTV_IMG_ID_KMAN];
@@ -652,13 +652,13 @@ int switchtec_kmsk_set(struct switchtec_dev *dev,
 
 	if (public_key) {
 		ret = kmsk_set_send_pubkey(dev, public_key);
-		if (ret < 0)
+		if (ret)
 			return ret;
 	}
 
 	if (signature) {
 		ret = kmsk_set_send_signature(dev, signature);
-		if (ret < 0)
+		if (ret)
 			return ret;
 	}
 
