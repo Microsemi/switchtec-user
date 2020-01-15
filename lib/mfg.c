@@ -411,6 +411,97 @@ int switchtec_secure_state_set(struct switchtec_dev *dev,
 			     NULL, 0);
 }
 
+static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
+				  struct switchtec_pubkey *public_key)
+{
+	struct public_key_cmd {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint8_t pub_key[SWITCHTEC_PUB_KEY_LEN];
+		uint32_t pub_key_exp;
+	} cmd = {};
+
+	cmd.subcmd = MRPC_DBG_UNLOCK_PKEY;
+	memcpy(cmd.pub_key, public_key->pubkey, SWITCHTEC_PUB_KEY_LEN);
+	cmd.pub_key_exp = htole32(public_key->pubkey_exp);
+
+	return switchtec_cmd(dev, MRPC_DBG_UNLOCK, &cmd,
+			     sizeof(cmd), NULL, 0);
+}
+
+/**
+ * @brief Unlock firmware debug features
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  serial		Device serial number
+ * @param[in]  ver_sec_unlock	Secure unlock version
+ * @param[in]  public_key	public key data
+ * @param[in]  signature	Signature of data sent
+ * @return 0 on success, error code on failure
+ */
+int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
+			 uint32_t ver_sec_unlock,
+			 struct switchtec_pubkey *public_key,
+			 struct switchtec_signature *signature)
+{
+	int ret;
+	struct unlock_cmd {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint32_t serial;
+		uint32_t unlock_ver;
+		uint8_t signature[SWITCHTEC_SIG_LEN];
+	} cmd = {};
+
+	ret = dbg_unlock_send_pubkey(dev, public_key);
+	if (ret)
+		return ret;
+
+	cmd.subcmd = MRPC_DBG_UNLOCK_DATA;
+	cmd.serial = htole32(serial);
+	cmd.unlock_ver = htole32(ver_sec_unlock);
+	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
+
+	return switchtec_cmd(dev, MRPC_DBG_UNLOCK, &cmd,
+			     sizeof(cmd), NULL, 0);
+}
+
+/**
+ * @brief Update firmware debug secure unlock version number
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  serial		Device serial number
+ * @param[in]  ver_sec_unlock	New secure unlock version
+ * @param[in]  public_key	public key data
+ * @param[in]  signature	Signature of data sent
+ * @return 0 on success, error code on failure
+ */
+int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
+					uint32_t serial,
+					uint32_t ver_sec_unlock,
+					struct switchtec_pubkey *public_key,
+			 		struct switchtec_signature *signature)
+{
+	int ret;
+	struct update_cmd {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint32_t serial;
+		uint32_t unlock_ver;
+		uint8_t signature[SWITCHTEC_SIG_LEN];
+	} cmd = {};
+
+	ret = dbg_unlock_send_pubkey(dev, public_key);
+	if (ret)
+		return ret;
+
+	cmd.subcmd = MRPC_DBG_UNLOCK_UPDATE;
+	cmd.serial = htole32(serial);
+	cmd.unlock_ver = htole32(ver_sec_unlock);
+	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
+
+	return switchtec_cmd(dev, MRPC_DBG_UNLOCK, &cmd, sizeof(cmd),
+			     NULL, 0);
+}
+
 /**
  * @brief Read security settings from config file
  * @param[in]  setting_file	Security setting file

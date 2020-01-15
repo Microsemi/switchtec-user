@@ -928,8 +928,201 @@ static int kmsk_entry_add(int argc, char **argv)
 
 	return ret;
 }
+
+static int debug_unlock(int argc, char **argv)
+{
+	int ret;
+	struct switchtec_pubkey pubk;
+	struct switchtec_signature sig;
+
+	const char *desc = "Unlock firmware debug features\n\n"
+			   "This command unlocks EJTAG port, Command Line "
+			   "Interface (CLI), MRPC command and Global Address "
+			   "Space (GAS) registers.";
+	static struct {
+		struct switchtec_dev *dev;
+		FILE *pubkey_fimg;
+		char *pubkey_file;
+		unsigned long unlock_version;
+		unsigned long serial;
+		FILE *sig_fimg;
+		char *sig_file;
+	} cfg = {
+		.unlock_version = 0xffff,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.pubkey_fimg,
+			.argument_type=required_argument,
+			.help="public key file"},
+		{"serial_number", 'n', .cfg_type=CFG_LONG,
+			.value_addr=&cfg.serial,
+			.argument_type=required_argument,
+			.help="device serial number"},
+		{"unlock_version", 'v', .cfg_type=CFG_LONG,
+			.value_addr=&cfg.unlock_version,
+			.argument_type=required_argument,
+			.help="unlock version"},
+		{"signature_file", 's', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.sig_fimg,
+			.argument_type=required_argument,
+			.help="signature file"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.serial == 0) {
+		fprintf(stderr,
+			"Serial number must be set for this command!\n");
+		return -1;
+	}
+
+	if (cfg.unlock_version == 0xffff) {
+		fprintf(stderr,
+			"Unlock version must be set for this command!\n");
+		return -1;
+	}
+
+	if (cfg.pubkey_file == NULL) {
+		fprintf(stderr,
+			"Public key file must be set for this command!\n");
+		return -1;
+	}
+
+	if (cfg.sig_file == NULL) {
+		fprintf(stderr,
+			"Signature file must be set for this command!\n");
+		return -1;
+	}
+
+	ret = switchtec_read_pubk_file(cfg.pubkey_fimg, &pubk);
+	fclose(cfg.pubkey_fimg);
+
+	if (ret) {
+		fprintf(stderr, "Invalid public key file %s!\n",
+			cfg.pubkey_file);
+		return -2;
+	}
+
+	ret = switchtec_read_signature_file(cfg.sig_fimg, &sig);
+	fclose(cfg.sig_fimg);
+
+	if (ret) {
+		fprintf(stderr, "Invalid signature file %s!\n",
+			cfg.sig_file);
+		return -3;
+	}
+
+	ret = switchtec_dbg_unlock(cfg.dev, cfg.serial, cfg.unlock_version,
+				   &pubk, &sig);
+	if (ret)
+		switchtec_perror("mfg dbg-unlock");
+
+	return ret;
+}
+
+static int debug_lock_update(int argc, char **argv)
+{
+	int ret;
+	struct switchtec_pubkey pubk;
+	struct switchtec_signature sig;
+
+	const char *desc = "Update firmware debug feature unlock version";
+	static struct {
+		struct switchtec_dev *dev;
+		FILE *pubkey_fimg;
+		char *pubkey_file;
+		unsigned long unlock_version;
+		unsigned long serial;
+		FILE *sig_fimg;
+		char *sig_file;
+		unsigned int assume_yes;
+	} cfg = {
+		.unlock_version = 0xffff,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_NO_PAX,
+		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.pubkey_fimg,
+			.argument_type=required_argument,
+			.help="public key file"},
+		{"serial_number", 'n', .cfg_type=CFG_LONG,
+			.value_addr=&cfg.serial,
+			.argument_type=required_argument,
+			.help="device serial number"},
+		{"new_unlock_version", 'v', .cfg_type=CFG_LONG,
+			.value_addr=&cfg.unlock_version,
+			.argument_type=required_argument,
+			.help="new unlock version"},
+		{"signature_file", 's', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.sig_fimg,
+			.argument_type=required_argument,
+			.help="signature file"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (cfg.serial == 0) {
+		fprintf(stderr,
+			"Serial number must be set for this command!\n");
+		return -1;
+	}
+
+	if (cfg.unlock_version == 0xffff) {
+		fprintf(stderr,
+			"Unlock version must be set for this command!\n");
+		return -1;
+	}
+
+	if (cfg.pubkey_file == NULL) {
+		fprintf(stderr,
+			"Public key file must be set for this command!\n");
+		return -1;
+	}
+
+	if (cfg.sig_file == NULL) {
+		fprintf(stderr,
+			"Signature file must be set for this command!\n");
+		return -1;
+	}
+
+	ret = switchtec_read_pubk_file(cfg.pubkey_fimg, &pubk);
+	fclose(cfg.pubkey_fimg);
+	if (ret) {
+		printf("Invalid public key file %s!\n",
+			cfg.pubkey_file);
+		return -2;
+	}
+
+	ret = switchtec_read_signature_file(cfg.sig_fimg, &sig);
+	fclose(cfg.sig_fimg);
+	if (ret) {
+		printf("Invalid signature file %s!\n",
+			cfg.sig_file);
+		return -3;
+	}
+
+	fprintf(stderr,
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return -4;
+
+	ret = switchtec_dbg_unlock_version_update(cfg.dev, cfg.serial,
+						  cfg.unlock_version,
+						  &pubk, &sig);
+	if (ret)
+		switchtec_perror("dbg-lock-update");
+
+	return ret;
+}
 #else
-static int kmsk_entry_add(int argc, char **argv)
+static int no_openssl(int argc, char **argv)
 {
 	fprintf(stderr,
 		"This command is only available when OpenSSL development library is installed.\n"
@@ -937,7 +1130,13 @@ static int kmsk_entry_add(int argc, char **argv)
 		"program by doing 'configure' and then 'make'.\n");
 	return -1;
 }
+
+#define kmsk_entry_add		no_openssl
+#define debug_unlock		no_openssl
+#define debug_lock_update	no_openssl
+
 #endif
+
 
 static const struct cmd commands[] = {
 	{"ping", ping, "Ping firmware and get current boot phase"},
@@ -957,6 +1156,9 @@ static const struct cmd commands[] = {
 		"Set the device security settings (BL1 and Main Firmware only)"},
 	{"kmsk_entry_add", kmsk_entry_add,
 		"Add a KMSK entry (BL1 and Main Firmware only)"},
+	{"debug_unlock", debug_unlock, "Unlock firmware debug features"},
+	{"debug_lock_update", debug_lock_update,
+		"Update debug feature secure unlock version"},
 	{}
 };
 
