@@ -356,8 +356,10 @@ static uint8_t i2c_gas_write_status_get(struct switchtec_dev *dev,
 		pec = i2c_msg_pec(&msgs[1], msgs[1].len - PEC_BYTE_COUNT,
 				  msg_0_pec, false);
 		if (rx_buf[0] == tag && rx_buf[2] == pec &&
-		    (rx_buf[1] == 0 || rx_buf[1] == GAS_TWI_MRPC_ERR))
+		    (rx_buf[1] == 0 || rx_buf[1] == GAS_TWI_MRPC_ERR)) {
+			errno = 0;
 			return rx_buf[1];
+		}
 
 		/* Extra delay is typically only needed for BL1/2 phase */
 		usleep(2000);
