@@ -228,6 +228,8 @@ struct switchtec_fw_image_info {
 
 	struct switchtec_fw_image_info *next;
 	void *metadata;
+
+	unsigned long secure_version;
 };
 
 struct switchtec_fw_part_summary {
@@ -338,6 +340,8 @@ _PURE int switchtec_partition(struct switchtec_dev *dev);
 _PURE int switchtec_device_id(struct switchtec_dev *dev);
 _PURE enum switchtec_gen switchtec_gen(struct switchtec_dev *dev);
 _PURE enum switchtec_variant switchtec_variant(struct switchtec_dev *dev);
+_PURE enum switchtec_boot_phase
+switchtec_boot_phase(struct switchtec_dev *dev);
 int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
@@ -653,6 +657,8 @@ enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT = 8,
 	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
 	SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT = 14,
+
+	SWITCHTEC_DLSTAT_NO_FILE = 0x7d009,
 };
 
 /**
@@ -695,6 +701,8 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
+int switchtec_fw_file_secure_version_newer(struct switchtec_dev *dev,
+					   int img_fd);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 struct switchtec_fw_part_summary *
 switchtec_fw_part_summary(struct switchtec_dev *dev);

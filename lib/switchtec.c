@@ -124,8 +124,8 @@ static int set_gen_variant(struct switchtec_dev * dev)
 {
 	const struct switchtec_device_id *id = switchtec_device_id_tbl;
 	int ret;
-	enum switchtec_gen gen;
 
+	dev->boot_phase = SWITCHTEC_BOOT_PHASE_FW;
 	dev->gen = SWITCHTEC_GEN_UNKNOWN;
 	dev->var = SWITCHTEC_VAR_UNKNOWN;
 
@@ -142,11 +142,9 @@ static int set_gen_variant(struct switchtec_dev * dev)
 		id++;
 	}
 
-	ret = switchtec_get_device_info(dev, NULL, &gen, NULL);
+	ret = switchtec_get_device_info(dev, &dev->boot_phase, &dev->gen, NULL);
 	if (ret)
 		return -1;
-
-	dev->gen = gen;
 
 	return 0;
 }
@@ -293,6 +291,18 @@ _PURE enum switchtec_gen switchtec_gen(struct switchtec_dev *dev)
 _PURE enum switchtec_variant switchtec_variant(struct switchtec_dev *dev)
 {
 	return dev->var;
+}
+
+/**
+ * @brief Get boot phase of the device
+ * @param[in] dev Switchtec device handle
+ * @return The boot phase of the device
+ *
+ * This is only valid if the device was opend with switchtec_open().
+ */
+_PURE enum switchtec_boot_phase switchtec_boot_phase(struct switchtec_dev *dev)
+{
+	return dev->boot_phase;
 }
 
 /**

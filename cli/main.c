@@ -1166,8 +1166,8 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
-		const char *img_filename)
+enum switchtec_fw_type check_and_print_fw_image(int img_fd,
+						const char *img_filename)
 {
 	int ret;
 	struct switchtec_fw_image_info info;
@@ -1179,12 +1179,14 @@ static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 		return ret;
 	}
 
-	printf("File:     %s\n", get_basename(img_filename));
-	printf("Gen:      %s\n", switchtec_fw_image_gen_str(&info));
-	printf("Type:     %s\n", switchtec_fw_image_type(&info));
-	printf("Version:  %s\n", info.version);
-	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
-	printf("CRC:      0x%08lx\n", info.image_crc);
+	printf("File:           %s\n", get_basename(img_filename));
+	printf("Gen:            %s\n", switchtec_fw_image_gen_str(&info));
+	printf("Type:           %s\n", switchtec_fw_image_type(&info));
+	printf("Version:        %s\n", info.version);
+	printf("Img Len:        0x%" FMT_SIZE_T_x "\n", info.image_len);
+	printf("CRC:            0x%08lx\n", info.image_crc);
+	if (info.gen != SWITCHTEC_GEN3)
+		printf("Secure version: 0x%08lx\n", info.secure_version);
 
 	return info.type;
 }
@@ -1317,8 +1319,13 @@ static int fw_update(int argc, char **argv)
 {
 	int ret;
 	int type;
-	const char *desc = "Flash the firmware with a new image";
-
+	struct switchtec_fw_image_info info;
+	const char *desc = "Flash device with a new firmware image\n\n"
+			   "This command only supports flashing firmware "
+			   "when device is in BL2 or MAIN boot phase. To "
+			   "transfer an image in BL1 boot phase, use "
+			   "'mfg fw-transfer' command instead.\n\n"
+			   BOOT_PHASE_HELP_TEXT;
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *fimg;
@@ -1354,6 +1361,14 @@ static int fw_update(int argc, char **argv)
 	if (type < 0)
 		return type;
 
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL2 or Main Firmware!\n");
+		fprintf(stderr,
+			"Use 'mfg fw-transfer' instead to transfer a BL2 image.\n");
+		return -1;
+	}
+
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
 		fclose(cfg.fimg);
@@ -1376,6 +1391,21 @@ static int fw_update(int argc, char **argv)
 		}
 	}
 
+	if(switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
+		switchtec_fw_file_info(fileno(cfg.fimg), &info);
+		fprintf(stderr, "\n\nWARNING:\n"
+			"Updating this image will IRREVERSIBLY update device %s image\n"
+			"secure version to 0x%08lx!\n\n",
+			switchtec_fw_image_type(&info),
+			info.secure_version);
+
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret) {
+			fclose(cfg.fimg);
+			return ret;
+		}
+	}
+
 	progress_start();
 	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
 				      cfg.force, progress_update);
@@ -1393,6 +1423,16 @@ static int fw_update(int argc, char **argv)
 	print_fw_part_info(cfg.dev);
 	printf("\n");
 
+	if (type == SWITCHTEC_FW_TYPE_MAP) {
+		printf("\nNOTE: Device partition map has been updated. Be sure to update\n"
+		       "all other partitions as well to ensure your device can boot properly.\n");
+	}
+
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2 &&
+	    !cfg.dont_activate) {
+		printf("\nNOTE: This command does not automatically activate the image when used in BL2 boot phase.\n"
+		       "Be sure to use 'fw-toggle' after this command to activate the updated image.\n");
+	}
 set_boot_ro:
 	if (cfg.set_boot_rw)
 		switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RO);
@@ -1404,6 +1444,7 @@ static int fw_toggle(int argc, char **argv)
 {
 	const char *desc = "Toggle active and inactive firmware partitions";
 	int ret = 0;
+	int err = 0;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1439,11 +1480,16 @@ static int fw_toggle(int argc, char **argv)
 							   cfg.key,
 							   cfg.firmware,
 							   cfg.config);
+		err = errno;
 	}
 
-	print_fw_part_info(cfg.dev);
+	ret = print_fw_part_info(cfg.dev);
+	if (ret)
+		switchtec_perror("print fw info");
+
 	printf("\n");
 
+	errno = err;
 	switchtec_perror("firmware toggle");
 
 	return ret;

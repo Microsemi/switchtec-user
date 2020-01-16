@@ -9,6 +9,12 @@ AC_ARG_WITH([curses],
              [],
 	     [with_curses=check])
 
+AC_ARG_WITH([openssl],
+             [AS_HELP_STRING([--with-openssl],
+	                   [support OpenSSL library @<:@default=check@:>@])],
+             [],
+	     [with_openssl=check])
+
 AS_IF([test "x$with_curses" != xno],
        [AC_CHECK_LIB([ncurses], [initscr], [], [], [])])
 
@@ -18,6 +24,13 @@ AS_IF([test "x$with_curses" != xno &&
         AC_CHECK_LIB([curses], [initscr], [], [], [-ltinfo])])
 
 AC_CHECK_HEADERS([curses.h ncurses/curses.h])
+AC_CHECK_HEADERS([openssl/pem.h])
+
+AS_IF([test "x$with_ssl" != xno],
+       [AC_CHECK_LIB([crypto], [RSA_free], [], [], [])])
+
+AS_IF([test "x$with_ssl" != xno],
+       [AC_CHECK_DECLS([RSA_get0_key], [], [], [#include <openssl/pem.h>])])
 
 AC_CONFIG_FILES([Makefile])
 
