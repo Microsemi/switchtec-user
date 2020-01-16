@@ -1032,6 +1032,8 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 	inf->running = part_info->is_using;
 	inf->read_only = part_info->read_only;
 	inf->valid = part_info->valid;
+	if (!inf->valid)
+		return 0;
 
 	return switchtec_fw_info_metadata_gen4(dev, inf);
 }
