@@ -192,6 +192,7 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_SYS_STACK,
 	SWITCHTEC_LOG_THRD_STACK,
 	SWITCHTEC_LOG_THRD,
+	SWITCHTEC_LOG_NVHDR,
 };
 
 enum switchtec_fw_type {
