@@ -25,7 +25,7 @@
 #ifdef __linux__
 
 #include "../switchtec_priv.h"
-#include "../crc8.h"
+#include "../crc.h"
 #include "switchtec/switchtec.h"
 #include "gasops.h"
 
@@ -59,6 +59,7 @@ struct switchtec_i2c {
 #define CMD_GAS_READ  0xE9
 
 #define MAX_RETRY_COUNT  100
+#define MAX_STATUS_GET_RETRY  50
 #define PEC_BYTE_COUNT  1
 #define TWI_ENHANCED_MODE  0x80
 #define GAS_TWI_MRPC_ERR  0x20
@@ -343,27 +344,26 @@ static uint8_t i2c_gas_write_status_get(struct switchtec_dev *dev,
 	msgs[1].buf = rx_buf;
 
 	do {
-		usleep(2000);
 		ret = ioctl(idev->fd, I2C_RDWR, &rwdata);
-		if (ret < 0)
-			goto i2c_ioctl_fail;
+		if (ret < 0) {
+			retry_count++;
+			/* Delay is typically only needed for BL1/2 phase */
+			usleep(2000);
+			continue;
+		}
 
 		msg_0_pec = i2c_msg_pec(&msgs[0], msgs[0].len, 0, true);
 		pec = i2c_msg_pec(&msgs[1], msgs[1].len - PEC_BYTE_COUNT,
 				  msg_0_pec, false);
-		if (rx_buf[0] == tag && rx_buf[2] == pec)
-			break;
+		if (rx_buf[0] == tag && rx_buf[2] == pec &&
+		    (rx_buf[1] == 0 || rx_buf[1] == GAS_TWI_MRPC_ERR))
+			return rx_buf[1];
 
+		/* Extra delay is typically only needed for BL1/2 phase */
+		usleep(2000);
 		retry_count++;
-	} while(retry_count < MAX_RETRY_COUNT);
+	} while(retry_count < MAX_STATUS_GET_RETRY);
 
-	/* return status of last write operation */
-	if (retry_count == MAX_RETRY_COUNT)
-		return -1;
-	else
-		return rx_buf[1];
-
-i2c_ioctl_fail:
 	return -1;
 }
 
@@ -381,8 +381,11 @@ static void i2c_gas_write(struct switchtec_dev *dev, void __gas *dest,
 		status = i2c_gas_write_status_get(dev, tag);
 		if (status == 0 || status == GAS_TWI_MRPC_ERR)
 			break;
+
+		/* Extra delay is typically only needed for BL1/2 phase */
+		usleep(1000);
 		retry_count++;
-	}while (retry_count < MAX_RETRY_COUNT);
+	} while (retry_count < MAX_RETRY_COUNT);
 
 	if (retry_count == MAX_RETRY_COUNT)
 		raise(SIGBUS);

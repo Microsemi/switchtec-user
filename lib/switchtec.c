@@ -40,6 +40,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
 /**
  * @defgroup Device Switchtec Management
@@ -122,27 +123,28 @@ static const struct switchtec_device_id switchtec_device_id_tbl[] = {
 static int set_gen_variant(struct switchtec_dev * dev)
 {
 	const struct switchtec_device_id *id = switchtec_device_id_tbl;
+	int ret;
+
+	dev->boot_phase = SWITCHTEC_BOOT_PHASE_FW;
+	dev->gen = SWITCHTEC_GEN_UNKNOWN;
+	dev->var = SWITCHTEC_VAR_UNKNOWN;
 
 	dev->device_id = dev->ops->get_device_id(dev);
-	if (dev->device_id < 0) {
-		errno = ENOTSUP;
-		return -1;
-	}
 
-	dev->gen = SWITCHTEC_GEN_UNKNOWN;
 	while (id->device_id) {
 		if (id->device_id == dev->device_id) {
 			dev->gen = id->gen;
 			dev->var = id->var;
+
+			return 0;
 		}
 
 		id++;
 	}
 
-	if (dev->gen == SWITCHTEC_GEN_UNKNOWN) {
-		errno = ENOTSUP;
+	ret = switchtec_get_device_info(dev, &dev->boot_phase, &dev->gen, NULL);
+	if (ret)
 		return -1;
-	}
 
 	return 0;
 }
@@ -292,6 +294,18 @@ _PURE enum switchtec_variant switchtec_variant(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Get boot phase of the device
+ * @param[in] dev Switchtec device handle
+ * @return The boot phase of the device
+ *
+ * This is only valid if the device was opend with switchtec_open().
+ */
+_PURE enum switchtec_boot_phase switchtec_boot_phase(struct switchtec_dev *dev)
+{
+	return dev->boot_phase;
+}
+
+/**
  * @brief Get the string that was used to open the deviec
  * @param[in] dev Switchtec device handle
  * @return The name of the device as a string
@@ -345,6 +359,22 @@ static int compare_status(const void *aa, const void *bb)
 	return compare_port_id(&a->port, &b->port);
 }
 
+static const char *lane_reversal_str(int link_up,
+				     int lane_reversal)
+{
+	if (!link_up)
+		return "N/A";
+
+	switch(lane_reversal) {
+	case 0: return "Normal Lane Ordering";
+	case 1: return "x16 (Full) Lane Reversal";
+	case 2: return "x2 Lane Reversal";
+	case 4: return "x4 Lane Reversal";
+	case 8: return "x8 Lane Reversal";
+	default: return "Unknown Lane Ordering";
+	}
+}
+
 /**
  * @brief Get the status of all the ports on a switchtec device
  * @param[in]  dev    Switchtec device handle
@@ -380,7 +410,8 @@ int switchtec_status(struct switchtec_dev *dev,
 		uint8_t usp_flag;
 		uint8_t linkup_linkrate;
 		uint16_t LTSSM;
-		uint16_t reserved;
+		uint8_t lane_reversal;
+		uint8_t first_act_lane;
 	} ports[SWITCHTEC_MAX_PORTS];
 
 	ret = switchtec_cmd(dev, MRPC_LNKSTAT, &port_bitmap, sizeof(port_bitmap),
@@ -416,7 +447,10 @@ int switchtec_status(struct switchtec_dev *dev,
 		s[p].link_rate = ports[i].linkup_linkrate & 0x7F;
 		s[p].ltssm = le16toh(ports[i].LTSSM);
 		s[p].ltssm_str = switchtec_ltssm_str(s[i].ltssm, 1);
-
+		s[p].lane_reversal = ports[i].lane_reversal;
+		s[p].lane_reversal_str = lane_reversal_str(s[p].link_up,
+							   s[p].lane_reversal);
+		s[p].first_act_lane = ports[i].first_act_lane & 0xF;
 		s[p].acs_ctrl = -1;
 
 		p++;
@@ -696,6 +730,74 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 
 	errno = EINVAL;
 	return -errno;
+}
+
+static enum switchtec_gen map_to_gen(uint32_t gen)
+{
+	enum switchtec_gen ret = SWITCHTEC_GEN_UNKNOWN;
+
+	switch (gen) {
+	case 0:
+		ret = SWITCHTEC_GEN4;
+		break;
+	default:
+		ret = SWITCHTEC_GEN_UNKNOWN;
+		break;
+	}
+
+	return ret;
+}
+
+/**
+ * @brief Get device generation, revision, and boot phase info
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] phase	The current boot phase
+ * @param[out] gen	Device generation
+ * @param[out] rev	Device revision
+ * @return 0 on success, error code on failure
+ */
+int switchtec_get_device_info(struct switchtec_dev *dev,
+			      enum switchtec_boot_phase *phase,
+			      enum switchtec_gen *gen,
+			      enum switchtec_rev *rev)
+{
+	int ret;
+	uint32_t ping_dw = 0;
+	uint32_t dev_info;
+	struct get_dev_info_reply {
+		uint32_t dev_info;
+		uint32_t ping_reply;
+	} reply;
+
+	ping_dw = time(NULL);
+	ret = switchtec_cmd(dev, MRPC_GET_DEV_INFO, &ping_dw,
+			    sizeof(ping_dw),
+			    &reply, sizeof(reply));
+	if (ret == 0) {
+		if (ping_dw != ~reply.ping_reply)
+			return -1;
+
+		dev_info = le32toh(reply.dev_info);
+		if (phase)
+			*phase = dev_info & 0xff;
+		if (rev)
+			*rev = (dev_info >> 8) & 0x0f;
+		if (gen)
+			*gen = map_to_gen((dev_info >> 12) & 0x0f);
+	} else if (ERRNO_MRPC(errno) == ERR_MPRC_UNSUPPORTED) {
+		if (phase)
+			*phase = SWITCHTEC_BOOT_PHASE_FW;
+		if (gen)
+			*gen = SWITCHTEC_GEN3;
+		if (rev)
+			*rev = SWITCHTEC_REV_UNKNOWN;
+
+		errno = 0;
+	} else {
+		return -1;
+	}
+
+	return 0;
 }
 
 /**

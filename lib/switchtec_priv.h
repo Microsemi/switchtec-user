@@ -130,6 +130,7 @@ struct switchtec_dev {
 	int pax_id;
 	int local_pax_id;
 	int partition, partition_count;
+	enum switchtec_boot_phase boot_phase;
 	char name[PATH_MAX];
 
 	gasptr_t gas_map;

@@ -45,8 +45,8 @@ static struct switchtec_dev *global_dev = NULL;
 static int global_pax_id = SWITCHTEC_PAX_ID_LOCAL;
 
 static const struct argconfig_choice bandwidth_types[] = {
-	{"RAW", SWITCHTEC_BW_TYPE_RAW, "Get the raw bandwidth"},
-	{"PAYLOAD", SWITCHTEC_BW_TYPE_PAYLOAD, "Get the payload bandwidth"},
+	{"RAW", SWITCHTEC_BW_TYPE_RAW, "get the raw bandwidth"},
+	{"PAYLOAD", SWITCHTEC_BW_TYPE_PAYLOAD, "get the payload bandwidth"},
 	{}
 };
 
@@ -110,11 +110,12 @@ int pax_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
+#define CMD_DESC_LIST "list all Switchtec devices on this machine"
+
 static int list(int argc, char **argv)
 {
 	struct switchtec_device_info *devices;
 	int i, n;
-	const char *desc = "List all the switchtec devices on this machine";
 
 	static struct {
 		int verbose;
@@ -122,10 +123,10 @@ static int list(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
-		 "print additional information about devices"},
+		 "print additional device information"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_LIST, opts, &cfg, sizeof(cfg));
 
 	n = switchtec_list(&devices);
 	if (n < 0)
@@ -171,10 +172,10 @@ static int print_dev_info(struct switchtec_dev *dev)
 	return 0;
 }
 
+#define CMD_DESC_INFO "display switch information"
+
 static int info(int argc, char **argv)
 {
-	const char *desc = "Display information for a Switchtec device";
-
 	static struct {
 		struct switchtec_dev *dev;
 	} cfg = {};
@@ -183,7 +184,7 @@ static int info(int argc, char **argv)
 		DEVICE_OPTION,
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
 	return print_dev_info(cfg.dev);
 }
@@ -214,10 +215,10 @@ static void print_port_title(struct switchtec_dev *dev,
 	}
 }
 
+#define CMD_DESC_GUI "display a simple ncurses GUI"
+
 static int gui(int argc, char **argv)
 {
-
-	const char *desc = "Display a simple ncurses GUI for the switch";
 	int ret;
 
 	static struct {
@@ -240,14 +241,14 @@ static int gui(int argc, char **argv)
 		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
 		 "reset byte counters"},
 		{"refresh", 'f', "", CFG_POSITIVE, &cfg.refresh, required_argument,
-		 "gui refresh period in seconds (default: 1 second)"},
+		 "GUI refresh period in seconds (default: 1 second)"},
 		{"duration", 'd', "", CFG_INT, &cfg.duration, required_argument,
-		 "gui duration in seconds (-1 forever)"},
+		 "GUI duration in seconds (-1 = forever)"},
 		{"bw_type", 'b', "TYPE", CFG_CHOICES, &cfg.bw_type,
-		 required_argument, "gui bandwidth type", .choices=bandwidth_types},
+		 required_argument, "GUI bandwidth type", .choices=bandwidth_types},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_GUI, opts, &cfg, sizeof(cfg));
 
 	ret = gui_main(cfg.dev, cfg.all_ports, cfg.reset_bytes, cfg.refresh,
 		       cfg.duration, cfg.bw_type);
@@ -306,9 +307,10 @@ static char *pci_acs_to_string(char *buf, size_t buflen, int acs_ctrl,
 	return buf;
 }
 
+#define CMD_DESC_STATUS "display switch port status information"
+
 static int status(int argc, char **argv)
 {
-	const char *desc = "Display status of the ports on the switch";
 	int ret;
 	int ports;
 	struct switchtec_status *status;
@@ -332,7 +334,7 @@ static int status(int argc, char **argv)
 		 "print additional information"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_STATUS, opts, &cfg, sizeof(cfg));
 
 	ports = switchtec_status(cfg.dev, &status);
 	if (ports < 0) {
@@ -381,6 +383,8 @@ static int status(int argc, char **argv)
 		if (!s->link_up) continue;
 
 		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
+		printf("\tLane Reversal:   \t%s\n", s->lane_reversal_str);
+		printf("\tFirst Act Lane:  \t%d\n", s->first_act_lane);
 		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
 		       s->link_rate, switchtec_gen_transfers[s->link_rate],
 		       switchtec_gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
@@ -424,9 +428,10 @@ static void print_bw(const char *msg, uint64_t time_us, uint64_t bytes)
 	printf("\t%-8s\t%5.3g %sB/s\n", msg, rate, suf);
 }
 
+#define CMD_DESC_BW "measure the traffic bandwidth through each port"
+
 static int bw(int argc, char **argv)
 {
-	const char *desc = "Measure switch bandwidth";
 	struct switchtec_bwcntr_res *before, *after;
 	struct switchtec_port_id *port_ids;
 	int ret;
@@ -447,14 +452,14 @@ static int bw(int argc, char **argv)
 		DEVICE_OPTION,
 		{"time", 't', "NUM", CFG_POSITIVE, &cfg.meas_time,
 		  required_argument,
-		 "measurement time, in seconds"},
+		 "measurement time in seconds"},
 		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
 		 "print posted, non-posted and completion results"},
 		{"bw_type", 'b', "TYPE", CFG_CHOICES, &cfg.bw_type,
 		 required_argument, "bandwidth type", .choices=bandwidth_types},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_BW, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_bwcntr_set_all(cfg.dev, cfg.bw_type);
 	if (ret < 0) {
@@ -519,9 +524,10 @@ static int bw(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_LATENCY "measure the latency of a port"
+
 static int latency(int argc, char **argv)
 {
-	const char *desc = "Measure latency of a port";
 	int ret;
 	int cur_ns, max_ns;
 
@@ -539,17 +545,17 @@ static int latency(int argc, char **argv)
 		DEVICE_OPTION,
 		{"time", 't', "NUM", CFG_POSITIVE, &cfg.meas_time,
 		  required_argument,
-		 "measurement time, in seconds"},
+		 "measurement time in seconds"},
 		{"egress", 'e', "NUM", CFG_NONNEGATIVE, &cfg.egress,
 		  required_argument,
-		 "physical port id for the egress side",
+		 "physical port ID for the egress side",
 		 .require_in_usage=1},
 		{"ingress", 'i', "NUM", CFG_NONNEGATIVE, &cfg.ingress,
 		  required_argument,
-		 "physical port id for the ingress side, by default use all ports"},
+		 "physical port ID for the ingress side (default: use all ports)"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_LATENCY, opts, &cfg, sizeof(cfg));
 
 	if (cfg.egress < 0) {
 		argconfig_print_usage(opts);
@@ -710,9 +716,10 @@ static int get_events(struct switchtec_dev *dev,
 	return e - elist;
 }
 
+#define CMD_DESC_EVENTS "display events that have occurred"
+
 static int events(int argc, char **argv)
 {
-	const char *desc = "Display information on events that have occurred";
 	struct event_list elist[256];
 	struct switchtec_event_summary sum;
 	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
@@ -736,7 +743,7 @@ static int events(int argc, char **argv)
 		{NULL}};
 
 	populate_event_choices(event_choices, 1);
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVENTS, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_event_summary(cfg.dev, &sum);
 	if (ret < 0) {
@@ -755,9 +762,10 @@ static int events(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_EVENT_WAIT "wait for an event to occur"
+
 static int event_wait(int argc, char **argv)
 {
-	const char *desc = "Wait for an event to occur";
 	struct event_list elist[256];
 	struct switchtec_event_summary sum = {0};
 	struct argconfig_choice event_choices[SWITCHTEC_MAX_EVENTS + 1] = {};
@@ -784,17 +792,17 @@ static int event_wait(int argc, char **argv)
 		  .help="event to wait on"},
 		{"partition", 'p', "NUM", CFG_NONNEGATIVE, &cfg.partition,
 		  required_argument,
-		  .help="partition number for the event"},
+		  .help="partition ID for the event"},
 		{"port", 'q', "NUM", CFG_NONNEGATIVE, &cfg.port,
 		  required_argument,
-		  .help="port number for the event"},
+		  .help="logical port ID for the event"},
 		{"timeout", 't', "MS", CFG_INT, &cfg.timeout,
 		  required_argument,
-		  "timeout in milliseconds (-1 forever)"},
+		  "timeout in milliseconds (-1 = forever)"},
 		{NULL}};
 
 	populate_event_choices(event_choices, 0);
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVENT_WAIT, opts, &cfg, sizeof(cfg));
 
 	switch (switchtec_event_info(cfg.event_id, NULL, NULL)) {
 	case SWITCHTEC_EVT_GLOBAL:
@@ -849,24 +857,25 @@ static int event_wait(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_LOG_DUMP "dump the firmware log to a file"
+
 static int log_dump(int argc, char **argv)
 {
-	const char *desc = "Dump the raw APP log to a file";
 	int ret;
 
 	const struct argconfig_choice types[] = {
-		{"RAM", SWITCHTEC_LOG_RAM, "Dump the APP log from RAM"},
-		{"FLASH", SWITCHTEC_LOG_FLASH, "Dump the APP log from FLASH"},
+		{"RAM", SWITCHTEC_LOG_RAM, "dump the app log from RAM"},
+		{"FLASH", SWITCHTEC_LOG_FLASH, "dump the app log from flash"},
 		{"MEMLOG", SWITCHTEC_LOG_MEMLOG,
-		 "Dump the Memlog info from Flash in last fatal error handing dump"},
+		 "dump the Memlog info from flash in the last fatal error handling dump"},
 		{"REGS", SWITCHTEC_LOG_REGS,
-		 "Dump the Generic Registers context from Flash in last fatal error handing dump"},
+		 "dump the Generic Registers context from flash in the last fatal error handling dump"},
 		{"THRD_STACK", SWITCHTEC_LOG_THRD_STACK,
-		 "Dump the thread stack info from Flash in last fatal error handing dump"},
+		 "dump the thread stack info from flash in the last fatal error handling dump"},
 		{"SYS_STACK", SWITCHTEC_LOG_SYS_STACK,
-		 "Dump the system stack info from Flash in last fatal error handing dump"},
+		 "dump the system stack info from flash in the last fatal error handling dump"},
 		{"THRDS", SWITCHTEC_LOG_THRD,
-		 "Dump all thread info from Flash in last fatal error handing dump"},
+		 "dump all thread info from flash in the last fatal error handling dump"},
 		{}
 	};
 
@@ -889,7 +898,7 @@ static int log_dump(int argc, char **argv)
 		 "log type to dump", .choices=types},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_LOG_DUMP, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_log_to_file(cfg.dev, cfg.type, cfg.out_fd);
 	if (ret < 0) {
@@ -902,9 +911,10 @@ static int log_dump(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_TEST "test if the Switchtec interface is working"
+
 static int test(int argc, char **argv)
 {
-	const char *desc = "Test if switchtec interface is working";
 	int ret;
 	uint32_t in, out;
 
@@ -915,32 +925,33 @@ static int test(int argc, char **argv)
 		DEVICE_OPTION,
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_TEST, opts, &cfg, sizeof(cfg));
 
 	in = time(NULL);
 
 	ret = switchtec_echo(cfg.dev, in, &out);
 
 	if (ret) {
-		switchtec_perror(argv[optind]);
+		switchtec_perror(argv[0]);
 		return ret;
 	}
 
 	if (in != ~out) {
-		fprintf(stderr, "argv[optind]: echo command returned the "
+		fprintf(stderr, "%s: echo command returned the "
 			"wrong result; got %x, expected %x\n",
-			out, ~in);
+			argv[0], out, ~in);
 		return 1;
 	}
 
-	fprintf(stderr, "%s: success\n", argv[optind-1]);
+	fprintf(stderr, "%s: success\n", argv[0]);
 
 	return 0;
 }
 
+#define CMD_DESC_TEMP "display the die temperature"
+
 static int temp(int argc, char **argv)
 {
-	const char *desc = "Display die temperature of the switchtec device";
 	float ret;
 
 	static struct {
@@ -950,7 +961,7 @@ static int temp(int argc, char **argv)
 		DEVICE_OPTION,
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_TEMP, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_die_temp(cfg.dev);
 	if (ret < 0) {
@@ -999,9 +1010,10 @@ static void print_bind_info(struct switchtec_bind_status_out status)
 	}
 }
 
+#define CMD_DESC_PORT_BIND_INFO "display physical port binding information"
+
 static int port_bind_info(int argc, char **argv)
 {
-	const char *desc = "Bind info for physical port";
 	int ret;
 	struct switchtec_bind_status_out bind_status;
 	static struct {
@@ -1013,10 +1025,10 @@ static int port_bind_info(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
-			"physical port number"},
+			"physical port ID"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_PORT_BIND_INFO, opts, &cfg, sizeof(cfg));
 
 	if (cfg.phy_port == 0xff)
 		printf("physical port: all\n");
@@ -1032,9 +1044,10 @@ static int port_bind_info(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_PORT_BIND "bind a logical port to a physical port"
+
 static int port_bind(int argc, char **argv)
 {
-	const char *desc = "Bind switchtec logical port to physical port";
 	int ret;
 	static struct {
 		struct switchtec_dev *dev;
@@ -1045,14 +1058,14 @@ static int port_bind(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"partition", 'p', "", CFG_NONNEGATIVE, &cfg.par_id, required_argument,
-			"partition number"},
+			"partition ID"},
 		{"logical", 'l', "", CFG_POSITIVE, &cfg.log_port, required_argument,
-			"logical port number"},
+			"logical port ID"},
 		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
-			"physical port number"},
+			"physical port ID"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_PORT_BIND, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_bind(cfg.dev, cfg.par_id, cfg.log_port, cfg.phy_port);
 
@@ -1064,9 +1077,10 @@ static int port_bind(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_PORT_UNBIND "unbind a logical port from a physical port"
+
 static int port_unbind(int argc, char **argv)
 {
-	const char *desc = "Unbind switchtec logical port from physical port";
 	int ret;
 	static struct {
 		struct switchtec_dev *dev;
@@ -1076,12 +1090,12 @@ static int port_unbind(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"partition", 'p', "", CFG_NONNEGATIVE, &cfg.par_id, required_argument,
-			"partition number"},
+			"partition ID"},
 		{"logical", 'l', "", CFG_POSITIVE, &cfg.log_port, required_argument,
-			"logical port number"},
+			"logical port ID"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_PORT_UNBIND, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_unbind(cfg.dev, cfg.par_id, cfg.log_port);
 
@@ -1102,6 +1116,7 @@ int ask_if_sure(int always_yes)
 		return 0;
 
 	fprintf(stderr, "Do you want to continue? [y/N] ");
+	fflush(stderr);
 	ret = fgets(buf, sizeof(buf), stdin);
 
 	if (!ret)
@@ -1116,9 +1131,10 @@ abort:
 	return -errno;
 }
 
+#define CMD_DESC_HARD_RESET "perform a hard reset of the switch"
+
 static int hard_reset(int argc, char **argv)
 {
-	const char *desc = "Perform a hard reset on the switch";
 	int ret;
 
 	static struct {
@@ -1131,7 +1147,7 @@ static int hard_reset(int argc, char **argv)
 		 "assume yes when prompted"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_HARD_RESET, opts, &cfg, sizeof(cfg));
 
 	if (!cfg.assume_yes)
 		fprintf(stderr,
@@ -1145,7 +1161,7 @@ static int hard_reset(int argc, char **argv)
 
 	ret = switchtec_hard_reset(cfg.dev);
 	if (ret) {
-		switchtec_perror(argv[optind]);
+		switchtec_perror(argv[0]);
 		return ret;
 	}
 
@@ -1163,8 +1179,8 @@ static const char *get_basename(const char *buf)
 	return buf;
 }
 
-static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
-		const char *img_filename)
+enum switchtec_fw_type check_and_print_fw_image(int img_fd,
+						const char *img_filename)
 {
 	int ret;
 	struct switchtec_fw_image_info info;
@@ -1176,19 +1192,22 @@ static enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 		return ret;
 	}
 
-	printf("File:     %s\n", get_basename(img_filename));
-	printf("Gen:      %s\n", switchtec_fw_image_gen_str(&info));
-	printf("Type:     %s\n", switchtec_fw_image_type(&info));
-	printf("Version:  %s\n", info.version);
-	printf("Img Len:  0x%" FMT_SIZE_T_x "\n", info.image_len);
-	printf("CRC:      0x%08lx\n", info.image_crc);
+	printf("File:           %s\n", get_basename(img_filename));
+	printf("Gen:            %s\n", switchtec_fw_image_gen_str(&info));
+	printf("Type:           %s\n", switchtec_fw_image_type(&info));
+	printf("Version:        %s\n", info.version);
+	printf("Img Len:        0x%" FMT_SIZE_T_x "\n", info.image_len);
+	printf("CRC:            0x%08lx\n", info.image_crc);
+	if (info.gen != SWITCHTEC_GEN3)
+		printf("Secure version: 0x%08lx\n", info.secure_version);
 
 	return info.type;
 }
 
+#define CMD_DESC_FW_IMG_INFO "display information for a firmware image"
+
 static int fw_img_info(int argc, char **argv)
 {
-	const char *desc = "Display information for a firmware image";
 	int ret;
 
 	static struct {
@@ -1201,7 +1220,7 @@ static int fw_img_info(int argc, char **argv)
 		  .help="image file to display information for"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_FW_IMG_INFO, opts, &cfg, sizeof(cfg));
 
 	ret = check_and_print_fw_image(cfg.img_fd, cfg.img_filename);
 	if (ret < 0)
@@ -1222,10 +1241,12 @@ static void print_fw_part_line(const char *tag,
 	if (!inf)
 		return;
 
-	printf("  %-4s\tVersion: %-8s\tCRC: %08lx%s%s\n",
+	printf("  %-4s\tVersion: %-8s\tCRC: %08lx\t%4s%11s%13s%s\n",
 	       tag, inf->version, inf->image_crc,
-	       inf->read_only ? "\t(RO)" : "",
-	       inf->running ? "\t(Running)" : "");
+	       inf->read_only ? "(RO)" : "",
+	       inf->running ? "  (Running)" : "",
+	       inf->redundant ? "  (Redundant)" : "",
+	       inf->valid ? "" : "  (Invalid)");
 }
 
 static int print_fw_part_info(struct switchtec_dev *dev)
@@ -1261,11 +1282,13 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	return 0;
 }
 
+#define CMD_DESC_FW_INFO "return information on the currently flashed firmware"
+
 static int fw_info(int argc, char **argv)
 {
-	const char *desc = "Test if switchtec interface is working";
 	int ret;
 	char version[64];
+	enum switchtec_boot_phase phase_id;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1274,17 +1297,29 @@ static int fw_info(int argc, char **argv)
 		DEVICE_OPTION,
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_FW_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_fw_version(cfg.dev, version, sizeof(version));
-	if (ret < 0) {
-		switchtec_perror("fw info");
+	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
+	if (ret) {
+		switchtec_perror("print fw info");
 		return ret;
 	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL2 or Main Firmware!\n");
+		return -1;
+	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
+		ret = switchtec_get_fw_version(cfg.dev, version,
+					       sizeof(version));
+		if (ret < 0) {
+			switchtec_perror("print fw info");
+			return ret;
+		}
 
-	printf("Currently Running:\n");
-	printf("  IMG\tVersion: %s\n", version);
-
+		printf("Currently Running:\n");
+		printf("  IMG\tVersion: %s\n", version);
+	}
 	ret = print_fw_part_info(cfg.dev);
 	if (ret) {
 		switchtec_perror("print fw info");
@@ -1295,12 +1330,19 @@ static int fw_info(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_FW_UPDATE "upload a new firmware image to flash"
+
 static int fw_update(int argc, char **argv)
 {
 	int ret;
 	int type;
-	const char *desc = "Flash the firmware with a new image";
-
+	struct switchtec_fw_image_info info;
+	const char *desc = CMD_DESC_FW_UPDATE "\n\n"
+			   "This command only supports flashing firmware "
+			   "when the device is in the BL2 or MAIN boot phase. To "
+			   "transfer an image in the BL1 boot phase, use the "
+			   "'mfg fw-transfer' command instead.\n\n"
+			   BOOT_PHASE_HELP_TEXT;
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *fimg;
@@ -1314,7 +1356,7 @@ static int fw_update(int argc, char **argv)
 		DEVICE_OPTION,
 		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
 		  .argument_type=required_positional,
-		  .help="image file to use as the new firmware"},
+		  .help="image file to upload"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{"dont-activate", 'A', "", CFG_NONE, &cfg.dont_activate, no_argument,
@@ -1322,7 +1364,7 @@ static int fw_update(int argc, char **argv)
 		 "when it is safe"},
 		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
 		 "force interrupting an existing fw-update command in case "
-		 "firmware is stuck in the busy state"},
+		 "firmware is stuck in a busy state"},
 		{"set-boot-rw", 'W', "", CFG_NONE, &cfg.set_boot_rw, no_argument,
 		 "set the bootloader and map partition as RW (only valid for BOOT and MAP images)"},
 		{NULL}};
@@ -1335,6 +1377,14 @@ static int fw_update(int argc, char **argv)
 	type = check_and_print_fw_image(fileno(cfg.fimg), cfg.img_filename);
 	if (type < 0)
 		return type;
+
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL1) {
+		fprintf(stderr,
+			"This command is only available in BL2 or Main Firmware!\n");
+		fprintf(stderr,
+			"Use 'mfg fw-transfer' instead to transfer a BL2 image.\n");
+		return -1;
+	}
 
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
@@ -1358,6 +1408,21 @@ static int fw_update(int argc, char **argv)
 		}
 	}
 
+	if(switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
+		switchtec_fw_file_info(fileno(cfg.fimg), &info);
+		fprintf(stderr, "\n\nWARNING:\n"
+			"Updating this image will IRREVERSIBLY update device %s image\n"
+			"secure version to 0x%08lx!\n\n",
+			switchtec_fw_image_type(&info),
+			info.secure_version);
+
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret) {
+			fclose(cfg.fimg);
+			return ret;
+		}
+	}
+
 	progress_start();
 	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
 				      cfg.force, progress_update);
@@ -1375,6 +1440,16 @@ static int fw_update(int argc, char **argv)
 	print_fw_part_info(cfg.dev);
 	printf("\n");
 
+	if (type == SWITCHTEC_FW_TYPE_MAP) {
+		printf("\nNOTE: Device partition map has been updated. Be sure to update\n"
+		       "all other partitions as well to ensure your device can boot properly.\n");
+	}
+
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2 &&
+	    !cfg.dont_activate) {
+		printf("\nNOTE: This command does not automatically activate the image when used in the BL2 boot phase.\n"
+		       "Be sure to use 'fw-toggle' after this command to activate the updated image.\n");
+	}
 set_boot_ro:
 	if (cfg.set_boot_rw)
 		switchtec_fw_set_boot_ro(cfg.dev, SWITCHTEC_FW_RO);
@@ -1382,10 +1457,12 @@ set_boot_ro:
 	return ret;
 }
 
+#define CMD_DESC_FW_TOGGLE "toggle the active and inactive firmware partitions"
+
 static int fw_toggle(int argc, char **argv)
 {
-	const char *desc = "Toggle active and inactive firmware partitions";
 	int ret = 0;
+	int err = 0;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1406,14 +1483,14 @@ static int fw_toggle(int argc, char **argv)
 		 "toggle CFG data"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_FW_TOGGLE, opts, &cfg, sizeof(cfg));
 
 	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config) {
-		fprintf(stderr, "NOTE: Not toggling images seeing no "
+		fprintf(stderr, "NOTE: Not toggling images as no "
 			"partition type options were specified\n\n");
 	} else if ((cfg.bl2 || cfg.key) && switchtec_is_gen3(cfg.dev)) {
 		fprintf(stderr, "Firmware type BL2 and Key manifest"
-			"are not supported by Gen3 switch\n");
+			"are not supported by Gen3 switches\n");
 		return 1;
 	} else {
 		ret = switchtec_fw_toggle_active_partition(cfg.dev,
@@ -1421,19 +1498,98 @@ static int fw_toggle(int argc, char **argv)
 							   cfg.key,
 							   cfg.firmware,
 							   cfg.config);
+		err = errno;
 	}
 
-	print_fw_part_info(cfg.dev);
+	ret = print_fw_part_info(cfg.dev);
+	if (ret)
+		switchtec_perror("print fw info");
+
 	printf("\n");
 
+	errno = err;
 	switchtec_perror("firmware toggle");
 
 	return ret;
 }
 
+#define CMD_DESC_FW_REDUND_SETUP "configure the redundancy for a partition type"
+
+static int fw_redund_setup(int argc, char **argv)
+{
+	int ret = 0;
+
+	const struct argconfig_choice types[] = {
+		{"KEY", SWITCHTEC_FW_TYPE_KEY,
+		 "set the redundancy flag for the key manifest partitions"},
+		{"BL2", SWITCHTEC_FW_TYPE_BL2,
+		 "set the redundancy flag for the BL2 partitions"},
+		{"CFG", SWITCHTEC_FW_TYPE_CFG,
+		 "set the redundancy flag for the config partitions"},
+		{"IMG", SWITCHTEC_FW_TYPE_IMG,
+		 "set the redundancy flag for the main firmware partitions"},
+		{}
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		enum switchtec_fw_type type;
+		int set;
+		int clear;
+	} cfg = {
+		.set = 0,
+		.clear = 0,
+		.type = SWITCHTEC_FW_TYPE_UNKNOWN,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"set", 's', "", CFG_NONE, &cfg.set, no_argument,
+		 "set the redundancy flag"},
+		{"clear", 'c', "", CFG_NONE, &cfg.clear, no_argument,
+		 "clear the redundancy flag"},
+		{"type", 't', "FW PARTITION TYPE", CFG_CHOICES, &cfg.type,
+		  required_argument,
+		 "firmware partition type to set", .choices=types},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_FW_REDUND_SETUP, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_is_gen3(cfg.dev)) {
+		fprintf(stderr, "This command is not supported on Gen3 switches.\n");
+		return 1;
+	}
+
+	if (!cfg.set && !cfg.clear) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "Must specify the redundancy operation!\n");
+		return 2;
+	}
+
+	if (cfg.set && cfg.clear) {
+		argconfig_print_usage(opts);
+		fprintf(stderr,
+			"Use either the --set or the --clear argument!\n");
+		return 3;
+	}
+
+	if (cfg.type == SWITCHTEC_FW_TYPE_UNKNOWN) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --type argument is required!\n");
+		return 4;
+	}
+
+	ret = switchtec_fw_setup_redundancy(cfg.dev, cfg.set, cfg.type);
+	if (ret)
+		switchtec_perror("setup fw redundancy");
+
+	return ret;
+}
+
+#define CMD_DESC_FW_READ "read a firmware image from flash"
+
 static int fw_read(int argc, char **argv)
 {
-	const char *desc = "Flash the firmware with a new image";
 	struct switchtec_fw_part_summary *sum;
 	struct switchtec_fw_image_info *inf;
 	int ret = 0;
@@ -1442,6 +1598,7 @@ static int fw_read(int argc, char **argv)
 		struct switchtec_dev *dev;
 		int out_fd;
 		const char *out_filename;
+		int assume_yes;
 		int inactive;
 		int data;
 		int bl2;
@@ -1453,6 +1610,8 @@ static int fw_read(int argc, char **argv)
 		  .argument_type=optional_positional,
 		  .force_default="image.pmc",
 		  .help="image file to display information for"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
 		 "read the inactive partition"},
 		{"data", 'd', "", CFG_NONE, &cfg.data, no_argument,
@@ -1460,12 +1619,12 @@ static int fw_read(int argc, char **argv)
 		{"config", 'c', "", CFG_NONE, &cfg.data, no_argument,
 		 "read the data/config partiton instead of the main firmware"},
 		{"bl2", 'b', "", CFG_NONE, &cfg.bl2, no_argument,
-		 "read the bl2 partiton instead of the main firmware"},
+		 "read the BL2 partiton instead of the main firmware"},
 		{"key", 'k', "", CFG_NONE, &cfg.key, no_argument,
 		 "read the key manifest partiton instead of the main firmware"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_FW_READ, opts, &cfg, sizeof(cfg));
 
 	sum = switchtec_fw_part_summary(cfg.dev);
 	if (!sum) {
@@ -1488,6 +1647,17 @@ static int fw_read(int argc, char **argv)
 	fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
 	fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
 
+	if (!inf->valid && !cfg.assume_yes) {
+		fprintf(stderr,
+			"\nWARNING: The firmware image for this partition is INVALID!\n");
+
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret) {
+			close(cfg.out_fd);
+			return ret;
+		}
+	}
+
 	ret = switchtec_fw_img_write_hdr(cfg.out_fd, inf);
 	if (ret < 0) {
 		switchtec_perror(cfg.out_filename);
@@ -1495,8 +1665,8 @@ static int fw_read(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_read_fd(cfg.dev, cfg.out_fd, inf->part_addr,
-				   inf->image_len, progress_update);
+	ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
+					inf, progress_update);
 	progress_finish();
 
 	if (ret < 0)
@@ -1679,9 +1849,10 @@ static void show_event_counter(int stack, int counter,
 		       "EGRESS" : "INGRESS");
 }
 
+#define CMD_DESC_EVCNTR_SETUP "configure an event counter"
+
 static int evcntr_setup(int argc, char **argv)
 {
-	const char *desc = "Setup a new event counter";
 	int nr_type_choices = switchtec_evcntr_type_count();
 	struct argconfig_choice type_choices[nr_type_choices+1];
 	int ret;
@@ -1721,7 +1892,7 @@ static int evcntr_setup(int argc, char **argv)
 		{NULL}};
 
 	create_type_choices(type_choices);
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_SETUP, opts, &cfg, sizeof(cfg));
 
 	if (cfg.stack < 0) {
 		argconfig_print_usage(opts);
@@ -1763,9 +1934,10 @@ static int evcntr_setup(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_EVCNTR "display event counters"
+
 static int evcntr(int argc, char **argv)
 {
-	const char *desc = "Display event counters";
 	int ret, i;
 
 	static struct {
@@ -1781,10 +1953,10 @@ static int evcntr(int argc, char **argv)
 		{"reset", 'r', "", CFG_NONE, &cfg.reset, no_argument,
 		 "reset counters back to zero"},
 		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
-		 "stack to create the counter in"},
+		 "stack to show the counters for"},
 		{}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR, opts, &cfg, sizeof(cfg));
 
 	if (cfg.stack < 0) {
 		for (i = 0; i < SWITCHTEC_MAX_STACKS; i++)
@@ -1799,9 +1971,10 @@ static int evcntr(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_EVCNTR_SHOW "display an event counter's configuration"
+
 static int evcntr_show(int argc, char **argv)
 {
-	const char *desc = "Display setup information for an event counter";
 	struct switchtec_evcntr_setup setup;
 	int ret;
 
@@ -1817,14 +1990,14 @@ static int evcntr_show(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
-		 "stack to create the counter in",
+		 "stack to show the configuration for",
 		 .require_in_usage=1},
 		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
-		 "counter index, default is to use the next unused index",
+		 "counter index",
 		 .require_in_usage=1},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_SHOW, opts, &cfg, sizeof(cfg));
 
 	if (cfg.stack < 0) {
 		argconfig_print_usage(opts);
@@ -1850,9 +2023,10 @@ static int evcntr_show(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_EVCNTR_DEL "deconfigure an event counter"
+
 static int evcntr_del(int argc, char **argv)
 {
-	const char *desc = "Deconfigure an event counter counter";
 	struct switchtec_evcntr_setup setup = {};
 	int ret;
 
@@ -1868,14 +2042,14 @@ static int evcntr_del(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
-		 "stack to create the counter in",
+		 "stack to deconfigure the counter in",
 		 .require_in_usage=1},
 		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
-		 "counter index, default is to use the next unused index",
+		 "counter index",
 		 .require_in_usage=1},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_DEL, opts, &cfg, sizeof(cfg));
 
 	if (cfg.stack < 0) {
 		argconfig_print_usage(opts);
@@ -1899,9 +2073,10 @@ static int evcntr_del(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_EVCNTR_WAIT "wait for an event counter to exceed its threshold"
+
 static int evcntr_wait(int argc, char **argv)
 {
-	const char *desc = "Wait for an event counter to reach its threshold";
 	int ret, i;
 
 	static struct {
@@ -1914,10 +2089,10 @@ static int evcntr_wait(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"timeout", 't', "MS", CFG_INT, &cfg.timeout, required_argument,
-		 "timeout in milliseconds (-1 forever)"},
+		 "timeout in milliseconds (-1 = forever)"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_WAIT, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_evcntr_wait(cfg.dev, cfg.timeout);
 	if (ret < 0) {
@@ -1937,31 +2112,32 @@ static int evcntr_wait(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
-	CMD(list, "List all switchtec devices on this machine"),
-	CMD(info, "Display information for a Switchtec device"),
-	CMD(gui, "Display a simple ncurses GUI for the switch"),
-	CMD(status, "Display status information"),
-	CMD(bw, "Measure the bandwidth for each port"),
-	CMD(latency, "Measure the latency of a port"),
-	CMD(events, "Display events that have occurred"),
-	CMD(event_wait, "Wait for an event to occur"),
-	CMD(log_dump, "Dump firmware log to a file"),
-	CMD(test, "Test if switchtec interface is working"),
-	CMD(temp, "Return the switchtec die temperature"),
-	CMD(port_bind_info, "Return binding info for a physical port"),
-	CMD(port_bind, "Bind switchtec logical and physical ports"),
-	CMD(port_unbind, "Unbind switchtec logical port from physical port"),
-	CMD(hard_reset, "Perform a hard reset of the switch"),
-	CMD(fw_update, "Upload a new firmware image"),
-	CMD(fw_info, "Return information on currently flashed firmware"),
-	CMD(fw_toggle, "Toggle the active and inactive firmware partition"),
-	CMD(fw_read, "Read back firmware image from hardware"),
-	CMD(fw_img_info, "Display information for a firmware image"),
-	CMD(evcntr, "Display event counters"),
-	CMD(evcntr_setup, "Setup an event counter"),
-	CMD(evcntr_show, "Show an event counters setup info"),
-	CMD(evcntr_del, "Deconfigure an event counter"),
-	CMD(evcntr_wait, "Wait for an event counter to exceed its threshold"),
+	CMD(list, CMD_DESC_LIST),
+	CMD(info, CMD_DESC_INFO),
+	CMD(gui, CMD_DESC_GUI),
+	CMD(status, CMD_DESC_STATUS),
+	CMD(bw, CMD_DESC_BW),
+	CMD(latency, CMD_DESC_LATENCY),
+	CMD(events, CMD_DESC_EVENTS),
+	CMD(event_wait, CMD_DESC_EVENT_WAIT),
+	CMD(log_dump, CMD_DESC_LOG_DUMP),
+	CMD(test, CMD_DESC_TEST),
+	CMD(temp, CMD_DESC_TEMP),
+	CMD(port_bind_info, CMD_DESC_PORT_BIND_INFO),
+	CMD(port_bind, CMD_DESC_PORT_BIND),
+	CMD(port_unbind, CMD_DESC_PORT_UNBIND),
+	CMD(hard_reset, CMD_DESC_HARD_RESET),
+	CMD(fw_update, CMD_DESC_FW_UPDATE),
+	CMD(fw_info, CMD_DESC_FW_INFO),
+	CMD(fw_toggle, CMD_DESC_FW_TOGGLE),
+	CMD(fw_redund_setup, CMD_DESC_FW_REDUND_SETUP),
+	CMD(fw_read, CMD_DESC_FW_READ),
+	CMD(fw_img_info, CMD_DESC_FW_IMG_INFO),
+	CMD(evcntr, CMD_DESC_EVCNTR),
+	CMD(evcntr_setup, CMD_DESC_EVCNTR_SETUP),
+	CMD(evcntr_show, CMD_DESC_EVCNTR_SHOW),
+	CMD(evcntr_del, CMD_DESC_EVCNTR_DEL),
+	CMD(evcntr_wait, CMD_DESC_EVCNTR_WAIT),
 	{},
 };
 
@@ -1973,7 +2149,7 @@ REGISTER_SUBCMD(subcmd);
 
 static struct prog_info prog_info = {
 	.usage = "<command> [<device>] [OPTIONS]",
-	.desc = "The <device> must be a switchtec device "
+	.desc = "The <device> must be a Switchtec device "
 		"(ex: /dev/switchtec0)",
 };
 

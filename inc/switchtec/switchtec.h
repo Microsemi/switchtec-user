@@ -87,6 +87,26 @@ enum switchtec_gen {
 };
 
 /**
+ * @brief Device hardware revision
+ */
+enum switchtec_rev {
+	SWITCHTEC_REVA = 0x0f,
+	SWITCHTEC_REVB = 0x00,
+	SWITCHTEC_REVC = 0x01,
+	SWITCHTEC_REV_UNKNOWN = 0xff
+};
+
+/**
+ * @brief Device boot phase
+ */
+enum switchtec_boot_phase {
+	SWITCHTEC_BOOT_PHASE_BL1 = 1,
+	SWITCHTEC_BOOT_PHASE_BL2,
+	SWITCHTEC_BOOT_PHASE_FW,
+	SWITCHTEC_BOOT_PHASE_UNKNOWN
+};
+
+/**
  * @brief The variant types of Switchtec device
  */
 enum switchtec_variant {
@@ -138,6 +158,9 @@ struct switchtec_status {
 	unsigned char link_rate;	//!< Link rate/gen
 	uint16_t ltssm;			//!< Link state
 	const char *ltssm_str;		//!< Link state as a string
+	unsigned char lane_reversal;	//!< Lane reversal
+	const char *lane_reversal_str;	//!< Lane reversal as a string
+	unsigned char first_act_lane;	//!< First active lane
 
 	char *pci_bdf;			//!< PCI BDF of the port
 	char *pci_bdf_path;		//!< PCI BDF path of the port
@@ -193,15 +216,20 @@ struct switchtec_fw_image_info {
 	char version[32];			//!< Firmware/Config version
 	size_t part_addr;			//!< Address of the partition
 	size_t part_len;			//!< Length of the partition
+	size_t part_body_offset;		//!< Partition image body offset
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
 
+	bool valid;
 	bool active;
 	bool running;
 	bool read_only;
+	bool redundant;
 
 	struct switchtec_fw_image_info *next;
 	void *metadata;
+
+	unsigned long secure_version;
 };
 
 struct switchtec_fw_part_summary {
@@ -312,13 +340,18 @@ _PURE int switchtec_partition(struct switchtec_dev *dev);
 _PURE int switchtec_device_id(struct switchtec_dev *dev);
 _PURE enum switchtec_gen switchtec_gen(struct switchtec_dev *dev);
 _PURE enum switchtec_variant switchtec_variant(struct switchtec_dev *dev);
+_PURE enum switchtec_boot_phase
+switchtec_boot_phase(struct switchtec_dev *dev);
 int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,
 		     struct switchtec_status **status);
 void switchtec_status_free(struct switchtec_status *status, int ports);
-
+int switchtec_get_device_info(struct switchtec_dev *dev,
+			      enum switchtec_boot_phase *phase,
+			      enum switchtec_gen *gen,
+			      enum switchtec_rev *rev);
 const char *switchtec_strerror(void);
 void switchtec_perror(const char *str);
 int switchtec_log_to_file(struct switchtec_dev *dev,
@@ -624,6 +657,8 @@ enum switchtec_fw_dlstatus {
 	SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT = 8,
 	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
 	SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT = 14,
+
+	SWITCHTEC_DLSTAT_NO_FILE = 0x7d009,
 };
 
 /**
@@ -634,6 +669,11 @@ enum switchtec_fw_ro {
 	SWITCHTEC_FW_RO = 1,
 };
 
+enum switchtec_fw_redundancy {
+	SWITCHTEC_FW_REDUNDANCY_SET = 1,
+	SWITCHTEC_FW_REDUNDANCY_CLEAR = 0,
+};
+
 int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 			  enum switchtec_fw_dlstatus *status,
 			  enum mrpc_bg_status *bgstatus);
@@ -642,6 +682,9 @@ int switchtec_fw_wait(struct switchtec_dev *dev,
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg);
+int switchtec_fw_setup_redundancy(struct switchtec_dev *dev,
+				  enum switchtec_fw_redundancy redund,
+				  enum switchtec_fw_type type);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
 			  void (*progress_callback)(int cur, int tot));
@@ -651,10 +694,15 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 			 unsigned long addr, size_t len,
 			 void (*progress_callback)(int cur, int tot));
+int switchtec_fw_body_read_fd(struct switchtec_dev *dev, int fd,
+			      struct switchtec_fw_image_info *info,
+			      void (*progress_callback)(int cur, int tot));
 int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
+int switchtec_fw_file_secure_version_newer(struct switchtec_dev *dev,
+					   int img_fd);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 struct switchtec_fw_part_summary *
 switchtec_fw_part_summary(struct switchtec_dev *dev);

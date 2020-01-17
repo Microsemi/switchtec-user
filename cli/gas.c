@@ -273,29 +273,30 @@ static int pipe_to_hd_less(struct switchtec_dev *dev, gasptr_t map,
 
 #endif
 
+#define CMD_DESC_DUMP "dump all Global Address Space registers"
+
 static int gas_dump(int argc, char **argv)
 {
-	const char *desc = "Dump all gas registers";
 	gasptr_t map;
 	size_t map_size;
 	int ret;
 
 	static struct {
 		struct switchtec_dev *dev;
-		int count;
+		size_t count;
 		int text;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"count", 'n', "NUM", CFG_SIZE_SUFFIX, &cfg.count, required_argument,
-		 "number of bytes to dump (default is the entire gas space)"},
+		 "number of bytes to dump (default is the entire GAS space)"},
 		{"text", 't', "", CFG_NONE, &cfg.text, no_argument,
-		 "force outputing data in text format, default is to output in "
+		 "force outputting data in text format, default is to output in "
 		 "text unless the output is a pipe, in which case binary is "
 		 "output"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_DUMP, opts, &cfg, sizeof(cfg));
 
 	map = switchtec_gas_map(cfg.dev, 0, &map_size);
 	if (map == SWITCHTEC_MAP_FAILED) {
@@ -386,9 +387,10 @@ static int (*print_funcs[])(struct switchtec_dev *dev, void __gas *addr,
 	[STR] = print_str,
 };
 
+#define CMD_DESC_READ "read a register from the Global Address Space"
+
 static int gas_read(int argc, char **argv)
 {
-	const char *desc = "Read a gas register";
 	gasptr_t map;
 	size_t map_size;
 	int i;
@@ -397,14 +399,14 @@ static int gas_read(int argc, char **argv)
 	struct argconfig_choice print_choices[] = {
 		{"hex", HEX, "print in hexadecimal"},
 		{"dec", DEC, "print in decimal"},
-		{"str", STR, "print as an ascii string"},
+		{"str", STR, "print as an ASCII string"},
 		{},
 	};
 
 	static struct {
 		struct switchtec_dev *dev;
 		unsigned long addr;
-		unsigned long count;
+		size_t count;
 		unsigned bytes;
 		unsigned print_style;
 	} cfg = {
@@ -414,7 +416,7 @@ static int gas_read(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"addr", 'a', "ADDR", CFG_SIZE_SUFFIX, &cfg.addr, required_argument,
+		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
 		 "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to read per access (default 4)"},
@@ -424,7 +426,7 @@ static int gas_read(int argc, char **argv)
 		 "printing style", .choices=print_choices},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_READ, opts, &cfg, sizeof(cfg));
 
 	map = switchtec_gas_map(cfg.dev, 0, &map_size);
 	if (map == SWITCHTEC_MAP_FAILED) {
@@ -450,9 +452,10 @@ static int gas_read(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_WRITE "write a register in the Global Address Space"
+
 static int gas_write(int argc, char **argv)
 {
-	const char *desc = "Write a gas register";
 	void __gas *map;
 	size_t map_size;
 	int ret = 0;
@@ -468,7 +471,7 @@ static int gas_write(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"addr", 'a', "ADDR", CFG_SIZE_SUFFIX, &cfg.addr, required_argument,
+		{"addr", 'a', "ADDR", CFG_LONG_SUFFIX, &cfg.addr, required_argument,
 		 "address to write"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes, required_argument,
 		 "number of bytes to write (default 4)"},
@@ -478,7 +481,7 @@ static int gas_write(int argc, char **argv)
 		 "assume yes when prompted"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_WRITE, opts, &cfg, sizeof(cfg));
 
 	map = switchtec_gas_map(cfg.dev, 1, &map_size);
 	if (map == SWITCHTEC_MAP_FAILED) {
@@ -515,9 +518,9 @@ static int gas_write(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
-	{"dump", gas_dump, "dump the global address space"},
-	{"read", gas_read, "read a register from the global address space"},
-	{"write", gas_write, "write a register in the global address space"},
+	{"dump", gas_dump, CMD_DESC_DUMP},
+	{"read", gas_read, CMD_DESC_READ},
+	{"write", gas_write, CMD_DESC_WRITE},
 	{}
 };
 
@@ -527,7 +530,7 @@ static struct subcommand subcmd = {
 	.desc = "Global Address Space Access (dangerous)",
 	.long_desc = "These functions should be used with extreme caution only "
 	      "if you know what you are doing. Any register accesses through "
-	      "this interface is unsupported by Microsemi unless specifically "
+	      "this interface are unsupported by Microsemi unless specifically "
 	      "otherwise specified.",
 };
 
