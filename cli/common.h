@@ -37,15 +37,15 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 	"NOTE - A device can be in one of these three boot phases: \n" \
 	"BOOTLOADER1 (BL1): in this phase, a device runs " \
 	"a BL1 image that resides on the device's on-chip boot ROM. " \
-	"BL1 image is implemented to facilitate device recovery -- it " \
-	"supports transferring and executing a Bootloader2 image. " \
-	"To enter BL1 boot phase, set device BOOT_RECOVERY " \
+	"The BL1 image is implemented to facilitate device recovery -- it " \
+	"supports transferring and executing a BOOTLOADER2 image. " \
+	"To enter the BL1 boot phase, set the device's BOOT_RECOVERY " \
 	"PIN 0 to LOW and reset the device.\n\n" \
 	"BOOTLOADER2 (BL2): in this phase, a device runs " \
-	"BL2 image stored on flash, or transferred during BL1 boot phase. " \
+	"the BL2 image stored in flash or transferred during the BL1 boot phase. " \
 	"BL2 is the phase for device recovery -- it provides commands " \
 	"to update and activate device partitions. " \
-	"To enter BL2 boot phase, set device BOOT_RECOVERY PIN[0] to HIGH " \
+	"To enter the BL2 boot phase, set the device's BOOT_RECOVERY PIN[0] to HIGH " \
 	"and PIN[1] to LOW and reset the device.\n\n" \
 	"MAIN FIRMWARE (MAIN): this is the full-featured firmware that runs " \
 	"on your device during normal operation.\n\n"
@@ -57,12 +57,12 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 			.custom_handler=switchtec_handler, \
 			.complete="/dev/switchtec*", \
 			.env="SWITCHTEC_DEV", \
-			.help="switchtec device to operate on. can be any of:\n" \
+			.help="Switchtec device to operate on. Can be any of:\n" \
 			" * a device path (/dev/switchtec0)\n" \
 			" * an index (0, 1, 2)\n" \
-			" * a pci address (3:00.1)\n" \
-			" * An I2C path with slave address (/dev/i2c-1@0x20)\n" \
-			" * A UART path (/dev/ttyUSB0)\n" \
+			" * a PCI address (3:00.1)\n" \
+			" * an I2C path with slave address (/dev/i2c-1@0x20)\n" \
+			" * a UART path (/dev/ttyUSB0)\n" \
 	}
 
 #define DEVICE_OPTION DEVICE_OPTION_NO_PAX, \
