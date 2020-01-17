@@ -144,8 +144,8 @@ static void general_help(const struct subcommand *subcmd,
 			underscore_to_dash(subcmd->cmds[i].name),
 			subcmd->cmds[i].help);
 
-	fprintf(stderr, "  %-15s %s\n", "version", "Shows the program version");
-	fprintf(stderr, "  %-15s %s\n", "help", "Display this help");
+	fprintf(stderr, "  %-15s %s\n", "version", "show the program version");
+	fprintf(stderr, "  %-15s %s\n", "help", "display this help");
 	fprintf(stderr, "\n");
 
 	if (subcmd->name)

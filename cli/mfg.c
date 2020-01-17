@@ -76,9 +76,10 @@ static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 	}
 }
 
+#define CMD_DESC_PING "ping firmware and get current boot phase"
+
 static int ping(int argc, char **argv)
 {
-	const char *desc = "Ping firmware and get current boot phase";
 	int ret;
 	enum switchtec_boot_phase phase_id;
 	static struct {
@@ -89,7 +90,7 @@ static int ping(int argc, char **argv)
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_PING, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
 	if (ret) {
@@ -192,9 +193,10 @@ static void print_security_config(struct switchtec_security_cfg_stat *state)
 	}
 }
 
+#define CMD_DESC_INFO "display security settings (BL1 and Main Firmware only)"
+
 static int info(int argc, char **argv)
 {
-	const char *desc = "Display security settings (BL1 and Main Firmware only)";
 	int ret;
 	enum switchtec_boot_phase phase_id;
 
@@ -211,7 +213,7 @@ static int info(int argc, char **argv)
 
 	struct switchtec_security_cfg_stat state = {};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
 	if (ret) {
@@ -232,7 +234,7 @@ static int info(int argc, char **argv)
 	printf("Secure Unlock Version: \t\t\t0x%08x\n", sn_info.ver_sec_unlock);
 
 	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
-		printf("\nOther secure settings are only shown in BL1 or Main Firmware phase.\n\n");
+		printf("\nOther secure settings are only shown in the BL1 or Main Firmware phase.\n\n");
 		return 0;
 	}
 
@@ -247,9 +249,10 @@ static int info(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_MAILBOX "retrieve mailbox logs"
+
 static int mailbox(int argc, char **argv)
 {
-	const char *desc = "Retrieve mailbox logs";
 	int ret;
 
 	static struct {
@@ -266,7 +269,7 @@ static int mailbox(int argc, char **argv)
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_MAILBOX, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_mailbox_to_file(cfg.dev, cfg.out_fd);
 	if (ret) {
@@ -291,9 +294,10 @@ static void print_image_list(struct switchtec_active_index *idx)
 	printf("Firmware\t%d\n", idx->firmware);
 }
 
+#define CMD_DESC_IMAGE_LIST "display active image list (BL1 only)"
+
 static int image_list(int argc, char **argv)
 {
-	const char *desc = "Display active image list (BL1 only)";
 	int ret;
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_active_index index;
@@ -307,7 +311,7 @@ static int image_list(int argc, char **argv)
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_IMAGE_LIST, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
 	if (ret) {
@@ -330,9 +334,10 @@ static int image_list(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_IMAGE_SELECT "select active image index (BL1 only)"
+
 static int image_select(int argc, char **argv)
 {
-	const char *desc = "Select active image index (BL1 only)";
 	int ret;
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_active_index index;
@@ -353,17 +358,17 @@ static int image_select(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_NO_PAX,
 		{"bl2", 'b', "", CFG_BYTE, &cfg.bl2,
-			required_argument, "Active image index for BL2"},
+			required_argument, "active image index for BL2"},
 		{"firmware", 'm', "", CFG_BYTE, &cfg.firmware,
-			required_argument, "Active image index for FIRMWARE"},
+			required_argument, "active image index for FIRMWARE"},
 		{"config", 'c', "", CFG_BYTE, &cfg.config,
-			required_argument, "Active image index for CONFIG"},
+			required_argument, "active image index for CONFIG"},
 		{"keyman", 'k', "", CFG_BYTE, &cfg.keyman, required_argument,
-			"Active image index for KEY MANIFEST"},
+			"active image index for KEY MANIFEST"},
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_IMAGE_SELECT, opts, &cfg, sizeof(cfg));
 
 	if (cfg.bl2 == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
 	    cfg.firmware == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
@@ -422,18 +427,20 @@ static int image_select(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_BOOT_RESUME "resume device boot process (BL1 and BL2 only)"
+
 static int boot_resume(int argc, char **argv)
 {
-	const char *desc = "Resume device boot process (BL1 and BL2 only)\n\n"
-			   "A normal device boot process includes BL1, "
+	const char *desc = CMD_DESC_BOOT_RESUME "\n\n"
+			   "A normal device boot process includes the BL1, "
 			   "BL2 and Main Firmware boot phases. In the case "
-			   "when boot process is paused at BL1 or BL2 phase "
+			   "when the boot process is paused at the BL1 or BL2 phase "
 			   "(due to boot failure or BOOT_RECOVERY PIN[0:1] "
 			   "being set to LOW), sending this command requests "
-			   "device to try resuming normal boot process.\n\n"
+			   "the device to try resuming a normal boot process.\n\n"
 			   "NOTE: if your system does not support hotplug, "
 			   "your device might not be immediately accessible "
-			   "after normal boot process. In this case, be sure "
+			   "after a normal boot process. In this case, be sure "
 			   "to reboot your system after sending this command.";
 	int ret;
 	enum switchtec_boot_phase phase_id;
@@ -466,7 +473,7 @@ static int boot_resume(int argc, char **argv)
 		fprintf(stderr,
 			"WARNING: if your system does not support hotplug,\n"
 			"your device might not be immediately accessible\n"
-			"after normal boot process. In this case, be sure\n"
+			"after a normal boot process. In this case, be sure\n"
 			"to reboot your system after sending this command.\n\n");
 
 	ret = ask_if_sure(cfg.assume_yes);
@@ -482,16 +489,18 @@ static int boot_resume(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_FW_TRANSFER "transfer a firmware image to device (BL1 only)"
+
 static int fw_transfer(int argc, char **argv)
 {
-	const char *desc = "Transfer a firmware image to device (BL1 phase only)\n\n"
-			   "This command only supports transferring firmware "
-			   "image when device is in BL1 boot phase. Use "
+	const char *desc = CMD_DESC_FW_TRANSFER "\n\n"
+			   "This command only supports transferring a firmware "
+			   "image when the device is in the BL1 boot phase. Use "
 			   "'fw-execute' after this command to excute the "
 			   "transferred image. Note that the image is stored "
 			   "in device RAM and is lost after device reboot.\n\n"
-			   "To update an image in BL2 or MAIN boot phase, use "
-			   "'fw-update' command instead.\n\n"
+			   "To update an image in the BL2 or MAIN boot phase, use "
+			   "the 'fw-update' command instead.\n\n"
 			   BOOT_PHASE_HELP_TEXT;
 	int ret;
 	enum switchtec_fw_type type;
@@ -512,7 +521,7 @@ static int fw_transfer(int argc, char **argv)
 			"assume yes when prompted"},
 		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
 			"force interrupting an existing fw-update command "
-			"in case firmware is stuck in the busy state"},
+			"in case firmware is stuck in a busy state"},
 		{NULL}
 	};
 
@@ -520,7 +529,7 @@ static int fw_transfer(int argc, char **argv)
 
 	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is only available in BL1 boot phase!\n");
+			"This command is only available in the BL1 boot phase!\n");
 		fprintf(stderr,
 			"Use 'fw-update' instead to update an image in other boot phases.\n");
 		return -1;
@@ -533,7 +542,7 @@ static int fw_transfer(int argc, char **argv)
 
 	if (type != SWITCHTEC_FW_TYPE_BL2) {
 		fprintf(stderr,
-			"Only transferring BL2 image is supported in this command.\n");
+			"This command only supports transferring a BL2 image.\n");
 		return -2;
 	}
 
@@ -560,20 +569,22 @@ static int fw_transfer(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_FW_EXECUTE "execute previously transferred firmware image (BL1 phase only)"
+
 static int fw_execute(int argc, char **argv)
 {
-	const char *desc = "Execute previously transferred firmware image (BL1 phase only)\n\n"
-			   "This command is only supported when device is "
-			   "in BL1 boot phase. The firmware image must have "
-			   "been transferred using 'fw-transfer' command. "
+	const char *desc = CMD_DESC_FW_EXECUTE "\n\n"
+			   "This command is only supported when the device is "
+			   "in the BL1 boot phase. The firmware image must have "
+			   "been transferred using the 'fw-transfer' command. "
 			   "After firmware initializes, it listens for activity from "
 			   "I2C, UART (XModem), or both interfaces for input. "
 			   "Once activity is detected from an interface, "
 			   "firmware falls into recovery mode on that interface. "
 			   "The interface to listen on can be specified using "
-			   "'bl2_recovery_mode' option. \n\n"
-			   "To activate an image in BL2 or MAIN boot "
-			   "phase, use 'fw-toggle' command instead.\n\n"
+			   "the 'bl2_recovery_mode' option. \n\n"
+			   "To activate an image in the BL2 or MAIN boot "
+			   "phase, use the 'fw-toggle' command instead.\n\n"
 			   BOOT_PHASE_HELP_TEXT;
 	int ret;
 
@@ -599,7 +610,7 @@ static int fw_execute(int argc, char **argv)
 
 	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
-			"This command is only available in BL1 phase!\n");
+			"This command is only available in the BL1 phase!\n");
 		return -2;
 	}
 
@@ -619,31 +630,33 @@ static int fw_execute(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_STATE_SET "set device secure state (BL1 and Main Firmware only)"
+
 static int secure_state_set(int argc, char **argv)
 {
 	int ret;
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_security_cfg_stat state = {};
 
-	const char *desc = "Set device secure state (BL1 and Main Firmware only)\n\n"
-			   "This command can only be used when device "
+	const char *desc = CMD_DESC_STATE_SET "\n\n"
+			   "This command can only be used when the device "
 			   "secure state is UNINITIALIZED_UNSECURED.\n\n"
 			   "NOTE - A device can be in one of these "
 			   "three secure states: \n"
 			   "UNINITIALIZED_UNSECURED: this is the default state "
-			   "when chip is shipped. All security-related settings "
-			   "are 'uninitialized', and the chip is in 'unsecured' "
+			   "when the chip is shipped. All security-related settings "
+			   "are 'uninitialized', and the chip is in the 'unsecured' "
 			   "state. \n"
 			   "INITIALIZED_UNSECURED: this is the state when "
 			   "security-related settings are 'initialized', and "
-			   "the chip is set to 'unsecured' state. \n"
+			   "the chip is set to the 'unsecured' state. \n"
 			   "INITIALIZED_SECURED: this is the state when "
 			   "security-related settings are 'initialized', and "
-			   "the chip is set to 'secured' state. \n\n"
+			   "the chip is set to the 'secured' state. \n\n"
 			   "Use 'config-set' or other mfg commands to "
-			   "initialize security settings when chip is in "
-			   "UNINITIALIZED_UNSECURED state, then use this "
-			   "command to switch chip to INITIALIZED_SECURED "
+			   "initialize security settings when the chip is in "
+			   "the UNINITIALIZED_UNSECURED state, then use this "
+			   "command to switch the chip to the INITIALIZED_SECURED "
 			   "or INITIALIZED_UNSECURED state. \n\n"
 			   "WARNING: ONCE THE CHIP STATE IS SUCCESSFULLY SET, "
 			   "IT CAN NO LONGER BE CHANGED. USE CAUTION WHEN ISSUING "
@@ -663,7 +676,7 @@ static int secure_state_set(int argc, char **argv)
 			required_argument, "secure state",
 			.choices=secure_state_choices},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
-		 "assume yes for prompted"},
+		 "assume yes when prompted"},
 		{NULL}
 	};
 
@@ -715,9 +728,10 @@ static int secure_state_set(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_CONFIG_SET "set device security settings (BL1 and Main Firmware only)"
+
 static int security_config_set(int argc, char **argv)
 {
-	const char *desc = "Set the device security settings (BL1 and Main Firmware only)";
 	int ret;
 	enum switchtec_boot_phase phase_id;
 	struct switchtec_security_cfg_stat state = {};
@@ -740,7 +754,7 @@ static int security_config_set(int argc, char **argv)
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_CONFIG_SET, opts, &cfg, sizeof(cfg));
 
 	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
 	if (ret) {
@@ -788,6 +802,8 @@ static int security_config_set(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_KMSK_ENTRY_ADD "add a KSMK entry (BL1 and Main Firmware only)"
+
 #if HAVE_LIBCRYPTO
 static int kmsk_entry_add(int argc, char **argv)
 {
@@ -797,9 +813,9 @@ static int kmsk_entry_add(int argc, char **argv)
 	struct switchtec_signature sig;
 	struct switchtec_security_cfg_stat state = {};
 
-	const char *desc = "Add a KSMK entry (BL1 and Main Firmware only)\n\n"
+	const char *desc = CMD_DESC_KMSK_ENTRY_ADD "\n\n"
 			   "KMSK stands for Key Manifest Secure Key. It is a "
-			   "key used to verify Key Manifest partition, which "
+			   "key used to verify the Key Manifest partition, which "
 			   "contains keys used to verify all other partitions.\n";
 	static struct {
 		struct switchtec_dev *dev;
@@ -865,8 +881,8 @@ static int kmsk_entry_add(int argc, char **argv)
 	if (switchtec_security_state_has_kmsk(&state, &kmsk)) {
 		if (!cfg.assume_yes)
 			fprintf(stderr,
-				"WARNING: the specified KMSK entry already exists on device.\n"
-				"Writing duplicate KMSK entry could make your device unbootable!\n");
+				"WARNING: the specified KMSK entry already exists on the device.\n"
+				"Writing duplicate KMSK entries could make your device unbootable!\n");
 		ret = ask_if_sure(cfg.assume_yes);
 		if (ret)
 			return ret;
@@ -928,15 +944,19 @@ static int kmsk_entry_add(int argc, char **argv)
 
 	return ret;
 }
+#endif
 
+#define CMD_DESC_DEBUG_UNLOCK "unlock firmware debug features"
+
+#if HAVE_LIBCRYPTO
 static int debug_unlock(int argc, char **argv)
 {
 	int ret;
 	struct switchtec_pubkey pubk;
 	struct switchtec_signature sig;
 
-	const char *desc = "Unlock firmware debug features\n\n"
-			   "This command unlocks EJTAG port, Command Line "
+	const char *desc = CMD_DESC_DEBUG_UNLOCK "\n\n"
+			   "This command unlocks the EJTAG port, Command Line "
 			   "Interface (CLI), MRPC command and Global Address "
 			   "Space (GAS) registers.";
 	static struct {
@@ -1022,14 +1042,17 @@ static int debug_unlock(int argc, char **argv)
 
 	return ret;
 }
+#endif
 
+#define CMD_DESC_DEBUG_LOCK_UPDATE "update debug feature secure unlock version"
+
+#if HAVE_LIBCRYPTO
 static int debug_lock_update(int argc, char **argv)
 {
 	int ret;
 	struct switchtec_pubkey pubk;
 	struct switchtec_signature sig;
 
-	const char *desc = "Update firmware debug feature unlock version";
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *pubkey_fimg;
@@ -1065,7 +1088,7 @@ static int debug_lock_update(int argc, char **argv)
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_DEBUG_LOCK_UPDATE, opts, &cfg, sizeof(cfg));
 
 	if (cfg.serial == 0) {
 		fprintf(stderr,
@@ -1121,13 +1144,15 @@ static int debug_lock_update(int argc, char **argv)
 
 	return ret;
 }
-#else
+#endif
+
+#if !HAVE_LIBCRYPTO
 static int no_openssl(int argc, char **argv)
 {
 	fprintf(stderr,
-		"This command is only available when OpenSSL development library is installed.\n"
-		"Try installing OpenSSL development library in your system and rebuild this\n"
-		"program by doing 'configure' and then 'make'.\n");
+		"This command is only available when the OpenSSL development library is installed.\n"
+		"Try installing the OpenSSL development library in your system and rebuild this\n"
+		"program by running 'configure' and then 'make'.\n");
 	return -1;
 }
 
@@ -1139,26 +1164,19 @@ static int no_openssl(int argc, char **argv)
 
 
 static const struct cmd commands[] = {
-	{"ping", ping, "Ping firmware and get current boot phase"},
-	{"info", info, "Display security settings"},
-	{"mailbox", mailbox, "Retrieve mailbox logs"},
-	{"image_list", image_list, "Display active image list (BL1 only)"},
-	{"image_select", image_select, "Select active image index (BL1 only)"},
-	{"fw_transfer", fw_transfer,
-		"Transfer a firmware image to device (BL1 only)"},
-	{"fw_execute", fw_execute,
-		"Execute the firmware image tranferred (BL1 only)"},
-	{"boot_resume", boot_resume,
-		"Resume device boot process (BL1 and BL2 only)"},
-	{"state_set", secure_state_set,
-		"Set device secure state (BL1 and Main Firmware only)"},
-	{"config_set", security_config_set,
-		"Set the device security settings (BL1 and Main Firmware only)"},
-	{"kmsk_entry_add", kmsk_entry_add,
-		"Add a KMSK entry (BL1 and Main Firmware only)"},
-	{"debug_unlock", debug_unlock, "Unlock firmware debug features"},
-	{"debug_lock_update", debug_lock_update,
-		"Update debug feature secure unlock version"},
+	{"ping", ping, CMD_DESC_PING},
+	{"info", info, CMD_DESC_INFO},
+	{"mailbox", mailbox, CMD_DESC_MAILBOX},
+	{"image_list", image_list, CMD_DESC_IMAGE_LIST},
+	{"image_select", image_select, CMD_DESC_IMAGE_SELECT},
+	{"fw_transfer", fw_transfer, CMD_DESC_FW_TRANSFER},
+	{"fw_execute", fw_execute, CMD_DESC_FW_EXECUTE},
+	{"boot_resume", boot_resume, CMD_DESC_BOOT_RESUME},
+	{"state_set", secure_state_set, CMD_DESC_STATE_SET},
+	{"config_set", security_config_set, CMD_DESC_CONFIG_SET},
+	{"kmsk_entry_add", kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD},
+	{"debug_unlock", debug_unlock, CMD_DESC_DEBUG_UNLOCK},
+	{"debug_lock_update", debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE},
 	{}
 };
 
