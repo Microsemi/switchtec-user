@@ -104,7 +104,7 @@ static int ping(int argc, char **argv)
 	return 0;
 }
 
-static void print_security_config(struct switchtec_security_cfg_stat *state)
+static void print_security_config(struct switchtec_security_cfg_state *state)
 {
 	int key_idx;
 	int i;
@@ -211,7 +211,7 @@ static int info(int argc, char **argv)
 		{NULL}
 	};
 
-	struct switchtec_security_cfg_stat state = {};
+	struct switchtec_security_cfg_state state = {};
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
@@ -636,7 +636,7 @@ static int secure_state_set(int argc, char **argv)
 {
 	int ret;
 	enum switchtec_boot_phase phase_id;
-	struct switchtec_security_cfg_stat state = {};
+	struct switchtec_security_cfg_state state = {};
 
 	const char *desc = CMD_DESC_STATE_SET "\n\n"
 			   "This command can only be used when the device "
@@ -734,7 +734,7 @@ static int security_config_set(int argc, char **argv)
 {
 	int ret;
 	enum switchtec_boot_phase phase_id;
-	struct switchtec_security_cfg_stat state = {};
+	struct switchtec_security_cfg_state state = {};
 	struct switchtec_security_cfg_set settings = {};
 
 	static struct {
@@ -811,7 +811,7 @@ static int kmsk_entry_add(int argc, char **argv)
 	struct switchtec_kmsk kmsk;
 	struct switchtec_pubkey pubk;
 	struct switchtec_signature sig;
-	struct switchtec_security_cfg_stat state = {};
+	struct switchtec_security_cfg_state state = {};
 
 	const char *desc = CMD_DESC_KMSK_ENTRY_ADD "\n\n"
 			   "KMSK stands for Key Manifest Secure Key. It is a "

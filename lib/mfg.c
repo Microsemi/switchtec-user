@@ -121,7 +121,7 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
  * @return 0 on success, error code on failure
  */
 int switchtec_security_config_get(struct switchtec_dev *dev,
-				  struct switchtec_security_cfg_stat *state)
+				  struct switchtec_security_cfg_state *state)
 {
 	int ret;
 	struct cfg_reply {
@@ -762,7 +762,7 @@ int switchtec_read_signature_file(FILE *sig_file,
  * @return 0 on success, error code on failure
  */
 int
-switchtec_security_state_has_kmsk(struct switchtec_security_cfg_stat *state,
+switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 				  struct switchtec_kmsk *kmsk)
 {
 	int key_idx;
