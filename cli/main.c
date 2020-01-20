@@ -1498,7 +1498,8 @@ static int fw_toggle(int argc, char **argv)
 							   cfg.key,
 							   cfg.firmware,
 							   cfg.config);
-		err = errno;
+		if (ret)
+			err = errno;
 	}
 
 	ret = print_fw_part_info(cfg.dev);
