@@ -876,6 +876,8 @@ static int log_dump(int argc, char **argv)
 		 "dump the system stack info from flash in the last fatal error handling dump"},
 		{"THRDS", SWITCHTEC_LOG_THRD,
 		 "dump all thread info from flash in the last fatal error handling dump"},
+		{"NVHDR", SWITCHTEC_LOG_NVHDR,
+		 "dump NVLog header information in the last fatal error handling dump"},
 		{}
 	};
 
