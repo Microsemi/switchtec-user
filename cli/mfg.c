@@ -710,9 +710,11 @@ static int secure_state_set(int argc, char **argv)
 		return -3;
 	}
 
+	print_security_config(&state);
+
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
-			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+			"\nWARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 
 		ret = ask_if_sure(cfg.assume_yes);
 		if (ret)
