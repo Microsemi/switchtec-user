@@ -662,7 +662,7 @@ static int fw_execute(int argc, char **argv)
 
 #define CMD_DESC_STATE_SET "set device secure state (BL1 and Main Firmware only)"
 
-static int secure_state_set(int argc, char **argv)
+static int state_set(int argc, char **argv)
 {
 	int ret;
 	enum switchtec_boot_phase phase_id;
@@ -762,7 +762,7 @@ static int secure_state_set(int argc, char **argv)
 
 #define CMD_DESC_CONFIG_SET "set device security settings (BL1 and Main Firmware only)"
 
-static int security_config_set(int argc, char **argv)
+static int config_set(int argc, char **argv)
 {
 	int ret;
 	enum switchtec_boot_phase phase_id;
@@ -1205,19 +1205,19 @@ static int no_openssl(int argc, char **argv)
 
 
 static const struct cmd commands[] = {
-	{"ping", ping, CMD_DESC_PING},
-	{"info", info, CMD_DESC_INFO},
-	{"mailbox", mailbox, CMD_DESC_MAILBOX},
-	{"image_list", image_list, CMD_DESC_IMAGE_LIST},
-	{"image_select", image_select, CMD_DESC_IMAGE_SELECT},
-	{"fw_transfer", fw_transfer, CMD_DESC_FW_TRANSFER},
-	{"fw_execute", fw_execute, CMD_DESC_FW_EXECUTE},
-	{"boot_resume", boot_resume, CMD_DESC_BOOT_RESUME},
-	{"state_set", secure_state_set, CMD_DESC_STATE_SET},
-	{"config_set", security_config_set, CMD_DESC_CONFIG_SET},
-	{"kmsk_entry_add", kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD},
-	{"debug_unlock", debug_unlock, CMD_DESC_DEBUG_UNLOCK},
-	{"debug_lock_update", debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE},
+	CMD(ping, CMD_DESC_PING),
+	CMD(info, CMD_DESC_INFO),
+	CMD(mailbox, CMD_DESC_MAILBOX),
+	CMD(image_list, CMD_DESC_IMAGE_LIST),
+	CMD(image_select, CMD_DESC_IMAGE_SELECT),
+	CMD(fw_transfer, CMD_DESC_FW_TRANSFER),
+	CMD(fw_execute, CMD_DESC_FW_EXECUTE),
+	CMD(boot_resume, CMD_DESC_BOOT_RESUME),
+	CMD(state_set, CMD_DESC_STATE_SET),
+	CMD(config_set, CMD_DESC_CONFIG_SET),
+	CMD(kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD),
+	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
+	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
 	{}
 };
 
