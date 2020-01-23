@@ -62,6 +62,11 @@ static const struct argconfig_choice secure_state_choices[] = {
 	{}
 };
 
+static char *spi_rate_str[] = {
+	"100", "67", "50", "40", "33.33", "28.57",
+	"25", "22.22", "20", "18.18"
+};
+
 static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 {
 	switch(phase_id) {
@@ -108,10 +113,6 @@ static void print_security_config(struct switchtec_security_cfg_state *state)
 {
 	int key_idx;
 	int i;
-	static char *spi_rate_str[] = {
-		"100", "67", "50", "40", "33.33", "28.57",
-		"25", "22.22", "20", "18.18"
-	};
 
 	printf("\nBasic Secure Settings %s\n",
 		state->basic_setting_valid? "(Valid)":"(Invalid)");
@@ -191,6 +192,35 @@ static void print_security_config(struct switchtec_security_cfg_state *state)
 				printf("%02x", state->public_key[key_idx][i]);
 		printf("\n");
 	}
+}
+
+static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
+{
+	printf("\nBasic Secure Settings\n");
+
+	printf("\tJTAG/EJTAG State After Reset: \t%d\n",
+		set->jtag_lock_after_reset);
+
+	printf("\tJTAG/EJTAG State After BL1: \t%d\n",
+		set->jtag_lock_after_bl1);
+
+	printf("\tJTAG/EJTAG Unlock IN BL1: \t%d\n",
+		set->jtag_bl1_unlock_allowed);
+
+	printf("\tJTAG/EJTAG Unlock AFTER BL1: \t%d\n",
+		set->jtag_post_bl1_unlock_allowed);
+
+	printf("\tSPI Clock Rate: \t\t%s MHz\n",
+		spi_rate_str[set->spi_clk_rate-1]);
+
+	printf("\tI2C Recovery TMO: \t\t%d Second(s)\n",
+		set->i2c_recovery_tmo);
+
+	printf("\tI2C Port: \t\t\t%d\n", set->i2c_port);
+	printf("\tI2C Address (7-bits): \t\t0x%02x\n", set->i2c_addr);
+	printf("\tI2C Command Map: \t\t0x%08x\n", set->i2c_cmd_map);
+
+	printf("Exponent Hex Data: \t\t\t0x%08x\n", set->public_key_exponent);
 }
 
 #define CMD_DESC_INFO "display security settings (BL1 and Main Firmware only)"
@@ -710,9 +740,11 @@ static int secure_state_set(int argc, char **argv)
 		return -3;
 	}
 
+	print_security_config(&state);
+
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
-			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+			"\nWARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 
 		ret = ask_if_sure(cfg.assume_yes);
 		if (ret)
@@ -786,9 +818,12 @@ static int security_config_set(int argc, char **argv)
 		return -3;
 	}
 
+	printf("Writing the below settings to device: \n");
+	print_security_cfg_set(&settings);
+
 	if (!cfg.assume_yes)
 		fprintf(stderr,
-			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+			"\nWARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret)
 		return -4;
@@ -807,6 +842,7 @@ static int security_config_set(int argc, char **argv)
 #if HAVE_LIBCRYPTO
 static int kmsk_entry_add(int argc, char **argv)
 {
+	int i;
 	int ret;
 	struct switchtec_kmsk kmsk;
 	struct switchtec_pubkey pubk;
@@ -924,9 +960,14 @@ static int kmsk_entry_add(int argc, char **argv)
 		}
 	}
 
+	printf("Adding the following KMSK entry to device:\n");
+	for(i = 0; i < SWITCHTEC_KMSK_LEN; i++)
+		printf("%02x", kmsk.kmsk[i]);
+	printf("\n");
+
 	if (!cfg.assume_yes)
 		fprintf(stderr,
-			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+			"\nWARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret)
 		return -7;
