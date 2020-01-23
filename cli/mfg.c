@@ -245,11 +245,7 @@ static int info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg info");
-		return ret;
-	}
+	phase_id = switchtec_boot_phase(cfg.dev);
 	printf("Current Boot Phase: \t\t\t%s\n", phase_id_to_string(phase_id));
 
 	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
@@ -329,7 +325,6 @@ static void print_image_list(struct switchtec_active_index *idx)
 static int image_list(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
 	struct switchtec_active_index index;
 
 	static struct {
@@ -343,12 +338,7 @@ static int image_list(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_IMAGE_LIST, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("image list");
-		return ret;
-	}
-	if (phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr, "This command is only available in BL1!\n");
 		return -1;
 	}
@@ -369,7 +359,6 @@ static int image_list(int argc, char **argv)
 static int image_select(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
 	struct switchtec_active_index index;
 
 	static struct {
@@ -409,12 +398,7 @@ static int image_select(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("image select");
-		return ret;
-	}
-	if (phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
 			"This command is only available in BL1!\n");
 		return -2;
@@ -473,7 +457,6 @@ static int boot_resume(int argc, char **argv)
 			   "after a normal boot process. In this case, be sure "
 			   "to reboot your system after sending this command.";
 	int ret;
-	enum switchtec_boot_phase phase_id;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -488,12 +471,7 @@ static int boot_resume(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg boot-resume");
-		return ret;
-	}
-	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_FW) {
 		fprintf(stderr,
 			"This command is only available in BL1 or BL2!\n");
 		return -1;
@@ -665,7 +643,6 @@ static int fw_execute(int argc, char **argv)
 static int state_set(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
 	struct switchtec_security_cfg_state state = {};
 
 	const char *desc = CMD_DESC_STATE_SET "\n\n"
@@ -718,12 +695,7 @@ static int state_set(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg state-set");
-		return ret;
-	}
-	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
 			"This command is only available in BL1 or Main Firmware!\n");
 		return -2;
@@ -765,7 +737,6 @@ static int state_set(int argc, char **argv)
 static int config_set(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
 	struct switchtec_security_cfg_state state = {};
 	struct switchtec_security_cfg_set settings = {};
 
@@ -788,12 +759,7 @@ static int config_set(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_CONFIG_SET, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg config-set");
-		return ret;
-	}
-	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
 			"This command is only available in BL1 or Main Firmware!\n");
 		return -1;
