@@ -18,6 +18,7 @@ Currently the following features are supported:
 * Send a hard reset command to the switch
 * Update and readback firmware as well as display image version and CRC info
 * A simple ncurses GUI that shows salient information for the switch
+* Display and configure manufacturing settings
 
 Detailed documentation for the project can be found on the [Github
 Pages] site.
@@ -29,7 +30,8 @@ Pages] site.
 
 This program has an optional build dependencies on the following libraries:
 
-* libncurses5-dev (without it 'switchtec gui' will not work)
+* libncurses5-dev (without it, 'switchtec gui' will not work)
+* libssl-dev (without it, some of the commands in 'switchtec mfg' will not work)
 
 ## Installation
 
