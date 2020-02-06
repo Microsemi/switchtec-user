@@ -108,6 +108,8 @@ struct switchtec_ops {
 			    uint16_t __gas *addr);
 	void (*gas_write32)(struct switchtec_dev *dev, uint32_t val,
 			    uint32_t __gas *addr);
+	void (*gas_write32_no_retry)(struct switchtec_dev *dev, uint32_t val,
+				     uint32_t __gas *addr);
 	void (*gas_write64)(struct switchtec_dev *dev, uint64_t val,
 			    uint64_t __gas *addr);
 
@@ -190,6 +192,13 @@ static inline void __gas_write32(struct switchtec_dev *dev, uint32_t val,
 				 uint32_t __gas *addr)
 {
 	dev->ops->gas_write32(dev, val, addr);
+}
+
+static inline void __gas_write32_no_retry(struct switchtec_dev *dev,
+					  uint32_t val,
+					  uint32_t __gas *addr)
+{
+	dev->ops->gas_write32_no_retry(dev, val, addr);
 }
 
 static inline void __gas_write64(struct switchtec_dev *dev, uint64_t val,

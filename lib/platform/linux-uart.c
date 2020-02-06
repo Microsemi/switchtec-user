@@ -451,6 +451,7 @@ static const struct switchtec_ops uart_ops = {
 	.gas_write8 = uart_gas_write8,
 	.gas_write16 = uart_gas_write16,
 	.gas_write32 = uart_gas_write32,
+	.gas_write32_no_retry = uart_gas_write32,
 	.gas_write64 = uart_gas_write64,
 
 	.memcpy_to_gas = uart_memcpy_to_gas,
