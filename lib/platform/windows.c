@@ -443,6 +443,7 @@ static const struct switchtec_ops windows_ops = {
 	.gas_write8 = mmap_gas_write8,
 	.gas_write16 = mmap_gas_write16,
 	.gas_write32 = mmap_gas_write32,
+	.gas_write32_no_retry = mmap_gas_write32,
 	.gas_write64 = mmap_gas_write64,
 	.memcpy_to_gas = mmap_memcpy_to_gas,
 	.memcpy_from_gas = mmap_memcpy_from_gas,

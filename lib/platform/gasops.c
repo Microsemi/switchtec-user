@@ -47,6 +47,25 @@
 #define gas_reg_write64(dev, val, reg) __gas_write64(dev, val, \
 						     &dev->gas_map->reg)
 
+static const char gasop_noretry_cmds[] = {
+	[MRPC_SECURITY_CONFIG_SET] = 1,
+	[MRPC_KMSK_ENTRY_SET] = 1,
+	[MRPC_SECURE_STATE_SET] = 1,
+	[MRPC_BOOTUP_RESUME] = 1,
+	[MRPC_DBG_UNLOCK] = 1,
+};
+static const int gasop_noretry_cmds_count = sizeof(gasop_noretry_cmds) /
+					    sizeof(char);
+
+static inline bool gasop_is_no_retry_cmd(uint32_t cmd)
+{
+	cmd &= SWITCHTEC_CMD_MASK;
+
+	if (cmd >= gasop_noretry_cmds_count)
+		return 0;
+	return gasop_noretry_cmds[cmd];
+}
+
 int gasop_access_check(struct switchtec_dev *dev)
 {
 	uint32_t device_id;
@@ -72,7 +91,24 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	int ret;
 
 	__memcpy_to_gas(dev, &mrpc->input_data, payload, payload_len);
-	__gas_write32(dev, cmd, &mrpc->cmd);
+
+       /* Due to the possible unreliable nature of hardware
+        * communication, function __gas_write32() is implemented
+        * with automatic retry.
+        *
+        * This poses a potential issue when a command is critical
+        * and is expected to be sent only once (e.g., command that
+        * adds a KMSK entry to chip OTP memory). Retrying could
+        * cause the command be sent multiple times (and multiple
+        * KMSK entry being added, if unlucky).
+        *
+        * Here we filter out the specific commands and use 'no retry'
+        * version of gas_write32 for these commands.
+        */
+	if (gasop_is_no_retry_cmd(cmd))
+		__gas_write32_no_retry(dev, cmd, &mrpc->cmd);
+	else
+		__gas_write32(dev, cmd, &mrpc->cmd);
 
 	while (1) {
 		usleep(5000);
