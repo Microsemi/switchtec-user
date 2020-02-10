@@ -64,7 +64,13 @@ enum switchtec_fw_image_part_id_gen4 {
 	SWITCHTEC_FW_PART_ID_G4_SEEPROM = 0xFE,
 };
 
+enum switchtec_ops_flags {
+	SWITCHTEC_OPS_FLAG_NO_MFG = (1 << 0),
+};
+
 struct switchtec_ops {
+	int flags;
+
 	void (*close)(struct switchtec_dev *dev);
 	int (*get_device_id)(struct switchtec_dev *dev);
 	int (*get_fw_version)(struct switchtec_dev *dev, char *buf,
