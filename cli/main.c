@@ -1443,8 +1443,8 @@ static int fw_update(int argc, char **argv)
 	printf("\n");
 
 	if (type == SWITCHTEC_FW_TYPE_MAP) {
-		printf("\nNOTE: Device partition map has been updated. Be sure to update\n"
-		       "all other partitions as well to ensure your device can boot properly.\n");
+		printf("\nNOTE: Device partition map has been updated! All other partitions\n"
+		       "(BL2, Config and Main Image) MUST BE UPDATED to ensure your device can boot properly!\n");
 	}
 
 	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2 &&
