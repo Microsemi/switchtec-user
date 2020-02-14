@@ -431,6 +431,8 @@ static ssize_t uart_write_from_gas(struct switchtec_dev *dev, int fd,
 }
 
 static const struct switchtec_ops uart_ops = {
+	.flags = SWITCHTEC_OPS_FLAG_NO_MFG,
+
 	.close = uart_close,
 	.gas_map = uart_gas_map,
 

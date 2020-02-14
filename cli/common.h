@@ -50,7 +50,9 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 	"MAIN FIRMWARE (MAIN): this is the full-featured firmware that runs " \
 	"on your device during normal operation.\n\n"
 
-#define DEVICE_OPTION_NO_PAX \
+#define UART_HELP_TEXT " * a UART path (/dev/ttyUSB0)\n"
+
+#define DEVICE_OPTION_BASIC(extra_text) \
 	{ \
 			"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
 			.argument_type=required_positional, \
@@ -62,10 +64,12 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 			" * an index (0, 1, 2)\n" \
 			" * a PCI address (3:00.1)\n" \
 			" * an I2C path with slave address (/dev/i2c-1@0x20)\n" \
-			" * a UART path (/dev/ttyUSB0)\n" \
+			extra_text \
 	}
 
-#define DEVICE_OPTION DEVICE_OPTION_NO_PAX, \
+#define DEVICE_OPTION_MFG DEVICE_OPTION_BASIC()
+
+#define DEVICE_OPTION DEVICE_OPTION_BASIC(UART_HELP_TEXT), \
 	{ \
 			"pax", 'x', .cfg_type=CFG_CUSTOM, \
 			.value_addr=&cfg.dev, \

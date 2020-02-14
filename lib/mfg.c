@@ -89,6 +89,19 @@ static void RSA_get0_key(const RSA *r, const BIGNUM **n,
 }
 #endif
 
+static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
+			     const void *payload, size_t payload_len,
+			     void *resp, size_t resp_len)
+{
+	if (dev->ops->flags & SWITCHTEC_OPS_FLAG_NO_MFG) {
+		errno = ERR_UART_NOT_SUPPORTED | SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
+		return -1;
+	}
+
+	return switchtec_cmd(dev, cmd, payload, payload_len,
+			     resp, resp_len);
+}
+
 /**
  * @brief Get serial number and security version
  * @param[in]  dev	Switchtec device handle
@@ -100,8 +113,8 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 {
 	int ret;
 
-	ret = switchtec_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
-			    sizeof(struct switchtec_sn_ver_info));
+	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
+				sizeof(struct switchtec_sn_ver_info));
 	if (ret)
 		return ret;
 
@@ -137,8 +150,8 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 		uint8_t  rsvd4[32];
 	} reply;
 
-	ret = switchtec_cmd(dev, MRPC_SECURITY_CONFIG_GET, NULL, 0,
-			    &reply, sizeof(reply));
+	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET, NULL, 0,
+				&reply, sizeof(reply));
 	if (ret)
 		return ret;
 
@@ -200,8 +213,8 @@ int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd)
 	} reply;
 
 	do {
-		ret = switchtec_cmd(dev, MRPC_MAILBOX_GET, &num_to_read,
-				    sizeof(int), &reply,  sizeof(reply));
+		ret = switchtec_mfg_cmd(dev, MRPC_MAILBOX_GET, &num_to_read,
+					sizeof(int), &reply,  sizeof(reply));
 		if (ret)
 			return ret;
 
@@ -263,8 +276,8 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 
 	sd.pub_key_exponent = htole32(setting->public_key_exponent);
 
-	ret = switchtec_cmd(dev, MRPC_SECURITY_CONFIG_SET, &sd, sizeof(sd),
-			    NULL, 0);
+	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET, &sd, sizeof(sd),
+				NULL, 0);
 	return ret;
 }
 
@@ -282,8 +295,8 @@ int switchtec_active_image_index_get(struct switchtec_dev *dev,
 		uint8_t index[SWITCHTEC_ACTV_IDX_MAX_ENTRIES];
 	} reply;
 
-	ret = switchtec_cmd(dev, MRPC_ACT_IMG_IDX_GET, NULL,
-			    0, &reply, sizeof(reply));
+	ret = switchtec_mfg_cmd(dev, MRPC_ACT_IMG_IDX_GET, NULL,
+				0, &reply, sizeof(reply));
 	if (ret)
 		return ret;
 
@@ -345,8 +358,8 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 
 	set.count = htole32(i);
 
-	ret = switchtec_cmd(dev, MRPC_ACT_IMG_IDX_SET, &set,
-			    sizeof(set), NULL, 0);
+	ret = switchtec_mfg_cmd(dev, MRPC_ACT_IMG_IDX_SET, &set,
+				sizeof(set), NULL, 0);
 	return ret;
 }
 
@@ -369,7 +382,7 @@ int switchtec_fw_exec(struct switchtec_dev *dev,
 	cmd.subcmd = MRPC_FW_TX_EXEC;
 	cmd.recovery_mode = recovery_mode;
 
-	return switchtec_cmd(dev, MRPC_FW_TX, &cmd, sizeof(cmd), NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_FW_TX, &cmd, sizeof(cmd), NULL, 0);
 }
 
 /**
@@ -386,8 +399,8 @@ int switchtec_fw_exec(struct switchtec_dev *dev,
  */
 int switchtec_boot_resume(struct switchtec_dev *dev)
 {
-	return switchtec_cmd(dev, MRPC_BOOTUP_RESUME, NULL, 0,
-			     NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_BOOTUP_RESUME, NULL, 0,
+				 NULL, 0);
 }
 
 /**
@@ -407,8 +420,8 @@ int switchtec_secure_state_set(struct switchtec_dev *dev,
 	}
 	data = htole32(state);
 
-	return switchtec_cmd(dev, MRPC_SECURE_STATE_SET, &data, sizeof(data),
-			     NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_SECURE_STATE_SET, &data,
+				 sizeof(data), NULL, 0);
 }
 
 static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
@@ -425,8 +438,8 @@ static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
 	memcpy(cmd.pub_key, public_key->pubkey, SWITCHTEC_PUB_KEY_LEN);
 	cmd.pub_key_exp = htole32(public_key->pubkey_exp);
 
-	return switchtec_cmd(dev, MRPC_DBG_UNLOCK, &cmd,
-			     sizeof(cmd), NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_DBG_UNLOCK, &cmd,
+				 sizeof(cmd), NULL, 0);
 }
 
 /**
@@ -461,8 +474,8 @@ int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 	cmd.unlock_ver = htole32(ver_sec_unlock);
 	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
 
-	return switchtec_cmd(dev, MRPC_DBG_UNLOCK, &cmd,
-			     sizeof(cmd), NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_DBG_UNLOCK, &cmd,
+				 sizeof(cmd), NULL, 0);
 }
 
 /**
@@ -498,8 +511,8 @@ int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 	cmd.unlock_ver = htole32(ver_sec_unlock);
 	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
 
-	return switchtec_cmd(dev, MRPC_DBG_UNLOCK, &cmd, sizeof(cmd),
-			     NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_DBG_UNLOCK, &cmd, sizeof(cmd),
+				 NULL, 0);
 }
 
 /**
@@ -592,8 +605,8 @@ static int kmsk_set_send_pubkey(struct switchtec_dev *dev,
 	       SWITCHTEC_PUB_KEY_LEN);
 	cmd.pub_key_exponent = htole32(public_key->pubkey_exp);
 
-	return switchtec_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd,
-			     sizeof(cmd), NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd,
+				 sizeof(cmd), NULL, 0);
 }
 
 static int kmsk_set_send_signature(struct switchtec_dev *dev,
@@ -609,8 +622,8 @@ static int kmsk_set_send_signature(struct switchtec_dev *dev,
 	memcpy(cmd.signature, signature->signature,
 	       SWITCHTEC_SIG_LEN);
 
-	return switchtec_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd,
-		    	     sizeof(cmd), NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd,
+				 sizeof(cmd), NULL, 0);
 }
 
 static int kmsk_set_send_kmsk(struct switchtec_dev *dev,
@@ -627,8 +640,8 @@ static int kmsk_set_send_kmsk(struct switchtec_dev *dev,
 	cmd.num_entries = 1;
 	memcpy(cmd.kmsk, kmsk->kmsk, SWITCHTEC_KMSK_LEN);
 
-	return switchtec_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd, sizeof(cmd),
-			     NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd, sizeof(cmd),
+				 NULL, 0);
 }
 
 /**

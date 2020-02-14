@@ -536,6 +536,8 @@ const char *switchtec_strerror(void)
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
 	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
+	case ERR_UART_NOT_SUPPORTED:
+		msg = "UART interface not supported for this command"; break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
 
 	default: break;

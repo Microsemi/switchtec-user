@@ -91,7 +91,7 @@ static int ping(int argc, char **argv)
 		struct switchtec_dev *dev;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{NULL}
 	};
 
@@ -237,7 +237,7 @@ static int info(int argc, char **argv)
 	} cfg = {};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{NULL}
 	};
 
@@ -287,7 +287,7 @@ static int mailbox(int argc, char **argv)
 		const char *out_filename;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="switchtec_mailbox.log",
@@ -332,7 +332,7 @@ static int image_list(int argc, char **argv)
 	} cfg = {};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{NULL}
 	};
 
@@ -375,7 +375,7 @@ static int image_select(int argc, char **argv)
 	};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"bl2", 'b', "", CFG_BYTE, &cfg.bl2,
 			required_argument, "active image index for BL2"},
 		{"firmware", 'm', "", CFG_BYTE, &cfg.firmware,
@@ -463,7 +463,7 @@ static int boot_resume(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{NULL}
@@ -521,7 +521,7 @@ static int fw_transfer(int argc, char **argv)
 		int force;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
 			.argument_type=required_positional,
 			.help="firmware image file to transfer"},
@@ -604,7 +604,7 @@ static int fw_execute(int argc, char **argv)
 		.bl2_rec_mode = SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{"bl2_recovery_mode", 'm', "MODE",
@@ -677,7 +677,7 @@ static int state_set(int argc, char **argv)
 		.state = SWITCHTEC_SECURE_STATE_UNKNOWN,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"state", 't', "state",
 			CFG_CHOICES, &cfg.state,
 			required_argument, "secure state",
@@ -747,7 +747,7 @@ static int config_set(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"setting_file", .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.setting_fimg,
 			.argument_type=required_positional,
@@ -830,7 +830,7 @@ static int kmsk_entry_add(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"pub_key_file", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubk_fimg,
 			.argument_type=required_argument,
@@ -978,7 +978,7 @@ static int debug_unlock(int argc, char **argv)
 		.unlock_version = 0xffff,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubkey_fimg,
 			.argument_type=required_argument,
@@ -1073,7 +1073,7 @@ static int debug_lock_update(int argc, char **argv)
 		.unlock_version = 0xffff,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubkey_fimg,
 			.argument_type=required_argument,
