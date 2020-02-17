@@ -564,7 +564,7 @@ static int latency(int argc, char **argv)
 	}
 
 	ret = switchtec_lat_setup(cfg.dev, cfg.egress, cfg.ingress, 1);
-	if (ret < 0) {
+	if (ret != 1) {
 		switchtec_perror("latency");
 		return -1;
 	}
@@ -572,7 +572,7 @@ static int latency(int argc, char **argv)
 	sleep(cfg.meas_time);
 
 	ret = switchtec_lat_get(cfg.dev, 0, cfg.egress, &cur_ns, &max_ns);
-	if (ret < 0) {
+	if (ret != 1) {
 		switchtec_perror("latency");
 		return -1;
 	}
@@ -876,6 +876,8 @@ static int log_dump(int argc, char **argv)
 		 "dump the system stack info from flash in the last fatal error handling dump"},
 		{"THRDS", SWITCHTEC_LOG_THRD,
 		 "dump all thread info from flash in the last fatal error handling dump"},
+		{"NVHDR", SWITCHTEC_LOG_NVHDR,
+		 "dump NVLog header information in the last fatal error handling dump"},
 		{}
 	};
 
@@ -1441,8 +1443,8 @@ static int fw_update(int argc, char **argv)
 	printf("\n");
 
 	if (type == SWITCHTEC_FW_TYPE_MAP) {
-		printf("\nNOTE: Device partition map has been updated. Be sure to update\n"
-		       "all other partitions as well to ensure your device can boot properly.\n");
+		printf("\nNOTE: Device partition map has been updated! All other partitions\n"
+		       "(BL2, Config and Main Image) MUST BE UPDATED to ensure your device can boot properly!\n");
 	}
 
 	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2 &&
@@ -1498,7 +1500,8 @@ static int fw_toggle(int argc, char **argv)
 							   cfg.key,
 							   cfg.firmware,
 							   cfg.config);
-		err = errno;
+		if (ret)
+			err = errno;
 	}
 
 	ret = print_fw_part_info(cfg.dev);

@@ -391,6 +391,22 @@ static void i2c_gas_write(struct switchtec_dev *dev, void __gas *dest,
 		raise(SIGBUS);
 }
 
+static void i2c_gas_write_no_retry(struct switchtec_dev *dev, void __gas *dest,
+				   const void *src, size_t n)
+{
+	struct switchtec_i2c *idev = to_switchtec_i2c(dev);
+	uint8_t tag;
+	uint8_t status;
+
+	tag = get_tag(idev);
+	i2c_gas_data_write(dev, dest, src, n, tag);
+	status = i2c_gas_write_status_get(dev, tag);
+	if (status == 0 || status == GAS_TWI_MRPC_ERR)
+		return;
+
+	raise(SIGBUS);
+}
+
 static void i2c_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 			      const void *src, size_t n)
 {
@@ -573,6 +589,12 @@ static void i2c_gas_write32(struct switchtec_dev *dev, uint32_t val,
 	i2c_gas_write(dev, addr, &val, sizeof(uint32_t));
 }
 
+static void i2c_gas_write32_no_retry(struct switchtec_dev *dev, uint32_t val,
+				     uint32_t __gas *addr)
+{
+	i2c_gas_write_no_retry(dev, addr, &val, sizeof(uint32_t));
+}
+
 static void i2c_gas_write64(struct switchtec_dev *dev, uint64_t val,
 			    uint64_t __gas *addr)
 {
@@ -600,6 +622,7 @@ static const struct switchtec_ops i2c_ops = {
 	.gas_write8 = i2c_gas_write8,
 	.gas_write16 = i2c_gas_write16,
 	.gas_write32 = i2c_gas_write32,
+	.gas_write32_no_retry = i2c_gas_write32_no_retry,
 	.gas_write64 = i2c_gas_write64,
 	.memcpy_to_gas = i2c_memcpy_to_gas,
 	.memcpy_from_gas = i2c_memcpy_from_gas,

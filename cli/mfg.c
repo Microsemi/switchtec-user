@@ -62,6 +62,11 @@ static const struct argconfig_choice secure_state_choices[] = {
 	{}
 };
 
+static char *spi_rate_str[] = {
+	"100", "67", "50", "40", "33.33", "28.57",
+	"25", "22.22", "20", "18.18"
+};
+
 static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 {
 	switch(phase_id) {
@@ -86,7 +91,7 @@ static int ping(int argc, char **argv)
 		struct switchtec_dev *dev;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{NULL}
 	};
 
@@ -104,14 +109,10 @@ static int ping(int argc, char **argv)
 	return 0;
 }
 
-static void print_security_config(struct switchtec_security_cfg_stat *state)
+static void print_security_config(struct switchtec_security_cfg_state *state)
 {
 	int key_idx;
 	int i;
-	static char *spi_rate_str[] = {
-		"100", "67", "50", "40", "33.33", "28.57",
-		"25", "22.22", "20", "18.18"
-	};
 
 	printf("\nBasic Secure Settings %s\n",
 		state->basic_setting_valid? "(Valid)":"(Invalid)");
@@ -193,6 +194,35 @@ static void print_security_config(struct switchtec_security_cfg_stat *state)
 	}
 }
 
+static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
+{
+	printf("\nBasic Secure Settings\n");
+
+	printf("\tJTAG/EJTAG State After Reset: \t%d\n",
+		set->jtag_lock_after_reset);
+
+	printf("\tJTAG/EJTAG State After BL1: \t%d\n",
+		set->jtag_lock_after_bl1);
+
+	printf("\tJTAG/EJTAG Unlock IN BL1: \t%d\n",
+		set->jtag_bl1_unlock_allowed);
+
+	printf("\tJTAG/EJTAG Unlock AFTER BL1: \t%d\n",
+		set->jtag_post_bl1_unlock_allowed);
+
+	printf("\tSPI Clock Rate: \t\t%s MHz\n",
+		spi_rate_str[set->spi_clk_rate-1]);
+
+	printf("\tI2C Recovery TMO: \t\t%d Second(s)\n",
+		set->i2c_recovery_tmo);
+
+	printf("\tI2C Port: \t\t\t%d\n", set->i2c_port);
+	printf("\tI2C Address (7-bits): \t\t0x%02x\n", set->i2c_addr);
+	printf("\tI2C Command Map: \t\t0x%08x\n", set->i2c_cmd_map);
+
+	printf("Exponent Hex Data: \t\t\t0x%08x\n", set->public_key_exponent);
+}
+
 #define CMD_DESC_INFO "display security settings (BL1 and Main Firmware only)"
 
 static int info(int argc, char **argv)
@@ -207,19 +237,15 @@ static int info(int argc, char **argv)
 	} cfg = {};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{NULL}
 	};
 
-	struct switchtec_security_cfg_stat state = {};
+	struct switchtec_security_cfg_state state = {};
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg info");
-		return ret;
-	}
+	phase_id = switchtec_boot_phase(cfg.dev);
 	printf("Current Boot Phase: \t\t\t%s\n", phase_id_to_string(phase_id));
 
 	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
@@ -261,7 +287,7 @@ static int mailbox(int argc, char **argv)
 		const char *out_filename;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="switchtec_mailbox.log",
@@ -299,7 +325,6 @@ static void print_image_list(struct switchtec_active_index *idx)
 static int image_list(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
 	struct switchtec_active_index index;
 
 	static struct {
@@ -307,18 +332,13 @@ static int image_list(int argc, char **argv)
 	} cfg = {};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{NULL}
 	};
 
 	argconfig_parse(argc, argv, CMD_DESC_IMAGE_LIST, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("image list");
-		return ret;
-	}
-	if (phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr, "This command is only available in BL1!\n");
 		return -1;
 	}
@@ -339,7 +359,6 @@ static int image_list(int argc, char **argv)
 static int image_select(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
 	struct switchtec_active_index index;
 
 	static struct {
@@ -356,7 +375,7 @@ static int image_select(int argc, char **argv)
 	};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"bl2", 'b', "", CFG_BYTE, &cfg.bl2,
 			required_argument, "active image index for BL2"},
 		{"firmware", 'm', "", CFG_BYTE, &cfg.firmware,
@@ -379,12 +398,7 @@ static int image_select(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("image select");
-		return ret;
-	}
-	if (phase_id != SWITCHTEC_BOOT_PHASE_BL1) {
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
 			"This command is only available in BL1!\n");
 		return -2;
@@ -443,14 +457,13 @@ static int boot_resume(int argc, char **argv)
 			   "after a normal boot process. In this case, be sure "
 			   "to reboot your system after sending this command.";
 	int ret;
-	enum switchtec_boot_phase phase_id;
 
 	static struct {
 		struct switchtec_dev *dev;
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{NULL}
@@ -458,12 +471,7 @@ static int boot_resume(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg boot-resume");
-		return ret;
-	}
-	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_FW) {
 		fprintf(stderr,
 			"This command is only available in BL1 or BL2!\n");
 		return -1;
@@ -513,7 +521,7 @@ static int fw_transfer(int argc, char **argv)
 		int force;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
 			.argument_type=required_positional,
 			.help="firmware image file to transfer"},
@@ -596,7 +604,7 @@ static int fw_execute(int argc, char **argv)
 		.bl2_rec_mode = SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{"bl2_recovery_mode", 'm', "MODE",
@@ -632,11 +640,10 @@ static int fw_execute(int argc, char **argv)
 
 #define CMD_DESC_STATE_SET "set device secure state (BL1 and Main Firmware only)"
 
-static int secure_state_set(int argc, char **argv)
+static int state_set(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
-	struct switchtec_security_cfg_stat state = {};
+	struct switchtec_security_cfg_state state = {};
 
 	const char *desc = CMD_DESC_STATE_SET "\n\n"
 			   "This command can only be used when the device "
@@ -670,7 +677,7 @@ static int secure_state_set(int argc, char **argv)
 		.state = SWITCHTEC_SECURE_STATE_UNKNOWN,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"state", 't', "state",
 			CFG_CHOICES, &cfg.state,
 			required_argument, "secure state",
@@ -688,12 +695,7 @@ static int secure_state_set(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg state-set");
-		return ret;
-	}
-	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
 			"This command is only available in BL1 or Main Firmware!\n");
 		return -2;
@@ -710,9 +712,11 @@ static int secure_state_set(int argc, char **argv)
 		return -3;
 	}
 
+	print_security_config(&state);
+
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
-			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+			"\nWARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 
 		ret = ask_if_sure(cfg.assume_yes);
 		if (ret)
@@ -730,11 +734,10 @@ static int secure_state_set(int argc, char **argv)
 
 #define CMD_DESC_CONFIG_SET "set device security settings (BL1 and Main Firmware only)"
 
-static int security_config_set(int argc, char **argv)
+static int config_set(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
-	struct switchtec_security_cfg_stat state = {};
+	struct switchtec_security_cfg_state state = {};
 	struct switchtec_security_cfg_set settings = {};
 
 	static struct {
@@ -744,7 +747,7 @@ static int security_config_set(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"setting_file", .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.setting_fimg,
 			.argument_type=required_positional,
@@ -756,12 +759,7 @@ static int security_config_set(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_CONFIG_SET, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("mfg config-set");
-		return ret;
-	}
-	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
 			"This command is only available in BL1 or Main Firmware!\n");
 		return -1;
@@ -786,9 +784,12 @@ static int security_config_set(int argc, char **argv)
 		return -3;
 	}
 
+	printf("Writing the below settings to device: \n");
+	print_security_cfg_set(&settings);
+
 	if (!cfg.assume_yes)
 		fprintf(stderr,
-			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+			"\nWARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret)
 		return -4;
@@ -807,11 +808,12 @@ static int security_config_set(int argc, char **argv)
 #if HAVE_LIBCRYPTO
 static int kmsk_entry_add(int argc, char **argv)
 {
+	int i;
 	int ret;
 	struct switchtec_kmsk kmsk;
 	struct switchtec_pubkey pubk;
 	struct switchtec_signature sig;
-	struct switchtec_security_cfg_stat state = {};
+	struct switchtec_security_cfg_state state = {};
 
 	const char *desc = CMD_DESC_KMSK_ENTRY_ADD "\n\n"
 			   "KMSK stands for Key Manifest Secure Key. It is a "
@@ -828,7 +830,7 @@ static int kmsk_entry_add(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"pub_key_file", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubk_fimg,
 			.argument_type=required_argument,
@@ -924,9 +926,14 @@ static int kmsk_entry_add(int argc, char **argv)
 		}
 	}
 
+	printf("Adding the following KMSK entry to device:\n");
+	for(i = 0; i < SWITCHTEC_KMSK_LEN; i++)
+		printf("%02x", kmsk.kmsk[i]);
+	printf("\n");
+
 	if (!cfg.assume_yes)
 		fprintf(stderr,
-			"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
+			"\nWARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret)
 		return -7;
@@ -971,7 +978,7 @@ static int debug_unlock(int argc, char **argv)
 		.unlock_version = 0xffff,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubkey_fimg,
 			.argument_type=required_argument,
@@ -1066,7 +1073,7 @@ static int debug_lock_update(int argc, char **argv)
 		.unlock_version = 0xffff,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_NO_PAX,
+		DEVICE_OPTION_MFG,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubkey_fimg,
 			.argument_type=required_argument,
@@ -1164,19 +1171,19 @@ static int no_openssl(int argc, char **argv)
 
 
 static const struct cmd commands[] = {
-	{"ping", ping, CMD_DESC_PING},
-	{"info", info, CMD_DESC_INFO},
-	{"mailbox", mailbox, CMD_DESC_MAILBOX},
-	{"image_list", image_list, CMD_DESC_IMAGE_LIST},
-	{"image_select", image_select, CMD_DESC_IMAGE_SELECT},
-	{"fw_transfer", fw_transfer, CMD_DESC_FW_TRANSFER},
-	{"fw_execute", fw_execute, CMD_DESC_FW_EXECUTE},
-	{"boot_resume", boot_resume, CMD_DESC_BOOT_RESUME},
-	{"state_set", secure_state_set, CMD_DESC_STATE_SET},
-	{"config_set", security_config_set, CMD_DESC_CONFIG_SET},
-	{"kmsk_entry_add", kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD},
-	{"debug_unlock", debug_unlock, CMD_DESC_DEBUG_UNLOCK},
-	{"debug_lock_update", debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE},
+	CMD(ping, CMD_DESC_PING),
+	CMD(info, CMD_DESC_INFO),
+	CMD(mailbox, CMD_DESC_MAILBOX),
+	CMD(image_list, CMD_DESC_IMAGE_LIST),
+	CMD(image_select, CMD_DESC_IMAGE_SELECT),
+	CMD(fw_transfer, CMD_DESC_FW_TRANSFER),
+	CMD(fw_execute, CMD_DESC_FW_EXECUTE),
+	CMD(boot_resume, CMD_DESC_BOOT_RESUME),
+	CMD(state_set, CMD_DESC_STATE_SET),
+	CMD(config_set, CMD_DESC_CONFIG_SET),
+	CMD(kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD),
+	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
+	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
 	{}
 };
 

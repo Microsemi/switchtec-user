@@ -536,6 +536,8 @@ const char *switchtec_strerror(void)
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
 	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
+	case ERR_UART_NOT_SUPPORTED:
+		msg = "UART interface not supported for this command"; break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
 
 	default: break;
@@ -700,6 +702,38 @@ static int log_b_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 	return read;
 }
 
+static int log_c_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
+{
+	int ret;
+	struct log_cmd {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+	} cmd = {};
+
+	struct log_reply {
+		uint8_t reason;
+		uint8_t rsvd[3];
+		uint32_t nvlog_version;
+		uint32_t thread_handle;
+		uint32_t fw_version;
+		uint32_t timestamp1;
+		uint32_t timestamp2;
+	} reply;
+
+	cmd.subcmd = sub_cmd_id;
+
+	ret = switchtec_cmd(dev, MRPC_FWLOGRD, &cmd, sizeof(cmd),
+			    &reply, sizeof(reply));
+	if (ret)
+		return -1;
+
+	ret = write(fd, &reply, sizeof(reply));
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 /**
  * @brief Dump the Switchtec log data to a file
  * @param[in]  dev    Switchtec device handle
@@ -726,6 +760,8 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 		return log_b_to_file(dev, MRPC_FWLOGRD_SYS_STACK, fd);
 	case SWITCHTEC_LOG_THRD:
 		return log_b_to_file(dev, MRPC_FWLOGRD_THRD, fd);
+	case SWITCHTEC_LOG_NVHDR:
+		return log_c_to_file(dev, MRPC_FWLOGRD_NVHDR, fd);
 	};
 
 	errno = EINVAL;

@@ -552,7 +552,7 @@ int switchtec_lat_setup_many(struct switchtec_dev *dev, int nr_ports,
  * @param[in]  ingress_port_id	The port id for the ingress of the TLP
  *	(may be SWITCHTEC_LAT_ALL_INGRESS for all ports)
  * @param[in]  clear		If non-zero, clear the latency counter
- * @return 0 on success, error code on failure
+ * @return 1 on success, error code on failure
  */
 int switchtec_lat_setup(struct switchtec_dev *dev, int egress_port_id,
 			int ingress_port_id, int clear)
@@ -578,7 +578,7 @@ int switchtec_lat_setup(struct switchtec_dev *dev, int egress_port_id,
  * @param[in]  egress_port_ids	A list of port ids for the counters to return
  * @param[out] cur_ns		A list of current latency values
  * @param[out] max_ns		A list of maximum latency values
- * @return 0 on success, error code on failure
+ * @return nr_ports on success, error code on failure
  *
  * Results are reported in nanoseconds.
  */
@@ -626,7 +626,7 @@ int switchtec_lat_get_many(struct switchtec_dev *dev, int nr_ports,
  *	to retrieve
  * @param[out] cur_ns		The current latency value
  * @param[out] max_ns		The maximum latency value
- * @return 0 on success, error code on failure
+ * @return 1 on success, error code on failure
  *
  * Results are reported in nanoseconds.
  */

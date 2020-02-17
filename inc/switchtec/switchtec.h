@@ -192,6 +192,7 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_SYS_STACK,
 	SWITCHTEC_LOG_THRD_STACK,
 	SWITCHTEC_LOG_THRD,
+	SWITCHTEC_LOG_NVHDR,
 };
 
 enum switchtec_fw_type {
@@ -674,11 +675,6 @@ enum switchtec_fw_redundancy {
 	SWITCHTEC_FW_REDUNDANCY_CLEAR = 0,
 };
 
-int switchtec_fw_dlstatus(struct switchtec_dev *dev,
-			  enum switchtec_fw_dlstatus *status,
-			  enum mrpc_bg_status *bgstatus);
-int switchtec_fw_wait(struct switchtec_dev *dev,
-		      enum switchtec_fw_dlstatus *status);
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg);

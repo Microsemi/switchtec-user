@@ -117,16 +117,9 @@ struct switchtec_fw_image_header_gen3 {
 	uint32_t image_crc;
 };
 
-/**
- * @brief Perform an MRPC echo command
- * @param[in]  dev      Switchtec device handle
- * @param[out] status   The current download status
- * @param[out] bgstatus The current MRPC background status
- * @return 0 on success, error code on failure
- */
-int switchtec_fw_dlstatus(struct switchtec_dev *dev,
-			  enum switchtec_fw_dlstatus *status,
-			  enum mrpc_bg_status *bgstatus)
+static int switchtec_fw_dlstatus(struct switchtec_dev *dev,
+				 enum switchtec_fw_dlstatus *status,
+				 enum mrpc_bg_status *bgstatus)
 {
 	uint32_t cmd = MRPC_FWDNLD;
 	uint32_t subcmd = MRPC_FWDNLD_GET_STATUS;
@@ -155,17 +148,8 @@ int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 	return 0;
 }
 
-/**
- * @brief Wait for a firmware download chunk to complete
- * @param[in]  dev      Switchtec device handle
- * @param[out] status   The current download status
- * @return 0 on success, error code on failure
- *
- * Polls the firmware download status waiting until it no longer
- * indicates it's INPROGRESS. Sleeps 5ms between each poll.
- */
-int switchtec_fw_wait(struct switchtec_dev *dev,
-		      enum switchtec_fw_dlstatus *status)
+static int switchtec_fw_wait(struct switchtec_dev *dev,
+			     enum switchtec_fw_dlstatus *status)
 {
 	enum mrpc_bg_status bgstatus;
 	int ret;

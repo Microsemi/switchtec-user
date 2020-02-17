@@ -65,7 +65,7 @@ enum switchtec_spi_clk_rate {
 	SWITCHTEC_SPI_RATE_18_18M
 };
 
-struct switchtec_security_cfg_stat {
+struct switchtec_security_cfg_state {
 	uint8_t basic_setting_valid;
 	uint8_t public_key_exp_valid;
 	uint8_t public_key_num_valid;
@@ -141,7 +141,7 @@ struct switchtec_signature{
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info);
 int switchtec_security_config_get(struct switchtec_dev *dev,
-			          struct switchtec_security_cfg_stat *state);
+			          struct switchtec_security_cfg_state *state);
 int switchtec_security_config_set(struct switchtec_dev *dev,
 				  struct switchtec_security_cfg_set *setting);
 int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd);
@@ -174,7 +174,7 @@ int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk);
 int switchtec_read_signature_file(FILE *sig_file,
 				  struct switchtec_signature *sigature);
 int
-switchtec_security_state_has_kmsk(struct switchtec_security_cfg_stat *state,
+switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 				  struct switchtec_kmsk *kmsk);
 
 #endif // LIBSWITCHTEC_MFG_H
