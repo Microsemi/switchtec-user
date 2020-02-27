@@ -31,7 +31,7 @@
 #include <unistd.h>
 
 /**
- * @defgroup GAS Access through MRPC commands
+ * @defgroup GASMRPC Access through MRPC commands
  * @brief Access the GAS through MRPC commands
  *
  * Access the gas through MRPC commands. The linux kernel may reject

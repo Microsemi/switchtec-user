@@ -27,6 +27,22 @@
  * @brief Switchtec core library functions for mfg operations
  */
 
+/**
+ * @defgroup mfg Manufacturing Functions
+ * @brief Manufacturing-related API functions
+ *
+ * These are functions used during manufacturing process. These
+ * includes functions that configure device security settings and
+ * recover device from boot failures.
+ *
+ * Some of these functions modify device One-Time-Programming (OTP) memory,
+ * so they should be used with great caution, and you should really
+ * know what you are doing when calling these functions. FAILURE TO DO SO
+ * COULD MAKE YOUR DEVICE UNBOOTABLE!!
+ *
+ * @{
+ */
+
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/mfg.h"
@@ -752,11 +768,11 @@ int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk)
  * @return 0 on success, error code on failure
  */
 int switchtec_read_signature_file(FILE *sig_file,
-				  struct switchtec_signature *sigature)
+				  struct switchtec_signature *signature)
 {
 	ssize_t rlen;
 
-	rlen = fread(sigature->signature, 1, SWITCHTEC_SIG_LEN, sig_file);
+	rlen = fread(signature->signature, 1, SWITCHTEC_SIG_LEN, sig_file);
 
 	if (rlen < SWITCHTEC_SIG_LEN)
 		return -EBADF;
@@ -788,3 +804,5 @@ switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 
 	return 0;
 }
+
+/**@}*/

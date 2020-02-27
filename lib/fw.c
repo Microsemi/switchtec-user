@@ -178,6 +178,8 @@ static int switchtec_fw_wait(struct switchtec_dev *dev,
  * @brief Toggle the active firmware partition for the main or configuration
  *	images.
  * @param[in] dev        Switchtec device handle
+ * @param[in] toggle_bl2 Set to 1 to toggle the BL2 FW image
+ * @param[in] toggle_key Set to 1 to toggle the key manifest FW image
  * @param[in] toggle_fw  Set to 1 to toggle the main FW image
  * @param[in] toggle_cfg Set to 1 to toggle the config FW image
  * @return 0 on success, error code on failure
@@ -1273,6 +1275,10 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 	return summary;
 }
 
+/**
+ * @brief Free a firmware part summary data structure
+ * @param[in]  summary	The data structure to free.
+ */
 void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary)
 {
 	int i;
