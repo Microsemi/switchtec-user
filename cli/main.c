@@ -90,6 +90,25 @@ int switchtec_handler(const char *optarg, void *value_addr,
 	return 0;
 }
 
+/*
+ * The 'mfg' submenu commands are only available in Linux builds.
+ *
+ * Due to the difference in driver architecture, supporting Windows
+ * build is non-trivial. After evaluating the development effort
+ * and the resources available, we have decided to remove Windows
+ * build support from release roadmap.
+ * 
+ */
+int mfg_handler(const char *optarg, void *value_addr,
+		const struct argconfig_options *opt)
+{
+#ifndef __linux__
+	printf("WARNING: MFG COMMANDS ARE NOT SUPPORTED ON YOUR CURRENT OPERATING SYSTEM!\n"
+	       "Use this command at your own risk!!!\n\n\n");
+#endif
+	return switchtec_handler(optarg, value_addr, opt);
+}
+
 int pax_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt)
 {
