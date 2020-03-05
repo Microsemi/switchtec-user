@@ -709,8 +709,12 @@ int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk)
 	uint32_t exponent_tmp = 0;
 
 	RSAKey = PEM_read_RSA_PUBKEY(pubk_file, NULL, NULL, NULL);
-	if (RSAKey == NULL)
-		return -1;
+	if (RSAKey == NULL) {
+		fseek(pubk_file, 0L, SEEK_SET);
+		RSAKey = PEM_read_RSAPrivateKey(pubk_file, NULL, NULL, NULL);
+		if (RSAKey == NULL)
+			return -1;
+	}
 
 	RSA_get0_key(RSAKey, &modulus_bn, &exponent_bn, NULL);
 
