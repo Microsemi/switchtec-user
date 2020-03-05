@@ -81,7 +81,7 @@ static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 	}
 }
 
-#define CMD_DESC_PING "ping firmware and get current boot phase"
+#define CMD_DESC_PING "ping device and get current boot phase"
 
 static int ping(int argc, char **argv)
 {
@@ -223,7 +223,7 @@ static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
 	printf("Exponent Hex Data: \t\t\t0x%08x\n", set->public_key_exponent);
 }
 
-#define CMD_DESC_INFO "display security settings (BL1 and Main Firmware only)"
+#define CMD_DESC_INFO "display security settings"
 
 static int info(int argc, char **argv)
 {
@@ -577,7 +577,7 @@ static int fw_transfer(int argc, char **argv)
 	return 0;
 }
 
-#define CMD_DESC_FW_EXECUTE "execute previously transferred firmware image (BL1 phase only)"
+#define CMD_DESC_FW_EXECUTE "execute previously transferred firmware image (BL1 only)"
 
 static int fw_execute(int argc, char **argv)
 {
