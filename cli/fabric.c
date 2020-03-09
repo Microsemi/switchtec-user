@@ -168,11 +168,9 @@ static const char * const port_type_strs[] = {
 	"invalid",
 };
 
-static const char * const clock_mode_strs[] = {
-	"common clock without SSC",
-	"non-common clock without SSC (SRNS)",
-	"common clock with SSC",
-	"non-common clock with SSC (SRIS)",
+static const char * const clock_sris_strs[] = {
+	"disable",
+	"enable",
 	"invalid",
 };
 
@@ -183,23 +181,20 @@ static int portcfg_set(int argc, char **argv)
 	int ret;
 
 	struct argconfig_choice port_type_choices[4] = {
-		{"UNUSED", 0,
+		{"UNUSED", SWITCHTEC_FAB_PORT_TYPE_UNUSED,
 		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_UNUSED]},
-		{"FABRIC_EP", 2,
+		{"FABRIC_EP", SWITCHTEC_FAB_PORT_TYPE_FABRIC_EP,
 		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_FABRIC_EP]},
-		{"FABRIC_HOST", 3,
+		{"FABRIC_HOST", SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST,
 		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST]},
 		{}
 	};
-	struct argconfig_choice clock_mode_choices[5] = {
-		{"COMMON", 0,
-		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_COMMON_WO_SSC]},
-		{"SRNS", 1,
-		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_WO_SSC]},
-		{"COMMON_SSC", 2,
-		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_COMMON_W_SSC]},
-		{"SRIS", 3,
-		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_W_SSC]},
+
+	struct argconfig_choice clock_sris_choices[3] = {
+		{"DISABLE", SWITCHTEC_FAB_PORT_CLOCK_SRIS_DISABLE,
+		 clock_sris_strs[SWITCHTEC_FAB_PORT_CLOCK_SRIS_DISABLE]},
+		{"ENABLE", SWITCHTEC_FAB_PORT_CLOCK_SRIS_ENABLE,
+		 clock_sris_strs[SWITCHTEC_FAB_PORT_CLOCK_SRIS_ENABLE]},
 		{}
 	};
 
@@ -222,10 +217,10 @@ static int portcfg_set(int argc, char **argv)
 		 &cfg.port_cfg.clock_source, required_argument,
 		 "CSU channel index for port clock source",
 		 .require_in_usage = 1},
-		{"clock_mode", 'm', "TYPE", CFG_MULT_CHOICES,
-		 &cfg.port_cfg.clock_mode, required_argument,
-		 .choices=clock_mode_choices, .require_in_usage = 1,
-		 .help="clock mode"},
+		{"clock_sris", 's', "SRIS", CFG_MULT_CHOICES,
+		 &cfg.port_cfg.clock_sris, required_argument,
+		 .choices=clock_sris_choices, .require_in_usage = 1,
+		 .help="clock sris"},
 		{"hvd_id", 'd', "NUM", CFG_INT, &cfg.port_cfg.hvd_inst,
 		 required_argument, "HVM domain index for USP",
 		 .require_in_usage = 1},
@@ -249,7 +244,7 @@ static int portcfg_show(int argc, char **argv)
 {
 	int ret;
 	struct switchtec_fab_port_config port_info;
-	int port_type, clock_mode;
+	int port_type, clock_sris;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -284,11 +279,11 @@ static int portcfg_show(int argc, char **argv)
 	printf("Port Type:    %s \n", port_type_strs[port_type]);
 	printf("Clock Source: %d\n", port_info.clock_source);
 
-	clock_mode = port_info.clock_mode;
-	if(clock_mode >= SWITCHTEC_FAB_PORT_CLOCK_INVALID)
-		clock_mode = SWITCHTEC_FAB_PORT_CLOCK_INVALID;
+	clock_sris = port_info.clock_sris;
+	if(clock_sris >= SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID)
+		clock_sris = SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID;
 
-	printf("Clock Mode:   %s\n", clock_mode_strs[clock_mode]);
+	printf("Clock SRIS:   %s\n", clock_sris_strs[clock_sris]);
 	printf("HVD Instance: %d\n", port_info.hvd_inst);
 
 	return 0;

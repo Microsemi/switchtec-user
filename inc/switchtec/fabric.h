@@ -146,14 +146,12 @@ enum switchtec_fab_port_type {
 };
 
 /**
- * @brief The port clock mode
+ * @brief The port clock sris
  */
-enum switchtec_fab_port_clock_mode {
-	SWITCHTEC_FAB_PORT_CLOCK_COMMON_WO_SSC,
-	SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_WO_SSC,
-	SWITCHTEC_FAB_PORT_CLOCK_COMMON_W_SSC,
-	SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_W_SSC,
-	SWITCHTEC_FAB_PORT_CLOCK_INVALID,
+enum switchtec_fab_port_clock_sris {
+	SWITCHTEC_FAB_PORT_CLOCK_SRIS_DISABLE,
+	SWITCHTEC_FAB_PORT_CLOCK_SRIS_ENABLE,
+	SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID,
 };
 
 /**
@@ -162,7 +160,7 @@ enum switchtec_fab_port_clock_mode {
 struct switchtec_fab_port_config {
 	uint8_t port_type;	//!< Port type
 	uint8_t clock_source; 	//!< CSU channel index for port clock source(0-2)
-	uint8_t clock_mode;	//!< Port clock mode option
+	uint8_t clock_sris;	//!< Port clock sris, enable/disable
 	uint8_t hvd_inst;	//!< HVM domain instance index for USP
 };
 
