@@ -1,16 +1,16 @@
-<map id="/home/exchange/devel/switchtec&#45;user/inc/switchtec/switchtec.h" name="/home/exchange/devel/switchtec&#45;user/inc/switchtec/switchtec.h">
-<area shape="rect" id="node2" href="$events_8c.html" title="Switchtec core library functions for event management. " alt="" coords="5,117,200,158"/>
-<area shape="rect" id="node3" href="$fw_8c.html" title="Switchtec core library functions for firmware operations. " alt="" coords="225,117,391,158"/>
-<area shape="rect" id="node4" href="$gas__mrpc_8c_source.html" title="/home/exchange/devel\l/switchtec&#45;user/lib/gas\l_mrpc.c" alt="" coords="363,213,530,269"/>
-<area shape="rect" id="node5" href="$mfg_8c.html" title="Switchtec core library functions for mfg operations. " alt="" coords="1280,117,1456,158"/>
-<area shape="rect" id="node6" href="$pmon_8c.html" title="Switchtec core library functions for performance monitoring. " alt="" coords="1557,221,1745,262"/>
-<area shape="rect" id="node7" href="$switchtec_8c.html" title="Switchtec core library functions for basic device operations. " alt="" coords="1757,117,1968,158"/>
-<area shape="rect" id="node8" href="$gasops_8h_source.html" title="/home/exchange/devel\l/switchtec&#45;user/lib/platform\l/gasops.h" alt="" coords="1011,109,1205,165"/>
-<area shape="rect" id="node10" href="$windows_8c_source.html" title="/home/exchange/devel\l/switchtec&#45;user/lib/platform\l/windows.c" alt="" coords="1028,213,1223,269"/>
-<area shape="rect" id="node11" href="$platform_8c.html" title="Switchtec platform specific functions. " alt="" coords="591,213,785,269"/>
-<area shape="rect" id="node12" href="$bind_8h_source.html" title="/home/exchange/devel\l/switchtec&#45;user/inc/switchtec\l/bind.h" alt="" coords="1992,109,2195,165"/>
-<area shape="rect" id="node13" href="$gas_8h.html" title="GAS Accessor functions. " alt="" coords="744,117,987,158"/>
-<area shape="rect" id="node14" href="$gas__mrpc_8h_source.html" title="/home/exchange/devel\l/switchtec&#45;user/inc/switchtec\l/gas_mrpc.h" alt="" coords="467,109,669,165"/>
-<area shape="rect" id="node15" href="$pmon_8h_source.html" title="/home/exchange/devel\l/switchtec&#45;user/inc/switchtec\l/pmon.h" alt="" coords="1480,109,1683,165"/>
-<area shape="rect" id="node9" href="$gasops_8c_source.html" title="/home/exchange/devel\l/switchtec&#45;user/lib/platform\l/gasops.c" alt="" coords="809,213,1004,269"/>
+<map id="/home/exchange/microsemi/switchtec&#45;user/inc/switchtec/switchtec.h" name="/home/exchange/microsemi/switchtec&#45;user/inc/switchtec/switchtec.h">
+<area shape="rect" id="node2" href="$events_8c.html" title="Switchtec core library functions for event management. " alt="" coords="5,117,205,158"/>
+<area shape="rect" id="node3" href="$fw_8c.html" title="Switchtec core library functions for firmware operations. " alt="" coords="229,117,429,158"/>
+<area shape="rect" id="node4" href="$gas__mrpc_8c_source.html" title="/home/exchange/microsemi\l/switchtec&#45;user/lib/gas_mrpc.c" alt="" coords="359,221,574,262"/>
+<area shape="rect" id="node5" href="$mfg_8c.html" title="Switchtec core library functions for mfg operations. " alt="" coords="1323,117,1523,158"/>
+<area shape="rect" id="node6" href="$pmon_8c.html" title="Switchtec core library functions for performance monitoring. " alt="" coords="1657,221,1857,262"/>
+<area shape="rect" id="node7" href="$switchtec_8c.html" title="Switchtec core library functions for basic device operations. " alt="" coords="1877,117,2088,158"/>
+<area shape="rect" id="node8" href="$gasops_8h_source.html" title="/home/exchange/microsemi\l/switchtec&#45;user/lib/platform\l/gasops.h" alt="" coords="1048,109,1248,165"/>
+<area shape="rect" id="node10" href="$windows_8c_source.html" title="/home/exchange/microsemi\l/switchtec&#45;user/lib/platform\l/windows.c" alt="" coords="1069,213,1269,269"/>
+<area shape="rect" id="node11" href="$platform_8c.html" title="Switchtec platform specific functions. " alt="" coords="621,213,821,269"/>
+<area shape="rect" id="node12" href="$bind_8h_source.html" title="/home/exchange/microsemi\l/switchtec&#45;user/inc/switchtec/bind.h" alt="" coords="2111,117,2358,158"/>
+<area shape="rect" id="node13" href="$gas_8h.html" title="GAS Accessor functions. " alt="" coords="781,117,1024,158"/>
+<area shape="rect" id="node14" href="$gas__mrpc_8h_source.html" title="/home/exchange/microsemi\l/switchtec&#45;user/inc/switchtec\l/gas_mrpc.h" alt="" coords="504,109,707,165"/>
+<area shape="rect" id="node15" href="$pmon_8h_source.html" title="/home/exchange/microsemi\l/switchtec&#45;user/inc/switchtec/pmon.h" alt="" coords="1547,117,1803,158"/>
+<area shape="rect" id="node9" href="$gasops_8c_source.html" title="/home/exchange/microsemi\l/switchtec&#45;user/lib/platform\l/gasops.c" alt="" coords="845,213,1045,269"/>
 </map>
