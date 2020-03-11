@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['global_20address_20space',['Global Address Space',['../group__GAS.html',1,'']]]
+  ['firmware_20management',['Firmware Management',['../group__Firmware.html',1,'']]]
 ];

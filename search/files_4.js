@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['switchtec_2ec',['switchtec.c',['../switchtec_8c.html',1,'']]],
-  ['switchtec_2eh',['switchtec.h',['../switchtec_8h.html',1,'']]]
+  ['platform_2ec',['platform.c',['../platform_8c.html',1,'']]],
+  ['pmon_2ec',['pmon.c',['../pmon_8c.html',1,'']]]
 ];

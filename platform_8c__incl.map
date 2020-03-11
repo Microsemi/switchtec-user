@@ -1,6 +1,10 @@
-<map id="/home/gunthorp/switchtec/user/lib/platform/platform.c" name="/home/gunthorp/switchtec/user/lib/platform/platform.c">
-<area shape="rect" id="node3" href="$switchtec_8h.html" title="Main Switchtec header. " alt="" coords="202,95,351,121"/>
-<area shape="rect" id="node4" href="$mrpc_8h_source.html" title="mrpc.h" alt="" coords="5,169,68,196"/>
-<area shape="rect" id="node5" href="$portable_8h_source.html" title="portable.h" alt="" coords="92,169,171,196"/>
-<area shape="rect" id="node6" href="$registers_8h_source.html" title="registers.h" alt="" coords="195,169,278,196"/>
+<map id="/home/exchange/devel/switchtec&#45;user/lib/platform/platform.c" name="/home/exchange/devel/switchtec&#45;user/lib/platform/platform.c">
+<area shape="rect" id="node3" href="$switchtec_8h.html" title="Main Switchtec header. " alt="" coords="317,184,473,211"/>
+<area shape="rect" id="node12" href="$gas_8h.html" title="GAS Accessor functions. " alt="" coords="399,109,519,136"/>
+<area shape="rect" id="node13" href="$gas__mrpc_8h_source.html" title="switchtec/gas_mrpc.h" alt="" coords="165,109,325,136"/>
+<area shape="rect" id="node14" href="$errors_8h_source.html" title="switchtec/errors.h" alt="" coords="544,109,679,136"/>
+<area shape="rect" id="node4" href="$mrpc_8h_source.html" title="mrpc.h" alt="" coords="75,259,142,285"/>
+<area shape="rect" id="node5" href="$bind_8h_source.html" title="bind.h" alt="" coords="399,259,461,285"/>
+<area shape="rect" id="node7" href="$portable_8h_source.html" title="portable.h" alt="" coords="600,259,687,285"/>
+<area shape="rect" id="node8" href="$registers_8h_source.html" title="registers.h" alt="" coords="485,259,575,285"/>
 </map>

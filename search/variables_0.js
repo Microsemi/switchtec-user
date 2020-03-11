@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['active',['active',['../structswitchtec__fw__image__info.html#a2d920706ceb713e0f966a28e387d9658',1,'switchtec_fw_image_info']]]
+  ['acs_5fctrl',['acs_ctrl',['../structswitchtec__status.html#a7da7e08ff342d52778717fbe4b768f63',1,'switchtec_status']]]
 ];

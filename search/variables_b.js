@@ -1,7 +1,8 @@
 var searchData=
 [
-  ['threshold',['threshold',['../structswitchtec__evcntr__setup.html#a19e71c3c9b77c0a58151e0f5ce4678de',1,'switchtec_evcntr_setup']]],
-  ['time_5fus',['time_us',['../structswitchtec__bwcntr__res.html#a29f41568dccaf084b03ee3f9594ec511',1,'switchtec_bwcntr_res']]],
-  ['type',['type',['../structswitchtec__fw__image__info.html#aa9d9879fad7198270eb8aa031daf95cf',1,'switchtec_fw_image_info']]],
-  ['type_5fmask',['type_mask',['../structswitchtec__evcntr__setup.html#a37295b42b0a2280d3cd2c3232a33a652',1,'switchtec_evcntr_setup']]]
+  ['stack',['stack',['../structswitchtec__port__id.html#abeb9a6ba79356861f8c855128d45add9',1,'switchtec_port_id']]],
+  ['stk_5fid',['stk_id',['../structswitchtec__port__id.html#a7cfa4260666c84269fc61388b71ae3f0',1,'switchtec_port_id']]],
+  ['switchtec_5fdevice_5fid_5ftbl',['switchtec_device_id_tbl',['../group__Device.html#ga9ae0ec547a42d39665f4778b293b2d18',1,'switchtec.c']]],
+  ['switchtec_5fgen_5fdatarate',['switchtec_gen_datarate',['../switchtec_8h.html#aec51f601e71ebfd7e37af287d62588b1',1,'switchtec.h']]],
+  ['switchtec_5fgen_5ftransfers',['switchtec_gen_transfers',['../switchtec_8h.html#aa4928a9021a73a21c10ee78818f8ae80',1,'switchtec.h']]]
 ];

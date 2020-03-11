@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['write_5ffrom_5fgas',['write_from_gas',['../group__GAS.html#gacf2ac306467218c86e60a3bc21f99539',1,'gas.h']]]
+  ['write_5ffrom_5fgas',['write_from_gas',['../group__GAS.html#ga4d9beac00ba74e86654250015d902423',1,'write_from_gas(struct switchtec_dev *dev, int fd, const void __gas *src, size_t n):&#160;platform.c'],['../group__GAS.html#ga4d9beac00ba74e86654250015d902423',1,'write_from_gas(struct switchtec_dev *dev, int fd, const void __gas *src, size_t n):&#160;platform.c']]]
 ];

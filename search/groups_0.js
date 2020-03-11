@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['event_20management',['Event Management',['../group__Event.html',1,'']]]
+  ['access_20through_20mrpc_20commands',['Access through MRPC commands',['../group__GASMRPC.html',1,'']]]
 ];

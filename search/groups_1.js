@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['firmware_20management',['Firmware Management',['../group__Firmware.html',1,'']]]
+  ['event_20management',['Event Management',['../group__Event.html',1,'']]]
 ];

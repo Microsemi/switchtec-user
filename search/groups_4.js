@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['performance_20monitor',['Performance Monitor',['../group__PMON.html',1,'']]]
+  ['manufacturing_20functions',['Manufacturing Functions',['../group__mfg.html',1,'']]],
+  ['miscellaneous_20commands',['Miscellaneous Commands',['../group__Misc.html',1,'']]]
 ];
