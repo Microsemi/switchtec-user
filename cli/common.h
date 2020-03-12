@@ -28,6 +28,8 @@
 int ask_if_sure(int always_yes);
 int switchtec_handler(const char *optarg, void *value_addr,
 		      const struct argconfig_options *opt);
+int mfg_handler(const char *optarg, void *value_addr,
+		const struct argconfig_options *opt);
 int pax_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt);
 enum switchtec_fw_type check_and_print_fw_image(int img_fd,
@@ -52,11 +54,11 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 
 #define UART_HELP_TEXT " * a UART path (/dev/ttyUSB0)\n"
 
-#define DEVICE_OPTION_BASIC(extra_text) \
+#define DEVICE_OPTION_BASIC(extra_text, handler) \
 	{ \
 			"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
 			.argument_type=required_positional, \
-			.custom_handler=switchtec_handler, \
+			.custom_handler=handler, \
 			.complete="/dev/switchtec*", \
 			.env="SWITCHTEC_DEV", \
 			.help="Switchtec device to operate on. Can be any of:\n" \
@@ -67,9 +69,9 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 			extra_text \
 	}
 
-#define DEVICE_OPTION_MFG DEVICE_OPTION_BASIC()
+#define DEVICE_OPTION_MFG DEVICE_OPTION_BASIC(, mfg_handler)
 
-#define DEVICE_OPTION DEVICE_OPTION_BASIC(UART_HELP_TEXT), \
+#define DEVICE_OPTION DEVICE_OPTION_BASIC(UART_HELP_TEXT, switchtec_handler), \
 	{ \
 			"pax", 'x', .cfg_type=CFG_CUSTOM, \
 			.value_addr=&cfg.dev, \

@@ -27,6 +27,22 @@
  * @brief Switchtec core library functions for mfg operations
  */
 
+/**
+ * @defgroup mfg Manufacturing Functions
+ * @brief Manufacturing-related API functions
+ *
+ * These are functions used during manufacturing process. These
+ * includes functions that configure device security settings and
+ * recover device from boot failures.
+ *
+ * Some of these functions modify device One-Time-Programming (OTP) memory,
+ * so they should be used with great caution, and you should really
+ * know what you are doing when calling these functions. FAILURE TO DO SO
+ * COULD MAKE YOUR DEVICE UNBOOTABLE!!
+ *
+ * @{
+ */
+
 #include "switchtec_priv.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/mfg.h"
@@ -52,7 +68,7 @@
 #define SWITCHTEC_ACTV_IMG_ID_CFG		3
 #define SWITCHTEC_ACTV_IMG_ID_FW		4
 
-#define SWITCHTEC_MB_MAX_ENTRIES		16
+#define SWITCHTEC_MB_MAX_ENTRIES		8
 #define SWITCHTEC_ACTV_IDX_MAX_ENTRIES		32
 #define SWITCHTEC_ACTV_IDX_SET_ENTRIES		4
 
@@ -693,8 +709,12 @@ int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk)
 	uint32_t exponent_tmp = 0;
 
 	RSAKey = PEM_read_RSA_PUBKEY(pubk_file, NULL, NULL, NULL);
-	if (RSAKey == NULL)
-		return -1;
+	if (RSAKey == NULL) {
+		fseek(pubk_file, 0L, SEEK_SET);
+		RSAKey = PEM_read_RSAPrivateKey(pubk_file, NULL, NULL, NULL);
+		if (RSAKey == NULL)
+			return -1;
+	}
 
 	RSA_get0_key(RSAKey, &modulus_bn, &exponent_bn, NULL);
 
@@ -752,11 +772,11 @@ int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk)
  * @return 0 on success, error code on failure
  */
 int switchtec_read_signature_file(FILE *sig_file,
-				  struct switchtec_signature *sigature)
+				  struct switchtec_signature *signature)
 {
 	ssize_t rlen;
 
-	rlen = fread(sigature->signature, 1, SWITCHTEC_SIG_LEN, sig_file);
+	rlen = fread(signature->signature, 1, SWITCHTEC_SIG_LEN, sig_file);
 
 	if (rlen < SWITCHTEC_SIG_LEN)
 		return -EBADF;
@@ -788,3 +808,5 @@ switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 
 	return 0;
 }
+
+/**@}*/
