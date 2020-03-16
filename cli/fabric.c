@@ -570,9 +570,12 @@ static int vep_type_to_str(uint8_t type, char *str)
 static int hvd_detail_body_print(struct switchtec_dev *dev,
 				 struct switchtec_gfms_db_hvd_detail_body *body)
 {
-	int i;
+	int i, j;
+	int index;
 	int vep_count;
 	int log_port_count;
+	struct switchtec_gfms_db_hvd_log_port *port;
+	int bound;
 	char bdf_str1[32];
 	char bdf_str2[32];
 	char vep_type_str[32];
@@ -581,9 +584,7 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 	int pos;
 
 	bdf_to_str(body->usp_bdf, bdf_str1);
-	printf("    HVD %hhx:\n"
-	       "        Physical Port ID:  \t\t%hhu\n"
-	       "        HFID:              \t\t0x%04hx\n"
+	printf("    HVD %hhx (Physical Port ID: %hhu, HFID: 0x%04hx):\n"
 	       "        USP Status:        \t\t%s\n"
 	       "        USP BDF:           \t\t%s\n",
 	       body->hvd_inst_id, body->phy_pid,
@@ -605,18 +606,33 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 
 	printf("        Logical Ports (%hhu):\n", body->log_dsp_count);
 	for (i = 0; i < log_port_count; i++) {
-		if (body->log_port_region[i].bound) {
-			bdf_to_str(body->log_port_region[i].dsp_bdf, bdf_str1);
-			bdf_to_str(body->log_port_region[i].bound_hvd_bdf,
-				   bdf_str2);
-			printf("            Logical PID %hhu:\t\tBound to PDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
-			       body->log_port_region[i].log_pid,
-			       body->log_port_region[i].bound_pdfid,
-			       body->usp_status ? bdf_str1 : "N/A",
-			       body->usp_status ? bdf_str2 : "N/A");
-		} else
-			printf("            Logical PID %hhu:\t\tUnbound\n",
-			       body->log_port_region[i].log_pid);
+		bound = 0;
+		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
+			index = j * log_port_count + i;
+			port = &body->log_port_region[index];
+			if (port->bound) {
+				bound = 1;
+			}
+		}
+
+		if (!bound) {
+			printf("            Logical PID %hhu:\t\tUnbound\n", i);
+			continue;
+		}
+
+		printf("            Logical PID %hhu:\n", i);
+		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
+			index = j * log_port_count + i;
+			port = &body->log_port_region[index];
+			if (port->bound) {
+				bdf_to_str(port->dsp_bdf, bdf_str1);
+				bdf_to_str(port->bound_hvd_bdf, bdf_str2);
+				printf("                Function %hhu:\t\tPDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
+				       j, port->bound_pdfid,
+				       body->usp_status ? bdf_str1 : "N/A",
+				       body->usp_status ? bdf_str2 : "N/A");
+			}
+		}
 	}
 
 	enable_bitmap = body->log_port_p2p_enable_bitmap_high;
@@ -634,13 +650,13 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 			bitmap = body->log_port_p2p_bitmap[i].config_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].config_bitmap_low;
-			printf("        Logical Port %hhu P2P config bitmap:    \t0x%016lx\n",
+			printf("            Logical Port %hhu P2P config bitmap:    \t0x%016lx\n",
 			       pos, bitmap);
 
 			bitmap = body->log_port_p2p_bitmap[i].active_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].active_bitmap_low;
-			printf("        Logical Port %hhu P2P active bitmap:    \t0x%016lx\n",
+			printf("            Logical Port %hhu P2P active bitmap:    \t0x%016lx\n",
 			       pos, bitmap);
 		}
 	}

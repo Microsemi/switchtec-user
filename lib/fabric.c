@@ -456,7 +456,8 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 	p += len;
 
 	len = sizeof(hvd_detail->body.log_port_region[0]) *
-			hvd_detail->body.log_dsp_count;
+			hvd_detail->body.log_dsp_count *
+			SWITCHTEC_FABRIC_MULTI_FUNC_NUM;
 	memcpy(hvd_detail->body.log_port_region, p, len);
 	p += len;
 

@@ -180,6 +180,7 @@ int switchtec_fab_port_config_set(struct switchtec_dev *dev,
 #define SWITCHTEC_FABRIC_MAX_BAR_NUM 6
 #define SWITCHTEC_FABRIC_MAX_DSP_PER_HOST 32
 #define SWITCHTEC_FABRIC_MAX_BINDING_NUM 512
+#define SWITCHTEC_FABRIC_MULTI_FUNC_NUM 8
 
 enum switchtec_gfms_db_ep_attached_device_type {
 	SWITCHTEC_GFMS_DB_TYPE_EP,
@@ -199,7 +200,7 @@ enum switchtec_gfms_db_hvd_usp_link_state {
 };
 
 enum switchtec_gfms_db_vep_type {
-	SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT = 7,
+	SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT = 6,
 };
 
 enum switchtec_gfms_db_ep_port_bar_type {
@@ -294,12 +295,6 @@ struct switchtec_gfms_db_hvd_all {
 		SWITCHTEC_FABRIC_MAX_HOST_PER_SWITCH];
 };
 
-struct switchtec_gfms_db_hvd_vep {
-	uint8_t type;
-	uint8_t rsvd;
-	uint16_t bdf;
-};
-
 struct switchtec_gfms_db_hvd_log_port {
 	uint8_t log_pid;
 	uint8_t bound;
@@ -315,10 +310,18 @@ struct switchtec_gfms_db_hvd_detail_body {
 	uint8_t vep_count;
 	uint8_t usp_status;
 	uint8_t rsvd[2];
-	struct switchtec_gfms_db_hvd_vep vep_region[7];
+	struct {
+		uint8_t type;
+		uint8_t rsvd;
+		uint16_t bdf;
+	} vep_region[7];
+
 	uint16_t log_dsp_count;
 	uint16_t usp_bdf;
-	struct switchtec_gfms_db_hvd_log_port log_port_region[48];
+	struct switchtec_gfms_db_hvd_log_port
+		log_port_region[SWITCHTEC_FABRIC_MULTI_FUNC_NUM *
+		SWITCHTEC_FABRIC_MAX_DSP_PER_HOST];
+
 	uint32_t log_port_p2p_enable_bitmap_low;
 	uint32_t log_port_p2p_enable_bitmap_high;
 	uint8_t log_port_count;
@@ -327,7 +330,7 @@ struct switchtec_gfms_db_hvd_detail_body {
 		uint32_t config_bitmap_high;
 		uint32_t active_bitmap_low;
 		uint32_t active_bitmap_high;
-	} log_port_p2p_bitmap[64];
+	} log_port_p2p_bitmap[SWITCHTEC_FABRIC_MAX_DSP_PER_HOST];
 };
 
 struct switchtec_gfms_db_hvd_detail {
