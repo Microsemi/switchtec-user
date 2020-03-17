@@ -352,7 +352,8 @@ static size_t gfms_hvd_all_section_parse(
 		remaining_len -= len;
 		parsed_len += len;
 
-		len = hvd_body->logical_port_count * 4;
+		len = hvd_body->logical_port_count *
+			SWITCHTEC_FABRIC_MULTI_FUNC_NUM * 4;
 		memcpy(&hvd_body->bound[0], p, len);
 		p += len;
 		remaining_len -= len;
