@@ -522,7 +522,9 @@ static int pax_general_print(struct switchtec_dev *dev,
 static int hvd_body_print(struct switchtec_dev *dev,
 			  struct switchtec_gfms_db_hvd_body *body)
 {
-	int i;
+	int i, j;
+	int index;
+	int bound;
 	int log_port_count;
 
 	printf("    HVD %hhx (Physical Port ID: %hhu, HFID: 0x%04hx):\n",
@@ -531,13 +533,26 @@ static int hvd_body_print(struct switchtec_dev *dev,
 	log_port_count = body->logical_port_count;
 
 	for (i = 0; i < log_port_count; i++) {
-		if (body->bound[i].bound)
-			printf("        Logical Port ID %hhd:    \tBound to PDFID 0x%04hx\n",
-			       body->bound[i].log_pid,
-			       body->bound[i].bound_pdfid);
-		else
-			printf("        Logical Port ID %hhd:    \tUnbound\n",
-			       body->bound[i].log_pid);
+		bound = 0;
+		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
+			index = j * log_port_count + i;
+			if (body->bound[index].bound)
+				bound = 1;
+		}
+
+		if (!bound) {
+			printf("        Logical PID %hhu:\t\tUnbound\n", i);
+			continue;
+		}
+
+		printf("        Logical PID %hhu:\n", i);
+		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
+			index = j * log_port_count + i;
+
+			if (body->bound[index].bound)
+				printf("            Function %hhu:    \tPDFID 0x%04hx\n",
+				       j, body->bound[index].bound_pdfid);
+		}
 	}
 
 	return 0;

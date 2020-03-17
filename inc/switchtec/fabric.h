@@ -266,21 +266,18 @@ struct switchtec_gfms_db_pax_general {
 	struct switchtec_gfms_db_pax_general_body body;
 };
 
-struct switchtec_gfms_db_hvd_port_bound {
-	uint8_t log_pid;
-	uint8_t bound;
-	uint16_t bound_pdfid;
-};
-
 struct switchtec_gfms_db_hvd_body {
 	uint8_t hvd_inst_id;
 	uint8_t phy_pid;
 	uint16_t hfid;
 	uint16_t logical_port_count;
 	uint16_t rsvd;
-	struct switchtec_gfms_db_hvd_port_bound bound[(MRPC_MAX_DATA_LEN -
-			sizeof(struct switchtec_gfms_db_dump_section_hdr) - 8) /
-			sizeof(struct switchtec_gfms_db_hvd_port_bound)];
+	struct port_bound {
+		uint8_t log_pid;
+		uint8_t bound;
+		uint16_t bound_pdfid;
+	} bound[SWITCHTEC_FABRIC_MULTI_FUNC_NUM *
+		SWITCHTEC_FABRIC_MAX_DSP_PER_HOST];
 };
 
 struct switchtec_gfms_db_hvd {

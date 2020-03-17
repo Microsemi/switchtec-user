@@ -402,7 +402,7 @@ int switchtec_fab_gfms_db_dump_hvd(struct switchtec_dev *dev,
 	};
 
 	return switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
-			     hvd, sizeof(*hvd));
+			     hvd, MRPC_MAX_DATA_LEN);
 }
 
 int switchtec_fab_gfms_db_dump_hvd_detail(
