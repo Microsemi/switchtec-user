@@ -128,7 +128,6 @@ static int set_gen_variant(struct switchtec_dev * dev)
 	dev->boot_phase = SWITCHTEC_BOOT_PHASE_FW;
 	dev->gen = SWITCHTEC_GEN_UNKNOWN;
 	dev->var = SWITCHTEC_VAR_UNKNOWN;
-
 	dev->device_id = dev->ops->get_device_id(dev);
 
 	while (id->device_id) {
@@ -191,8 +190,14 @@ struct switchtec_dev *switchtec_open(const char *device)
 	int domain = 0;
 	int bus, dev, func;
 	char path[PATH_MAX];
+	int inst;
 	char *endptr;
 	struct switchtec_dev *ret;
+
+	if (sscanf(device, "%2049[^:]:%i", path, &inst) == 2) {
+		ret = switchtec_open_eth(path, inst);
+		goto found;
+	}
 
 	if (sscanf(device, "%2049[^@]@%i", path, &dev) == 2) {
 		ret = switchtec_open_i2c(path, dev);
