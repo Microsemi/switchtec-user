@@ -115,12 +115,7 @@ int switchtec_list(struct switchtec_device_info **devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen)
 {
-	int fw_ver;
-
-	fw_ver = gas_mrpc_read32(dev, &dev->gas_map->sys_info.firmware_version);
-	version_to_string(fw_ver, buf, buflen);
-
-	return 0;
+	return dev->ops->get_fw_version(dev, buf, buflen);
 }
 
 /**
