@@ -329,9 +329,13 @@ static int read_resp(struct switchtec_linux *ldev, void *resp,
 
 	ret = read(ldev->fd, buf, bufsize);
 
-	if (ret < 0)
+	if (ret < 0) {
+		if (errno == EIO) {
+			memcpy(&ret, buf, sizeof(ret));
+			errno = ret;
+		}
 		return ret;
-
+	}
 	if (ret != bufsize) {
 		errno = EIO;
 		return -errno;
