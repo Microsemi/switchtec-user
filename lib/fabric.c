@@ -401,20 +401,114 @@ int switchtec_fab_gfms_db_dump_pax_general(
 			     pax_general, sizeof(*pax_general));
 }
 
+static int gfms_dump_start(struct switchtec_dev *dev, uint8_t subcmd,
+			   uint8_t param, uint32_t *total_len_dw)
+{
+	int ret;
+
+	struct {
+		uint8_t subcmd;
+		uint8_t param;
+		uint8_t reserved[2];
+		uint32_t type;
+	} cmd = {
+		.subcmd = subcmd,
+		.param = param,
+		.type = 1,
+	};
+
+	struct {
+		uint32_t dw_len;
+		uint32_t num_of_switch;
+	} rsp;
+
+	ret = switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
+			    &rsp, sizeof(rsp));
+	*total_len_dw = rsp.dw_len;
+
+	return ret;
+}
+
+static int gfms_dump_get(struct switchtec_dev *dev, uint8_t subcmd,
+			 uint32_t total_len_dw, uint8_t *data)
+{
+	int ret;
+
+	struct {
+		uint8_t subcmd;
+		uint8_t reserved[3];
+		uint32_t type;
+		uint32_t offset_dw;
+	} cmd = {
+		.subcmd = subcmd,
+		.type = 2,
+		.offset_dw = 0,
+	};
+
+	struct {
+		uint32_t offset_dw;
+		uint32_t size_dw;
+		uint32_t reserved;
+		uint8_t data[MRPC_MAX_DATA_LEN - 12];
+	} rsp = {
+		.offset_dw = 0,
+		.size_dw = 0,
+	};
+	do {
+		ret = switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
+				    &rsp, MRPC_MAX_DATA_LEN);
+
+		if (ret)
+			break;
+
+		rsp.size_dw -= 3;
+
+		memcpy(data + (cmd.offset_dw * 4), rsp.data, rsp.size_dw * 4);
+
+		cmd.offset_dw += rsp.size_dw;
+
+	} while(total_len_dw > rsp.offset_dw + rsp.size_dw);
+
+	return ret;
+}
+
+static int gfms_dump_finish(struct switchtec_dev *dev, uint8_t subcmd)
+{
+	struct {
+		uint8_t subcmd;
+		uint8_t reserved[3];
+		uint32_t type;
+	} cmd = {
+		.subcmd = subcmd,
+		.type = 3,
+	};
+
+	return switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
+			     NULL, 0);
+}
+
 int switchtec_fab_gfms_db_dump_hvd(struct switchtec_dev *dev,
 				   uint8_t hvd_idx,
 				   struct switchtec_gfms_db_hvd *hvd)
 {
-	struct {
-		uint8_t subcmd;
-		uint8_t hvd_idx;
-	} cmd = {
-		.subcmd = MRPC_GFMS_DB_DUMP_HVD,
-		.hvd_idx = hvd_idx,
-	};
+	uint32_t total_len_dw;
+	int ret;
 
-	return switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
-			     hvd, MRPC_MAX_DATA_LEN);
+	ret = gfms_dump_start(dev, MRPC_GFMS_DB_DUMP_HVD,
+			      hvd_idx, &total_len_dw);
+	if (ret)
+		return ret;
+
+	ret = gfms_dump_get(dev, MRPC_GFMS_DB_DUMP_HVD, total_len_dw,
+			    (uint8_t *)hvd);
+	if (ret)
+		return ret;
+
+	ret = gfms_dump_finish(dev, MRPC_GFMS_DB_DUMP_HVD);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 int switchtec_fab_gfms_db_dump_hvd_detail(
@@ -422,28 +516,33 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 		uint8_t hvd_idx,
 		struct switchtec_gfms_db_hvd_detail *hvd_detail)
 {
+	uint32_t total_len_dw;
 	int ret;
-	uint8_t data[MRPC_MAX_DATA_LEN];
+	uint8_t *data;
 	struct switchtec_gfms_db_hvd_detail_body *body;
 	void *p;
 	int len;
 	uint64_t bitmap;
 	int i;
 
-	struct {
-		uint8_t subcmd;
-		uint8_t hvd_idx;
-	} cmd = {
-		.subcmd = MRPC_GFMS_DB_DUMP_HVD_DETAIL,
-		.hvd_idx = hvd_idx,
-	};
-
-	ret = switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
-			    data, sizeof(data));
+	ret = gfms_dump_start(dev, MRPC_GFMS_DB_DUMP_HVD_DETAIL,
+			      hvd_idx, &total_len_dw);
 	if (ret)
 		return ret;
 
-	memcpy(&hvd_detail->hdr, data, sizeof(hvd_detail->hdr));
+	data = malloc(total_len_dw * 4);
+	ret = gfms_dump_get(dev, MRPC_GFMS_DB_DUMP_HVD_DETAIL, total_len_dw,
+			    (uint8_t *)data);
+	if (ret) {
+		free(data);
+		return ret;
+	}
+
+	ret = gfms_dump_finish(dev, MRPC_GFMS_DB_DUMP_HVD_DETAIL);
+	if (ret) {
+		free(data);
+		return ret;
+	}
 
 	body = (struct switchtec_gfms_db_hvd_detail_body *)(data + sizeof(hvd_detail->hdr));
 
@@ -468,8 +567,8 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 	p += len;
 
 	len = sizeof(hvd_detail->body.log_port_region[0]) *
-			hvd_detail->body.log_dsp_count *
-			SWITCHTEC_FABRIC_MULTI_FUNC_NUM;
+		     le16toh(hvd_detail->body.log_dsp_count) *
+		     SWITCHTEC_FABRIC_MULTI_FUNC_NUM;
 	memcpy(hvd_detail->body.log_port_region, p, len);
 	p += len;
 
@@ -481,9 +580,9 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 	memcpy(&hvd_detail->body.log_port_p2p_enable_bitmap_high, p, len);
 	p += len;
 
-	bitmap = hvd_detail->body.log_port_p2p_enable_bitmap_high;
+	bitmap = le32toh(hvd_detail->body.log_port_p2p_enable_bitmap_high);
 	bitmap <<= 32;
-	bitmap |= hvd_detail->body.log_port_p2p_enable_bitmap_low;
+	bitmap |= le32toh(hvd_detail->body.log_port_p2p_enable_bitmap_low);
 
 	hvd_detail->body.log_port_count = 0;
 	for (i = 0; i < (sizeof(bitmap) * 8); i++)
@@ -494,6 +593,7 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 		     hvd_detail->body.log_port_count;
 	memcpy(hvd_detail->body.log_port_p2p_bitmap, p, len);
 
+	free(data);
 	return 0;
 }
 
@@ -787,91 +887,6 @@ static size_t gfms_ep_port_all_section_parse(
 	return parsed_len;
 }
 
-static int gfms_pax_all_start(struct switchtec_dev *dev,
-			      uint32_t *total_len_dw)
-{
-	int ret;
-
-	struct {
-		uint8_t subcmd;
-		uint8_t reserved[3];
-		uint32_t type;
-	} cmd = {
-		.subcmd = MRPC_GFMS_DB_DUMP_PAX_ALL,
-		.type = 1,
-	};
-
-	struct {
-		uint32_t dw_len;
-		uint32_t num_of_switch;
-	} rsp;
-
-	ret = switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
-			    &rsp, sizeof(rsp));
-	*total_len_dw = rsp.dw_len;
-
-	return ret;
-}
-
-static int gfms_pax_all_get(struct switchtec_dev *dev,
-			    uint32_t total_len_dw,
-			    uint8_t *data)
-{
-	int ret;
-
-	struct {
-		uint8_t subcmd;
-		uint8_t reserved[3];
-		uint32_t type;
-		uint32_t offset_dw;
-	} cmd = {
-		.subcmd = MRPC_GFMS_DB_DUMP_PAX_ALL,
-		.type = 2,
-		.offset_dw = 0,
-	};
-
-	struct {
-		uint32_t offset_dw;
-		uint32_t size_dw;
-		uint32_t reserved;
-		uint8_t data[MRPC_MAX_DATA_LEN - 12];
-	} rsp = {
-		.offset_dw = 0,
-		.size_dw = 0,
-	};
-	do {
-		ret = switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
-				    &rsp, MRPC_MAX_DATA_LEN);
-
-		if (ret)
-			break;
-
-		rsp.size_dw -= 3;
-
-		memcpy(data + (cmd.offset_dw * 4), rsp.data, rsp.size_dw * 4);
-
-		cmd.offset_dw += rsp.size_dw;
-
-	} while(total_len_dw > rsp.offset_dw + rsp.size_dw);
-
-	return ret;
-}
-
-static int gfms_pax_all_finish(struct switchtec_dev *dev)
-{
-	struct {
-		uint8_t subcmd;
-		uint8_t reserved[3];
-		uint32_t type;
-	} cmd = {
-		.subcmd = MRPC_GFMS_DB_DUMP_PAX_ALL,
-		.type = 3,
-	};
-
-	return switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
-			     NULL, 0);
-}
-
 static size_t gfms_pax_all_parse(struct switchtec_dev *dev,
 				 uint8_t *data,
 				 uint32_t data_len,
@@ -906,27 +921,29 @@ int switchtec_fab_gfms_db_dump_pax_all(
 	uint8_t *data;
 	int ret;
 
-	ret = gfms_pax_all_start(dev, &total_len_dw);
+	ret = gfms_dump_start(dev, MRPC_GFMS_DB_DUMP_PAX_ALL, 0, &total_len_dw);
 	if (ret)
-		goto exit;
+		return ret;
 
 	data = malloc(total_len_dw * 4);
-	ret = gfms_pax_all_get(dev, total_len_dw, data);
-	if (ret)
-		goto free_and_exit;
+	ret = gfms_dump_get(dev, MRPC_GFMS_DB_DUMP_PAX_ALL, total_len_dw, data);
+	if (ret) {
+		free(data);
+		return ret;
+	}
 
-	ret = gfms_pax_all_finish(dev);
-	if (ret)
-		goto free_and_exit;
+	ret = gfms_dump_finish(dev, MRPC_GFMS_DB_DUMP_PAX_ALL);
+	if (ret) {
+		free(data);
+		return ret;
+	}
 
 	parsed_len = gfms_pax_all_parse(dev, data, total_len_dw * 4, pax_all);
 
 	if (parsed_len != total_len_dw * 4)
 		ret = -1;
 
-free_and_exit:
 	free(data);
-exit:
 	return ret;
 }
 
