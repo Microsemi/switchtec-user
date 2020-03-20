@@ -532,6 +532,7 @@ const char *switchtec_strerror(void)
 	case ERR_CMD_INVALID: 		msg = "Invalid command"; break;
 	case ERR_PARAM_INVALID:		msg = "Invalid parameter"; break;
 	case ERR_BAD_FW_STATE:		msg = "Bad firmware state"; break;
+	case ERR_MRPC_DENIED:		msg = "MRPC request denied"; break;
 	case ERR_STACK_INVALID: 	msg = "Invalid Stack"; break;
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
 	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
