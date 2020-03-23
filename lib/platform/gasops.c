@@ -123,6 +123,11 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		return -errno;
 	}
 
+	if(status == SWITCHTEC_MRPC_STATUS_ERROR) {
+		errno = __gas_read32(dev, &mrpc->ret_value);
+		return errno;
+	}
+
 	if (status != SWITCHTEC_MRPC_STATUS_DONE) {
 		errno = ENXIO;
 		return -errno;
