@@ -28,6 +28,7 @@
 #include <switchtec/mrpc.h>
 #include <switchtec/switchtec.h>
 #include <stdint.h>
+#include <switchtec/endian.h>
 
 struct gas_mrpc_write {
 	uint32_t gas_offset;
@@ -47,19 +48,24 @@ void gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 ssize_t gas_mrpc_write_from_gas(struct switchtec_dev *dev, int fd,
 				const void __gas *src, size_t n);
 
+// noop conversion functions to make macros below work
+static inline uint8_t le8toh(uint8_t x) { return x; }
+static inline uint8_t htole8(uint8_t x) { return x; }
+
 #define create_mrpc_gas_read(type, suffix) \
 	static inline type gas_mrpc_read ## suffix(struct switchtec_dev *dev, \
 						   type __gas *addr) \
 	{ \
 		type ret; \
 		gas_mrpc_memcpy_from_gas(dev, &ret, addr, sizeof(ret)); \
-		return ret; \
+		return le##suffix##toh(ret);                            \
 	}
 
 #define create_mrpc_gas_write(type, suffix) \
 	static inline void gas_mrpc_write ## suffix(struct switchtec_dev *dev, \
 			type val, type __gas *addr) \
 	{ \
+		val = htole##suffix (val); \
 		gas_mrpc_memcpy_to_gas(dev, addr, &val, sizeof(val)); \
 	}
 
