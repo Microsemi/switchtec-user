@@ -874,7 +874,7 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 			return -100.0;
 	}
 
-	return temp / 100.;
+	return le32toh(temp) / 100.;
 }
 
 int switchtec_bind_info(struct switchtec_dev *dev,

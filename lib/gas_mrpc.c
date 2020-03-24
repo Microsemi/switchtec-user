@@ -59,24 +59,25 @@ void gas_mrpc_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 {
 	struct gas_mrpc_write cmd;
 	int ret;
-
-	cmd.gas_offset = (uint32_t)(dest - (void __gas *)dev->gas_map);
+	uint32_t len;
+	uint32_t offset = (uint32_t)(dest - (void __gas *)dev->gas_map);
 
 	while (n) {
-		cmd.len = n;
-		if (cmd.len > sizeof(cmd.data))
-			cmd.len = sizeof(cmd.data);
-
-		memcpy(&cmd.data, src, cmd.len);
+		len = n;
+		if (len > sizeof(cmd.data))
+			len = sizeof(cmd.data);
+		cmd.len = htole32(len);
+		cmd.gas_offset = htole32(offset);
+		memcpy(&cmd.data, src, len);
 
 		ret = switchtec_cmd(dev, MRPC_GAS_WRITE, &cmd,
-				    cmd.len + sizeof(cmd) - sizeof(cmd.data),
+				    len + sizeof(cmd) - sizeof(cmd.data),
 				    NULL, 0);
 		if (ret)
 			raise(SIGBUS);
 
-		n -= cmd.len;
-		cmd.gas_offset += cmd.len;
+		n -= len;
+		offset += len;
 	}
 }
 
@@ -92,21 +93,23 @@ void gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 {
 	struct gas_mrpc_read cmd;
 	int ret;
+	uint32_t len;
 
-	cmd.gas_offset = (uint32_t)(src - (void __gas *)dev->gas_map);
+	cmd.gas_offset = htole32((uint32_t)(src - (void __gas *)dev->gas_map));
 
 	while (n) {
-		cmd.len = n;
-		if (cmd.len > MRPC_MAX_DATA_LEN)
-			cmd.len = MRPC_MAX_DATA_LEN;
+		len = n;
+		if (len > MRPC_MAX_DATA_LEN)
+			len = MRPC_MAX_DATA_LEN;
+		cmd.len = htole32(len);
 
 		ret = switchtec_cmd(dev, MRPC_GAS_READ, &cmd,
-				    sizeof(cmd), dest, cmd.len);
+				    sizeof(cmd), dest, len);
 		if (ret)
 			raise(SIGBUS);
 
-		n -= cmd.len;
-		dest += cmd.len;
+		n -= len;
+		dest += len;
 	}
 }
 
