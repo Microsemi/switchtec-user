@@ -558,35 +558,23 @@ static ssize_t i2c_write_from_gas(struct switchtec_dev *dev, int fd,
 	return ret;
 }
 
-static uint16_t i2c_gas_read8(struct switchtec_dev *dev,
-                              uint8_t __gas *addr)
-{
-	uint8_t ret;
-	i2c_memcpy_from_gas(dev, &ret, addr, sizeof(ret));
-	return ret;
-}
-static uint16_t i2c_gas_read16(struct switchtec_dev *dev,
-                               uint16_t __gas *addr)
-{
-	uint16_t ret;
-	i2c_memcpy_from_gas(dev, &ret, addr, sizeof(ret));
-	return le16toh(ret);
-}
-static uint32_t i2c_gas_read32(struct switchtec_dev *dev,
-                               uint32_t __gas *addr)
-{
-	uint32_t ret;
-	i2c_memcpy_from_gas(dev, &ret, addr, sizeof(ret));
-	return le32toh(ret);
-}
-static uint64_t i2c_gas_read64(struct switchtec_dev *dev,
-                               uint64_t __gas *addr)
-{
-	uint64_t ret;
-	i2c_memcpy_from_gas(dev, &ret, addr, sizeof(ret));
-	return le64toh(ret);
-}
+// noop conversion functions to make macros below work
+static inline uint8_t le8toh(uint8_t x) { return x; }
+static inline uint8_t htole8(uint8_t x) { return x; }
 
+#define create_gas_read(type, suffix) \
+	static type i2c_gas_read ## suffix(struct switchtec_dev *dev, \
+					   type __gas *addr) \
+	{ \
+		type ret; \
+		i2c_memcpy_from_gas(dev, &ret, addr, sizeof(ret)); \
+		return le##suffix##toh(ret);                       \
+	}
+
+create_gas_read(uint8_t, 8);
+create_gas_read(uint16_t, 16);
+create_gas_read(uint32_t, 32);
+create_gas_read(uint64_t, 64);
 
 static void i2c_gas_write8(struct switchtec_dev *dev, uint8_t val,
 			   uint8_t __gas *addr)
