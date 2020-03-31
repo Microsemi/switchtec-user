@@ -84,6 +84,15 @@ struct switchtec_dev *switchtec_open_i2c(const char *path, int i2c_addr);
 struct switchtec_dev *switchtec_open_uart(int fd);
 
 /**
+ * @brief Open a switchtec device over ethernet
+ * @ingroup Device
+ * @param[in] ip	IP address of the device
+ * @param[in] inst	instance ID
+ * @return Switchtec device handle, NULL on failure
+ */
+struct switchtec_dev *switchtec_open_eth(const char *ip, const int inst);
+
+/**
  * @brief Close a Switchtec device handle
  * @ingroup Device
  * @param[in] dev	Switchtec device handle to close
