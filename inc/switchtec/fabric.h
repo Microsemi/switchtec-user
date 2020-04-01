@@ -95,11 +95,14 @@ int switchtec_topo_info_dump(struct switchtec_dev *dev,
 
 /********** GFMS BIND *********/
 
+#define SWITCHTEC_FABRIC_MULTI_FUNC_NUM 8
+
 struct switchtec_gfms_bind_req {
 	uint8_t host_sw_idx;
 	uint8_t host_phys_port_id;
 	uint8_t host_log_port_id;
-	uint16_t pdfid;
+	int ep_number;
+	uint16_t ep_pdfid[SWITCHTEC_FABRIC_MULTI_FUNC_NUM];
 };
 
 struct switchtec_gfms_unbind_req {
@@ -146,14 +149,12 @@ enum switchtec_fab_port_type {
 };
 
 /**
- * @brief The port clock mode
+ * @brief The port clock sris
  */
-enum switchtec_fab_port_clock_mode {
-	SWITCHTEC_FAB_PORT_CLOCK_COMMON_WO_SSC,
-	SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_WO_SSC,
-	SWITCHTEC_FAB_PORT_CLOCK_COMMON_W_SSC,
-	SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_W_SSC,
-	SWITCHTEC_FAB_PORT_CLOCK_INVALID,
+enum switchtec_fab_port_clock_sris {
+	SWITCHTEC_FAB_PORT_CLOCK_SRIS_DISABLE,
+	SWITCHTEC_FAB_PORT_CLOCK_SRIS_ENABLE,
+	SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID,
 };
 
 /**
@@ -162,7 +163,7 @@ enum switchtec_fab_port_clock_mode {
 struct switchtec_fab_port_config {
 	uint8_t port_type;	//!< Port type
 	uint8_t clock_source; 	//!< CSU channel index for port clock source(0-2)
-	uint8_t clock_mode;	//!< Port clock mode option
+	uint8_t clock_sris;	//!< Port clock sris, enable/disable
 	uint8_t hvd_inst;	//!< HVM domain instance index for USP
 };
 
@@ -201,7 +202,7 @@ enum switchtec_gfms_db_hvd_usp_link_state {
 };
 
 enum switchtec_gfms_db_vep_type {
-	SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT = 7,
+	SWITCHTEC_GFMS_DB_VEP_TYPE_MGMT = 6,
 };
 
 enum switchtec_gfms_db_ep_port_bar_type {
@@ -267,21 +268,18 @@ struct switchtec_gfms_db_pax_general {
 	struct switchtec_gfms_db_pax_general_body body;
 };
 
-struct switchtec_gfms_db_hvd_port_bound {
-	uint8_t log_pid;
-	uint8_t bound;
-	uint16_t bound_pdfid;
-};
-
 struct switchtec_gfms_db_hvd_body {
 	uint8_t hvd_inst_id;
 	uint8_t phy_pid;
 	uint16_t hfid;
 	uint16_t logical_port_count;
 	uint16_t rsvd;
-	struct switchtec_gfms_db_hvd_port_bound bound[(MRPC_MAX_DATA_LEN -
-			sizeof(struct switchtec_gfms_db_dump_section_hdr) - 8) /
-			sizeof(struct switchtec_gfms_db_hvd_port_bound)];
+	struct port_bound {
+		uint8_t log_pid;
+		uint8_t bound;
+		uint16_t bound_pdfid;
+	} bound[SWITCHTEC_FABRIC_MULTI_FUNC_NUM *
+		SWITCHTEC_FABRIC_MAX_DSP_PER_HOST];
 };
 
 struct switchtec_gfms_db_hvd {
@@ -294,12 +292,6 @@ struct switchtec_gfms_db_hvd_all {
 	struct switchtec_gfms_db_dump_section_hdr hdr;
 	struct switchtec_gfms_db_hvd_body bodies[
 		SWITCHTEC_FABRIC_MAX_HOST_PER_SWITCH];
-};
-
-struct switchtec_gfms_db_hvd_vep {
-	uint8_t type;
-	uint8_t rsvd;
-	uint16_t bdf;
 };
 
 struct switchtec_gfms_db_hvd_log_port {
@@ -317,10 +309,18 @@ struct switchtec_gfms_db_hvd_detail_body {
 	uint8_t vep_count;
 	uint8_t usp_status;
 	uint8_t rsvd[2];
-	struct switchtec_gfms_db_hvd_vep vep_region[7];
+	struct {
+		uint8_t type;
+		uint8_t rsvd;
+		uint16_t bdf;
+	} vep_region[7];
+
 	uint16_t log_dsp_count;
 	uint16_t usp_bdf;
-	struct switchtec_gfms_db_hvd_log_port log_port_region[48];
+	struct switchtec_gfms_db_hvd_log_port
+		log_port_region[SWITCHTEC_FABRIC_MULTI_FUNC_NUM *
+		SWITCHTEC_FABRIC_MAX_DSP_PER_HOST];
+
 	uint32_t log_port_p2p_enable_bitmap_low;
 	uint32_t log_port_p2p_enable_bitmap_high;
 	uint8_t log_port_count;
@@ -329,7 +329,7 @@ struct switchtec_gfms_db_hvd_detail_body {
 		uint32_t config_bitmap_high;
 		uint32_t active_bitmap_low;
 		uint32_t active_bitmap_high;
-	} log_port_p2p_bitmap[64];
+	} log_port_p2p_bitmap[SWITCHTEC_FABRIC_MAX_DSP_PER_HOST];
 };
 
 struct switchtec_gfms_db_hvd_detail {

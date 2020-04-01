@@ -175,13 +175,18 @@ int switchtec_topo_info_dump(struct switchtec_dev *dev,
 int switchtec_gfms_bind(struct switchtec_dev *dev,
 			struct switchtec_gfms_bind_req *req)
 {
+	int i;
+
 	struct {
 		uint8_t subcmd;
 		uint8_t host_sw_idx;
 		uint8_t host_phys_port_id;
 		uint8_t host_log_port_id;
-		uint16_t pdfid;
-		uint8_t reserved[2];
+		struct {
+			uint16_t pdfid;
+			uint8_t next_valid;
+			uint8_t reserved;
+		} function[SWITCHTEC_FABRIC_MULTI_FUNC_NUM];
 	} cmd;
 
 	struct {
@@ -193,7 +198,12 @@ int switchtec_gfms_bind(struct switchtec_dev *dev,
 	cmd.host_sw_idx = req->host_sw_idx;
 	cmd.host_phys_port_id = req->host_phys_port_id;
 	cmd.host_log_port_id = req->host_log_port_id;
-	cmd.pdfid = req->pdfid;
+
+	for (i = 0; i < req->ep_number; i++) {
+		cmd.function[i].pdfid = req->ep_pdfid[i];
+		if (i)
+			cmd.function[i - 1].next_valid = 1;
+	}
 
 	return switchtec_cmd(dev, MRPC_GFMS_BIND_UNBIND, &cmd, sizeof(cmd),
 			     &result, sizeof(result));
@@ -294,7 +304,7 @@ int switchtec_fab_port_config_set(struct switchtec_dev *dev,
 		uint8_t phys_port_id;
 		uint8_t port_type;
 		uint8_t clock_source;
-		uint8_t clock_mode;
+		uint8_t clock_sris;
 		uint8_t hvd_inst;
 		uint8_t reserved[2];
 	} cmd;
@@ -303,7 +313,7 @@ int switchtec_fab_port_config_set(struct switchtec_dev *dev,
 	cmd.phys_port_id = phys_port_id;
 	cmd.port_type = info->port_type;
 	cmd.clock_source = info->clock_source;
-	cmd.clock_mode = info->clock_mode;
+	cmd.clock_sris = info->clock_sris;
 	cmd.hvd_inst = info->hvd_inst;
 
 	ret = switchtec_cmd(dev, MRPC_PORT_CONFIG, &cmd, sizeof(cmd),
@@ -352,7 +362,8 @@ static size_t gfms_hvd_all_section_parse(
 		remaining_len -= len;
 		parsed_len += len;
 
-		len = hvd_body->logical_port_count * 4;
+		len = hvd_body->logical_port_count *
+			SWITCHTEC_FABRIC_MULTI_FUNC_NUM * 4;
 		memcpy(&hvd_body->bound[0], p, len);
 		p += len;
 		remaining_len -= len;
@@ -402,7 +413,7 @@ int switchtec_fab_gfms_db_dump_hvd(struct switchtec_dev *dev,
 	};
 
 	return switchtec_cmd(dev, MRPC_GFMS_DB_DUMP, &cmd, sizeof(cmd),
-			     hvd, sizeof(*hvd));
+			     hvd, MRPC_MAX_DATA_LEN);
 }
 
 int switchtec_fab_gfms_db_dump_hvd_detail(
@@ -456,7 +467,8 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 	p += len;
 
 	len = sizeof(hvd_detail->body.log_port_region[0]) *
-			hvd_detail->body.log_dsp_count;
+			hvd_detail->body.log_dsp_count *
+			SWITCHTEC_FABRIC_MULTI_FUNC_NUM;
 	memcpy(hvd_detail->body.log_port_region, p, len);
 	p += len;
 
