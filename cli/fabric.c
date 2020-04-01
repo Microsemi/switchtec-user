@@ -803,13 +803,8 @@ static int ep_port_function_print(
 	printf("%s            PDFID:      \t0x%02hx\n", lead, func->pdfid);
 	printf("%s            VID-DID:    \t0x%04hx-0x%04hx\n", lead, func->vid, func->did);
 	if (func->bound) {
-		printf("%s            Binding:    \tBound\n", lead);
-		printf("%s                Bound PAX ID          : %hhd\n",
-		       lead, func->bound_pax_id);
-		printf("%s                Bound HVD Physical PID: %hhd\n",
-		       lead, func->bound_hvd_phy_pid);
-		printf("%s                Bound HVD Logical PID : %hhd\n",
-		       lead, func->bound_hvd_log_pid);
+		printf("%s            Binding:    \tPAX ID: %hhd, HVD Physical PID: %hhd, HVD Logical PID: %hhd\n", lead, func->bound_pax_id, func->bound_hvd_phy_pid, func->bound_hvd_log_pid);
+
 	} else
 		printf("%s            Binding:    \tUnbound\n", lead);
 
@@ -915,6 +910,7 @@ static int pax_all_print(struct switchtec_dev *dev,
 	for (i = 0; i < pax_all->ep_port_all.ep_port_count; i++) {
 		ep_port_print(dev, &pax_all->ep_port_all.ep_ports[i]);
 	}
+	printf("\n");
 
 	printf("HVDs:\n");
 	for (i = 0; i < pax_all->hvd_all.hvd_count; i++) {
