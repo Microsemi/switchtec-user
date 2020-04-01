@@ -42,10 +42,15 @@
 static int gfms_bind(int argc, char **argv)
 {
 	int ret;
+	int count;
+	char pdfid[9][16];
+	int i;
+	char *endptr;
 
 	static struct {
 		struct switchtec_dev *dev;
 		struct switchtec_gfms_bind_req bind_req;
+		char *pdfid_str;
 	} cfg ;
 
 	const struct argconfig_options opts[] = {
@@ -59,12 +64,39 @@ static int gfms_bind(int argc, char **argv)
 		{"log_port_id", 'l', "NUM", CFG_INT,
 		 &cfg.bind_req.host_log_port_id, required_argument,
 		 "host logical port ID", .require_in_usage = 1},
-		{"pdfid", 'f', "NUM", CFG_INT, &cfg.bind_req.pdfid,
+		{"pdfid", 'f', "STR", CFG_STRING, &cfg.pdfid_str,
 		 required_argument,"EP function's PDFID",
 		 .require_in_usage = 1},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_GFMS_BIND, opts, &cfg, sizeof(cfg));
+
+	count = sscanf(cfg.pdfid_str, "%[^','], %[^','], %[^','], %[^','],"
+		     "%[^','], %[^','], %[^','], %[^','], %[^'.']",
+		     pdfid[0], pdfid[1], pdfid[2], pdfid[3], pdfid[4],
+		     pdfid[5], pdfid[6], pdfid[7], pdfid[8]);
+
+	if (count == EOF)  {
+		fprintf(stderr, "Must specify pdfid.\n");
+		return -1;
+	}
+
+	if (count > SWITCHTEC_FABRIC_MULTI_FUNC_NUM) {
+		fprintf(stderr, "Too many pdfids specified (Max: %d).\n",
+			SWITCHTEC_FABRIC_MULTI_FUNC_NUM);
+		return -2;
+	}
+
+	cfg.bind_req.ep_number = 0;
+	for (i = 0; i < count; i++) {
+		unsigned long value = strtoul(pdfid[i], &endptr, 0);
+		if (errno || value >= 0xffff  || optarg == endptr) {
+			fprintf(stderr, "Invalid pdfid %s.\n", pdfid[i]);
+			return -3;
+		}
+		cfg.bind_req.ep_pdfid[i] = value;
+		cfg.bind_req.ep_number++;
+	}
 
 	ret = switchtec_gfms_bind(cfg.dev, &cfg.bind_req);
 	if (ret) {

@@ -175,13 +175,18 @@ int switchtec_topo_info_dump(struct switchtec_dev *dev,
 int switchtec_gfms_bind(struct switchtec_dev *dev,
 			struct switchtec_gfms_bind_req *req)
 {
+	int i;
+
 	struct {
 		uint8_t subcmd;
 		uint8_t host_sw_idx;
 		uint8_t host_phys_port_id;
 		uint8_t host_log_port_id;
-		uint16_t pdfid;
-		uint8_t reserved[2];
+		struct {
+			uint16_t pdfid;
+			uint8_t next_valid;
+			uint8_t reserved;
+		} function[SWITCHTEC_FABRIC_MULTI_FUNC_NUM];
 	} cmd;
 
 	struct {
@@ -193,7 +198,12 @@ int switchtec_gfms_bind(struct switchtec_dev *dev,
 	cmd.host_sw_idx = req->host_sw_idx;
 	cmd.host_phys_port_id = req->host_phys_port_id;
 	cmd.host_log_port_id = req->host_log_port_id;
-	cmd.pdfid = req->pdfid;
+
+	for (i = 0; i < req->ep_number; i++) {
+		cmd.function[i].pdfid = req->ep_pdfid[i];
+		if (i)
+			cmd.function[i - 1].next_valid = 1;
+	}
 
 	return switchtec_cmd(dev, MRPC_GFMS_BIND_UNBIND, &cmd, sizeof(cmd),
 			     &result, sizeof(result));

@@ -95,11 +95,14 @@ int switchtec_topo_info_dump(struct switchtec_dev *dev,
 
 /********** GFMS BIND *********/
 
+#define SWITCHTEC_FABRIC_MULTI_FUNC_NUM 8
+
 struct switchtec_gfms_bind_req {
 	uint8_t host_sw_idx;
 	uint8_t host_phys_port_id;
 	uint8_t host_log_port_id;
-	uint16_t pdfid;
+	int ep_number;
+	uint16_t ep_pdfid[SWITCHTEC_FABRIC_MULTI_FUNC_NUM];
 };
 
 struct switchtec_gfms_unbind_req {
@@ -180,7 +183,6 @@ int switchtec_fab_port_config_set(struct switchtec_dev *dev,
 #define SWITCHTEC_FABRIC_MAX_BAR_NUM 6
 #define SWITCHTEC_FABRIC_MAX_DSP_PER_HOST 32
 #define SWITCHTEC_FABRIC_MAX_BINDING_NUM 512
-#define SWITCHTEC_FABRIC_MULTI_FUNC_NUM 8
 
 enum switchtec_gfms_db_ep_attached_device_type {
 	SWITCHTEC_GFMS_DB_TYPE_EP,
