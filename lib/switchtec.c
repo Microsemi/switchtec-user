@@ -544,6 +544,9 @@ const char *switchtec_strerror(void)
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
 	case ERR_UART_NOT_SUPPORTED:
 		msg = "UART interface not supported for this command"; break;
+	case ERR_XML_VERSION_MISMATCH:
+		msg = "XML version mismatch between MAIN and CFG partition";
+		break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
 
 	default: break;
