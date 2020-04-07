@@ -210,6 +210,7 @@ static const char * const clock_sris_strs[] = {
 
 static int portcfg_set(int argc, char **argv)
 {
+	struct switchtec_fab_port_config port_cfg;
 	int ret;
 
 	struct argconfig_choice port_type_choices[4] = {
@@ -232,36 +233,76 @@ static int portcfg_set(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
-		uint8_t phys_port_id;
-		struct switchtec_fab_port_config port_cfg;
-	} cfg;
+		int phys_port_id;
+		int port_type;
+		int clock_source;
+		int clock_sris;
+		int hvd_inst;
+	} cfg = {
+		.phys_port_id = -1,
+		.port_type = -1,
+		.clock_source = -1,
+		.clock_sris = -1,
+		.hvd_inst = -1,
+	};
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"phys_port_id", 'p', "NUM", CFG_INT,
 		 &cfg.phys_port_id, required_argument,
 		 "physical port ID", .require_in_usage = 1},
-		{"port_type", 't', "TYPE", CFG_MULT_CHOICES,
-		 &cfg.port_cfg.port_type, required_argument,
+		{"port_type", 't', "TYPE", CFG_CHOICES,
+		 &cfg.port_type, required_argument,
 		.choices=port_type_choices, .require_in_usage = 1,
 		.help="port type"},
 		{"clock_source", 'c', "NUM", CFG_INT,
-		 &cfg.port_cfg.clock_source, required_argument,
+		 &cfg.clock_source, required_argument,
 		 "CSU channel index for port clock source",
 		 .require_in_usage = 1},
-		{"clock_sris", 's', "SRIS", CFG_MULT_CHOICES,
-		 &cfg.port_cfg.clock_sris, required_argument,
+		{"clock_sris", 's', "SRIS", CFG_CHOICES,
+		 &cfg.clock_sris, required_argument,
 		 .choices=clock_sris_choices, .require_in_usage = 1,
 		 .help="clock sris"},
-		{"hvd_id", 'd', "NUM", CFG_INT, &cfg.port_cfg.hvd_inst,
+		{"hvd_id", 'd', "NUM", CFG_INT, &cfg.hvd_inst,
 		 required_argument, "HVM domain index for USP",
 		 .require_in_usage = 1},
 		{NULL}
 	};
 
 	argconfig_parse(argc, argv, CMD_DESC_PORTCFG_SET, opts, &cfg, sizeof(cfg));
+	if (cfg.phys_port_id == -1) {
+		fprintf(stderr, "The --phys_port_id|-p argument is required!\n");
+		return 1;
+	}
 
-	ret = switchtec_fab_port_config_set(cfg.dev, cfg.phys_port_id, &cfg.port_cfg);
+	if (cfg.port_type == -1) {
+		fprintf(stderr, "The --port_type|-t argument is required!\n");
+		return 1;
+	}
+
+	if (cfg.port_type != SWITCHTEC_FAB_PORT_TYPE_UNUSED &&
+	    cfg.clock_source == -1) {
+		fprintf(stderr, "The --clock_source|-c argument is required for port type FABRIC_EP and FABRIC_HOST!\n");
+		return 2;
+	}
+
+	if (cfg.port_type != SWITCHTEC_FAB_PORT_TYPE_UNUSED &&
+	    cfg.clock_sris == -1) {
+		fprintf(stderr, "The --clock_sris|-s argument is required for port type FABRIC_EP and FABRIC_HOST!\n");
+		return 3;
+	}
+
+	if (cfg.port_type == SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST &&
+	    cfg.hvd_inst == -1) {
+		fprintf(stderr, "The --hvd_id|-d argument is required for port type FABRIC_HOST!\n");
+		return 4;
+	}
+
+	port_cfg.clock_source = cfg.clock_source;
+	port_cfg.clock_sris = cfg.clock_sris;
+	port_cfg.port_type = cfg.port_type;
+	port_cfg.hvd_inst = cfg.hvd_inst;
+	ret = switchtec_fab_port_config_set(cfg.dev, cfg.phys_port_id, &port_cfg);
 	if (ret) {
 		switchtec_perror("port_config");
 		return ret;
