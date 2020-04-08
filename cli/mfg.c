@@ -938,7 +938,7 @@ static int kmsk_entry_add(int argc, char **argv)
 	if (ret)
 		return -7;
 
-	if (cfg.pubk_file && cfg.sig_file) {
+	if (state.secure_state == SWITCHTEC_INITIALIZED_SECURED) {
 		ret = switchtec_kmsk_set(cfg.dev, &pubk, &sig, &kmsk);
 
 	}

@@ -587,4 +587,10 @@ struct switchtec_dev *switchtec_open_uart(int fd)
 	return NULL;
 }
 
+struct switchtec_dev *switchtec_open_eth(const char *ip, const int inst)
+{
+	errno = ENOTSUP;
+	return NULL;
+}
+
 #endif

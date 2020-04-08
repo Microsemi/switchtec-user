@@ -42,10 +42,15 @@
 static int gfms_bind(int argc, char **argv)
 {
 	int ret;
+	int count;
+	char pdfid[9][16];
+	int i;
+	char *endptr;
 
 	static struct {
 		struct switchtec_dev *dev;
 		struct switchtec_gfms_bind_req bind_req;
+		char *pdfid_str;
 	} cfg ;
 
 	const struct argconfig_options opts[] = {
@@ -59,12 +64,39 @@ static int gfms_bind(int argc, char **argv)
 		{"log_port_id", 'l', "NUM", CFG_INT,
 		 &cfg.bind_req.host_log_port_id, required_argument,
 		 "host logical port ID", .require_in_usage = 1},
-		{"pdfid", 'f', "NUM", CFG_INT, &cfg.bind_req.pdfid,
+		{"pdfid", 'f', "STR", CFG_STRING, &cfg.pdfid_str,
 		 required_argument,"EP function's PDFID",
 		 .require_in_usage = 1},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_GFMS_BIND, opts, &cfg, sizeof(cfg));
+
+	count = sscanf(cfg.pdfid_str, "%[^','], %[^','], %[^','], %[^','],"
+		     "%[^','], %[^','], %[^','], %[^','], %[^'.']",
+		     pdfid[0], pdfid[1], pdfid[2], pdfid[3], pdfid[4],
+		     pdfid[5], pdfid[6], pdfid[7], pdfid[8]);
+
+	if (count == EOF)  {
+		fprintf(stderr, "Must specify pdfid.\n");
+		return -1;
+	}
+
+	if (count > SWITCHTEC_FABRIC_MULTI_FUNC_NUM) {
+		fprintf(stderr, "Too many pdfids specified (Max: %d).\n",
+			SWITCHTEC_FABRIC_MULTI_FUNC_NUM);
+		return -2;
+	}
+
+	cfg.bind_req.ep_number = 0;
+	for (i = 0; i < count; i++) {
+		unsigned long value = strtoul(pdfid[i], &endptr, 0);
+		if (errno || value >= 0xffff  || optarg == endptr) {
+			fprintf(stderr, "Invalid pdfid %s.\n", pdfid[i]);
+			return -3;
+		}
+		cfg.bind_req.ep_pdfid[i] = value;
+		cfg.bind_req.ep_number++;
+	}
 
 	ret = switchtec_gfms_bind(cfg.dev, &cfg.bind_req);
 	if (ret) {
@@ -116,42 +148,66 @@ static int port_control(int argc, char **argv)
 {
 	int ret;
 	struct argconfig_choice control_type_choices[5] = {
-		{"DISABLE", 0, "disable port"},
-		{"ENABLE", 1, "enable port"},
-		{"RETRAIN", 2, "link retrain"},
-		{"HOT_RESET", 3, "link hot reset"},
+		{"DISABLE", SWITCTEC_PORT_CONTROL_DISABLE, "disable port"},
+		{"ENABLE", SWITCTEC_PORT_CONTROL_ENABLE, "enable port"},
+		{"RETRAIN", SWITCTEC_PORT_CONTROL_LINK_RETRAIN, "link retrain"},
+		{"HOT_RESET", SWITCTEC_PORT_CONTROL_LINK_HOT_RESET,
+		 "link hot reset"},
 		{}
 	};
 	struct argconfig_choice hot_reset_flag_choices[3] = {
-		{"CLEAR", 0, "hot reset status clear"},
-		{"SET", 1, "hot reset status set"},
+		{"CLEAR", SWITCTEC_PORT_CONTROL_HOT_RESET_STATUS_CLEAR,
+		 "hot reset status clear"},
+		{"SET", SWITCTEC_PORT_CONTROL_HOT_RESET_STATUS_SET,
+		 "hot reset status set"},
 		{}
 	};
 
 	static struct {
 		struct switchtec_dev *dev;
-		uint8_t control_type;
-		uint8_t phys_port_id;
-		uint8_t hot_reset_flag;
-	} cfg;
+		int control_type;
+		int phys_port_id;
+		int hot_reset_flag;
+	} cfg = {
+		.control_type = -1,
+		.phys_port_id = -1,
+		.hot_reset_flag = -1,
+	};
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"control_type", 't', "TYPE", CFG_MULT_CHOICES, &cfg.control_type, required_argument,
-		.choices=control_type_choices,
-		.require_in_usage = 1,
-		.help="Port control type"},
-		{"phys_port_id", 'p', "NUM", CFG_INT, &cfg.phys_port_id, required_argument,"physical port ID",
-		.require_in_usage = 1,},
-		{"hot_reset_flag", 'f', "FLAG", CFG_MULT_CHOICES, &cfg.hot_reset_flag, required_argument,
-		.choices=hot_reset_flag_choices,
-		.require_in_usage = 1,
-		.help="hot reset flag option"},
+		{"phys_port_id", 'p', "NUM", CFG_INT, &cfg.phys_port_id,
+		 required_argument, .require_in_usage = 1,
+		 .help = "physical port ID"},
+		{"control_type", 't', "TYPE", CFG_CHOICES, &cfg.control_type,
+		 required_argument, .choices=control_type_choices,
+		.require_in_usage = 1, .help="port control type"},
+		{"hot_reset_flag", 'f', "FLAG", CFG_CHOICES,&cfg.hot_reset_flag,
+		 required_argument, .choices=hot_reset_flag_choices,
+		.require_in_usage = 1, .help="hot reset flag option"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_PORT_CONTROL, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_port_control(cfg.dev, cfg.control_type, cfg.phys_port_id, cfg.hot_reset_flag);
+	if (cfg.phys_port_id == -1) {
+		fprintf(stderr, "The --phys_port_id|-p argument is required!\n");
+		return 1;
+	}
+
+
+	if (cfg.control_type == -1) {
+		fprintf(stderr, "The --control_type|-t argument is required!\n");
+		return 2;
+	}
+
+	if (cfg.control_type == SWITCTEC_PORT_CONTROL_LINK_HOT_RESET &&
+	    cfg.hot_reset_flag == -1) {
+		fprintf(stderr, "The --hot_reset_flag|-f argument is required for control type HOT_RESET!\n");
+		return 3;
+	}
+
+	ret = switchtec_port_control(cfg.dev, cfg.control_type,
+				     cfg.phys_port_id, cfg.hot_reset_flag);
 	if (ret) {
 		switchtec_perror("port_control");
 		return ret;
@@ -168,11 +224,9 @@ static const char * const port_type_strs[] = {
 	"invalid",
 };
 
-static const char * const clock_mode_strs[] = {
-	"common clock without SSC",
-	"non-common clock without SSC (SRNS)",
-	"common clock with SSC",
-	"non-common clock with SSC (SRIS)",
+static const char * const clock_sris_strs[] = {
+	"disable",
+	"enable",
 	"invalid",
 };
 
@@ -180,61 +234,99 @@ static const char * const clock_mode_strs[] = {
 
 static int portcfg_set(int argc, char **argv)
 {
+	struct switchtec_fab_port_config port_cfg;
 	int ret;
 
 	struct argconfig_choice port_type_choices[4] = {
-		{"UNUSED", 0,
+		{"UNUSED", SWITCHTEC_FAB_PORT_TYPE_UNUSED,
 		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_UNUSED]},
-		{"FABRIC_EP", 2,
+		{"FABRIC_EP", SWITCHTEC_FAB_PORT_TYPE_FABRIC_EP,
 		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_FABRIC_EP]},
-		{"FABRIC_HOST", 3,
+		{"FABRIC_HOST", SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST,
 		 port_type_strs[SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST]},
 		{}
 	};
-	struct argconfig_choice clock_mode_choices[5] = {
-		{"COMMON", 0,
-		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_COMMON_WO_SSC]},
-		{"SRNS", 1,
-		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_WO_SSC]},
-		{"COMMON_SSC", 2,
-		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_COMMON_W_SSC]},
-		{"SRIS", 3,
-		 clock_mode_strs[SWITCHTEC_FAB_PORT_CLOCK_NON_COMMON_W_SSC]},
+
+	struct argconfig_choice clock_sris_choices[3] = {
+		{"DISABLE", SWITCHTEC_FAB_PORT_CLOCK_SRIS_DISABLE,
+		 clock_sris_strs[SWITCHTEC_FAB_PORT_CLOCK_SRIS_DISABLE]},
+		{"ENABLE", SWITCHTEC_FAB_PORT_CLOCK_SRIS_ENABLE,
+		 clock_sris_strs[SWITCHTEC_FAB_PORT_CLOCK_SRIS_ENABLE]},
 		{}
 	};
 
 	static struct {
 		struct switchtec_dev *dev;
-		uint8_t phys_port_id;
-		struct switchtec_fab_port_config port_cfg;
-	} cfg;
+		int phys_port_id;
+		int port_type;
+		int clock_source;
+		int clock_sris;
+		int hvd_inst;
+	} cfg = {
+		.phys_port_id = -1,
+		.port_type = -1,
+		.clock_source = -1,
+		.clock_sris = -1,
+		.hvd_inst = -1,
+	};
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"phys_port_id", 'p', "NUM", CFG_INT,
 		 &cfg.phys_port_id, required_argument,
 		 "physical port ID", .require_in_usage = 1},
-		{"port_type", 't', "TYPE", CFG_MULT_CHOICES,
-		 &cfg.port_cfg.port_type, required_argument,
+		{"port_type", 't', "TYPE", CFG_CHOICES,
+		 &cfg.port_type, required_argument,
 		.choices=port_type_choices, .require_in_usage = 1,
 		.help="port type"},
 		{"clock_source", 'c', "NUM", CFG_INT,
-		 &cfg.port_cfg.clock_source, required_argument,
+		 &cfg.clock_source, required_argument,
 		 "CSU channel index for port clock source",
 		 .require_in_usage = 1},
-		{"clock_mode", 'm', "TYPE", CFG_MULT_CHOICES,
-		 &cfg.port_cfg.clock_mode, required_argument,
-		 .choices=clock_mode_choices, .require_in_usage = 1,
-		 .help="clock mode"},
-		{"hvd_id", 'd', "NUM", CFG_INT, &cfg.port_cfg.hvd_inst,
+		{"clock_sris", 's', "SRIS", CFG_CHOICES,
+		 &cfg.clock_sris, required_argument,
+		 .choices=clock_sris_choices, .require_in_usage = 1,
+		 .help="clock sris"},
+		{"hvd_id", 'd', "NUM", CFG_INT, &cfg.hvd_inst,
 		 required_argument, "HVM domain index for USP",
 		 .require_in_usage = 1},
 		{NULL}
 	};
 
 	argconfig_parse(argc, argv, CMD_DESC_PORTCFG_SET, opts, &cfg, sizeof(cfg));
+	if (cfg.phys_port_id == -1) {
+		fprintf(stderr, "The --phys_port_id|-p argument is required!\n");
+		return 1;
+	}
 
-	ret = switchtec_fab_port_config_set(cfg.dev, cfg.phys_port_id, &cfg.port_cfg);
+	if (cfg.port_type == -1) {
+		fprintf(stderr, "The --port_type|-t argument is required!\n");
+		return 1;
+	}
+
+	if (cfg.port_type != SWITCHTEC_FAB_PORT_TYPE_UNUSED &&
+	    cfg.clock_source == -1) {
+		fprintf(stderr, "The --clock_source|-c argument is required for port type FABRIC_EP and FABRIC_HOST!\n");
+		return 2;
+	}
+
+	if (cfg.port_type != SWITCHTEC_FAB_PORT_TYPE_UNUSED &&
+	    cfg.clock_sris == -1) {
+		fprintf(stderr, "The --clock_sris|-s argument is required for port type FABRIC_EP and FABRIC_HOST!\n");
+		return 3;
+	}
+
+	if (cfg.port_type == SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST &&
+	    cfg.hvd_inst == -1) {
+		fprintf(stderr, "The --hvd_id|-d argument is required for port type FABRIC_HOST!\n");
+		return 4;
+	}
+
+	port_cfg.clock_source = cfg.clock_source;
+	port_cfg.clock_sris = cfg.clock_sris;
+	port_cfg.port_type = cfg.port_type;
+	port_cfg.hvd_inst = cfg.hvd_inst;
+	ret = switchtec_fab_port_config_set(cfg.dev, cfg.phys_port_id, &port_cfg);
 	if (ret) {
 		switchtec_perror("port_config");
 		return ret;
@@ -249,7 +341,7 @@ static int portcfg_show(int argc, char **argv)
 {
 	int ret;
 	struct switchtec_fab_port_config port_info;
-	int port_type, clock_mode;
+	int port_type, clock_sris;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -284,11 +376,11 @@ static int portcfg_show(int argc, char **argv)
 	printf("Port Type:    %s \n", port_type_strs[port_type]);
 	printf("Clock Source: %d\n", port_info.clock_source);
 
-	clock_mode = port_info.clock_mode;
-	if(clock_mode >= SWITCHTEC_FAB_PORT_CLOCK_INVALID)
-		clock_mode = SWITCHTEC_FAB_PORT_CLOCK_INVALID;
+	clock_sris = port_info.clock_sris;
+	if(clock_sris >= SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID)
+		clock_sris = SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID;
 
-	printf("Clock Mode:   %s\n", clock_mode_strs[clock_mode]);
+	printf("Clock SRIS:   %s\n", clock_sris_strs[clock_sris]);
 	printf("HVD Instance: %d\n", port_info.hvd_inst);
 
 	return 0;
@@ -491,7 +583,9 @@ static int pax_general_print(struct switchtec_dev *dev,
 static int hvd_body_print(struct switchtec_dev *dev,
 			  struct switchtec_gfms_db_hvd_body *body)
 {
-	int i;
+	int i, j;
+	int index;
+	int bound;
 	int log_port_count;
 
 	printf("    HVD %hhx (Physical Port ID: %hhu, HFID: 0x%04hx):\n",
@@ -500,13 +594,26 @@ static int hvd_body_print(struct switchtec_dev *dev,
 	log_port_count = body->logical_port_count;
 
 	for (i = 0; i < log_port_count; i++) {
-		if (body->bound[i].bound)
-			printf("        Logical Port ID %hhd:    \tBound to PDFID 0x%04hx\n",
-			       body->bound[i].log_pid,
-			       body->bound[i].bound_pdfid);
-		else
-			printf("        Logical Port ID %hhd:    \tUnbound\n",
-			       body->bound[i].log_pid);
+		bound = 0;
+		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
+			index = j * log_port_count + i;
+			if (body->bound[index].bound)
+				bound = 1;
+		}
+
+		if (!bound) {
+			printf("        Logical PID %hhu:\t\tUnbound\n", i);
+			continue;
+		}
+
+		printf("        Logical PID %hhu:\n", i);
+		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
+			index = j * log_port_count + i;
+
+			if (body->bound[index].bound)
+				printf("            Function %hhu:    \tPDFID 0x%04hx\n",
+				       j, body->bound[index].bound_pdfid);
+		}
 	}
 
 	return 0;
@@ -539,9 +646,12 @@ static int vep_type_to_str(uint8_t type, char *str)
 static int hvd_detail_body_print(struct switchtec_dev *dev,
 				 struct switchtec_gfms_db_hvd_detail_body *body)
 {
-	int i;
+	int i, j;
+	int index;
 	int vep_count;
 	int log_port_count;
+	struct switchtec_gfms_db_hvd_log_port *port;
+	int bound;
 	char bdf_str1[32];
 	char bdf_str2[32];
 	char vep_type_str[32];
@@ -550,9 +660,7 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 	int pos;
 
 	bdf_to_str(body->usp_bdf, bdf_str1);
-	printf("    HVD %hhx:\n"
-	       "        Physical Port ID:  \t\t%hhu\n"
-	       "        HFID:              \t\t0x%04hx\n"
+	printf("    HVD %hhx (Physical Port ID: %hhu, HFID: 0x%04hx):\n"
 	       "        USP Status:        \t\t%s\n"
 	       "        USP BDF:           \t\t%s\n",
 	       body->hvd_inst_id, body->phy_pid,
@@ -574,18 +682,33 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 
 	printf("        Logical Ports (%hhu):\n", body->log_dsp_count);
 	for (i = 0; i < log_port_count; i++) {
-		if (body->log_port_region[i].bound) {
-			bdf_to_str(body->log_port_region[i].dsp_bdf, bdf_str1);
-			bdf_to_str(body->log_port_region[i].bound_hvd_bdf,
-				   bdf_str2);
-			printf("            Logical PID %hhu:\t\tBound to PDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
-			       body->log_port_region[i].log_pid,
-			       body->log_port_region[i].bound_pdfid,
-			       body->usp_status ? bdf_str1 : "N/A",
-			       body->usp_status ? bdf_str2 : "N/A");
-		} else
-			printf("            Logical PID %hhu:\t\tUnbound\n",
-			       body->log_port_region[i].log_pid);
+		bound = 0;
+		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
+			index = j * log_port_count + i;
+			port = &body->log_port_region[index];
+			if (port->bound) {
+				bound = 1;
+			}
+		}
+
+		if (!bound) {
+			printf("            Logical PID %hhu:\t\tUnbound\n", i);
+			continue;
+		}
+
+		printf("            Logical PID %hhu:\n", i);
+		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
+			index = j * log_port_count + i;
+			port = &body->log_port_region[index];
+			if (port->bound) {
+				bdf_to_str(port->dsp_bdf, bdf_str1);
+				bdf_to_str(port->bound_hvd_bdf, bdf_str2);
+				printf("                Function %hhu:\t\tPDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
+				       j, port->bound_pdfid,
+				       body->usp_status ? bdf_str1 : "N/A",
+				       body->usp_status ? bdf_str2 : "N/A");
+			}
+		}
 	}
 
 	enable_bitmap = body->log_port_p2p_enable_bitmap_high;
@@ -603,13 +726,13 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 			bitmap = body->log_port_p2p_bitmap[i].config_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].config_bitmap_low;
-			printf("        Logical Port %hhu P2P config bitmap:    \t0x%016lx\n",
+			printf("            Logical Port %hhu P2P config bitmap:    \t0x%016lx\n",
 			       pos, bitmap);
 
 			bitmap = body->log_port_p2p_bitmap[i].active_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].active_bitmap_low;
-			printf("        Logical Port %hhu P2P active bitmap:    \t0x%016lx\n",
+			printf("            Logical Port %hhu P2P active bitmap:    \t0x%016lx\n",
 			       pos, bitmap);
 		}
 	}
@@ -709,13 +832,8 @@ static int ep_port_function_print(
 	printf("%s            PDFID:      \t0x%02hx\n", lead, func->pdfid);
 	printf("%s            VID-DID:    \t0x%04hx-0x%04hx\n", lead, func->vid, func->did);
 	if (func->bound) {
-		printf("%s            Binding:    \tBound\n", lead);
-		printf("%s                Bound PAX ID          : %hhd\n",
-		       lead, func->bound_pax_id);
-		printf("%s                Bound HVD Physical PID: %hhd\n",
-		       lead, func->bound_hvd_phy_pid);
-		printf("%s                Bound HVD Logical PID : %hhd\n",
-		       lead, func->bound_hvd_log_pid);
+		printf("%s            Binding:    \tPAX ID: %hhd, HVD Physical PID: %hhd, HVD Logical PID: %hhd\n", lead, func->bound_pax_id, func->bound_hvd_phy_pid, func->bound_hvd_log_pid);
+
 	} else
 		printf("%s            Binding:    \tUnbound\n", lead);
 
@@ -821,6 +939,7 @@ static int pax_all_print(struct switchtec_dev *dev,
 	for (i = 0; i < pax_all->ep_port_all.ep_port_count; i++) {
 		ep_port_print(dev, &pax_all->ep_port_all.ep_ports[i]);
 	}
+	printf("\n");
 
 	printf("HVDs:\n");
 	for (i = 0; i < pax_all->hvd_all.hvd_count; i++) {
