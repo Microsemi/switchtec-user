@@ -148,42 +148,66 @@ static int port_control(int argc, char **argv)
 {
 	int ret;
 	struct argconfig_choice control_type_choices[5] = {
-		{"DISABLE", 0, "disable port"},
-		{"ENABLE", 1, "enable port"},
-		{"RETRAIN", 2, "link retrain"},
-		{"HOT_RESET", 3, "link hot reset"},
+		{"DISABLE", SWITCTEC_PORT_CONTROL_DISABLE, "disable port"},
+		{"ENABLE", SWITCTEC_PORT_CONTROL_ENABLE, "enable port"},
+		{"RETRAIN", SWITCTEC_PORT_CONTROL_LINK_RETRAIN, "link retrain"},
+		{"HOT_RESET", SWITCTEC_PORT_CONTROL_LINK_HOT_RESET,
+		 "link hot reset"},
 		{}
 	};
 	struct argconfig_choice hot_reset_flag_choices[3] = {
-		{"CLEAR", 0, "hot reset status clear"},
-		{"SET", 1, "hot reset status set"},
+		{"CLEAR", SWITCTEC_PORT_CONTROL_HOT_RESET_STATUS_CLEAR,
+		 "hot reset status clear"},
+		{"SET", SWITCTEC_PORT_CONTROL_HOT_RESET_STATUS_SET,
+		 "hot reset status set"},
 		{}
 	};
 
 	static struct {
 		struct switchtec_dev *dev;
-		uint8_t control_type;
-		uint8_t phys_port_id;
-		uint8_t hot_reset_flag;
-	} cfg;
+		int control_type;
+		int phys_port_id;
+		int hot_reset_flag;
+	} cfg = {
+		.control_type = -1,
+		.phys_port_id = -1,
+		.hot_reset_flag = -1,
+	};
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"control_type", 't', "TYPE", CFG_MULT_CHOICES, &cfg.control_type, required_argument,
-		.choices=control_type_choices,
-		.require_in_usage = 1,
-		.help="Port control type"},
-		{"phys_port_id", 'p', "NUM", CFG_INT, &cfg.phys_port_id, required_argument,"physical port ID",
-		.require_in_usage = 1,},
-		{"hot_reset_flag", 'f', "FLAG", CFG_MULT_CHOICES, &cfg.hot_reset_flag, required_argument,
-		.choices=hot_reset_flag_choices,
-		.require_in_usage = 1,
-		.help="hot reset flag option"},
+		{"phys_port_id", 'p', "NUM", CFG_INT, &cfg.phys_port_id,
+		 required_argument, .require_in_usage = 1,
+		 .help = "physical port ID"},
+		{"control_type", 't', "TYPE", CFG_CHOICES, &cfg.control_type,
+		 required_argument, .choices=control_type_choices,
+		.require_in_usage = 1, .help="port control type"},
+		{"hot_reset_flag", 'f', "FLAG", CFG_CHOICES,&cfg.hot_reset_flag,
+		 required_argument, .choices=hot_reset_flag_choices,
+		.require_in_usage = 1, .help="hot reset flag option"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_PORT_CONTROL, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_port_control(cfg.dev, cfg.control_type, cfg.phys_port_id, cfg.hot_reset_flag);
+	if (cfg.phys_port_id == -1) {
+		fprintf(stderr, "The --phys_port_id|-p argument is required!\n");
+		return 1;
+	}
+
+
+	if (cfg.control_type == -1) {
+		fprintf(stderr, "The --control_type|-t argument is required!\n");
+		return 2;
+	}
+
+	if (cfg.control_type == SWITCTEC_PORT_CONTROL_LINK_HOT_RESET &&
+	    cfg.hot_reset_flag == -1) {
+		fprintf(stderr, "The --hot_reset_flag|-f argument is required for control type HOT_RESET!\n");
+		return 3;
+	}
+
+	ret = switchtec_port_control(cfg.dev, cfg.control_type,
+				     cfg.phys_port_id, cfg.hot_reset_flag);
 	if (ret) {
 		switchtec_perror("port_control");
 		return ret;
@@ -270,33 +294,38 @@ static int portcfg_set(int argc, char **argv)
 	};
 
 	argconfig_parse(argc, argv, CMD_DESC_PORTCFG_SET, opts, &cfg, sizeof(cfg));
-
 	if (cfg.phys_port_id == -1) {
-		fprintf(stderr, "The --phys_port_id argument is required!\n");
+		fprintf(stderr, "The --phys_port_id|-p argument is required!\n");
 		return 1;
 	}
 
-	if (cfg.port_type == -1 && cfg.clock_source == -1 &&
-	    cfg.clock_sris == -1 && cfg.hvd_inst == -1) {
-		argconfig_print_usage(opts);
+	if (cfg.port_type == -1) {
+		fprintf(stderr, "The --port_type|-t argument is required!\n");
+		return 1;
+	}
+
+	if (cfg.port_type != SWITCHTEC_FAB_PORT_TYPE_UNUSED &&
+	    cfg.clock_source == -1) {
+		fprintf(stderr, "The --clock_source|-c argument is required for port type FABRIC_EP and FABRIC_HOST!\n");
 		return 2;
 	}
 
-	ret = switchtec_fab_port_config_get(cfg.dev, cfg.phys_port_id, &port_cfg);
-	if (ret) {
-		switchtec_perror("port_info");
-		return ret;
+	if (cfg.port_type != SWITCHTEC_FAB_PORT_TYPE_UNUSED &&
+	    cfg.clock_sris == -1) {
+		fprintf(stderr, "The --clock_sris|-s argument is required for port type FABRIC_EP and FABRIC_HOST!\n");
+		return 3;
 	}
 
-	if (cfg.port_type != -1)
-		port_cfg.port_type = cfg.port_type;
-	if (cfg.clock_source != -1)
-		port_cfg.clock_source = cfg.clock_source;
-	if (cfg.clock_sris != -1)
-		port_cfg.clock_sris = cfg.clock_sris;
-	if (cfg.hvd_inst != -1)
-		port_cfg.hvd_inst = cfg.hvd_inst;
+	if (cfg.port_type == SWITCHTEC_FAB_PORT_TYPE_FABRIC_HOST &&
+	    cfg.hvd_inst == -1) {
+		fprintf(stderr, "The --hvd_id|-d argument is required for port type FABRIC_HOST!\n");
+		return 4;
+	}
 
+	port_cfg.clock_source = cfg.clock_source;
+	port_cfg.clock_sris = cfg.clock_sris;
+	port_cfg.port_type = cfg.port_type;
+	port_cfg.hvd_inst = cfg.hvd_inst;
 	ret = switchtec_fab_port_config_set(cfg.dev, cfg.phys_port_id, &port_cfg);
 	if (ret) {
 		switchtec_perror("port_config");
