@@ -1270,15 +1270,10 @@ static void print_fw_part_line(const char *tag,
 	       inf->valid ? "" : "  (Invalid)");
 }
 
-static int print_fw_part_info(struct switchtec_dev *dev)
+static int print_fw_part_info(struct switchtec_fw_part_summary *sum)
 {
-	struct switchtec_fw_part_summary *sum;
 	struct switchtec_fw_image_info *inf;
 	int i;
-
-	sum = switchtec_fw_part_summary(dev);
-	if (!sum)
-		return -1;
 
 	printf("Active Partitions:\n");
 	print_fw_part_line("BOOT", sum->boot.active);
@@ -1298,8 +1293,6 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
 
-	switchtec_fw_part_summary_free(sum);
-
 	return 0;
 }
 
@@ -1308,8 +1301,8 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 static int fw_info(int argc, char **argv)
 {
 	int ret;
-	char version[64];
 	enum switchtec_boot_phase phase_id;
+	struct switchtec_fw_part_summary *sum;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1330,23 +1323,21 @@ static int fw_info(int argc, char **argv)
 			"This command is only available in BL2 or Main Firmware!\n");
 		return -1;
 	}
-	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
-		ret = switchtec_get_fw_version(cfg.dev, version,
-					       sizeof(version));
-		if (ret < 0) {
-			switchtec_perror("print fw info");
-			return ret;
-		}
 
-		printf("Currently Running:\n");
-		printf("  IMG\tVersion: %s\n", version);
-	}
-	ret = print_fw_part_info(cfg.dev);
-	if (ret) {
+	sum = switchtec_fw_part_summary(cfg.dev);
+	if (!sum) {
 		switchtec_perror("print fw info");
-		return ret;
+		return -2;
+	}
+	if (phase_id == SWITCHTEC_BOOT_PHASE_FW) {
+		printf("Currently Running:\n");
+		printf("  IMG\tVersion: %s\n",
+		       sum->img.active->running?
+		       sum->img.active->version : sum->img.inactive->version);
 	}
 
+	print_fw_part_info(sum);
+	switchtec_fw_part_summary_free(sum);
 
 	return 0;
 }
@@ -1358,6 +1349,7 @@ static int fw_update(int argc, char **argv)
 	int ret;
 	int type;
 	struct switchtec_fw_image_info info;
+	struct switchtec_fw_part_summary *sum;
 	const char *desc = CMD_DESC_FW_UPDATE "\n\n"
 			   "This command only supports flashing firmware "
 			   "when the device is in the BL2 or MAIN boot phase. To "
@@ -1458,7 +1450,14 @@ static int fw_update(int argc, char **argv)
 	progress_finish();
 	printf("\n");
 
-	print_fw_part_info(cfg.dev);
+	sum = switchtec_fw_part_summary(cfg.dev);
+	if (!sum) {
+		switchtec_perror("print fw info");
+		return -2;
+	}
+	print_fw_part_info(sum);
+	switchtec_fw_part_summary_free(sum);
+
 	printf("\n");
 
 	if (type == SWITCHTEC_FW_TYPE_MAP) {
@@ -1484,6 +1483,7 @@ static int fw_toggle(int argc, char **argv)
 {
 	int ret = 0;
 	int err = 0;
+	struct switchtec_fw_part_summary *sum;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1523,9 +1523,13 @@ static int fw_toggle(int argc, char **argv)
 			err = errno;
 	}
 
-	ret = print_fw_part_info(cfg.dev);
-	if (ret)
+	sum = switchtec_fw_part_summary(cfg.dev);
+	if (!sum) {
 		switchtec_perror("print fw info");
+		return -1;
+	}
+	print_fw_part_info(sum);
+	switchtec_fw_part_summary_free(sum);
 
 	printf("\n");
 
