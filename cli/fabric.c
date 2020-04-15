@@ -129,29 +129,46 @@ static int gfms_bind(int argc, char **argv)
 
 static int gfms_unbind(int argc, char **argv)
 {
+	struct switchtec_gfms_unbind_req unbind_req;
 	int ret;
 
 	static struct {
 		struct switchtec_dev *dev;
-		struct switchtec_gfms_unbind_req unbind_req;
-	} cfg;
+		int host_sw_idx;
+		int host_phys_port_id;
+		int host_log_port_id;
+	} cfg = {
+		.host_sw_idx = -1,
+		.host_phys_port_id = -1,
+		.host_log_port_id = -1,
+	};
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"host_sw_idx", 's', "NUM", CFG_INT,
-		 &cfg.unbind_req.host_sw_idx, required_argument,
+		 &cfg.host_sw_idx, required_argument,
 		 "host switch index", .require_in_usage = 1,},
 		{"phys_port_id", 'p', "NUM", CFG_INT,
-		 &cfg.unbind_req.host_phys_port_id, required_argument,
+		 &cfg.host_phys_port_id, required_argument,
 		 .require_in_usage = 1, .help = "host physical port ID"},
 		{"log_port_id", 'l', "NUM", CFG_INT,
-		 &cfg.unbind_req.host_log_port_id, required_argument,
+		 &cfg.host_log_port_id, required_argument,
 		 .require_in_usage = 1,.help = "host logical port ID"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_GFMS_UNBIND, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_gfms_unbind(cfg.dev, &cfg.unbind_req);
+	if (cfg.host_sw_idx == -1 || cfg.host_phys_port_id == -1 ||
+	    cfg.host_log_port_id == -1) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "All arguments are required!\n");
+		return 1;
+	}
+
+	unbind_req.host_sw_idx = cfg.host_sw_idx;
+	unbind_req.host_phys_port_id = cfg.host_phys_port_id;
+	unbind_req.host_log_port_id = cfg.host_log_port_id;
+	ret = switchtec_gfms_unbind(cfg.dev, &unbind_req);
 	if (ret) {
 		switchtec_perror("gfms_unbind");
 		return ret;
