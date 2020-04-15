@@ -201,6 +201,7 @@ int switchtec_gfms_bind(struct switchtec_dev *dev,
 
 	for (i = 0; i < req->ep_number; i++) {
 		cmd.function[i].pdfid = req->ep_pdfid[i];
+		cmd.function[i].next_valid = 0;
 		if (i)
 			cmd.function[i - 1].next_valid = 1;
 	}
