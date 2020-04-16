@@ -33,6 +33,7 @@
 #include "switchtec/gas_mrpc.h"
 #include "switchtec/errors.h"
 
+#include <string.h>
 #include <errno.h>
 
 /**
@@ -124,7 +125,29 @@ int switchtec_list(struct switchtec_device_info **devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen)
 {
-	return dev->ops->get_fw_version(dev, buf, buflen);
+	struct switchtec_fw_part_summary *sum;
+	struct switchtec_fw_image_info *running_img;
+
+	sum = switchtec_fw_part_summary(dev);
+	if (!sum)
+		return -1;
+
+	if (sum->img.active->running) {
+		running_img = sum->img.active;
+	} else if (sum->img.inactive->running) {
+		running_img = sum->img.inactive;
+	} else {
+		switchtec_fw_part_summary_free(sum);
+		errno = EIO;
+		return -1;
+	}
+
+	strncpy(buf, running_img->version, buflen);
+	buf[buflen - 1] = '\0';
+
+	switchtec_fw_part_summary_free(sum);
+
+	return 0;
 }
 
 /**

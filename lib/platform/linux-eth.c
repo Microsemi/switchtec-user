@@ -78,6 +78,8 @@
 #define ETH_GAS_READ_CMD_ID  0x1001
 #define ETH_GAS_WRITE_CMD_ID 0x1002
 
+#define ETH_MAX_READ 512
+
 struct switchtec_eth {
 	struct switchtec_dev dev;
 	int cmd_fd;
@@ -400,16 +402,19 @@ static void eth_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 static ssize_t eth_write_from_gas(struct switchtec_dev *dev, int fd,
 				  const void __gas *src, size_t n)
 {
-	ssize_t ret;
-	void *buf;
+	ssize_t ret = 0;
+	uint8_t buf[ETH_MAX_READ];
+	int cnt;
 
-	buf = malloc(n);
+	while (n) {
+		cnt = n > ETH_MAX_READ ? ETH_MAX_READ : n;
+		eth_memcpy_from_gas(dev, buf, src, cnt);
+		ret +=write(fd, buf, cnt);
 
-	eth_memcpy_from_gas(dev, buf, src, n);
+		src += cnt;
+		n -= cnt;
+	}
 
-	ret = write(fd, buf, n);
-
-	free(buf);
 	return ret;
 }
 
