@@ -24,13 +24,11 @@ AS_IF([test "x$with_curses" != xno &&
         AC_CHECK_LIB([curses], [initscr], [], [], [-ltinfo])])
 
 AC_CHECK_HEADERS([curses.h ncurses/curses.h])
-AC_CHECK_HEADERS([openssl/pem.h])
 
-AS_IF([test "x$with_ssl" != xno],
-       [AC_CHECK_LIB([crypto], [RSA_free], [], [], [])])
-
-AS_IF([test "x$with_ssl" != xno],
-       [AC_CHECK_DECLS([RSA_get0_key], [], [], [#include <openssl/pem.h>])])
+AS_IF([test "x$with_openssl" != xno],
+       [AC_CHECK_HEADERS([openssl/pem.h])
+        AC_CHECK_LIB([crypto], [RSA_free], [], [], [])
+        AC_CHECK_DECLS([RSA_get0_key], [], [], [#include <openssl/pem.h>])])
 
 AC_CONFIG_FILES([Makefile])
 
