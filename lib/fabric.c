@@ -544,6 +544,8 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 		return ret;
 	}
 
+	memcpy(&hvd_detail->hdr, data, sizeof(hvd_detail->hdr));
+
 	body = (struct switchtec_gfms_db_hvd_detail_body *)(data + sizeof(hvd_detail->hdr));
 
 	p = (void *)body;
