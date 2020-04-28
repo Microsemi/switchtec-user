@@ -57,6 +57,10 @@ STLIBNAME ?= libswitchtec.a
 MACHINE=$(shell $(CC) -dumpmachine)
 
 ifeq ($(findstring mingw,$(MACHINE)),mingw)
+  MINGW := YES
+endif
+
+ifeq ($(MINGW), YES)
   EXENAME ?= switchtec.exe
   INSTEXENAME ?= switchtec
   SHLIBNAME ?= switchtec.dll
@@ -64,7 +68,6 @@ ifeq ($(findstring mingw,$(MACHINE)),mingw)
   override LDFLAGS += -Wl,--out-implib,$(IMPLIBNAME)
   LDLIBS += -lsetupapi -lws2_32
   SHLDLIBS = $(LDLIBS)
-  LDCONFIG=
   override CPPFLAGS += -DNTDDI_VERSION=NTDDI_VISTA -D_WIN32_WINNT=_WIN32_WINNT_VISTA
 else
   EXENAME ?= switchtec
@@ -150,8 +153,10 @@ install-bin: compile
 	$(Q)install -m 0664 $(STLIBNAME) $(LIBDIR)
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(IMPLIBNAME).$(VERSION)"
 	$(Q)install $(IMPLIBNAME) $(LIBDIR)/$(IMPLIBNAME).$(VERSION)
+ifneq ($(MINGW), YES)
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(IMPLIBNAME)"
 	$(Q)ln -fs $(IMPLIBNAME).$(MAJOR_VER) $(LIBDIR)/$(IMPLIBNAME)
+endif
 	@$(NQ) echo "  INSTALL  $(INCDIR)/switchtec"
 	@$(Q)mkdir -p $(INCDIR)
 	@$(Q)cp -r inc/switchtec $(INCDIR)
@@ -159,12 +164,16 @@ install-bin: compile
 install-pkg: install-bin install-bash-completion
 
 install: install-bin install-bash-completion
+ifneq ($(MINGW), YES)
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)$(LDCONFIG) $(LIBDIR)
+endif
 
 uninstall:
+ifneq ($(MINGW), YES)
 	@$(NQ) echo "  LDCONFIG"
 	$(Q)$(LDCONFIG) $(LIBDIR)
+endif
 
 switchtec.spec: switchtec.spec.in $(OBJDIR)/version.mk
 	sed -e 's/@@VERSION@@/$(VERSION)/g' < $< | sed -e 's/@@RELEASE@@/$(RELEASE)/g' > $@+
