@@ -22,6 +22,7 @@
  *
  */
 
+#include <sys/mman.h>
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
@@ -1027,4 +1028,104 @@ int switchtec_clear_gfms_events(struct switchtec_dev *dev)
 		return -1;
 
 	return 0;
+}
+
+static int ep_csr_read(struct switchtec_dev *dev,
+		       uint16_t pdfid, void *dest,
+		       const void __csr *src, size_t n)
+{
+	int ret;
+	uint16_t csr_addr;
+
+	if (n > SWITCHTEC_EP_CSR_MAX_READ_LEN)
+		n = SWITCHTEC_EP_CSR_MAX_READ_LEN;
+
+	if (!n)
+		return n;
+
+	csr_addr = (uint16_t)(src - (void __csr *)dev->ep_csr_map);
+
+	struct ep_cfg_read {
+		uint8_t subcmd;
+		uint8_t reserved0;
+		uint16_t pdfid;
+		uint16_t addr;
+		uint8_t bytes;
+		uint8_t reserved1;
+	} cmd = {
+		.subcmd = 0,
+		.pdfid = pdfid,
+		.addr = htole16(csr_addr),
+		.bytes= n,
+	};
+
+	struct {
+		uint32_t data;
+	} rsp;
+
+	ret = switchtec_cmd(dev, MRPC_EP_RESOURCE_ACCESS, &cmd,
+			    sizeof(cmd), &rsp, 4);
+	if (ret)
+		return -1;
+
+	memcpy(dest, &rsp.data, n);
+	return 0;
+}
+
+void __csr * switchtec_ep_csr_map(struct switchtec_dev *dev)
+{
+	void *addr;
+	dev->ep_csr_map_size = 4 << 20;
+
+	/*
+	 * Ensure that if someone tries to do something stupid,
+	 * like dereference the EP CSR directly we fail without
+	 * trashing random memory somewhere. We do this by
+	 * allocating an innaccessible range in the virtual
+	 * address space and use that as the EP CSR address which
+	 * will be subtracted by subsequent operations
+	 */
+
+	addr = mmap(NULL, dev->ep_csr_map_size, PROT_NONE,
+		    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	if (addr == MAP_FAILED)
+		return (void __csr __force *)-1;
+
+	dev->ep_csr_map = (void __csr __force *)addr;
+
+	return dev->ep_csr_map;
+}
+
+void switchtec_ep_csr_unmap(struct switchtec_dev *dev,
+			    void __csr __force *map)
+{
+	munmap((void __force *)map, dev->ep_csr_map_size);
+}
+
+int switchtec_ep_csr_read8(struct switchtec_dev *dev, uint16_t pdfid,
+			   uint8_t __csr *addr, uint8_t *val)
+{
+	return ep_csr_read(dev, htole16(pdfid), val, addr, 1);
+}
+
+int switchtec_ep_csr_read16(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint16_t __csr *addr, uint16_t *val)
+{
+	int ret;
+
+	ret = ep_csr_read(dev, htole16(pdfid), val, addr, 2);
+	*val = le16toh(*val);
+
+	return ret;
+}
+
+int switchtec_ep_csr_read32(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint32_t __csr *addr, uint32_t *val)
+{
+	int ret;
+
+	ret = ep_csr_read(dev, htole16(pdfid), val, addr, 4);
+	*val = le32toh(*val);
+
+	return ret;
 }

@@ -619,6 +619,26 @@ int switchtec_get_gfms_events(struct switchtec_dev *dev,
                               size_t *remain_number);
 
 int switchtec_clear_gfms_events(struct switchtec_dev *dev);
+
+/********** EP RESOURCE MANAGEMENT *********/
+#ifdef __CHECKER__
+#define __force __attribute__((force))
+#else
+#define __force
+#endif
+#define SWITCHTEC_EP_CSR_MAX_READ_LEN  4
+
+void __csr * switchtec_ep_csr_map(struct switchtec_dev *dev);
+void switchtec_ep_csr_unmap(struct switchtec_dev *dev,
+			    void __csr __force *map);
+
+int switchtec_ep_csr_read8(struct switchtec_dev *dev, uint16_t pdfid,
+			   uint8_t __csr *addr, uint8_t *val);
+int switchtec_ep_csr_read16(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint16_t __csr *addr, uint16_t *val);
+int switchtec_ep_csr_read32(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint32_t __csr *addr, uint32_t *val);
+
 #ifdef __cplusplus
 }
 #endif

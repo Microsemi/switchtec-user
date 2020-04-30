@@ -64,6 +64,12 @@ struct switchtec_dev;
 #define SWITCHTEC_PAX_ID_LOCAL SWITCHTEC_PAX_ID_MASK
 
 #ifdef __CHECKER__
+#define __csr __attribute__((noderef, address_space(1)))
+#else
+#define __csr
+#endif
+
+#ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
 #define __gas
