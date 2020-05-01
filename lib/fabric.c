@@ -1028,3 +1028,77 @@ int switchtec_clear_gfms_events(struct switchtec_dev *dev)
 
 	return 0;
 }
+
+int switchtec_ep_tunnel_config(struct switchtec_dev *dev, uint16_t subcmd,
+			       uint16_t pdfid, uint16_t expected_rsp_len,
+			       uint8_t *meta_data, uint16_t meta_data_len,
+			       uint8_t *rsp_data)
+{
+	int ret;
+	size_t payload_len;
+
+	struct cfg_req {
+		uint16_t subcmd;
+		uint16_t pdfid;
+		uint16_t expected_rsp_len;
+		uint16_t meta_data_len;
+		uint8_t meta_data[MRPC_MAX_DATA_LEN - 8];
+	} req = {
+		.subcmd = htole16(subcmd),
+		.pdfid = htole16(pdfid),
+		.expected_rsp_len = htole16(expected_rsp_len),
+	};
+
+	struct cfg_rsp {
+		uint32_t len;
+		uint8_t data[MRPC_MAX_DATA_LEN - 4];
+	} rsp;
+
+	if (meta_data_len > sizeof(req.meta_data))
+		return -1;
+
+	req.meta_data_len = htole16(meta_data_len);
+
+	if (meta_data_len)
+		memcpy(req.meta_data, meta_data, meta_data_len);
+
+	payload_len = offsetof(struct cfg_req, meta_data) + meta_data_len;
+
+	ret = switchtec_cmd(dev, MRPC_EP_TUNNEL_CFG, &req,
+			    payload_len, &rsp, sizeof(rsp));
+
+	if (ret)
+		return -errno;
+
+	rsp.len = le32toh(rsp.len);
+
+	if (rsp_data && rsp.len)
+		memcpy(rsp_data, rsp.data, rsp.len);
+
+	return 0;
+}
+
+int switchtec_ep_tunnel_enable(struct switchtec_dev *dev, uint16_t pdfid)
+{
+	return switchtec_ep_tunnel_config(dev, MRPC_EP_TUNNEL_ENABLE,
+					  pdfid, 0, NULL, 0, NULL);
+}
+
+int switchtec_ep_tunnel_disable(struct switchtec_dev *dev, uint16_t pdfid)
+{
+	return switchtec_ep_tunnel_config(dev, MRPC_EP_TUNNEL_DISABLE,
+					  pdfid, 0, NULL, 0, NULL);
+}
+
+int switchtec_ep_tunnel_status(struct switchtec_dev *dev, uint16_t pdfid,
+			       uint32_t *status)
+{
+	int ret;
+
+	ret = switchtec_ep_tunnel_config(dev, MRPC_EP_TUNNEL_STATUS,
+					 pdfid, sizeof(*status), NULL,
+					 0, (uint8_t *)status);
+	*status = le32toh(*status);
+
+	return ret;
+}

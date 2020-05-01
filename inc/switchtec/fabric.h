@@ -619,6 +619,21 @@ int switchtec_get_gfms_events(struct switchtec_dev *dev,
                               size_t *remain_number);
 
 int switchtec_clear_gfms_events(struct switchtec_dev *dev);
+
+/********** EP TUNNEL MANAGEMENT *********/
+enum switchtec_ep_tunnel_status{
+	SWITCHTEC_EP_TUNNEL_DISABLED = 0,
+	SWITCHTEC_EP_TUNNEL_ENABLED = 1,
+};
+
+int switchtec_ep_tunnel_config(struct switchtec_dev *dev, uint16_t subcmd,
+			       uint16_t pdfid, uint16_t expected_rsp_len,
+			       uint8_t *meta_data, uint16_t meta_data_len,
+			       uint8_t *rsp_data);
+int switchtec_ep_tunnel_enable(struct switchtec_dev *dev, uint16_t pdfid);
+int switchtec_ep_tunnel_disable(struct switchtec_dev *dev, uint16_t pdfid);
+int switchtec_ep_tunnel_status(struct switchtec_dev *dev, uint16_t pdfid,
+			       uint32_t *status);
 #ifdef __cplusplus
 }
 #endif

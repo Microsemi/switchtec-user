@@ -1396,6 +1396,87 @@ static int gfms_events(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_EP_TNL_CFG "configure the EP management tunnel"
+static int ep_tunnel_cfg(int argc, char **argv)
+{
+	int ret = 0;
+	char *sts = NULL;
+	unsigned int status;
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned cmd;
+		unsigned short pdfid;
+		unsigned short rsp_len;
+		unsigned short meta_data_len;
+		char *meta_data;
+	} cfg = {
+		.cmd = 0xffff,
+		.pdfid = 0xffff,
+		.rsp_len = 0,
+		.meta_data_len = 0,
+		.meta_data = NULL,
+	};
+
+	struct argconfig_choice cmd_choices[4] = {
+		{"enable", MRPC_EP_TUNNEL_ENABLE,
+		 "Enable the EP management tunnel"},
+		{"disable", MRPC_EP_TUNNEL_DISABLE,
+		 "Disable the EP management tunnel"},
+		{"status", MRPC_EP_TUNNEL_STATUS,
+		 "Query the EP management tunnel status"},
+		{NULL}
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"cmd", 'c', "CMD", CFG_CHOICES, &cfg.cmd,
+		 required_argument, .choices=cmd_choices,
+		 .require_in_usage=1, .help="Configure command"},
+		{"pdfid", 'f', "PDFID", CFG_SHORT, &cfg.pdfid,
+		 required_argument, "pdfid of the EP",.require_in_usage=1},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_EP_TNL_CFG, opts,
+			&cfg, sizeof(cfg));
+
+	if (cfg.cmd == 0xffff) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --cmd|-c argument is required!\n");
+		return 1;
+	}
+
+	if (cfg.pdfid == 0xffff) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --pdfid|-f argument is required!\n");
+		return 1;
+	}
+
+	switch (cfg.cmd) {
+	case MRPC_EP_TUNNEL_ENABLE:
+		ret = switchtec_ep_tunnel_enable(cfg.dev, cfg.pdfid);
+		break;
+	case MRPC_EP_TUNNEL_DISABLE:
+		ret = switchtec_ep_tunnel_disable(cfg.dev, cfg.pdfid);
+		break;
+	case MRPC_EP_TUNNEL_STATUS:
+		ret = switchtec_ep_tunnel_status(cfg.dev, cfg.pdfid, &status);
+		if (!ret) {
+			sts = (status == SWITCHTEC_EP_TUNNEL_ENABLED) ?
+			      "Enabled" :
+			      (status == SWITCHTEC_EP_TUNNEL_DISABLED) ?
+			      "Disabled" : "Unknown";
+			printf("Status: %s\n", sts);
+		}
+		break;
+	}
+
+	if (ret)
+		switchtec_perror("ep_tunnel_cfg");
+
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	{"topo_info", topo_info, CMD_DESC_TOPO_INFO},
 	{"gfms_bind", gfms_bind, CMD_DESC_GFMS_BIND},
@@ -1406,6 +1487,7 @@ static const struct cmd commands[] = {
 	{"portcfg_show", portcfg_show, CMD_DESC_PORTCFG_SHOW},
 	{"portcfg_set", portcfg_set, CMD_DESC_PORTCFG_SET},
 	{"gfms_events", gfms_events, CMD_DESC_GFMS_EVENTS},
+	{"ep_tunnel_cfg", ep_tunnel_cfg, CMD_DESC_EP_TNL_CFG},
 	{}
 };
 
