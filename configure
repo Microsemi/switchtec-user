@@ -3528,7 +3528,9 @@ fi
 
 done
 
-for ac_header in openssl/pem.h
+
+if test "x$with_openssl" != xno; then :
+  for ac_header in openssl/pem.h
 do :
   ac_fn_c_check_header_mongrel "$LINENO" "openssl/pem.h" "ac_cv_header_openssl_pem_h" "$ac_includes_default"
 if test "x$ac_cv_header_openssl_pem_h" = xyes; then :
@@ -3540,9 +3542,7 @@ fi
 
 done
 
-
-if test "x$with_ssl" != xno; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for RSA_free in -lcrypto" >&5
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for RSA_free in -lcrypto" >&5
 $as_echo_n "checking for RSA_free in -lcrypto... " >&6; }
 if ${ac_cv_lib_crypto_RSA_free+:} false; then :
   $as_echo_n "(cached) " >&6
@@ -3587,10 +3587,7 @@ _ACEOF
 
 fi
 
-fi
-
-if test "x$with_ssl" != xno; then :
-  ac_fn_c_check_decl "$LINENO" "RSA_get0_key" "ac_cv_have_decl_RSA_get0_key" "#include <openssl/pem.h>
+        ac_fn_c_check_decl "$LINENO" "RSA_get0_key" "ac_cv_have_decl_RSA_get0_key" "#include <openssl/pem.h>
 "
 if test "x$ac_cv_have_decl_RSA_get0_key" = xyes; then :
   ac_have_decl=1
