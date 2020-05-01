@@ -37,6 +37,45 @@
 #include <errno.h>
 #include <ctype.h>
 
+enum {
+	HEX,
+	DEC,
+	STR,
+};
+
+static int raw_print_hex(unsigned long long value,
+			 int offset, int bytes)
+{
+	printf("%06X - 0x%0*llX\n", offset, bytes * 2, value);
+	return 0;
+}
+
+static int raw_print_dec(unsigned long long value,
+			 int offset, int bytes)
+{
+	printf("%06X - %lld\n", offset, value);
+	return 0;
+}
+
+static int raw_print_str(unsigned long long value,
+			 int offset, int bytes)
+{
+	char buf[bytes + 1];
+
+	memset(buf, 0, bytes + 1);
+	memcpy(buf, &value, bytes);
+
+	printf("%06X - %s\n", offset, buf);
+	return 0;
+}
+
+static int (*raw_print_funcs[])(unsigned long long value,
+				int offset, int bytes) = {
+	[HEX] = raw_print_hex,
+	[DEC] = raw_print_dec,
+	[STR] = raw_print_str,
+};
+
 #define CMD_DESC_GFMS_BIND "bind the EP (function) to the specified host"
 
 static int gfms_bind(int argc, char **argv)
@@ -1477,6 +1516,105 @@ static int ep_tunnel_cfg(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_EP_CSR_READ "read CSR of an EP"
+static int ep_csr_read(int argc, char **argv)
+{
+	uint32_t val;
+	uint16_t addr;
+	unsigned bytes;
+	int i;
+	int ret = 0;
+
+	struct argconfig_choice print_choices[] = {
+		{"hex", HEX, "print in hexadecimal"},
+		{"dec", DEC, "print in decimal"},
+		{"str", STR, "print as an ascii string"},
+		{}
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned short pdfid;
+		unsigned long addr;
+		unsigned count;
+		unsigned bytes;
+		unsigned print_style;
+	} cfg = {
+		.pdfid = 0xffff,
+		.addr = 0,
+		.bytes = 4,
+		.count = 1,
+		.print_style=HEX,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"pdfid", 'f', "PDFID", CFG_SHORT, &cfg.pdfid,
+			required_argument, "pdfid of EP"},
+		{"addr", 'a', "ADDR", CFG_LONG, &cfg.addr,
+			required_argument, "address to read"},
+		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes,
+			required_argument,
+			"number of bytes to read per access (default 4)"},
+		{"count", 'n', "NUM", CFG_POSITIVE, &cfg.count,
+			required_argument,
+			"number of reads to perform (default 1)"},
+		{"print", 'p', "STYLE", CFG_CHOICES, &cfg.print_style,
+			required_argument,
+			"printing style", .choices=print_choices},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_EP_CSR_READ, opts,
+			&cfg, sizeof(cfg));
+
+	if (cfg.pdfid == 0xffff) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --pdfid|-f argument is required!\n");
+		return 1;
+	}
+
+	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes)) {
+		fprintf(stderr, "Invalid access width\n");
+		return -1;
+	}
+
+	addr = (uint16_t)cfg.addr;
+	bytes = cfg.bytes;
+	for (i = 0; i < cfg.count; i++) {
+		addr = addr & ~(bytes - 1);
+
+		val = 0;
+		switch (bytes) {
+			case 1: ret = switchtec_ep_csr_read8(cfg.dev,
+							     cfg.pdfid, addr,
+							     (uint8_t*)&val);
+				break;
+			case 2: ret = switchtec_ep_csr_read16(cfg.dev,
+							      cfg.pdfid, addr,
+							      (uint16_t*)&val);
+				break;
+			case 4: ret = switchtec_ep_csr_read32(cfg.dev,
+							      cfg.pdfid, addr,
+							      (uint32_t*)&val);
+				break;
+			default:
+				fprintf(stderr, "Invalid access width\n");
+				return -1;
+		}
+
+		if (!ret) {
+			ret = raw_print_funcs[cfg.print_style](val, addr,
+							       bytes);
+			addr += bytes;
+		} else {
+			switchtec_perror("ep_csr_read");
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	{"topo_info", topo_info, CMD_DESC_TOPO_INFO},
 	{"gfms_bind", gfms_bind, CMD_DESC_GFMS_BIND},
@@ -1488,6 +1626,7 @@ static const struct cmd commands[] = {
 	{"portcfg_set", portcfg_set, CMD_DESC_PORTCFG_SET},
 	{"gfms_events", gfms_events, CMD_DESC_GFMS_EVENTS},
 	{"ep_tunnel_cfg", ep_tunnel_cfg, CMD_DESC_EP_TNL_CFG},
+	{"ep_csr_read", ep_csr_read, CMD_DESC_EP_CSR_READ},
 	{}
 };
 
