@@ -1102,3 +1102,70 @@ int switchtec_ep_tunnel_status(struct switchtec_dev *dev, uint16_t pdfid,
 
 	return ret;
 }
+
+static int ep_csr_read(struct switchtec_dev *dev,
+		       uint16_t pdfid, void *dest,
+		       uint16_t src, size_t n)
+{
+	int ret;
+
+	if (n > SWITCHTEC_EP_CSR_MAX_READ_LEN)
+		n = SWITCHTEC_EP_CSR_MAX_READ_LEN;
+
+	if (!n)
+		return n;
+
+	struct ep_cfg_read {
+		uint8_t subcmd;
+		uint8_t reserved0;
+		uint16_t pdfid;
+		uint16_t addr;
+		uint8_t bytes;
+		uint8_t reserved1;
+	} cmd = {
+		.subcmd = 0,
+		.pdfid = htole16(pdfid),
+		.addr = htole16(src),
+		.bytes= n,
+	};
+
+	struct {
+		uint32_t data;
+	} rsp;
+
+	ret = switchtec_cmd(dev, MRPC_EP_RESOURCE_ACCESS, &cmd,
+			    sizeof(cmd), &rsp, 4);
+	if (ret)
+		return -1;
+
+	memcpy(dest, &rsp.data, n);
+	return 0;
+}
+
+int switchtec_ep_csr_read8(struct switchtec_dev *dev, uint16_t pdfid,
+			   uint16_t addr, uint8_t *val)
+{
+	return ep_csr_read(dev, pdfid, val, addr, 1);
+}
+
+int switchtec_ep_csr_read16(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint16_t addr, uint16_t *val)
+{
+	int ret;
+
+	ret = ep_csr_read(dev, pdfid, val, addr, 2);
+	*val = le16toh(*val);
+
+	return ret;
+}
+
+int switchtec_ep_csr_read32(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint16_t addr, uint32_t *val)
+{
+	int ret;
+
+	ret = ep_csr_read(dev, pdfid, val, addr, 4);
+	*val = le32toh(*val);
+
+	return ret;
+}

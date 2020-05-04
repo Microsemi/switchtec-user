@@ -634,6 +634,17 @@ int switchtec_ep_tunnel_enable(struct switchtec_dev *dev, uint16_t pdfid);
 int switchtec_ep_tunnel_disable(struct switchtec_dev *dev, uint16_t pdfid);
 int switchtec_ep_tunnel_status(struct switchtec_dev *dev, uint16_t pdfid,
 			       uint32_t *status);
+
+/********** EP RESOURCE MANAGEMENT *********/
+#define SWITCHTEC_EP_CSR_MAX_READ_LEN  4
+
+int switchtec_ep_csr_read8(struct switchtec_dev *dev, uint16_t pdfid,
+			   uint16_t addr, uint8_t *val);
+int switchtec_ep_csr_read16(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint16_t addr, uint16_t *val);
+int switchtec_ep_csr_read32(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint16_t addr, uint32_t *val);
+
 #ifdef __cplusplus
 }
 #endif
