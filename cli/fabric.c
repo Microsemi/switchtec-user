@@ -1615,6 +1615,94 @@ static int ep_csr_read(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_EP_CSR_WRITE "write CSR of an EP"
+static int ep_csr_write(int argc, char **argv)
+{
+	int align;
+	int ret = 0;
+	uint16_t addr;
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned short pdfid;
+		unsigned long addr;
+		unsigned bytes;
+		unsigned long value;
+		int assume_yes;
+	} cfg = {
+		.pdfid = 0xffff,
+		.addr = 0,
+		.bytes = 4,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"pdfid", 'f', "PDFID", CFG_SHORT, &cfg.pdfid,
+			required_argument, "pdfid of EP"},
+		{"addr", 'a', "ADDR", CFG_LONG, &cfg.addr,
+			required_argument, "address to write"},
+		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes,
+			required_argument,
+			"number of bytes to write per access (default 4)"},
+		{"value", 'v', "VAL", CFG_LONG, &cfg.value,
+			required_argument, "value to write"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_EP_CSR_WRITE, opts,
+			&cfg, sizeof(cfg));
+
+	if (cfg.pdfid == 0xffff) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --pdfid|-f argument is required!\n");
+		return 1;
+	}
+
+	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes)) {
+		fprintf(stderr, "Invalid access width\n");
+		return -1;
+	}
+
+	align = cfg.addr & 3;
+	align = align ? align : 4;
+
+	if ((align < cfg.bytes) ||
+	    ((align & 1) && !(align & cfg.bytes & 1))) {
+		fprintf(stderr, "Unaligned register address 0x%x\n",
+			(unsigned int)cfg.addr);
+		return -1;
+	}
+
+	if (!cfg.assume_yes)
+		fprintf(stderr, "Writing 0x%lx to %06lx (%d bytes).\n",
+				cfg.value, cfg.addr, cfg.bytes);
+
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return ret;
+
+	addr = (uint16_t)cfg.addr;
+	switch (cfg.bytes) {
+		case 1: ret = switchtec_ep_csr_write8(cfg.dev, cfg.pdfid,
+						      cfg.value, addr);
+			break;
+		case 2: ret = switchtec_ep_csr_write16(cfg.dev, cfg.pdfid,
+						       cfg.value, addr);
+			break;
+		case 4: ret = switchtec_ep_csr_write32(cfg.dev, cfg.pdfid,
+						       cfg.value, addr);
+			break;
+		default:
+			fprintf(stderr, "Invalid access width\n");
+			return -1;
+	}
+
+	if (ret)
+		switchtec_perror("ep_csr_write");
+
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	{"topo_info", topo_info, CMD_DESC_TOPO_INFO},
 	{"gfms_bind", gfms_bind, CMD_DESC_GFMS_BIND},
@@ -1627,6 +1715,7 @@ static const struct cmd commands[] = {
 	{"gfms_events", gfms_events, CMD_DESC_GFMS_EVENTS},
 	{"ep_tunnel_cfg", ep_tunnel_cfg, CMD_DESC_EP_TNL_CFG},
 	{"ep_csr_read", ep_csr_read, CMD_DESC_EP_CSR_READ},
+	{"ep_csr_write", ep_csr_write, CMD_DESC_EP_CSR_WRITE},
 	{}
 };
 
