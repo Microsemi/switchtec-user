@@ -1703,6 +1703,118 @@ static int ep_csr_write(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_EP_BAR_READ "read BAR of an EP"
+static int ep_bar_read(int argc, char **argv)
+{
+	unsigned long long val;
+	unsigned long addr;
+	unsigned bytes;
+	int i;
+	int ret = 0;
+
+	struct argconfig_choice print_choices[] = {
+		{"hex", HEX, "print in hexadecimal"},
+		{"dec", DEC, "print in decimal"},
+		{"str", STR, "print as an ascii string"},
+		{}
+	};
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned short pdfid;
+		unsigned short bar;
+		unsigned long addr;
+		unsigned count;
+		unsigned bytes;
+		unsigned print_style;
+	} cfg = {
+		.pdfid = 0xffff,
+		.bar = -1,
+		.addr = 0,
+		.bytes = 4,
+		.count = 1,
+		.print_style = HEX,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"pdfid", 'f', "PDFID", CFG_SHORT, &cfg.pdfid,
+			required_argument, "pdfid of EP"},
+		{"bar", 'i', "BAR", CFG_SHORT, &cfg.bar,
+			required_argument, "BAR of EP"},
+		{"addr", 'a', "ADDR", CFG_LONG, &cfg.addr,
+			required_argument, "address to read"},
+		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes,
+			required_argument,
+			"number of bytes to read per access (default 4)"},
+		{"count", 'n', "NUM", CFG_POSITIVE, &cfg.count,
+			required_argument,
+			"number of reads to perform (default 1)"},
+		{"print", 'p', "STYLE", CFG_CHOICES, &cfg.print_style,
+			required_argument,
+			"printing style", .choices=print_choices},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_EP_BAR_READ, opts,
+			&cfg, sizeof(cfg));
+
+	if (cfg.bar == -1) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --bar|-i argument is required!\n");
+		return 1;
+	}
+
+	if (cfg.pdfid == 0xffff) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --pdfid|-f argument is required!\n");
+		return 1;
+	}
+
+	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes)) {
+		fprintf(stderr, "Invalid access width\n");
+		return -1;
+	}
+
+	addr = cfg.addr;
+	bytes = cfg.bytes;
+	for (i = 0; i < cfg.count; i++) {
+		addr = addr & ~(bytes - 1);
+		val = 0;
+
+		switch (bytes) {
+		case 1:
+			ret = switchtec_ep_bar_read8(cfg.dev, cfg.pdfid,
+						     cfg.bar, addr,
+						     (uint8_t*)&val);
+			break;
+		case 2:
+			ret = switchtec_ep_bar_read16(cfg.dev, cfg.pdfid,
+						      cfg.bar, addr,
+						      (uint16_t*)&val);
+			break;
+		case 4:
+			ret = switchtec_ep_bar_read32(cfg.dev, cfg.pdfid,
+						      cfg.bar, addr,
+						      (uint32_t*)&val);
+			break;
+		default:
+			fprintf(stderr, "Invalid access width\n");
+			return -1;
+		}
+
+		if (!ret) {
+			ret = raw_print_funcs[cfg.print_style](val, addr,
+							       bytes);
+			addr += bytes;
+		} else {
+			switchtec_perror("ep_bar_read");
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	{"topo_info", topo_info, CMD_DESC_TOPO_INFO},
 	{"gfms_bind", gfms_bind, CMD_DESC_GFMS_BIND},
@@ -1716,6 +1828,7 @@ static const struct cmd commands[] = {
 	{"ep_tunnel_cfg", ep_tunnel_cfg, CMD_DESC_EP_TNL_CFG},
 	{"ep_csr_read", ep_csr_read, CMD_DESC_EP_CSR_READ},
 	{"ep_csr_write", ep_csr_write, CMD_DESC_EP_CSR_WRITE},
+	{"ep_bar_read", ep_bar_read, CMD_DESC_EP_BAR_READ},
 	{}
 };
 
