@@ -1169,3 +1169,53 @@ int switchtec_ep_csr_read32(struct switchtec_dev *dev, uint16_t pdfid,
 
 	return ret;
 }
+
+static int ep_csr_write(struct switchtec_dev *dev, uint16_t pdfid,
+			uint16_t addr, const void *val, size_t n)
+{
+	if (n > SWITCHTEC_EP_CSR_MAX_WRITE_LEN)
+		n = SWITCHTEC_EP_CSR_MAX_WRITE_LEN;
+
+	if (!n)
+		return n;
+
+	struct ep_cfg_write {
+		uint8_t subcmd;
+		uint8_t reserved0;
+		uint16_t pdfid;
+		uint16_t addr;
+		uint8_t bytes;
+		uint8_t reserved1;
+		uint32_t data;
+	} cmd = {
+		.subcmd = 1,
+		.pdfid = htole16(pdfid),
+		.addr = htole16(addr),
+		.bytes= n,
+	};
+
+	memcpy(&cmd.data, val, n);
+
+	return switchtec_cmd(dev, MRPC_EP_RESOURCE_ACCESS, &cmd,
+			     sizeof(cmd), NULL, 0);
+}
+
+int switchtec_ep_csr_write8(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t val, uint16_t addr)
+{
+	return ep_csr_write(dev, pdfid, addr, &val, 1);
+}
+
+int switchtec_ep_csr_write16(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint16_t val, uint16_t addr)
+{
+	val = htole16(val);
+	return ep_csr_write(dev, pdfid, addr, &val, 2);
+}
+
+int switchtec_ep_csr_write32(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint32_t val, uint16_t addr)
+{
+	val = htole32(val);
+	return ep_csr_write(dev, pdfid, addr, &val, 4);
+}
