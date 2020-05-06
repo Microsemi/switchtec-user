@@ -1281,3 +1281,60 @@ int switchtec_ep_bar_read32(struct switchtec_dev *dev, uint16_t pdfid,
 
 	return ret;
 }
+
+static int ep_bar_write(struct switchtec_dev *dev, uint16_t pdfid,
+			uint8_t bar, uint64_t addr,
+			const void *val, size_t n)
+{
+	if (n > SWITCHTEC_EP_BAR_MAX_WRITE_LEN)
+		n = SWITCHTEC_EP_BAR_MAX_WRITE_LEN;
+
+	if (!n)
+		return n;
+
+	addr = htole64(addr);
+
+	struct ep_bar_write {
+		uint8_t subcmd;
+		uint8_t reserved0;
+		uint16_t pdfid;
+		uint8_t bar;
+		uint8_t reserved1;
+		uint16_t bytes;
+		uint32_t addr_low;
+		uint32_t addr_high;
+		uint32_t data[128];
+	} cmd = {
+		.subcmd = 3,
+		.pdfid = htole16(pdfid),
+		.bar = bar,
+		.bytes= htole16((uint16_t)n),
+		.addr_low = (uint32_t)addr,
+		.addr_high = (uint32_t)(addr >> 32),
+	};
+
+	memcpy(&cmd.data, val, n);
+
+	return switchtec_cmd(dev, MRPC_EP_RESOURCE_ACCESS,
+			     &cmd, sizeof(cmd), NULL, 0);
+}
+
+int switchtec_ep_bar_write8(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar, uint8_t val, uint64_t addr)
+{
+	return ep_bar_write(dev, pdfid, bar, addr, &val, 1);
+}
+
+int switchtec_ep_bar_write16(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint8_t bar, uint16_t val, uint64_t addr)
+{
+	val = htole16(val);
+	return ep_bar_write(dev, pdfid, bar, addr, &val, 2);
+}
+
+int switchtec_ep_bar_write32(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint8_t bar, uint32_t val, uint64_t addr)
+{
+	val = htole32(val);
+	return ep_bar_write(dev, pdfid, bar, addr, &val, 4);
+}
