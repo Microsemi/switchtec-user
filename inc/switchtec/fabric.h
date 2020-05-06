@@ -638,6 +638,7 @@ int switchtec_ep_tunnel_status(struct switchtec_dev *dev, uint16_t pdfid,
 /********** EP RESOURCE MANAGEMENT *********/
 #define SWITCHTEC_EP_CSR_MAX_READ_LEN  4
 #define SWITCHTEC_EP_CSR_MAX_WRITE_LEN 4
+#define SWITCHTEC_EP_BAR_MAX_READ_LEN  SWITCHTEC_MRPC_PAYLOAD_SIZE
 
 int switchtec_ep_csr_read8(struct switchtec_dev *dev, uint16_t pdfid,
 			   uint16_t addr, uint8_t *val);
@@ -652,6 +653,14 @@ int switchtec_ep_csr_write16(struct switchtec_dev *dev, uint16_t pdfid,
 			     uint16_t val, uint16_t addr);
 int switchtec_ep_csr_write32(struct switchtec_dev *dev, uint16_t pdfid,
 			     uint32_t val, uint16_t addr);
+
+int switchtec_ep_bar_read8(struct switchtec_dev *dev, uint16_t pdfid,
+			   uint8_t bar_index, uint64_t addr, uint8_t *val);
+int switchtec_ep_bar_read16(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar_index, uint64_t addr, uint16_t *val);
+int switchtec_ep_bar_read32(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar_index, uint64_t addr, uint32_t *val);
+
 #ifdef __cplusplus
 }
 #endif
