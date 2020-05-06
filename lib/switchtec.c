@@ -1066,20 +1066,22 @@ static int log_c_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 
 /**
  * @brief Dump the Switchtec log data to a file
- * @param[in]  dev    Switchtec device handle
- * @param[in]  type   Type of log data to dump
- * @param[in]  fd     File descriptor to dump the data to
+ * @param[in]  dev          - Switchtec device handle
+ * @param[in]  type         - Type of log data to dump
+ * @param[in]  fd           - File descriptor to dump the data to
+ * @param[in]  log_def_file - Log definition file
  * @return 0 on success, error code on failure
  */
 int switchtec_log_to_file(struct switchtec_dev *dev,
 			  enum switchtec_log_type type,
-			  int fd)
+			  int fd,
+			  FILE *log_def_file)
 {
 	switch (type) {
 	case SWITCHTEC_LOG_RAM:
-		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd, NULL);
+		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd, log_def_file);
 	case SWITCHTEC_LOG_FLASH:
-		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd, NULL);
+		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd, log_def_file);
 	case SWITCHTEC_LOG_MEMLOG:
 		return log_b_to_file(dev, MRPC_FWLOGRD_MEMLOG, fd);
 	case SWITCHTEC_LOG_REGS:
