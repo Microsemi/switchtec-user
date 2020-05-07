@@ -546,6 +546,8 @@ const char *switchtec_strerror(void)
 		switch (errno) {
 		case SWITCHTEC_ERR_LOG_DEF_READ_ERROR:
 			msg = "Error reading log definition file"; break;
+		case SWITCHTEC_ERR_BIN_LOG_READ_ERROR:
+			msg = "Error reading binary log file"; break;
 		case SWITCHTEC_ERR_PARSED_LOG_WRITE_ERROR:
 			msg = "Error writing parsed log file"; break;
 		default:
@@ -1098,6 +1100,49 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 
 	errno = EINVAL;
 	return -errno;
+}
+
+/**
+ * @brief Parse a binary app log to a text file
+ * @param[in]  bin_log_file    - Binary app log input file
+ * @param[in]  log_def_file    - Log definition file
+ * @param[in]  parsed_log_file - Parsed output file
+ * @return 0 on success, error code on failure
+ */
+int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
+			FILE *parsed_log_file)
+{
+	int ret;
+	struct log_a_data log_data;
+	struct log_defs defs = {
+		.module_defs = NULL,
+		.num_alloc = 0};
+	int entry_idx = 0;
+
+	/* read the log definition file into defs */
+	ret = read_log_defs(log_def_file, &defs);
+	if (ret < 0)
+		return ret;
+
+	/* parse each app log entry */
+	while (fread(&log_data, sizeof(struct log_a_data), 1,
+		     bin_log_file) == 1) {
+		ret = write_parsed_log(&log_data, 1, entry_idx, &defs,
+				       parsed_log_file);
+		if (ret < 0)
+			goto ret_free_log_defs;
+
+		entry_idx++;
+	}
+
+	if (ferror(bin_log_file)) {
+		errno = SWITCHTEC_ERR_BIN_LOG_READ_ERROR;
+		ret = -1;
+	}
+
+ret_free_log_defs:
+	free_log_defs(&defs);
+	return ret;
 }
 
 static enum switchtec_gen map_to_gen(uint32_t gen)

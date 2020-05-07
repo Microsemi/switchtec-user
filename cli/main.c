@@ -944,6 +944,67 @@ static int log_dump(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_LOG_PARSE "parse a binary app log to a text file"
+
+static int log_parse(int argc, char **argv)
+{
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int out_fd;
+		const char *out_filename;
+		unsigned type;
+		FILE *bin_log_file;
+		const char *bin_log_filename;
+		FILE *log_def_file;
+		const char *log_def_filename;
+		FILE *parsed_log_file;
+		const char *parsed_log_filename;
+	} cfg = {
+		.bin_log_file = NULL,
+		.log_def_file = NULL,
+		.parsed_log_file = NULL,
+	};
+	const struct argconfig_options opts[] = {
+		{"log_input", .cfg_type = CFG_FILE_R,
+		 .value_addr = &cfg.bin_log_file,
+		 .argument_type = required_positional,
+		 .help = "binary app log input file"},
+		{"log_def", .cfg_type = CFG_FILE_R,
+		 .value_addr = &cfg.log_def_file,
+		 .argument_type = required_positional,
+		 .help = "log definition file"},
+		{"parsed_output", .cfg_type = CFG_FILE_W,
+		 .value_addr = &cfg.parsed_log_file,
+		 .argument_type = optional_positional,
+		 .force_default = "app_log.txt",
+		 .help = "parsed output file"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_LOG_PARSE, opts,
+			&cfg, sizeof(cfg));
+
+	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
+				  cfg.parsed_log_file);
+	if (ret < 0)
+		switchtec_perror("log_parse");
+	else
+		fprintf(stderr, "\nParsed log saved to %s.\n",
+			cfg.parsed_log_filename);
+
+	if (cfg.bin_log_file != NULL)
+		fclose(cfg.bin_log_file);
+
+	if (cfg.log_def_file != NULL)
+		fclose(cfg.log_def_file);
+
+	if (cfg.parsed_log_file != NULL)
+		fclose(cfg.parsed_log_file);
+
+	return ret;
+}
+
 #define CMD_DESC_TEST "test if the Switchtec interface is working"
 
 static int test(int argc, char **argv)
@@ -2155,6 +2216,7 @@ static const struct cmd commands[] = {
 	CMD(events, CMD_DESC_EVENTS),
 	CMD(event_wait, CMD_DESC_EVENT_WAIT),
 	CMD(log_dump, CMD_DESC_LOG_DUMP),
+	CMD(log_parse, CMD_DESC_LOG_PARSE),
 	CMD(test, CMD_DESC_TEST),
 	CMD(temp, CMD_DESC_TEMP),
 	CMD(port_bind_info, CMD_DESC_PORT_BIND_INFO),
