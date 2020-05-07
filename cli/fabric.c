@@ -1435,6 +1435,105 @@ static int gfms_events(int argc, char **argv)
 	return ret;
 }
 
+static int string_to_dword_data(char *str, unsigned int *dw_data,
+				int *data_len)
+{
+	char *tmp;
+	uint32_t num;
+	char *p = NULL;
+	uint32_t max_len;
+	uint32_t raw_data_len = 0;
+
+	max_len = *data_len;
+	memset(dw_data, 0, max_len);
+
+	p = strtok((char *)str, " ");
+	while(p) {
+		num = strtoul(p, &tmp, 0);
+
+		if (*tmp != '\0')
+			return 1;
+
+		dw_data[raw_data_len] = num;
+
+		raw_data_len++;
+		if(raw_data_len >= max_len)
+			return 1;
+
+		p = strtok(NULL, " ");
+	}
+
+	*data_len = raw_data_len;
+	return 0;
+}
+
+#define CMD_DESC_DEV_MANAGE "send a device specific manage command"
+static int device_manage(int argc, char **argv)
+{
+	int i;
+	int ret;
+	int data_len;
+	char *cmd_string = NULL;
+	struct switchtec_device_manage_rsp rsp;
+
+	static struct {
+		struct switchtec_dev *dev;
+		struct switchtec_device_manage_req req;
+	} cfg = {
+		.req.hdr.pdfid = 0xffff,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"pdfid", 'f', "NUM", CFG_INT, &cfg.req.hdr.pdfid,
+		 required_argument, "Endpoint function's FID",
+		 .require_in_usage = 1},
+		{"cmd_data", 'c', "String", CFG_STRING, &cmd_string,
+		 required_argument, .require_in_usage = 1,
+		 .help= "Command raw data in dword, format example: \"0x040b0006 0x00000001\""},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_DEV_MANAGE, opts,
+			&cfg, sizeof(cfg));
+	if (cmd_string == NULL) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --cmd_data|-c argument is required!\n");
+		return 1;
+	}
+	if (cfg.req.hdr.pdfid == 0xffff) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --pdfid|-f argument is required!\n");
+		return 1;
+	}
+
+	data_len = sizeof(cfg.req.cmd_data);
+	ret = string_to_dword_data(cmd_string,
+				   (unsigned int *)cfg.req.cmd_data,
+				   &data_len);
+	if (ret) {
+		fprintf(stderr, "Invalid command raw data\n");
+		return 1;
+	}
+	cfg.req.hdr.expected_rsp_len = sizeof(rsp.rsp_data);
+
+	ret = switchtec_device_manage(cfg.dev, &(cfg.req), &rsp);
+	if (ret) {
+		switchtec_perror("device_manage");
+		return ret;
+	}
+
+	printf("rsp length is %d, data is:\n", rsp.hdr.rsp_len);
+	for(i = 0; i < (rsp.hdr.rsp_len + 3) / 4; i++) {
+		printf("0x%08x ", *((int *)rsp.rsp_data + i));
+		if(i % 8 == 7)
+			printf("\n");
+	}
+	printf("\n");
+
+	return 0;
+}
+
 #define CMD_DESC_EP_TNL_CFG "configure the EP management tunnel"
 static int ep_tunnel_cfg(int argc, char **argv)
 {
@@ -1918,6 +2017,7 @@ static const struct cmd commands[] = {
 	{"ep_csr_write", ep_csr_write, CMD_DESC_EP_CSR_WRITE},
 	{"ep_bar_read", ep_bar_read, CMD_DESC_EP_BAR_READ},
 	{"ep_bar_write", ep_bar_write, CMD_DESC_EP_BAR_WRITE},
+	{"device_manage", device_manage, CMD_DESC_DEV_MANAGE},
 	{}
 };
 
