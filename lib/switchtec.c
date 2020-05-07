@@ -36,6 +36,7 @@
 #include "switchtec/errors.h"
 #include "switchtec/log.h"
 #include "switchtec/endian.h"
+#include "switchtec/utils.h"
 
 #include <string.h>
 #include <unistd.h>
@@ -55,6 +56,23 @@
  * port status information may be retrieved with switchtec_status().
  * @{
  */
+
+/**
+ * @brief Module-specific log definitions
+ */
+struct module_log_defs {
+	char *mod_name;		//!< module name
+	char **entries;		//!< log entry array
+	int num_entries;	//!< number of log entries
+};
+
+/**
+ * @brief Log definitions for all modules
+ */
+struct log_defs {
+	struct module_log_defs *module_defs;	//!< per-module log definitions
+	int num_alloc;				//!< number of modules allocated
+};
 
 /**
  * @brief Switchtec device id to generation/variant mapping
@@ -516,11 +534,27 @@ const char *switchtec_strerror(void)
 	const char *msg = "Unknown MRPC error";
 	int err;
 
-	if ((errno & SWITCHTEC_ERRNO_MRPC_FLAG_BIT) == 0) {
+	if ((errno & (SWITCHTEC_ERRNO_MRPC_FLAG_BIT |
+		      SWITCHTEC_ERRNO_GENERAL_FLAG_BIT)) == 0) {
 		if (errno)
 			return strerror(errno);
 		else
 			return platform_strerror();
+	}
+
+	if (errno & SWITCHTEC_ERRNO_GENERAL_FLAG_BIT) {
+		switch (errno) {
+		case SWITCHTEC_ERR_LOG_DEF_READ_ERROR:
+			msg = "Error reading log definition file"; break;
+		case SWITCHTEC_ERR_BIN_LOG_READ_ERROR:
+			msg = "Error reading binary log file"; break;
+		case SWITCHTEC_ERR_PARSED_LOG_WRITE_ERROR:
+			msg = "Error writing parsed log file"; break;
+		default:
+			msg = "Unknown Switchtec error"; break;
+		}
+
+		return msg;
 	}
 
 	err = errno & ~SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
@@ -652,15 +686,284 @@ int switchtec_hard_reset(struct switchtec_dev *dev)
 			     NULL, 0);
 }
 
-static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
+/**
+ * @brief Free log definition data
+ * @param[in] defs - log definition data to free
+ */
+static void free_log_defs(struct log_defs *defs)
+{
+	int i, j;
+
+	if (!defs->module_defs)
+		return;
+
+	for (i = 0; i < defs->num_alloc; i++) {
+		free(defs->module_defs[i].mod_name);
+
+		for (j = 0; j < defs->module_defs[i].num_entries; j++)
+			free(defs->module_defs[i].entries[j]);
+
+		free(defs->module_defs[i].entries);
+	}
+
+	free(defs->module_defs);
+}
+
+/**
+ * @brief Allocate / reallocate log definition data
+ * @param[in] defs 	  - log definition data
+ * @param[in] num_modules - number of modules to allocate for
+ * @return 0 on success, negative value on failure
+ */
+static int realloc_log_defs(struct log_defs *defs, int num_modules)
+{
+	int i;
+
+	defs->module_defs = realloc(defs->module_defs,
+				    (num_modules *
+				     sizeof(struct module_log_defs)));
+	if (!defs->module_defs) {
+		free_log_defs(defs);
+		return -1;
+	}
+
+	for (i = defs->num_alloc; i < num_modules; i++)
+		memset(&defs->module_defs[i], 0,
+		       sizeof(struct module_log_defs));
+
+	defs->num_alloc = num_modules;
+
+	return 0;
+}
+
+/**
+ * @brief Read a log definition file and store the definitions
+ * @param[in] log_def_file - log definition file
+ * @param[out] defs 	   - log definitions
+ * @return 0 on success, negative value on failure
+ */
+static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
 {
 	int ret;
+	char line[512];
+	char *tok;
+	int mod_id;
+	struct module_log_defs *mod_defs;
+	int num_entries;
+	int i;
+
+	/* allocate some log definition entries */
+	ret = realloc_log_defs(defs, 200);
+	if (ret < 0)
+		return ret;
+
+	while (fgets(line, sizeof(line), log_def_file)) {
+
+		/* ignore comments */
+		if (line[0] == '#')
+			continue;
+
+		/*
+		 * Tokenize the line. Module headings are of the form:
+		 * mod_name    mod_id    num_entries
+		 */
+		tok = strtok(line, " \t");
+		if (!tok)
+			continue;
+
+		tok = strtok(NULL, " \t");
+		if (!tok)
+			continue;
+        	mod_id = strtol(tok, NULL, 0);
+
+		/* reallocate more log definition entries if needed */
+		if (mod_id > defs->num_alloc) {
+			ret = realloc_log_defs(defs, mod_id * 2);
+			if (ret < 0)
+				return ret;
+		}
+
+		mod_defs = &defs->module_defs[mod_id];
+
+		tok = strtok(NULL, " \t");
+		if (!tok)
+			continue;
+
+        	num_entries = strtol(tok, NULL, 0);
+
+		/*
+		 * Skip this module if it has already been done. This can happen
+		 * if the module is duplicated in the log definition file.
+		 */
+		if (mod_defs->mod_name != NULL) {
+			for (i = 0; i < num_entries; i++) {
+				if (!fgets(line, sizeof(line),
+					  log_def_file))
+					break;
+			}
+			continue;
+		}
+
+        	mod_defs->mod_name = strdup(line);
+		mod_defs->num_entries = num_entries;
+		mod_defs->entries = calloc(mod_defs->num_entries,
+					   sizeof(*mod_defs->entries));
+		if (!mod_defs->entries)
+			goto err_free_log_defs;
+
+		for (i = 0; i < mod_defs->num_entries; i++) {
+			if (fgets(line, sizeof(line), log_def_file) == NULL) {
+				errno = SWITCHTEC_ERR_LOG_DEF_READ_ERROR;
+				goto err_free_log_defs;
+			}
+
+			mod_defs->entries[i] = strdup(line);
+			if (!mod_defs->entries[i])
+				goto err_free_log_defs;
+		}
+	}
+
+	if (ferror(log_def_file)) {
+		errno = SWITCHTEC_ERR_LOG_DEF_READ_ERROR;
+		goto err_free_log_defs;
+	}
+
+	return 0;
+
+err_free_log_defs:
+	free_log_defs(defs);
+	return -1;
+}
+
+/**
+ * @brief Parse an app log and write the results to a file
+ * @param[in] log_data	     - logging data
+ * @param[in] count	     - number of entries
+ * @param[in] init_entry_idx - index of the initial entry
+ * @param[in] defs           - log definitions
+ * @param[in] log_file	     - log output file
+ * @return 0 on success, negative value on failure
+ */
+static int write_parsed_log(struct log_a_data log_data[],
+			    size_t count, int init_entry_idx,
+			    struct log_defs *defs, FILE *log_file)
+{
+	int i;
+	int entry_idx = init_entry_idx;
+	unsigned long long time;
+	unsigned int nanos, micros, millis, secs, mins, hours, days;
+	unsigned int entry_num;
+	unsigned int mod_id;
+	unsigned int log_sev;
+	const char *log_sev_strs[] = {"DISABLED", "HIGHEST", "HIGH", "MEDIUM",
+				      "LOW", "LOWEST"};
+	struct module_log_defs *mod_defs;
+
+	if (entry_idx == 0)
+		fputs("   #|Timestamp                |Module       |Severity |Event\n",
+		      log_file);
+
+	for (i = 0; i < count; i ++) {
+		/* timestamp is in the first 2 DWords */
+		time = (((unsigned long long)log_data[i].data[0] << 32) |
+			log_data[i].data[1]) * 10ULL;
+		nanos = time % 1000;
+		time /= 1000;
+		micros = time % 1000;
+		time /= 1000;
+		millis = time % 1000;
+		time /= 1000;
+		secs = time % 60;
+		time /= 60;
+		mins = time % 60;
+		time /= 60;
+		hours = time % 24;
+		days = time / 24;
+
+		/*
+		 * log entry number, module ID, and log severity are in the
+		 * 3rd DWord
+		 */
+		entry_num = log_data[i].data[2] & 0x0000FFFF;
+		mod_id = (log_data[i].data[2] >> 16) & 0xFFF;
+		log_sev = (log_data[i].data[2] >> 28) & 0xF;
+
+		/* validate the module ID */
+		if ((mod_id > defs->num_alloc) ||
+		    (strlen(defs->module_defs[mod_id].mod_name) == 0)) {
+			if (fprintf(log_file, "(Invalid module ID: 0x%x)\n",
+				    mod_id) < 0)
+				goto ret_print_error;
+			continue;
+		}
+
+		mod_defs = &defs->module_defs[mod_id];
+
+		/* validate the entry number */
+		if (entry_num >= mod_defs->num_entries) {
+			if (fprintf(log_file,
+				    "(Invalid log entry number: %d (module 0x%x))\n",
+				    entry_num, mod_id) < 0)
+				goto ret_print_error;
+			continue;
+		}
+
+		/* validate the log severity  */
+		if (log_sev >= ARRAY_SIZE(log_sev_strs)) {
+			if (fprintf(log_file, "(Invalid log severity: %d)\n",
+				    log_sev) < 0)
+				goto ret_print_error;
+			continue;
+		}
+
+		if (fprintf(log_file,
+			    "%04d|%03dd %02d:%02d:%02d.%03d,%03d,%03d|%-12s |%-8s |",
+			    entry_idx, days, hours, mins, secs, millis,
+			    micros, nanos, mod_defs->mod_name,
+			    log_sev_strs[log_sev]) < 0)
+			goto ret_print_error;
+
+	  	if (fprintf(log_file, mod_defs->entries[entry_num],
+	  		    log_data[i].data[3], log_data[i].data[4],
+			    log_data[i].data[5], log_data[i].data[6],
+			    log_data[i].data[7]) < 0)
+			goto ret_print_error;
+
+		entry_idx++;
+	}
+
+	if (fflush(log_file) != 0)
+		return -1;
+
+	return 0;
+
+ret_print_error:
+	errno = SWITCHTEC_ERR_PARSED_LOG_WRITE_ERROR;
+	return -1;
+}
+
+static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
+			 int fd, FILE *log_def_file)
+{
+	int ret = -1;
 	int read = 0;
 	struct log_a_retr_result res;
 	struct log_a_retr cmd = {
 		.sub_cmd_id = sub_cmd_id,
 		.start = -1,
 	};
+	struct log_defs defs = {
+		.module_defs = NULL,
+		.num_alloc = 0};
+	FILE *log_file;
+	int entry_idx = 0;
+
+	if (log_def_file != NULL) {
+		/* read the log definition file into defs */
+		ret = read_log_defs(log_def_file, &defs);
+		if (ret < 0)
+			return ret;
+	}
 
 	res.hdr.remain = 1;
 
@@ -668,17 +971,37 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 		ret = switchtec_cmd(dev, MRPC_FWLOGRD, &cmd, sizeof(cmd),
 				    &res, sizeof(res));
 		if (ret)
-			return -1;
+			goto ret_free_log_defs;
 
-		ret = write(fd, res.data, sizeof(*res.data) * res.hdr.count);
-		if (ret < 0)
-			return ret;
+		if (log_def_file == NULL) {
+			/* write the binary log data to a file */
+			ret = write(fd, res.data,
+				    sizeof(*res.data) * res.hdr.count);
+			if (ret < 0)
+				return ret;
+		} else {
+			log_file = fdopen(fd, "w");
+			if (!log_file)
+				goto ret_free_log_defs;
+
+			/* parse the log data and write it to a file */
+			ret = write_parsed_log(res.data, res.hdr.count,
+					       entry_idx, &defs, log_file);
+			if (ret < 0)
+				goto ret_free_log_defs;
+
+			entry_idx += res.hdr.count;
+		}
 
 		read += le32toh(res.hdr.count);
 		cmd.start = res.hdr.next_start;
 	}
 
-	return read;
+	ret = read;
+
+ret_free_log_defs:
+	free_log_defs(&defs);
+	return ret;
 }
 
 static int log_b_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
@@ -745,20 +1068,22 @@ static int log_c_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 
 /**
  * @brief Dump the Switchtec log data to a file
- * @param[in]  dev    Switchtec device handle
- * @param[in]  type   Type of log data to dump
- * @param[in]  fd     File descriptor to dump the data to
+ * @param[in]  dev          - Switchtec device handle
+ * @param[in]  type         - Type of log data to dump
+ * @param[in]  fd           - File descriptor to dump the data to
+ * @param[in]  log_def_file - Log definition file
  * @return 0 on success, error code on failure
  */
 int switchtec_log_to_file(struct switchtec_dev *dev,
 			  enum switchtec_log_type type,
-			  int fd)
+			  int fd,
+			  FILE *log_def_file)
 {
 	switch (type) {
 	case SWITCHTEC_LOG_RAM:
-		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd);
+		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd, log_def_file);
 	case SWITCHTEC_LOG_FLASH:
-		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd);
+		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd, log_def_file);
 	case SWITCHTEC_LOG_MEMLOG:
 		return log_b_to_file(dev, MRPC_FWLOGRD_MEMLOG, fd);
 	case SWITCHTEC_LOG_REGS:
@@ -775,6 +1100,49 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 
 	errno = EINVAL;
 	return -errno;
+}
+
+/**
+ * @brief Parse a binary app log to a text file
+ * @param[in]  bin_log_file    - Binary app log input file
+ * @param[in]  log_def_file    - Log definition file
+ * @param[in]  parsed_log_file - Parsed output file
+ * @return 0 on success, error code on failure
+ */
+int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
+			FILE *parsed_log_file)
+{
+	int ret;
+	struct log_a_data log_data;
+	struct log_defs defs = {
+		.module_defs = NULL,
+		.num_alloc = 0};
+	int entry_idx = 0;
+
+	/* read the log definition file into defs */
+	ret = read_log_defs(log_def_file, &defs);
+	if (ret < 0)
+		return ret;
+
+	/* parse each app log entry */
+	while (fread(&log_data, sizeof(struct log_a_data), 1,
+		     bin_log_file) == 1) {
+		ret = write_parsed_log(&log_data, 1, entry_idx, &defs,
+				       parsed_log_file);
+		if (ret < 0)
+			goto ret_free_log_defs;
+
+		entry_idx++;
+	}
+
+	if (ferror(bin_log_file)) {
+		errno = SWITCHTEC_ERR_BIN_LOG_READ_ERROR;
+		ret = -1;
+	}
+
+ret_free_log_defs:
+	free_log_defs(&defs);
+	return ret;
 }
 
 static enum switchtec_gen map_to_gen(uint32_t gen)
