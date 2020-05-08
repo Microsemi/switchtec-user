@@ -1707,8 +1707,8 @@ static int ep_csr_write(int argc, char **argv)
 static int ep_bar_read(int argc, char **argv)
 {
 	unsigned long long val;
-	unsigned long addr;
-	unsigned bytes;
+	unsigned long long addr;
+	unsigned long long bytes;
 	int i;
 	int ret = 0;
 
@@ -1723,7 +1723,7 @@ static int ep_bar_read(int argc, char **argv)
 		struct switchtec_dev *dev;
 		unsigned short pdfid;
 		unsigned short bar;
-		unsigned long addr;
+		unsigned long long addr;
 		unsigned count;
 		unsigned bytes;
 		unsigned print_style;
@@ -1742,7 +1742,7 @@ static int ep_bar_read(int argc, char **argv)
 			required_argument, "pdfid of EP"},
 		{"bar", 'i', "BAR", CFG_SHORT, &cfg.bar,
 			required_argument, "BAR of EP"},
-		{"addr", 'a', "ADDR", CFG_LONG, &cfg.addr,
+		{"addr", 'a', "ADDR", CFG_LONG_LONG, &cfg.addr,
 			required_argument, "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes,
 			required_argument,
@@ -1824,7 +1824,7 @@ static int ep_bar_write(int argc, char **argv)
 		struct switchtec_dev *dev;
 		unsigned short pdfid;
 		unsigned short bar;
-		unsigned long addr;
+		unsigned long long addr;
 		unsigned bytes;
 		unsigned long value;
 		int assume_yes;
@@ -1840,7 +1840,7 @@ static int ep_bar_write(int argc, char **argv)
 			required_argument, "pdfid of EP"},
 		{"bar", 'i', "BAR", CFG_SHORT, &cfg.bar,
 			required_argument, "BAR of EP"},
-		{"addr", 'a', "ADDR", CFG_LONG, &cfg.addr,
+		{"addr", 'a', "ADDR", CFG_LONG_LONG, &cfg.addr,
 			required_argument, "address to write"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes,
 			required_argument,
@@ -1872,7 +1872,7 @@ static int ep_bar_write(int argc, char **argv)
 	}
 
 	if (!cfg.assume_yes)
-		fprintf(stderr, "Writing 0x%lx to %06lx (%d bytes).\n",
+		fprintf(stderr, "Writing 0x%lx to 0x%llx (%d bytes).\n",
 			cfg.value, cfg.addr, cfg.bytes);
 
 	ret = ask_if_sure(cfg.assume_yes);
