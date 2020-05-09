@@ -905,15 +905,22 @@ static int log_dump(int argc, char **argv)
 		int out_fd;
 		const char *out_filename;
 		unsigned type;
+		FILE *log_def_file;
+		const char *log_def_filename;
 	} cfg = {
-		.type = SWITCHTEC_LOG_RAM
+		.type = SWITCHTEC_LOG_RAM,
+		.out_fd = 0,
+		.log_def_file = NULL
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
+		{"output_file", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="switchtec.log",
-		  .help="image file to display information for"},
+		  .help="log output file"},
+		{"log_def", 'd', "DEF_FILE", CFG_FILE_R, &cfg.log_def_file,
+		  required_argument,
+		  "parse log output using specified log definition file (app log only)"},
 		{"type", 't', "TYPE", CFG_CHOICES, &cfg.type,
 		  required_argument,
 		 "log type to dump", .choices=types},
@@ -921,15 +928,81 @@ static int log_dump(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_LOG_DUMP, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_log_to_file(cfg.dev, cfg.type, cfg.out_fd);
-	if (ret < 0) {
-		switchtec_perror("log");
-		return ret;
-	}
+	ret = switchtec_log_to_file(cfg.dev, cfg.type, cfg.out_fd,
+				    cfg.log_def_file);
+	if (ret < 0)
+		switchtec_perror("log_dump");
+	else
+		fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
 
-	fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
+	if (cfg.out_fd > 0)
+		close(cfg.out_fd);
 
-	return 0;
+	if (cfg.log_def_file != NULL)
+		fclose(cfg.log_def_file);
+
+	return ret;
+}
+
+#define CMD_DESC_LOG_PARSE "parse a binary app log to a text file"
+
+static int log_parse(int argc, char **argv)
+{
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int out_fd;
+		const char *out_filename;
+		unsigned type;
+		FILE *bin_log_file;
+		const char *bin_log_filename;
+		FILE *log_def_file;
+		const char *log_def_filename;
+		FILE *parsed_log_file;
+		const char *parsed_log_filename;
+	} cfg = {
+		.bin_log_file = NULL,
+		.log_def_file = NULL,
+		.parsed_log_file = NULL,
+	};
+	const struct argconfig_options opts[] = {
+		{"log_input", .cfg_type = CFG_FILE_R,
+		 .value_addr = &cfg.bin_log_file,
+		 .argument_type = required_positional,
+		 .help = "binary app log input file"},
+		{"log_def", .cfg_type = CFG_FILE_R,
+		 .value_addr = &cfg.log_def_file,
+		 .argument_type = required_positional,
+		 .help = "log definition file"},
+		{"parsed_output", .cfg_type = CFG_FILE_W,
+		 .value_addr = &cfg.parsed_log_file,
+		 .argument_type = optional_positional,
+		 .force_default = "app_log.txt",
+		 .help = "parsed output file"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_LOG_PARSE, opts,
+			&cfg, sizeof(cfg));
+
+	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
+				  cfg.parsed_log_file);
+	if (ret < 0)
+		switchtec_perror("log_parse");
+	else
+		fprintf(stderr, "\nParsed log saved to %s.\n",
+			cfg.parsed_log_filename);
+
+	if (cfg.bin_log_file != NULL)
+		fclose(cfg.bin_log_file);
+
+	if (cfg.log_def_file != NULL)
+		fclose(cfg.log_def_file);
+
+	if (cfg.parsed_log_file != NULL)
+		fclose(cfg.parsed_log_file);
+
+	return ret;
 }
 
 #define CMD_DESC_TEST "test if the Switchtec interface is working"
@@ -2143,6 +2216,7 @@ static const struct cmd commands[] = {
 	CMD(events, CMD_DESC_EVENTS),
 	CMD(event_wait, CMD_DESC_EVENT_WAIT),
 	CMD(log_dump, CMD_DESC_LOG_DUMP),
+	CMD(log_parse, CMD_DESC_LOG_PARSE),
 	CMD(test, CMD_DESC_TEST),
 	CMD(temp, CMD_DESC_TEMP),
 	CMD(port_bind_info, CMD_DESC_PORT_BIND_INFO),

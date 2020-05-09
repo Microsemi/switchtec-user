@@ -619,6 +619,56 @@ int switchtec_get_gfms_events(struct switchtec_dev *dev,
                               size_t *remain_number);
 
 int switchtec_clear_gfms_events(struct switchtec_dev *dev);
+
+/********** EP TUNNEL MANAGEMENT *********/
+enum switchtec_ep_tunnel_status{
+	SWITCHTEC_EP_TUNNEL_DISABLED = 0,
+	SWITCHTEC_EP_TUNNEL_ENABLED = 1,
+};
+
+int switchtec_ep_tunnel_config(struct switchtec_dev *dev, uint16_t subcmd,
+			       uint16_t pdfid, uint16_t expected_rsp_len,
+			       uint8_t *meta_data, uint16_t meta_data_len,
+			       uint8_t *rsp_data);
+int switchtec_ep_tunnel_enable(struct switchtec_dev *dev, uint16_t pdfid);
+int switchtec_ep_tunnel_disable(struct switchtec_dev *dev, uint16_t pdfid);
+int switchtec_ep_tunnel_status(struct switchtec_dev *dev, uint16_t pdfid,
+			       uint32_t *status);
+
+/********** EP RESOURCE MANAGEMENT *********/
+#define SWITCHTEC_EP_CSR_MAX_READ_LEN  4
+#define SWITCHTEC_EP_CSR_MAX_WRITE_LEN 4
+#define SWITCHTEC_EP_BAR_MAX_READ_LEN  SWITCHTEC_MRPC_PAYLOAD_SIZE
+#define SWITCHTEC_EP_BAR_MAX_WRITE_LEN 128
+
+int switchtec_ep_csr_read8(struct switchtec_dev *dev, uint16_t pdfid,
+			   uint16_t addr, uint8_t *val);
+int switchtec_ep_csr_read16(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint16_t addr, uint16_t *val);
+int switchtec_ep_csr_read32(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint16_t addr, uint32_t *val);
+
+int switchtec_ep_csr_write8(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t val, uint16_t addr);
+int switchtec_ep_csr_write16(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint16_t val, uint16_t addr);
+int switchtec_ep_csr_write32(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint32_t val, uint16_t addr);
+
+int switchtec_ep_bar_read8(struct switchtec_dev *dev, uint16_t pdfid,
+			   uint8_t bar_index, uint64_t addr, uint8_t *val);
+int switchtec_ep_bar_read16(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar_index, uint64_t addr, uint16_t *val);
+int switchtec_ep_bar_read32(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar_index, uint64_t addr, uint32_t *val);
+
+int switchtec_ep_bar_write8(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar_index, uint8_t val, uint64_t addr);
+int switchtec_ep_bar_write16(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint8_t bar_index, uint16_t val, uint64_t addr);
+int switchtec_ep_bar_write32(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint8_t bar_index, uint32_t val, uint64_t addr);
+
 #ifdef __cplusplus
 }
 #endif
