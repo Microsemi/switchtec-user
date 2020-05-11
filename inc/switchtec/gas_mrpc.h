@@ -28,7 +28,7 @@
 #include <switchtec/mrpc.h>
 #include <switchtec/switchtec.h>
 #include <stdint.h>
-#include <endian.h>
+#include <switchtec/endian.h>
 
 struct gas_mrpc_write {
 	uint32_t gas_offset;
