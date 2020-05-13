@@ -661,6 +661,8 @@ int switchtec_ep_bar_read16(struct switchtec_dev *dev, uint16_t pdfid,
 			    uint8_t bar_index, uint64_t addr, uint16_t *val);
 int switchtec_ep_bar_read32(struct switchtec_dev *dev, uint16_t pdfid,
 			    uint8_t bar_index, uint64_t addr, uint32_t *val);
+int switchtec_ep_bar_read64(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar_index, uint64_t addr, uint64_t *val);
 
 int switchtec_ep_bar_write8(struct switchtec_dev *dev, uint16_t pdfid,
 			    uint8_t bar_index, uint8_t val, uint64_t addr);
@@ -668,7 +670,8 @@ int switchtec_ep_bar_write16(struct switchtec_dev *dev, uint16_t pdfid,
 			     uint8_t bar_index, uint16_t val, uint64_t addr);
 int switchtec_ep_bar_write32(struct switchtec_dev *dev, uint16_t pdfid,
 			     uint8_t bar_index, uint32_t val, uint64_t addr);
-
+int switchtec_ep_bar_write64(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint8_t bar_index, uint64_t val, uint64_t addr);
 #ifdef __cplusplus
 }
 #endif
