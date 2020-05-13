@@ -1770,7 +1770,8 @@ static int ep_bar_read(int argc, char **argv)
 		return 1;
 	}
 
-	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes)) {
+	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes) &&
+	    (8 != cfg.bytes)) {
 		fprintf(stderr, "Invalid access width\n");
 		return -1;
 	}
@@ -1796,6 +1797,11 @@ static int ep_bar_read(int argc, char **argv)
 			ret = switchtec_ep_bar_read32(cfg.dev, cfg.pdfid,
 						      cfg.bar, addr,
 						      (uint32_t*)&val);
+			break;
+		case 8:
+			ret = switchtec_ep_bar_read64(cfg.dev, cfg.pdfid,
+						      cfg.bar, addr,
+						      (uint64_t*)&val);
 			break;
 		default:
 			fprintf(stderr, "Invalid access width\n");
@@ -1826,7 +1832,7 @@ static int ep_bar_write(int argc, char **argv)
 		unsigned short bar;
 		unsigned long long addr;
 		unsigned bytes;
-		unsigned long value;
+		unsigned long long value;
 		int assume_yes;
 	} cfg = {
 		.pdfid = 0xffff,
@@ -1845,7 +1851,7 @@ static int ep_bar_write(int argc, char **argv)
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes,
 			required_argument,
 			"number of bytes to write per access (default 4)"},
-		{"value", 'v', "VAL", CFG_LONG, &cfg.value,
+		{"value", 'v', "VAL", CFG_LONG_LONG, &cfg.value,
 			required_argument, "value to write"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
@@ -1866,13 +1872,14 @@ static int ep_bar_write(int argc, char **argv)
 		return 1;
 	}
 
-	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes)) {
+	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes) &&
+	    (8 != cfg.bytes)) {
 		fprintf(stderr, "Invalid access width\n");
 		return -1;
 	}
 
 	if (!cfg.assume_yes)
-		fprintf(stderr, "Writing 0x%lx to 0x%llx (%d bytes).\n",
+		fprintf(stderr, "Writing 0x%llx to 0x%llx (%d bytes).\n",
 			cfg.value, cfg.addr, cfg.bytes);
 
 	ret = ask_if_sure(cfg.assume_yes);
@@ -1890,6 +1897,10 @@ static int ep_bar_write(int argc, char **argv)
 		break;
 	case 4:
 		ret = switchtec_ep_bar_write32(cfg.dev, cfg.pdfid, cfg.bar,
+					       cfg.value, cfg.addr);
+		break;
+	case 8:
+		ret = switchtec_ep_bar_write64(cfg.dev, cfg.pdfid, cfg.bar,
 					       cfg.value, cfg.addr);
 		break;
 	default:
