@@ -1282,6 +1282,17 @@ int switchtec_ep_bar_read32(struct switchtec_dev *dev, uint16_t pdfid,
 	return ret;
 }
 
+int switchtec_ep_bar_read64(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar, uint64_t addr, uint64_t *val)
+{
+	int ret;
+
+	ret = ep_bar_read(dev, pdfid, bar, val, addr, 8);
+	*val = le64toh(*val);
+
+	return ret;
+}
+
 static int ep_bar_write(struct switchtec_dev *dev, uint16_t pdfid,
 			uint8_t bar, uint64_t addr,
 			const void *val, size_t n)
@@ -1337,4 +1348,11 @@ int switchtec_ep_bar_write32(struct switchtec_dev *dev, uint16_t pdfid,
 {
 	val = htole32(val);
 	return ep_bar_write(dev, pdfid, bar, addr, &val, 4);
+}
+
+int switchtec_ep_bar_write64(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint8_t bar, uint64_t val, uint64_t addr)
+{
+	val = htole64(val);
+	return ep_bar_write(dev, pdfid, bar, addr, &val, 8);
 }
