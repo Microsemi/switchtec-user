@@ -1260,6 +1260,10 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 
 	for (i = 0; i < nr_info; i++) {
 		type = switchtec_fw_type_ptr(summary, &summary->all[i]);
+		if (type == NULL) {
+			free(summary);
+			return NULL;
+		}
 		if (summary->all[i].active)
 			type->active = &summary->all[i];
 		else
