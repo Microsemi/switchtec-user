@@ -795,7 +795,7 @@ static int switchtec_fw_map_get_active(struct switchtec_dev *dev,
 		return ret;
 
 	info->active = 0;
-	if (map0_update_index < map1_update_index) {
+	if (map0_update_index > map1_update_index) {
 		if (info->part_addr == SWITCHTEC_FLASH_MAP0_PART_START)
 			info->active = 1;
 	} else {
