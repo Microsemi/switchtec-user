@@ -1393,11 +1393,7 @@ static int fw_info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_FW_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("print fw info");
-		return ret;
-	}
+	phase_id = switchtec_boot_phase(cfg.dev);
 	if (phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
 			"This command is only available in BL2 or Main Firmware!\n");
