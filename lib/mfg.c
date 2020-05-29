@@ -59,6 +59,8 @@
 #include "lib/crc.h"
 #include "config.h"
 
+#ifdef __linux__
+
 #if HAVE_LIBCRYPTO
 #include <openssl/pem.h>
 #endif
@@ -88,6 +90,10 @@
 #define SWITCHTEC_JTAG_UNLOCK_BL1_BITMASK	0x0100
 #define SWITCHTEC_JTAG_UNLOCK_AFT_BL1_BITMASK	0x0200
 
+static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
+			     const void *payload, size_t payload_len,
+			     void *resp, size_t resp_len);
+
 #if (HAVE_LIBCRYPTO && !HAVE_DECL_RSA_GET0_KEY)
 /**
 *  openssl1.0 or older versions don't have this function, so copy
@@ -104,44 +110,6 @@ static void RSA_get0_key(const RSA *r, const BIGNUM **n,
 		*d = r->d;
 }
 #endif
-
-static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
-			     const void *payload, size_t payload_len,
-			     void *resp, size_t resp_len)
-{
-	if (dev->ops->flags & SWITCHTEC_OPS_FLAG_NO_MFG) {
-		errno = ERR_UART_NOT_SUPPORTED | SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
-		return -1;
-	}
-
-	return switchtec_cmd(dev, cmd, payload, payload_len,
-			     resp, resp_len);
-}
-
-/**
- * @brief Get serial number and security version
- * @param[in]  dev	Switchtec device handle
- * @param[out] info	Serial number and security version info
- * @return 0 on success, error code on failure
- */
-int switchtec_sn_ver_get(struct switchtec_dev *dev,
-			 struct switchtec_sn_ver_info *info)
-{
-	int ret;
-
-	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
-				sizeof(struct switchtec_sn_ver_info));
-	if (ret)
-		return ret;
-
-	info->chip_serial = le32toh(info->chip_serial);
-	info->ver_bl2 = le32toh(info->ver_bl2);
-	info->ver_km = le32toh(info->ver_km);
-	info->ver_main = le32toh(info->ver_main);
-	info->ver_sec_unlock = le32toh(info->ver_sec_unlock);
-
-	return 0;
-}
 
 /**
  * @brief Get secure boot configurations
@@ -805,6 +773,46 @@ switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 			   SWITCHTEC_KMSK_LEN) == 0)
 			return 1;
 	}
+
+	return 0;
+}
+
+#endif /* __linux__ */
+
+static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
+			     const void *payload, size_t payload_len,
+			     void *resp, size_t resp_len)
+{
+	if (dev->ops->flags & SWITCHTEC_OPS_FLAG_NO_MFG) {
+		errno = ERR_UART_NOT_SUPPORTED | SWITCHTEC_ERRNO_MRPC_FLAG_BIT;
+		return -1;
+	}
+
+	return switchtec_cmd(dev, cmd, payload, payload_len,
+			     resp, resp_len);
+}
+
+/**
+ * @brief Get serial number and security version
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] info	Serial number and security version info
+ * @return 0 on success, error code on failure
+ */
+int switchtec_sn_ver_get(struct switchtec_dev *dev,
+			 struct switchtec_sn_ver_info *info)
+{
+	int ret;
+
+	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
+				sizeof(struct switchtec_sn_ver_info));
+	if (ret)
+		return ret;
+
+	info->chip_serial = le32toh(info->chip_serial);
+	info->ver_bl2 = le32toh(info->ver_bl2);
+	info->ver_km = le32toh(info->ver_km);
+	info->ver_main = le32toh(info->ver_main);
+	info->ver_sec_unlock = le32toh(info->ver_sec_unlock);
 
 	return 0;
 }
