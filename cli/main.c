@@ -112,11 +112,15 @@ int mfg_handler(const char *optarg, void *value_addr,
 int pax_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt)
 {
-	int ret;
+	char *end;
+	long num;
 
-	ret = sscanf(optarg, "%i", &global_pax_id);
+	errno = 0;
+	num = strtol(optarg, &end, 0);
+	global_pax_id = num;
 
-	if (ret != 1 || (global_pax_id & ~SWITCHTEC_PAX_ID_MASK)) {
+	if ((end == optarg) || errno || num < 0 ||
+	    (global_pax_id & ~SWITCHTEC_PAX_ID_MASK)) {
 		fprintf(stderr, "Invalid PAX ID specified: %s\n", optarg);
 		return 1;
 	}
