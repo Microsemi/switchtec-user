@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 enum {
 	HEX,
@@ -676,16 +677,16 @@ static int hvd_body_print(struct switchtec_dev *dev,
 		}
 
 		if (!bound) {
-			printf("        Logical PID %hhu:\t\tUnbound\n", i);
+			printf("        Logical PID %d:\t\tUnbound\n", i);
 			continue;
 		}
 
-		printf("        Logical PID %hhu:\n", i);
+		printf("        Logical PID %d:\n", i);
 		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
 			index = j * log_port_count + i;
 
 			if (body->bound[index].bound)
-				printf("            Function %hhu:    \tPDFID 0x%04hx\n",
+				printf("            Function %d:    \tPDFID 0x%04hx\n",
 				       j, body->bound[index].bound_pdfid);
 		}
 	}
@@ -748,13 +749,13 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 	for (i = 0; i < vep_count; i++) {
 		vep_type_to_str(body->vep_region[i].type, vep_type_str);
 		bdf_to_str(body->vep_region[i].bdf, bdf_str1);
-		printf("            VEP %hhu:\n"
+		printf("            VEP %d:\n"
 		       "                Type:\t\t\t%s\n"
 		       "                BDF: \t\t\t%s\n",
 		       i, vep_type_str, body->usp_status ? bdf_str1 : "N/A");
 	}
 
-	printf("        Logical Ports (%hhu):\n", body->log_dsp_count);
+	printf("        Logical Ports (%hu):\n", body->log_dsp_count);
 	for (i = 0; i < log_port_count; i++) {
 		bound = 0;
 		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
@@ -766,18 +767,18 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 		}
 
 		if (!bound) {
-			printf("            Logical PID %hhu:\t\tUnbound\n", i);
+			printf("            Logical PID %d:\t\tUnbound\n", i);
 			continue;
 		}
 
-		printf("            Logical PID %hhu:\n", i);
+		printf("            Logical PID %d:\n", i);
 		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
 			index = j * log_port_count + i;
 			port = &body->log_port_region[index];
 			if (port->bound) {
 				bdf_to_str(port->dsp_bdf, bdf_str1);
 				bdf_to_str(port->bound_hvd_bdf, bdf_str2);
-				printf("                Function %hhu:\t\tPDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
+				printf("                Function %d:\t\tPDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
 				       j, port->bound_pdfid,
 				       body->usp_status ? bdf_str1 : "N/A",
 				       body->usp_status ? bdf_str2 : "N/A");
@@ -789,7 +790,7 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 	enable_bitmap <<= 32;
 	enable_bitmap |= body->log_port_p2p_enable_bitmap_low;
 
-	printf("        Logical Port P2P enable bitmap:\t0x%016lx\n",
+	printf("        Logical Port P2P enable bitmap:\t0x%016"PRIx64"\n",
 	       enable_bitmap);
 	for (i = 0; i < body->log_port_count; i++) {
 		pos = ffs(enable_bitmap);
@@ -800,13 +801,13 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 			bitmap = body->log_port_p2p_bitmap[i].config_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].config_bitmap_low;
-			printf("            Logical Port %hhu P2P config bitmap:    \t0x%016lx\n",
+			printf("            Logical Port %d P2P config bitmap:    \t0x%016"PRIx64"\n",
 			       pos, bitmap);
 
 			bitmap = body->log_port_p2p_bitmap[i].active_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].active_bitmap_low;
-			printf("            Logical Port %hhu P2P active bitmap:    \t0x%016lx\n",
+			printf("            Logical Port %d P2P active bitmap:    \t0x%016"PRIx64"\n",
 			       pos, bitmap);
 		}
 	}
@@ -851,7 +852,7 @@ static int fab_port_print(struct switchtec_dev *dev,
 	       fab_port->body.attached_sw_idx);
 	printf("        Attached SWFID:       \t0x%04hx\n",
 	       fab_port->body.attached_swfid);
-	printf("        Attached FW Version:  \t0x%hx\n",
+	printf("        Attached FW Version:  \t0x%x\n",
 	       fab_port->body.attached_fw_version);
 
 	return 0;
