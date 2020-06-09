@@ -1730,7 +1730,7 @@ static int ep_bar_read(int argc, char **argv)
 		unsigned print_style;
 	} cfg = {
 		.pdfid = 0xffff,
-		.bar = -1,
+		.bar = 0xffff,
 		.addr = 0,
 		.bytes = 4,
 		.count = 1,
@@ -1759,7 +1759,7 @@ static int ep_bar_read(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_EP_BAR_READ, opts,
 			&cfg, sizeof(cfg));
 
-	if (cfg.bar == -1) {
+	if (cfg.bar == 0xffff) {
 		argconfig_print_usage(opts);
 		fprintf(stderr, "The --bar|-i argument is required!\n");
 		return 1;
@@ -1837,7 +1837,7 @@ static int ep_bar_write(int argc, char **argv)
 		int assume_yes;
 	} cfg = {
 		.pdfid = 0xffff,
-		.bar = -1,
+		.bar = 0xffff,
 		.addr = 0,
 		.bytes = 4,
 	};
@@ -1861,7 +1861,7 @@ static int ep_bar_write(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_EP_BAR_WRITE, opts,
 			&cfg, sizeof(cfg));
 
-	if (cfg.bar == -1) {
+	if (cfg.bar == 0xffff) {
 		argconfig_print_usage(opts);
 		fprintf(stderr, "The --bar|-i argument is required!\n");
 		return 1;
