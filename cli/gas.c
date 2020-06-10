@@ -337,7 +337,7 @@ static int print_hex(struct switchtec_dev *dev, void __gas *addr,
 		return -1;
 	}
 
-	printf("%06X - 0x%0*" FMT_llX "\n", offset, bytes * 2, x);
+	printf("%06X - 0x%0*llX\n", offset, bytes * 2, x);
 	return 0;
 }
 
@@ -358,7 +358,7 @@ static int print_dec(struct switchtec_dev *dev, void __gas *addr,
 		return -1;
 	}
 
-	printf("%06X - %" FMT_lld "\n", offset, x);
+	printf("%06X - %lld\n", offset, x);
 	return 0;
 }
 

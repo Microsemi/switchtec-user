@@ -1294,7 +1294,7 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 	printf("Gen:            %s\n", switchtec_fw_image_gen_str(&info));
 	printf("Type:           %s\n", switchtec_fw_image_type(&info));
 	printf("Version:        %s\n", info.version);
-	printf("Img Len:        0x%" FMT_SIZE_T_x "\n", info.image_len);
+	printf("Img Len:        0x%zx\n", info.image_len);
 	printf("CRC:            0x%08lx\n", info.image_crc);
 	if (info.gen != SWITCHTEC_GEN3)
 		printf("Secure version: 0x%08lx\n", info.secure_version);
