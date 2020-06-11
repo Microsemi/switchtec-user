@@ -325,18 +325,27 @@ static int read_gas(struct switchtec_dev *dev, void __gas *addr,
 {
 	int ret = 0;
 
+	uint8_t u8;
+	uint16_t u16;
+	uint32_t u32;
+	uint64_t u64;
+
 	switch (bytes) {
 	case 1:
-		*val = gas_read8(dev, addr);
+		ret = gas_read8(dev, addr, &u8);
+		*val = u8;
 		break;
 	case 2:
-		*val = gas_read16(dev, addr);
+		ret = gas_read16(dev, addr, &u16);
+		*val = u16;
 		break;
 	case 4:
-		*val = gas_read32(dev, addr);
+		ret = gas_read32(dev, addr, &u32);
+		*val = u32;
 		break;
 	case 8:
-		*val = gas_read64(dev, addr);
+		ret = gas_read64(dev, addr, &u64);
+		*val = u64;
 		break;
 	default:
 		errno = EINVAL;

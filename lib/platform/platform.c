@@ -340,56 +340,68 @@ int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms)
  * @brief Read a uint8_t from the GAS
  * @param[in] dev	Switchtec device handle
  * @param[in] addr	Address to read the value
- * @return The read value
+ * @param[out] val	Data read from GAS
+ * @return 0 on success, error code on failure
  */
-uint8_t gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr)
+int gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr, uint8_t *val)
 {
 	if (dev->pax_id != dev->local_pax_id)
-		return gas_mrpc_read8(dev, addr);
+		return gas_mrpc_read8(dev, addr, val);
 	else
-		return __gas_read8(dev, addr);
+		*val = __gas_read8(dev, addr);
+
+	return 0;
 }
 
 /**
  * @brief Read a uint16_t from the GAS
  * @param[in] dev	Switchtec device handle
  * @param[in] addr	Address to read the value
- * @return The read value
+ * @param[out] val	Data read from GAS
+ * @return 0 on success, error code on failure
  */
-uint16_t gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr)
+int gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr, uint16_t *val)
 {
 	if (dev->pax_id != dev->local_pax_id)
-		return gas_mrpc_read16(dev, addr);
+		return gas_mrpc_read16(dev, addr, val);
 	else
-		return __gas_read16(dev, addr);
+		*val = __gas_read16(dev, addr);
+
+	return 0;
 }
 
 /**
  * @brief Read a uint32_t from the GAS
  * @param[in] dev	Switchtec device handle
  * @param[in] addr	Address to read the value
- * @return The read value
+ * @param[out] val	Data read from GAS
+ * @return 0 on success, error code on failure
  */
-uint32_t gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr)
+int gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr, uint32_t *val)
 {
 	if (dev->pax_id != dev->local_pax_id)
-		return gas_mrpc_read32(dev, addr);
+		return gas_mrpc_read32(dev, addr, val);
 	else
-		return __gas_read32(dev, addr);
+		*val = __gas_read32(dev, addr);
+
+	return 0;
 }
 
 /**
  * @brief Read a uint64_t from the GAS
  * @param[in] dev	Switchtec device handle
  * @param[in] addr	Address to read the value
- * @return The read value
+ * @param[out] val	Data read from GAS
+ * @return 0 on success, error code on failure
  */
-uint64_t gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr)
+int gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr, uint64_t *val)
 {
 	if (dev->pax_id != dev->local_pax_id)
-		return gas_mrpc_read64(dev, addr);
+		return gas_mrpc_read64(dev, addr, val);
 	else
-		return __gas_read64(dev, addr);
+		*val = __gas_read64(dev, addr);
+
+	return 0;
 }
 
 /**
