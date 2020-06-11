@@ -66,9 +66,9 @@
 
 void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 		   const void *src, size_t n);
-
-void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
-		     const void __gas *src, size_t n);
+__attribute__((warn_unused_result))
+int memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+		    const void __gas *src, size_t n);
 
 ssize_t write_from_gas(struct switchtec_dev *dev, int fd,
 		       const void __gas *src, size_t n);

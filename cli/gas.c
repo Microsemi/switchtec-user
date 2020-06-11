@@ -71,13 +71,18 @@ static void hexdump_data(struct switchtec_dev *dev, void __gas *map,
 	unsigned long addr = 0;
 	size_t bytes;
 	int last_match = 0;
+	int err;
 
 	while (map_size) {
 		if (is_alive && !is_alive())
 			return;
 
 		bytes = map_size > sizeof(line) ? sizeof(line) : map_size;
-		memcpy_from_gas(dev, line, map, bytes);
+		err = memcpy_from_gas(dev, line, map, bytes);
+		if (err && errno == EPERM) {
+			fprintf(stderr, "GAS dump: permission denied\n");
+			return;
+		}
 
 		if (bytes != sizeof(line) ||
 		    memcmp(last_line, line, sizeof(last_line))) {
@@ -405,9 +410,15 @@ static int print_str(struct switchtec_dev *dev, void __gas *addr,
 		     int offset, int bytes)
 {
 	char buf[bytes + 1];
+	int ret;
 
 	memset(buf, 0, bytes + 1);
-	memcpy_from_gas(dev, buf, addr + offset, bytes);
+
+	ret = memcpy_from_gas(dev, buf, addr + offset, bytes);
+	if (ret) {
+		switchtec_perror("gas read");
+		return -1;
+	}
 
 	printf("%06X - %s\n", offset, buf);
 	return 0;

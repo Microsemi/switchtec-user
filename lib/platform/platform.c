@@ -482,14 +482,17 @@ void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
  * @param[out] dest     Destination buffer
  * @param[in]  src      Source gas address
  * @param[in]  n        Number of bytes to transfer
+ * @return 0 on success, error code on failure
  */
-void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
-		     const void __gas *src, size_t n)
+int memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+		    const void __gas *src, size_t n)
 {
 	if (dev->pax_id != dev->local_pax_id)
-		gas_mrpc_memcpy_from_gas(dev, dest, src, n);
+		return gas_mrpc_memcpy_from_gas(dev, dest, src, n);
 	else
 		__memcpy_from_gas(dev, dest, src, n);
+
+	return 0;
 }
 
 /**
