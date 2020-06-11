@@ -320,20 +320,48 @@ static int gas_dump(int argc, char **argv)
 	return pipe_to_hd_less(cfg.dev, map, cfg.count);
 }
 
+static int read_gas(struct switchtec_dev *dev, void __gas *addr,
+		    int bytes, unsigned long long *val)
+{
+	int ret = 0;
+
+	switch (bytes) {
+	case 1:
+		*val = gas_read8(dev, addr);
+		break;
+	case 2:
+		*val = gas_read16(dev, addr);
+		break;
+	case 4:
+		*val = gas_read32(dev, addr);
+		break;
+	case 8:
+		*val = gas_read64(dev, addr);
+		break;
+	default:
+		errno = EINVAL;
+		return -1;
+	}
+
+	return ret;
+}
+
 static int print_hex(struct switchtec_dev *dev, void __gas *addr,
 		     int offset, int bytes)
 {
 	unsigned long long x;
+	int ret;
 
 	offset = offset & ~(bytes - 1);
 
-	switch (bytes) {
-	case 1: x = gas_read8(dev, addr + offset);  break;
-	case 2: x = gas_read16(dev, addr + offset); break;
-	case 4: x = gas_read32(dev, addr + offset); break;
-	case 8: x = gas_read64(dev, addr + offset); break;
-	default:
+	if (bytes != 1 && bytes != 2 && bytes != 4 && bytes != 8) {
 		fprintf(stderr, "invalid access width\n");
+		return -1;
+	}
+
+	ret = read_gas(dev, addr + offset, bytes, &x);
+	if (ret) {
+		switchtec_perror("gas read");
 		return -1;
 	}
 
@@ -345,16 +373,18 @@ static int print_dec(struct switchtec_dev *dev, void __gas *addr,
 		     int offset, int bytes)
 {
 	unsigned long long x;
+	int ret;
 
 	offset = offset & ~(bytes - 1);
 
-	switch (bytes) {
-	case 1: x = gas_read8(dev, addr + offset);  break;
-	case 2: x = gas_read16(dev, addr + offset); break;
-	case 4: x = gas_read32(dev, addr + offset); break;
-	case 8: x = gas_read64(dev, addr + offset); break;
-	default:
+	if (bytes != 1 && bytes != 2 && bytes != 4 && bytes != 8) {
 		fprintf(stderr, "invalid access width\n");
+		return -1;
+	}
+
+	ret = read_gas(dev, addr + offset, bytes, &x);
+	if (ret) {
+		switchtec_perror("gas read");
 		return -1;
 	}
 
