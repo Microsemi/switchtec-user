@@ -43,8 +43,8 @@ struct gas_mrpc_read {
 
 void gas_mrpc_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 			    const void *src, size_t n);
-void gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
-			      const void __gas *src, size_t n);
+int gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+			     const void __gas *src, size_t n);
 ssize_t gas_mrpc_write_from_gas(struct switchtec_dev *dev, int fd,
 				const void __gas *src, size_t n);
 
