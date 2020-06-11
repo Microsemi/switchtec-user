@@ -36,7 +36,7 @@
 #include <errno.h>
 #include <ctype.h>
 
-static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
+static void print_line(unsigned long addr, uint8_t *bytes, size_t n, int error)
 {
 	int i;
 
@@ -44,7 +44,11 @@ static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 	for (i = 0; i < n; i++) {
 		if (i == 8)
 			printf(" ");
-		printf(" %02x", bytes[i]);
+
+		if (error)
+			printf(" XX");
+		else
+			printf(" %02x", bytes[i]);
 	}
 
 	for (; i < 16; i++) {
@@ -54,7 +58,9 @@ static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 	printf("  |");
 
 	for (i = 0; i < 16; i++) {
-		if (isprint(bytes[i]))
+		if (error)
+			printf("X");
+		else if (isprint(bytes[i]))
 			printf("%c", bytes[i]);
 		else
 			printf(".");
@@ -86,7 +92,7 @@ static void hexdump_data(struct switchtec_dev *dev, void __gas *map,
 
 		if (bytes != sizeof(line) ||
 		    memcmp(last_line, line, sizeof(last_line))) {
-			print_line(addr, line, bytes);
+			print_line(addr, line, bytes, err);
 			last_match = 0;
 		} else if (!last_match) {
 			printf("*\n");
