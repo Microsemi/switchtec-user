@@ -115,6 +115,7 @@ int gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 
 		n -= len;
 		dest += len;
+		cmd.gas_offset += len;
 	}
 
 	return 0;
