@@ -30,6 +30,8 @@
 #include <signal.h>
 #include <unistd.h>
 
+#define GAS_MRPC_MEMCPY_MAX	512
+
 /**
  * @defgroup GASMRPC Access through MRPC commands
  * @brief Access the GAS through MRPC commands
@@ -100,8 +102,8 @@ int gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 
 	while (n) {
 		len = n;
-		if (len > MRPC_MAX_DATA_LEN)
-			len = MRPC_MAX_DATA_LEN;
+		if (len > GAS_MRPC_MEMCPY_MAX)
+			len = GAS_MRPC_MEMCPY_MAX;
 		cmd.len = htole32(len);
 
 		ret = switchtec_cmd(dev, MRPC_GAS_READ, &cmd,
