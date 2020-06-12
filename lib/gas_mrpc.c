@@ -87,9 +87,10 @@ void gas_mrpc_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
  * @param[out] dest	Destination buffer
  * @param[in]  src	Source gas address
  * @param[in]  n	Number of bytes to transfer
+ * @return 0 on success, error code on failure
  */
-void gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
-			      const void __gas *src, size_t n)
+int gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+			     const void __gas *src, size_t n)
 {
 	struct gas_mrpc_read cmd;
 	int ret;
@@ -105,12 +106,16 @@ void gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 
 		ret = switchtec_cmd(dev, MRPC_GAS_READ, &cmd,
 				    sizeof(cmd), dest, len);
-		if (ret)
-			raise(SIGBUS);
+		if (ret) {
+			memset(dest, 0xff, n);
+			return ret;
+		}
 
 		n -= len;
 		dest += len;
 	}
+
+	return 0;
 }
 
 /**

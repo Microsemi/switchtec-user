@@ -43,8 +43,8 @@ struct gas_mrpc_read {
 
 void gas_mrpc_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 			    const void *src, size_t n);
-void gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
-			      const void __gas *src, size_t n);
+int gas_mrpc_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+			     const void __gas *src, size_t n);
 ssize_t gas_mrpc_write_from_gas(struct switchtec_dev *dev, int fd,
 				const void __gas *src, size_t n);
 
@@ -53,12 +53,15 @@ static inline uint8_t le8toh(uint8_t x) { return x; }
 static inline uint8_t htole8(uint8_t x) { return x; }
 
 #define create_mrpc_gas_read(type, suffix) \
-	static inline type gas_mrpc_read ## suffix(struct switchtec_dev *dev, \
-						   type __gas *addr) \
+	static inline int gas_mrpc_read ## suffix(struct switchtec_dev *dev, \
+						  type __gas *addr, \
+						  type *data) \
 	{ \
-		type ret; \
-		gas_mrpc_memcpy_from_gas(dev, &ret, addr, sizeof(ret)); \
-		return le##suffix##toh(ret);                            \
+		int ret; \
+		ret = gas_mrpc_memcpy_from_gas(dev, data, addr, \
+					       sizeof(type)); \
+		*data = le##suffix##toh(*data); \
+		return ret; \
 	}
 
 #define create_mrpc_gas_write(type, suffix) \
