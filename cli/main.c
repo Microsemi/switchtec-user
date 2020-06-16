@@ -951,10 +951,6 @@ static int log_parse(int argc, char **argv)
 	int ret;
 
 	static struct {
-		struct switchtec_dev *dev;
-		int out_fd;
-		const char *out_filename;
-		unsigned type;
 		FILE *bin_log_file;
 		const char *bin_log_filename;
 		FILE *log_def_file;
