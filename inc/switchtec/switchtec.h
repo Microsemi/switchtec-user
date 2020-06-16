@@ -195,6 +195,14 @@ enum switchtec_log_type {
 	SWITCHTEC_LOG_NVHDR,
 };
 
+/**
+ * @brief Log types to parse
+ */
+enum switchtec_log_parse_type {
+	SWITCHTEC_LOG_PARSE_TYPE_APP,
+	SWITCHTEC_LOG_PARSE_TYPE_MAILBOX
+};
+
 enum switchtec_fw_type {
 	SWITCHTEC_FW_TYPE_UNKNOWN = 0,
 	SWITCHTEC_FW_TYPE_BOOT,
@@ -361,7 +369,8 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  int fd,
 			  FILE *log_def_file);
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
-			FILE *parsed_log_file);
+			FILE *parsed_log_file,
+			enum switchtec_log_parse_type log_type);
 float switchtec_die_temp(struct switchtec_dev *dev);
 
 /**

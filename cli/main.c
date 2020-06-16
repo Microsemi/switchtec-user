@@ -986,7 +986,8 @@ static int log_parse(int argc, char **argv)
 			&cfg, sizeof(cfg));
 
 	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
-				  cfg.parsed_log_file);
+				  cfg.parsed_log_file,
+				  SWITCHTEC_LOG_PARSE_TYPE_APP);
 	if (ret < 0)
 		switchtec_perror("log_parse");
 	else
