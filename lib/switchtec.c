@@ -774,7 +774,7 @@ static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
 		tok = strtok(NULL, " \t");
 		if (!tok)
 			continue;
-        	mod_id = strtol(tok, NULL, 0);
+		mod_id = strtol(tok, NULL, 0);
 
 		/* reallocate more log definition entries if needed */
 		if (mod_id > defs->num_alloc) {
@@ -789,7 +789,7 @@ static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
 		if (!tok)
 			continue;
 
-        	num_entries = strtol(tok, NULL, 0);
+		num_entries = strtol(tok, NULL, 0);
 
 		/*
 		 * Skip this module if it has already been done. This can happen
@@ -804,7 +804,7 @@ static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
 			continue;
 		}
 
-        	mod_defs->mod_name = strdup(line);
+		mod_defs->mod_name = strdup(line);
 		mod_defs->num_entries = num_entries;
 		mod_defs->entries = calloc(mod_defs->num_entries,
 					   sizeof(*mod_defs->entries));
