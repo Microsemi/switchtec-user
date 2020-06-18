@@ -550,6 +550,8 @@ const char *switchtec_strerror(void)
 			msg = "Error reading binary log file"; break;
 		case SWITCHTEC_ERR_PARSED_LOG_WRITE_ERROR:
 			msg = "Error writing parsed log file"; break;
+		case SWITCHTEC_ERR_LOG_DEF_DATA_INVAL:
+			msg = "Invalid log definition data"; break;
 		default:
 			msg = "Unknown Switchtec error"; break;
 		}
@@ -737,6 +739,25 @@ static int realloc_log_defs(struct log_defs *defs, int num_modules)
 }
 
 /**
+ * @brief Parse an integer from a string
+ * @param[in] str  - string to parse
+ * @param[out] val - integer
+ * @return true on success, false on failure
+ */
+static bool parse_int(char *str, int *val)
+{
+	char *endptr;
+
+	errno = 0;
+	*val = strtol(str, &endptr, 0);
+
+	if ((endptr == str) || (*endptr != '\0') || (errno != 0))
+	    return false;
+	
+	return true;
+}
+
+/**
  * @brief Read an app log definition file and store the definitions
  * @param[in] log_def_file - log definition file
  * @param[out] defs 	   - log definitions
@@ -763,8 +784,11 @@ static int read_app_log_defs(FILE *log_def_file, struct log_defs *defs)
 		if (line[0] == '#')
 			continue;
 
+		/* strip any newline characters */
+		line[strcspn(line, "\r\n")] = '\0';
+
 		/*
-		 * Tokenize the line. Module headings are of the form:
+		 * Tokenize and parse the line. Module headings are of the form:
 		 * mod_name    mod_id    num_entries
 		 */
 		tok = strtok(line, " \t");
@@ -774,7 +798,11 @@ static int read_app_log_defs(FILE *log_def_file, struct log_defs *defs)
 		tok = strtok(NULL, " \t");
 		if (!tok)
 			continue;
-		mod_id = strtol(tok, NULL, 0);
+
+		if (!parse_int(tok, &mod_id)) {
+			errno = SWITCHTEC_ERR_LOG_DEF_DATA_INVAL;
+			goto err_free_log_defs;
+		}
 
 		/* reallocate more log definition entries if needed */
 		if (mod_id > defs->num_alloc) {
@@ -789,7 +817,10 @@ static int read_app_log_defs(FILE *log_def_file, struct log_defs *defs)
 		if (!tok)
 			continue;
 
-		num_entries = strtol(tok, NULL, 0);
+		if (!parse_int(tok, &num_entries)) {
+			errno = SWITCHTEC_ERR_LOG_DEF_DATA_INVAL;
+			goto err_free_log_defs;
+		}
 
 		/*
 		 * Skip this module if it has already been done. This can happen
