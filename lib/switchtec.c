@@ -550,6 +550,8 @@ const char *switchtec_strerror(void)
 			msg = "Error reading binary log file"; break;
 		case SWITCHTEC_ERR_PARSED_LOG_WRITE_ERROR:
 			msg = "Error writing parsed log file"; break;
+		case SWITCHTEC_ERR_LOG_DEF_DATA_INVAL:
+			msg = "Invalid log definition data"; break;
 		default:
 			msg = "Unknown Switchtec error"; break;
 		}
@@ -737,12 +739,31 @@ static int realloc_log_defs(struct log_defs *defs, int num_modules)
 }
 
 /**
- * @brief Read a log definition file and store the definitions
+ * @brief Parse an integer from a string
+ * @param[in] str  - string to parse
+ * @param[out] val - integer
+ * @return true on success, false on failure
+ */
+static bool parse_int(char *str, int *val)
+{
+	char *endptr;
+
+	errno = 0;
+	*val = strtol(str, &endptr, 0);
+
+	if ((endptr == str) || (*endptr != '\0') || (errno != 0))
+	    return false;
+	
+	return true;
+}
+
+/**
+ * @brief Read an app log definition file and store the definitions
  * @param[in] log_def_file - log definition file
  * @param[out] defs 	   - log definitions
  * @return 0 on success, negative value on failure
  */
-static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
+static int read_app_log_defs(FILE *log_def_file, struct log_defs *defs)
 {
 	int ret;
 	char line[512];
@@ -763,8 +784,11 @@ static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
 		if (line[0] == '#')
 			continue;
 
+		/* strip any newline characters */
+		line[strcspn(line, "\r\n")] = '\0';
+
 		/*
-		 * Tokenize the line. Module headings are of the form:
+		 * Tokenize and parse the line. Module headings are of the form:
 		 * mod_name    mod_id    num_entries
 		 */
 		tok = strtok(line, " \t");
@@ -774,7 +798,11 @@ static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
 		tok = strtok(NULL, " \t");
 		if (!tok)
 			continue;
-        	mod_id = strtol(tok, NULL, 0);
+
+		if (!parse_int(tok, &mod_id)) {
+			errno = SWITCHTEC_ERR_LOG_DEF_DATA_INVAL;
+			goto err_free_log_defs;
+		}
 
 		/* reallocate more log definition entries if needed */
 		if (mod_id > defs->num_alloc) {
@@ -789,7 +817,10 @@ static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
 		if (!tok)
 			continue;
 
-        	num_entries = strtol(tok, NULL, 0);
+		if (!parse_int(tok, &num_entries)) {
+			errno = SWITCHTEC_ERR_LOG_DEF_DATA_INVAL;
+			goto err_free_log_defs;
+		}
 
 		/*
 		 * Skip this module if it has already been done. This can happen
@@ -804,7 +835,7 @@ static int read_log_defs(FILE *log_def_file, struct log_defs *defs)
 			continue;
 		}
 
-        	mod_defs->mod_name = strdup(line);
+		mod_defs->mod_name = strdup(line);
 		mod_defs->num_entries = num_entries;
 		mod_defs->entries = calloc(mod_defs->num_entries,
 					   sizeof(*mod_defs->entries));
@@ -836,17 +867,81 @@ err_free_log_defs:
 }
 
 /**
- * @brief Parse an app log and write the results to a file
+ * @brief Read a mailbox log definition file and store the definitions
+ * @param[in] log_def_file - log definition file
+ * @param[out] defs 	   - log definitions
+ * @return 0 on success, negative value on failure
+ */
+static int read_mailbox_log_defs(FILE *log_def_file, struct log_defs *defs)
+{
+	int ret;
+	char line[512];
+	struct module_log_defs *mod_defs;
+	int num_entries_alloc;
+
+	/*
+	 * The mailbox log definitions don't keep track of modules. Allocate a
+	 * single log definition entry for all definitions.
+	 */
+	ret = realloc_log_defs(defs, 1);
+	if (ret < 0)
+		return ret;
+
+	mod_defs = &defs->module_defs[0];
+	mod_defs->num_entries = 0;
+
+	/* allocate some entries */
+	num_entries_alloc = 100;
+	mod_defs->entries = calloc(num_entries_alloc,
+				   sizeof(*mod_defs->entries));
+	if (!mod_defs->entries)
+		goto err_free_log_defs;
+
+	while (fgets(line, sizeof(line), log_def_file)) {
+		if (mod_defs->num_entries >= num_entries_alloc) {
+			/* allocate more entries */
+			num_entries_alloc *= 2;
+			mod_defs->entries = realloc(mod_defs->entries,
+						    (num_entries_alloc *
+						     sizeof(*mod_defs->entries)));
+			if (!mod_defs->entries)
+				goto err_free_log_defs;			
+		}
+
+		mod_defs->entries[mod_defs->num_entries] = strdup(line);
+		if (!mod_defs->entries[mod_defs->num_entries])
+			goto err_free_log_defs;
+
+		mod_defs->num_entries++;
+	}
+
+	if (ferror(log_def_file)) {
+		errno = SWITCHTEC_ERR_LOG_DEF_READ_ERROR;
+		goto err_free_log_defs;
+	}
+
+	return 0;
+
+err_free_log_defs:
+	free_log_defs(defs);
+	return -1;
+}
+
+/**
+ * @brief Parse an app log or mailbox log and write the results to a file
  * @param[in] log_data	     - logging data
  * @param[in] count	     - number of entries
  * @param[in] init_entry_idx - index of the initial entry
  * @param[in] defs           - log definitions
+ * @param[in] log_type       - log type
  * @param[in] log_file	     - log output file
  * @return 0 on success, negative value on failure
  */
 static int write_parsed_log(struct log_a_data log_data[],
 			    size_t count, int init_entry_idx,
-			    struct log_defs *defs, FILE *log_file)
+			    struct log_defs *defs,
+			    enum switchtec_log_parse_type log_type,
+			    FILE *log_file)
 {
 	int i;
 	int entry_idx = init_entry_idx;
@@ -857,11 +952,17 @@ static int write_parsed_log(struct log_a_data log_data[],
 	unsigned int log_sev;
 	const char *log_sev_strs[] = {"DISABLED", "HIGHEST", "HIGH", "MEDIUM",
 				      "LOW", "LOWEST"};
+	bool is_bl1;
 	struct module_log_defs *mod_defs;
 
-	if (entry_idx == 0)
-		fputs("   #|Timestamp                |Module       |Severity |Event\n",
-		      log_file);
+	if (entry_idx == 0) {
+		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP)
+			fputs("   #|Timestamp                |Module       |Severity |Event\n",
+		      	      log_file);
+		else
+			fputs("   #|Timestamp                |Source |Event\n",
+		      	      log_file);
+	}
 
 	for (i = 0; i < count; i ++) {
 		/* timestamp is in the first 2 DWords */
@@ -880,26 +981,44 @@ static int write_parsed_log(struct log_a_data log_data[],
 		hours = time % 24;
 		days = time / 24;
 
-		/*
-		 * log entry number, module ID, and log severity are in the
-		 * 3rd DWord
-		 */
-		entry_num = log_data[i].data[2] & 0x0000FFFF;
-		mod_id = (log_data[i].data[2] >> 16) & 0xFFF;
-		log_sev = (log_data[i].data[2] >> 28) & 0xF;
+		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP) {
+			/*
+			 * app log: module ID and log severity are in the 3rd
+			 * DWord
+			 */
+			mod_id = (log_data[i].data[2] >> 16) & 0xFFF;
+			log_sev = (log_data[i].data[2] >> 28) & 0xF;		
 
-		/* validate the module ID */
-		if ((mod_id > defs->num_alloc) ||
-		    (strlen(defs->module_defs[mod_id].mod_name) == 0)) {
-			if (fprintf(log_file, "(Invalid module ID: 0x%x)\n",
-				    mod_id) < 0)
-				goto ret_print_error;
-			continue;
+			if ((mod_id > defs->num_alloc) ||
+			    (strlen(defs->module_defs[mod_id].mod_name) == 0)) {
+				if (fprintf(log_file, "(Invalid module ID: 0x%x)\n",
+					mod_id) < 0)
+					goto ret_print_error;
+				continue;
+			}
+
+			if (log_sev >= ARRAY_SIZE(log_sev_strs)) {
+				if (fprintf(log_file, "(Invalid log severity: %d)\n",
+					log_sev) < 0)
+					goto ret_print_error;
+				continue;
+			}
+		} else {
+			/*
+			 * mailbox log: BL1/BL2 indication is in the 3rd
+			 * DWord
+			 */
+			is_bl1 = (((log_data[i].data[2] >> 27) & 1) == 0);
+
+			/* mailbox log definitions are all in the first entry */
+			mod_id = 0;
 		}
 
 		mod_defs = &defs->module_defs[mod_id];
 
-		/* validate the entry number */
+		/* entry number is in the 3rd DWord */
+		entry_num = log_data[i].data[2] & 0x0000FFFF;
+
 		if (entry_num >= mod_defs->num_entries) {
 			if (fprintf(log_file,
 				    "(Invalid log entry number: %d (module 0x%x))\n",
@@ -908,21 +1027,26 @@ static int write_parsed_log(struct log_a_data log_data[],
 			continue;
 		}
 
-		/* validate the log severity  */
-		if (log_sev >= ARRAY_SIZE(log_sev_strs)) {
-			if (fprintf(log_file, "(Invalid log severity: %d)\n",
-				    log_sev) < 0)
-				goto ret_print_error;
-			continue;
-		}
-
+		/* print the entry index and timestamp */
 		if (fprintf(log_file,
-			    "%04d|%03dd %02d:%02d:%02d.%03d,%03d,%03d|%-12s |%-8s |",
+			    "%04d|%03dd %02d:%02d:%02d.%03d,%03d,%03d|",
 			    entry_idx, days, hours, mins, secs, millis,
-			    micros, nanos, mod_defs->mod_name,
-			    log_sev_strs[log_sev]) < 0)
+			    micros, nanos) < 0)
 			goto ret_print_error;
 
+		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP) {
+			/* print the module name and log severity */
+			if (fprintf(log_file, "%-12s |%-8s |",
+			    mod_defs->mod_name, log_sev_strs[log_sev]) < 0)
+				goto ret_print_error;
+		} else {
+			/* print the log source (BL1/BL2) */
+			if (fprintf(log_file, "%-6s |",
+			    (is_bl1 ? "BL1" : "BL2")) < 0)
+				goto ret_print_error;
+		}
+
+		/* print the log entry */
 	  	if (fprintf(log_file, mod_defs->entries[entry_num],
 	  		    log_data[i].data[3], log_data[i].data[4],
 			    log_data[i].data[5], log_data[i].data[6],
@@ -960,7 +1084,7 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 
 	if (log_def_file != NULL) {
 		/* read the log definition file into defs */
-		ret = read_log_defs(log_def_file, &defs);
+		ret = read_app_log_defs(log_def_file, &defs);
 		if (ret < 0)
 			return ret;
 	}
@@ -986,7 +1110,9 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 
 			/* parse the log data and write it to a file */
 			ret = write_parsed_log(res.data, res.hdr.count,
-					       entry_idx, &defs, log_file);
+					       entry_idx, &defs,
+					       SWITCHTEC_LOG_PARSE_TYPE_APP,
+					       log_file);
 			if (ret < 0)
 				goto ret_free_log_defs;
 
@@ -1103,14 +1229,16 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 }
 
 /**
- * @brief Parse a binary app log to a text file
- * @param[in]  bin_log_file    - Binary app log input file
- * @param[in]  log_def_file    - Log definition file
- * @param[in]  parsed_log_file - Parsed output file
+ * @brief Parse a binary app log or mailbox log to a text file
+ * @param[in] bin_log_file    - Binary log input file
+ * @param[in] log_def_file    - Log definition file
+ * @param[in] parsed_log_file - Parsed output file
+ * @param[in] log_type        - log type
  * @return 0 on success, error code on failure
  */
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
-			FILE *parsed_log_file)
+			FILE *parsed_log_file,
+			enum switchtec_log_parse_type log_type)
 {
 	int ret;
 	struct log_a_data log_data;
@@ -1119,16 +1247,26 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		.num_alloc = 0};
 	int entry_idx = 0;
 
+	if ((log_type != SWITCHTEC_LOG_PARSE_TYPE_APP) &&
+	    (log_type != SWITCHTEC_LOG_PARSE_TYPE_MAILBOX)) {
+		errno = EINVAL;
+		return -errno;
+	}
+
 	/* read the log definition file into defs */
-	ret = read_log_defs(log_def_file, &defs);
+	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP)
+		ret = read_app_log_defs(log_def_file, &defs);
+	else
+		ret = read_mailbox_log_defs(log_def_file, &defs);
+
 	if (ret < 0)
 		return ret;
 
-	/* parse each app log entry */
+	/* parse each log entry */
 	while (fread(&log_data, sizeof(struct log_a_data), 1,
 		     bin_log_file) == 1) {
 		ret = write_parsed_log(&log_data, 1, entry_idx, &defs,
-				       parsed_log_file);
+				       log_type, parsed_log_file);
 		if (ret < 0)
 			goto ret_free_log_defs;
 
