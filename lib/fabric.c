@@ -1029,6 +1029,24 @@ int switchtec_clear_gfms_events(struct switchtec_dev *dev)
 	return 0;
 }
 
+int switchtec_device_manage(struct switchtec_dev *dev,
+			    struct switchtec_device_manage_req *req,
+			    struct switchtec_device_manage_rsp *rsp)
+{
+	int ret;
+
+	req->hdr.expected_rsp_len = htole16(req->hdr.expected_rsp_len);
+	req->hdr.pdfid = htole16(req->hdr.pdfid);
+
+	ret = switchtec_cmd(dev, MRPC_DEVICE_MANAGE_CMD,
+			    req, sizeof(struct switchtec_device_manage_req),
+			    rsp, sizeof(struct switchtec_device_manage_rsp));
+
+	rsp->hdr.rsp_len = le16toh(rsp->hdr.rsp_len);
+
+	return ret;
+}
+
 int switchtec_ep_tunnel_config(struct switchtec_dev *dev, uint16_t subcmd,
 			       uint16_t pdfid, uint16_t expected_rsp_len,
 			       uint8_t *meta_data, uint16_t meta_data_len,
