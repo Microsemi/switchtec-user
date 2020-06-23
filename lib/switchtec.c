@@ -949,7 +949,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 	unsigned int nanos, micros, millis, secs, mins, hours, days;
 	unsigned int entry_num;
 	unsigned int mod_id;
-	unsigned int log_sev;
+	unsigned int log_sev = 0;
 	const char *log_sev_strs[] = {"DISABLED", "HIGHEST", "HIGH", "MEDIUM",
 				      "LOW", "LOWEST"};
 	bool is_bl1;
