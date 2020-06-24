@@ -560,7 +560,6 @@ static ssize_t i2c_write_from_gas(struct switchtec_dev *dev, int fd,
 
 // noop conversion functions to make macros below work
 static inline uint8_t le8toh(uint8_t x) { return x; }
-static inline uint8_t htole8(uint8_t x) { return x; }
 
 #define create_gas_read(type, suffix) \
 	static type i2c_gas_read ## suffix(struct switchtec_dev *dev, \
