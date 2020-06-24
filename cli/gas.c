@@ -36,7 +36,7 @@
 #include <errno.h>
 #include <ctype.h>
 
-static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
+static void print_line(unsigned long addr, uint8_t *bytes, size_t n, int error)
 {
 	int i;
 
@@ -44,7 +44,11 @@ static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 	for (i = 0; i < n; i++) {
 		if (i == 8)
 			printf(" ");
-		printf(" %02x", bytes[i]);
+
+		if (error)
+			printf(" XX");
+		else
+			printf(" %02x", bytes[i]);
 	}
 
 	for (; i < 16; i++) {
@@ -54,7 +58,9 @@ static void print_line(unsigned long addr, uint8_t *bytes, size_t n)
 	printf("  |");
 
 	for (i = 0; i < 16; i++) {
-		if (isprint(bytes[i]))
+		if (error)
+			printf("X");
+		else if (isprint(bytes[i]))
 			printf("%c", bytes[i]);
 		else
 			printf(".");
@@ -71,17 +77,22 @@ static void hexdump_data(struct switchtec_dev *dev, void __gas *map,
 	unsigned long addr = 0;
 	size_t bytes;
 	int last_match = 0;
+	int err;
 
 	while (map_size) {
 		if (is_alive && !is_alive())
 			return;
 
 		bytes = map_size > sizeof(line) ? sizeof(line) : map_size;
-		memcpy_from_gas(dev, line, map, bytes);
+		err = memcpy_from_gas(dev, line, map, bytes);
+		if (err && errno == EPERM) {
+			fprintf(stderr, "GAS dump: permission denied\n");
+			return;
+		}
 
 		if (bytes != sizeof(line) ||
 		    memcmp(last_line, line, sizeof(last_line))) {
-			print_line(addr, line, bytes);
+			print_line(addr, line, bytes, err);
 			last_match = 0;
 		} else if (!last_match) {
 			printf("*\n");
@@ -320,24 +331,61 @@ static int gas_dump(int argc, char **argv)
 	return pipe_to_hd_less(cfg.dev, map, cfg.count);
 }
 
+static int read_gas(struct switchtec_dev *dev, void __gas *addr,
+		    int bytes, unsigned long long *val)
+{
+	int ret = 0;
+
+	uint8_t u8;
+	uint16_t u16;
+	uint32_t u32;
+	uint64_t u64;
+
+	switch (bytes) {
+	case 1:
+		ret = gas_read8(dev, addr, &u8);
+		*val = u8;
+		break;
+	case 2:
+		ret = gas_read16(dev, addr, &u16);
+		*val = u16;
+		break;
+	case 4:
+		ret = gas_read32(dev, addr, &u32);
+		*val = u32;
+		break;
+	case 8:
+		ret = gas_read64(dev, addr, &u64);
+		*val = u64;
+		break;
+	default:
+		errno = EINVAL;
+		return -1;
+	}
+
+	return ret;
+}
+
 static int print_hex(struct switchtec_dev *dev, void __gas *addr,
 		     int offset, int bytes)
 {
 	unsigned long long x;
+	int ret;
 
 	offset = offset & ~(bytes - 1);
 
-	switch (bytes) {
-	case 1: x = gas_read8(dev, addr + offset);  break;
-	case 2: x = gas_read16(dev, addr + offset); break;
-	case 4: x = gas_read32(dev, addr + offset); break;
-	case 8: x = gas_read64(dev, addr + offset); break;
-	default:
+	if (bytes != 1 && bytes != 2 && bytes != 4 && bytes != 8) {
 		fprintf(stderr, "invalid access width\n");
 		return -1;
 	}
 
-	printf("%06X - 0x%0*" FMT_llX "\n", offset, bytes * 2, x);
+	ret = read_gas(dev, addr + offset, bytes, &x);
+	if (ret) {
+		switchtec_perror("gas read");
+		return -1;
+	}
+
+	printf("%06X - 0x%0*llX\n", offset, bytes * 2, x);
 	return 0;
 }
 
@@ -345,20 +393,22 @@ static int print_dec(struct switchtec_dev *dev, void __gas *addr,
 		     int offset, int bytes)
 {
 	unsigned long long x;
+	int ret;
 
 	offset = offset & ~(bytes - 1);
 
-	switch (bytes) {
-	case 1: x = gas_read8(dev, addr + offset);  break;
-	case 2: x = gas_read16(dev, addr + offset); break;
-	case 4: x = gas_read32(dev, addr + offset); break;
-	case 8: x = gas_read64(dev, addr + offset); break;
-	default:
+	if (bytes != 1 && bytes != 2 && bytes != 4 && bytes != 8) {
 		fprintf(stderr, "invalid access width\n");
 		return -1;
 	}
 
-	printf("%06X - %" FMT_lld "\n", offset, x);
+	ret = read_gas(dev, addr + offset, bytes, &x);
+	if (ret) {
+		switchtec_perror("gas read");
+		return -1;
+	}
+
+	printf("%06X - %lld\n", offset, x);
 	return 0;
 }
 
@@ -366,9 +416,15 @@ static int print_str(struct switchtec_dev *dev, void __gas *addr,
 		     int offset, int bytes)
 {
 	char buf[bytes + 1];
+	int ret;
 
 	memset(buf, 0, bytes + 1);
-	memcpy_from_gas(dev, buf, addr + offset, bytes);
+
+	ret = memcpy_from_gas(dev, buf, addr + offset, bytes);
+	if (ret) {
+		switchtec_perror("gas read");
+		return -1;
+	}
 
 	printf("%06X - %s\n", offset, buf);
 	return 0;

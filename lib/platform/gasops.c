@@ -252,7 +252,8 @@ int gasop_flash_part(struct switchtec_dev *dev,
 	uint32_t active_addr = -1;
 	int val;
 
-	memset(info, 0, sizeof(*info));
+	info->running = false;
+	info->active = false;
 
 	switch (part) {
 	case SWITCHTEC_FW_PART_ID_G3_IMG0:

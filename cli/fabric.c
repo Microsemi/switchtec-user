@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 enum {
 	HEX,
@@ -676,16 +677,16 @@ static int hvd_body_print(struct switchtec_dev *dev,
 		}
 
 		if (!bound) {
-			printf("        Logical PID %hhu:\t\tUnbound\n", i);
+			printf("        Logical PID %d:\t\tUnbound\n", i);
 			continue;
 		}
 
-		printf("        Logical PID %hhu:\n", i);
+		printf("        Logical PID %d:\n", i);
 		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
 			index = j * log_port_count + i;
 
 			if (body->bound[index].bound)
-				printf("            Function %hhu:    \tPDFID 0x%04hx\n",
+				printf("            Function %d:    \tPDFID 0x%04hx\n",
 				       j, body->bound[index].bound_pdfid);
 		}
 	}
@@ -748,13 +749,13 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 	for (i = 0; i < vep_count; i++) {
 		vep_type_to_str(body->vep_region[i].type, vep_type_str);
 		bdf_to_str(body->vep_region[i].bdf, bdf_str1);
-		printf("            VEP %hhu:\n"
+		printf("            VEP %d:\n"
 		       "                Type:\t\t\t%s\n"
 		       "                BDF: \t\t\t%s\n",
 		       i, vep_type_str, body->usp_status ? bdf_str1 : "N/A");
 	}
 
-	printf("        Logical Ports (%hhu):\n", body->log_dsp_count);
+	printf("        Logical Ports (%hu):\n", body->log_dsp_count);
 	for (i = 0; i < log_port_count; i++) {
 		bound = 0;
 		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
@@ -766,18 +767,18 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 		}
 
 		if (!bound) {
-			printf("            Logical PID %hhu:\t\tUnbound\n", i);
+			printf("            Logical PID %d:\t\tUnbound\n", i);
 			continue;
 		}
 
-		printf("            Logical PID %hhu:\n", i);
+		printf("            Logical PID %d:\n", i);
 		for (j = 0; j < SWITCHTEC_FABRIC_MULTI_FUNC_NUM; j++) {
 			index = j * log_port_count + i;
 			port = &body->log_port_region[index];
 			if (port->bound) {
 				bdf_to_str(port->dsp_bdf, bdf_str1);
 				bdf_to_str(port->bound_hvd_bdf, bdf_str2);
-				printf("                Function %hhu:\t\tPDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
+				printf("                Function %d:\t\tPDFID 0x%04hx (DSP BDF: %s, EP BDF: %s)\n",
 				       j, port->bound_pdfid,
 				       body->usp_status ? bdf_str1 : "N/A",
 				       body->usp_status ? bdf_str2 : "N/A");
@@ -789,7 +790,7 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 	enable_bitmap <<= 32;
 	enable_bitmap |= body->log_port_p2p_enable_bitmap_low;
 
-	printf("        Logical Port P2P enable bitmap:\t0x%016lx\n",
+	printf("        Logical Port P2P enable bitmap:\t0x%016"PRIx64"\n",
 	       enable_bitmap);
 	for (i = 0; i < body->log_port_count; i++) {
 		pos = ffs(enable_bitmap);
@@ -800,13 +801,13 @@ static int hvd_detail_body_print(struct switchtec_dev *dev,
 			bitmap = body->log_port_p2p_bitmap[i].config_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].config_bitmap_low;
-			printf("            Logical Port %hhu P2P config bitmap:    \t0x%016lx\n",
+			printf("            Logical Port %d P2P config bitmap:    \t0x%016"PRIx64"\n",
 			       pos, bitmap);
 
 			bitmap = body->log_port_p2p_bitmap[i].active_bitmap_high;
 			bitmap <<= 32;
 			bitmap |= body->log_port_p2p_bitmap[i].active_bitmap_low;
-			printf("            Logical Port %hhu P2P active bitmap:    \t0x%016lx\n",
+			printf("            Logical Port %d P2P active bitmap:    \t0x%016"PRIx64"\n",
 			       pos, bitmap);
 		}
 	}
@@ -851,7 +852,7 @@ static int fab_port_print(struct switchtec_dev *dev,
 	       fab_port->body.attached_sw_idx);
 	printf("        Attached SWFID:       \t0x%04hx\n",
 	       fab_port->body.attached_swfid);
-	printf("        Attached FW Version:  \t0x%hx\n",
+	printf("        Attached FW Version:  \t0x%x\n",
 	       fab_port->body.attached_fw_version);
 
 	return 0;
@@ -1435,6 +1436,105 @@ static int gfms_events(int argc, char **argv)
 	return ret;
 }
 
+static int string_to_dword_data(char *str, unsigned int *dw_data,
+				int *data_len)
+{
+	char *tmp;
+	uint32_t num;
+	char *p = NULL;
+	uint32_t max_len;
+	uint32_t raw_data_len = 0;
+
+	max_len = *data_len;
+	memset(dw_data, 0, max_len);
+
+	p = strtok((char *)str, " ");
+	while(p) {
+		num = strtoul(p, &tmp, 0);
+
+		if (*tmp != '\0')
+			return 1;
+
+		dw_data[raw_data_len] = num;
+
+		raw_data_len++;
+		if(raw_data_len >= max_len)
+			return 1;
+
+		p = strtok(NULL, " ");
+	}
+
+	*data_len = raw_data_len;
+	return 0;
+}
+
+#define CMD_DESC_DEV_MANAGE "send a device specific manage command"
+static int device_manage(int argc, char **argv)
+{
+	int i;
+	int ret;
+	int data_len;
+	char *cmd_string = NULL;
+	struct switchtec_device_manage_rsp rsp;
+
+	static struct {
+		struct switchtec_dev *dev;
+		struct switchtec_device_manage_req req;
+	} cfg = {
+		.req.hdr.pdfid = 0xffff,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"pdfid", 'f', "NUM", CFG_INT, &cfg.req.hdr.pdfid,
+		 required_argument, "Endpoint function's FID",
+		 .require_in_usage = 1},
+		{"cmd_data", 'c', "String", CFG_STRING, &cmd_string,
+		 required_argument, .require_in_usage = 1,
+		 .help= "Command raw data in dword, format example: \"0x040b0006 0x00000001\""},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_DEV_MANAGE, opts,
+			&cfg, sizeof(cfg));
+	if (cmd_string == NULL) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --cmd_data|-c argument is required!\n");
+		return 1;
+	}
+	if (cfg.req.hdr.pdfid == 0xffff) {
+		argconfig_print_usage(opts);
+		fprintf(stderr, "The --pdfid|-f argument is required!\n");
+		return 1;
+	}
+
+	data_len = sizeof(cfg.req.cmd_data);
+	ret = string_to_dword_data(cmd_string,
+				   (unsigned int *)cfg.req.cmd_data,
+				   &data_len);
+	if (ret) {
+		fprintf(stderr, "Invalid command raw data\n");
+		return 1;
+	}
+	cfg.req.hdr.expected_rsp_len = sizeof(rsp.rsp_data);
+
+	ret = switchtec_device_manage(cfg.dev, &(cfg.req), &rsp);
+	if (ret) {
+		switchtec_perror("device_manage");
+		return ret;
+	}
+
+	printf("rsp length is %d, data is:\n", rsp.hdr.rsp_len);
+	for(i = 0; i < (rsp.hdr.rsp_len + 3) / 4; i++) {
+		printf("0x%08x ", *((int *)rsp.rsp_data + i));
+		if(i % 8 == 7)
+			printf("\n");
+	}
+	printf("\n");
+
+	return 0;
+}
+
 #define CMD_DESC_EP_TNL_CFG "configure the EP management tunnel"
 static int ep_tunnel_cfg(int argc, char **argv)
 {
@@ -1707,8 +1807,8 @@ static int ep_csr_write(int argc, char **argv)
 static int ep_bar_read(int argc, char **argv)
 {
 	unsigned long long val;
-	unsigned long addr;
-	unsigned bytes;
+	unsigned long long addr;
+	unsigned long long bytes;
 	int i;
 	int ret = 0;
 
@@ -1723,13 +1823,13 @@ static int ep_bar_read(int argc, char **argv)
 		struct switchtec_dev *dev;
 		unsigned short pdfid;
 		unsigned short bar;
-		unsigned long addr;
+		unsigned long long addr;
 		unsigned count;
 		unsigned bytes;
 		unsigned print_style;
 	} cfg = {
 		.pdfid = 0xffff,
-		.bar = -1,
+		.bar = 0xffff,
 		.addr = 0,
 		.bytes = 4,
 		.count = 1,
@@ -1742,7 +1842,7 @@ static int ep_bar_read(int argc, char **argv)
 			required_argument, "pdfid of EP"},
 		{"bar", 'i', "BAR", CFG_SHORT, &cfg.bar,
 			required_argument, "BAR of EP"},
-		{"addr", 'a', "ADDR", CFG_LONG, &cfg.addr,
+		{"addr", 'a', "ADDR", CFG_LONG_LONG, &cfg.addr,
 			required_argument, "address to read"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes,
 			required_argument,
@@ -1758,7 +1858,7 @@ static int ep_bar_read(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_EP_BAR_READ, opts,
 			&cfg, sizeof(cfg));
 
-	if (cfg.bar == -1) {
+	if (cfg.bar == 0xffff) {
 		argconfig_print_usage(opts);
 		fprintf(stderr, "The --bar|-i argument is required!\n");
 		return 1;
@@ -1770,7 +1870,8 @@ static int ep_bar_read(int argc, char **argv)
 		return 1;
 	}
 
-	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes)) {
+	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes) &&
+	    (8 != cfg.bytes)) {
 		fprintf(stderr, "Invalid access width\n");
 		return -1;
 	}
@@ -1796,6 +1897,11 @@ static int ep_bar_read(int argc, char **argv)
 			ret = switchtec_ep_bar_read32(cfg.dev, cfg.pdfid,
 						      cfg.bar, addr,
 						      (uint32_t*)&val);
+			break;
+		case 8:
+			ret = switchtec_ep_bar_read64(cfg.dev, cfg.pdfid,
+						      cfg.bar, addr,
+						      (uint64_t*)&val);
 			break;
 		default:
 			fprintf(stderr, "Invalid access width\n");
@@ -1824,13 +1930,13 @@ static int ep_bar_write(int argc, char **argv)
 		struct switchtec_dev *dev;
 		unsigned short pdfid;
 		unsigned short bar;
-		unsigned long addr;
+		unsigned long long addr;
 		unsigned bytes;
-		unsigned long value;
+		unsigned long long value;
 		int assume_yes;
 	} cfg = {
 		.pdfid = 0xffff,
-		.bar = -1,
+		.bar = 0xffff,
 		.addr = 0,
 		.bytes = 4,
 	};
@@ -1840,12 +1946,12 @@ static int ep_bar_write(int argc, char **argv)
 			required_argument, "pdfid of EP"},
 		{"bar", 'i', "BAR", CFG_SHORT, &cfg.bar,
 			required_argument, "BAR of EP"},
-		{"addr", 'a', "ADDR", CFG_LONG, &cfg.addr,
+		{"addr", 'a', "ADDR", CFG_LONG_LONG, &cfg.addr,
 			required_argument, "address to write"},
 		{"bytes", 'b', "NUM", CFG_POSITIVE, &cfg.bytes,
 			required_argument,
 			"number of bytes to write per access (default 4)"},
-		{"value", 'v', "VAL", CFG_LONG, &cfg.value,
+		{"value", 'v', "VAL", CFG_LONG_LONG, &cfg.value,
 			required_argument, "value to write"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
@@ -1854,7 +1960,7 @@ static int ep_bar_write(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_EP_BAR_WRITE, opts,
 			&cfg, sizeof(cfg));
 
-	if (cfg.bar == -1) {
+	if (cfg.bar == 0xffff) {
 		argconfig_print_usage(opts);
 		fprintf(stderr, "The --bar|-i argument is required!\n");
 		return 1;
@@ -1866,13 +1972,14 @@ static int ep_bar_write(int argc, char **argv)
 		return 1;
 	}
 
-	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes)) {
+	if ((1 != cfg.bytes) && (2 != cfg.bytes) && (4 != cfg.bytes) &&
+	    (8 != cfg.bytes)) {
 		fprintf(stderr, "Invalid access width\n");
 		return -1;
 	}
 
 	if (!cfg.assume_yes)
-		fprintf(stderr, "Writing 0x%lx to %06lx (%d bytes).\n",
+		fprintf(stderr, "Writing 0x%llx to 0x%llx (%d bytes).\n",
 			cfg.value, cfg.addr, cfg.bytes);
 
 	ret = ask_if_sure(cfg.assume_yes);
@@ -1890,6 +1997,10 @@ static int ep_bar_write(int argc, char **argv)
 		break;
 	case 4:
 		ret = switchtec_ep_bar_write32(cfg.dev, cfg.pdfid, cfg.bar,
+					       cfg.value, cfg.addr);
+		break;
+	case 8:
+		ret = switchtec_ep_bar_write64(cfg.dev, cfg.pdfid, cfg.bar,
 					       cfg.value, cfg.addr);
 		break;
 	default:
@@ -1918,6 +2029,7 @@ static const struct cmd commands[] = {
 	{"ep_csr_write", ep_csr_write, CMD_DESC_EP_CSR_WRITE},
 	{"ep_bar_read", ep_bar_read, CMD_DESC_EP_BAR_READ},
 	{"ep_bar_write", ep_bar_write, CMD_DESC_EP_BAR_WRITE},
+	{"device_manage", device_manage, CMD_DESC_DEV_MANAGE},
 	{}
 };
 

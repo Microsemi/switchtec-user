@@ -112,11 +112,15 @@ int mfg_handler(const char *optarg, void *value_addr,
 int pax_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt)
 {
-	int ret;
+	char *end;
+	long num;
 
-	ret = sscanf(optarg, "%i", &global_pax_id);
+	errno = 0;
+	num = strtol(optarg, &end, 0);
+	global_pax_id = num;
 
-	if (ret != 1 || (global_pax_id & ~SWITCHTEC_PAX_ID_MASK)) {
+	if ((end == optarg) || errno || num < 0 ||
+	    (global_pax_id & ~SWITCHTEC_PAX_ID_MASK)) {
 		fprintf(stderr, "Invalid PAX ID specified: %s\n", optarg);
 		return 1;
 	}
@@ -944,17 +948,20 @@ static int log_dump(int argc, char **argv)
 	return ret;
 }
 
-#define CMD_DESC_LOG_PARSE "parse a binary app log to a text file"
+#define CMD_DESC_LOG_PARSE "parse a binary app log or mailbox log to a text file"
 
 static int log_parse(int argc, char **argv)
 {
 	int ret;
 
+	const struct argconfig_choice log_types[] = {
+		{"APP", SWITCHTEC_LOG_PARSE_TYPE_APP, "app log"},
+		{"MAILBOX", SWITCHTEC_LOG_PARSE_TYPE_MAILBOX, "mailbox log"},
+		{}
+	};
+
 	static struct {
-		struct switchtec_dev *dev;
-		int out_fd;
-		const char *out_filename;
-		unsigned type;
+		enum switchtec_log_parse_type log_type;
 		FILE *bin_log_file;
 		const char *bin_log_filename;
 		FILE *log_def_file;
@@ -962,11 +969,18 @@ static int log_parse(int argc, char **argv)
 		FILE *parsed_log_file;
 		const char *parsed_log_filename;
 	} cfg = {
+		.log_type = SWITCHTEC_LOG_PARSE_TYPE_APP,
 		.bin_log_file = NULL,
 		.log_def_file = NULL,
 		.parsed_log_file = NULL,
 	};
 	const struct argconfig_options opts[] = {
+		{"type", 't',
+		 .meta = "TYPE", .cfg_type = CFG_CHOICES,
+		 .value_addr = &cfg.log_type,
+		 .argument_type = required_argument,
+		 .help = "log type to parse (default: APP)",
+		 .choices = log_types},
 		{"log_input", .cfg_type = CFG_FILE_R,
 		 .value_addr = &cfg.bin_log_file,
 		 .argument_type = required_positional,
@@ -978,7 +992,7 @@ static int log_parse(int argc, char **argv)
 		{"parsed_output", .cfg_type = CFG_FILE_W,
 		 .value_addr = &cfg.parsed_log_file,
 		 .argument_type = optional_positional,
-		 .force_default = "app_log.txt",
+		 .force_default = "log.txt",
 		 .help = "parsed output file"},
 		{NULL}};
 
@@ -986,7 +1000,7 @@ static int log_parse(int argc, char **argv)
 			&cfg, sizeof(cfg));
 
 	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
-				  cfg.parsed_log_file);
+				  cfg.parsed_log_file, cfg.log_type);
 	if (ret < 0)
 		switchtec_perror("log_parse");
 	else
@@ -1290,7 +1304,7 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 	printf("Gen:            %s\n", switchtec_fw_image_gen_str(&info));
 	printf("Type:           %s\n", switchtec_fw_image_type(&info));
 	printf("Version:        %s\n", info.version);
-	printf("Img Len:        0x%" FMT_SIZE_T_x "\n", info.image_len);
+	printf("Img Len:        0x%zx\n", info.image_len);
 	printf("CRC:            0x%08lx\n", info.image_crc);
 	if (info.gen != SWITCHTEC_GEN3)
 		printf("Secure version: 0x%08lx\n", info.secure_version);
@@ -1393,11 +1407,7 @@ static int fw_info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_FW_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
-	if (ret) {
-		switchtec_perror("print fw info");
-		return ret;
-	}
+	phase_id = switchtec_boot_phase(cfg.dev);
 	if (phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
 			"This command is only available in BL2 or Main Firmware!\n");

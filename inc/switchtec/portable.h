@@ -41,16 +41,6 @@
 #endif
 
 #ifdef __WINDOWS__
-#define FMT_SIZE_T_x  "Ix"
-#define FMT_llX       "I64X"
-#define FMT_lld       "I64d"
-#else
-#define FMT_SIZE_T_x  "zx"
-#define FMT_llX       "llX"
-#define FMT_lld       "lld"
-#endif
-
-#ifdef __WINDOWS__
 #ifndef MAP_FAILED
 #define MAP_FAILED NULL
 #endif

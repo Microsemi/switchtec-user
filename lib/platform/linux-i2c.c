@@ -29,6 +29,7 @@
 #include "switchtec/switchtec.h"
 #include "gasops.h"
 
+#include <endian.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -557,13 +558,16 @@ static ssize_t i2c_write_from_gas(struct switchtec_dev *dev, int fd,
 	return ret;
 }
 
+// noop conversion functions to make macros below work
+static inline uint8_t le8toh(uint8_t x) { return x; }
+
 #define create_gas_read(type, suffix) \
 	static type i2c_gas_read ## suffix(struct switchtec_dev *dev, \
 					   type __gas *addr) \
 	{ \
 		type ret; \
 		i2c_memcpy_from_gas(dev, &ret, addr, sizeof(ret)); \
-		return ret; \
+		return le##suffix##toh(ret);                       \
 	}
 
 create_gas_read(uint8_t, 8);
@@ -580,24 +584,28 @@ static void i2c_gas_write8(struct switchtec_dev *dev, uint8_t val,
 static void i2c_gas_write16(struct switchtec_dev *dev, uint16_t val,
 			    uint16_t __gas *addr)
 {
+	val = htole16(val);
 	i2c_gas_write(dev, addr, &val, sizeof(uint16_t));
 }
 
 static void i2c_gas_write32(struct switchtec_dev *dev, uint32_t val,
 			    uint32_t __gas *addr)
 {
+	val = htole32(val);
 	i2c_gas_write(dev, addr, &val, sizeof(uint32_t));
 }
 
 static void i2c_gas_write32_no_retry(struct switchtec_dev *dev, uint32_t val,
 				     uint32_t __gas *addr)
 {
+	val = htole32(val);
 	i2c_gas_write_no_retry(dev, addr, &val, sizeof(uint32_t));
 }
 
 static void i2c_gas_write64(struct switchtec_dev *dev, uint64_t val,
 			    uint64_t __gas *addr)
 {
+	val = htole64(val);
 	i2c_gas_write(dev, addr, &val, sizeof(uint64_t));
 }
 

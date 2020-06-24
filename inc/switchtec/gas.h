@@ -66,17 +66,21 @@
 
 void memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 		   const void *src, size_t n);
-
-void memcpy_from_gas(struct switchtec_dev *dev, void *dest,
-		     const void __gas *src, size_t n);
+__attribute__((warn_unused_result))
+int memcpy_from_gas(struct switchtec_dev *dev, void *dest,
+		    const void __gas *src, size_t n);
 
 ssize_t write_from_gas(struct switchtec_dev *dev, int fd,
 		       const void __gas *src, size_t n);
 
-uint8_t gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr);
-uint16_t gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr);
-uint32_t gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr);
-uint64_t gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr);
+__attribute__((warn_unused_result))
+int gas_read8(struct switchtec_dev *dev, uint8_t __gas *addr, uint8_t *val);
+__attribute__((warn_unused_result))
+int gas_read16(struct switchtec_dev *dev, uint16_t __gas *addr, uint16_t *val);
+__attribute__((warn_unused_result))
+int gas_read32(struct switchtec_dev *dev, uint32_t __gas *addr, uint32_t *val);
+__attribute__((warn_unused_result))
+int gas_read64(struct switchtec_dev *dev, uint64_t __gas *addr, uint64_t *val);
 
 void gas_write8(struct switchtec_dev *dev, uint8_t val, uint8_t __gas *addr);
 void gas_write16(struct switchtec_dev *dev, uint16_t val,

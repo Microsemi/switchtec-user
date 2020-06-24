@@ -1029,6 +1029,24 @@ int switchtec_clear_gfms_events(struct switchtec_dev *dev)
 	return 0;
 }
 
+int switchtec_device_manage(struct switchtec_dev *dev,
+			    struct switchtec_device_manage_req *req,
+			    struct switchtec_device_manage_rsp *rsp)
+{
+	int ret;
+
+	req->hdr.expected_rsp_len = htole16(req->hdr.expected_rsp_len);
+	req->hdr.pdfid = htole16(req->hdr.pdfid);
+
+	ret = switchtec_cmd(dev, MRPC_DEVICE_MANAGE_CMD,
+			    req, sizeof(struct switchtec_device_manage_req),
+			    rsp, sizeof(struct switchtec_device_manage_rsp));
+
+	rsp->hdr.rsp_len = le16toh(rsp->hdr.rsp_len);
+
+	return ret;
+}
+
 int switchtec_ep_tunnel_config(struct switchtec_dev *dev, uint16_t subcmd,
 			       uint16_t pdfid, uint16_t expected_rsp_len,
 			       uint8_t *meta_data, uint16_t meta_data_len,
@@ -1282,6 +1300,17 @@ int switchtec_ep_bar_read32(struct switchtec_dev *dev, uint16_t pdfid,
 	return ret;
 }
 
+int switchtec_ep_bar_read64(struct switchtec_dev *dev, uint16_t pdfid,
+			    uint8_t bar, uint64_t addr, uint64_t *val)
+{
+	int ret;
+
+	ret = ep_bar_read(dev, pdfid, bar, val, addr, 8);
+	*val = le64toh(*val);
+
+	return ret;
+}
+
 static int ep_bar_write(struct switchtec_dev *dev, uint16_t pdfid,
 			uint8_t bar, uint64_t addr,
 			const void *val, size_t n)
@@ -1337,4 +1366,11 @@ int switchtec_ep_bar_write32(struct switchtec_dev *dev, uint16_t pdfid,
 {
 	val = htole32(val);
 	return ep_bar_write(dev, pdfid, bar, addr, &val, 4);
+}
+
+int switchtec_ep_bar_write64(struct switchtec_dev *dev, uint16_t pdfid,
+			     uint8_t bar, uint64_t val, uint64_t addr)
+{
+	val = htole64(val);
+	return ep_bar_write(dev, pdfid, bar, addr, &val, 8);
 }

@@ -22,6 +22,8 @@
  *
  */
 
+#ifdef __linux__
+
 #include "commands.h"
 #include "argconfig.h"
 #include "suffix.h"
@@ -1169,6 +1171,59 @@ static int no_openssl(int argc, char **argv)
 
 #endif
 
+#define CMD_DESC_DEBUG_TOKEN "generate debug unlock token file for the device"
+static int debug_unlock_token(int argc, char **argv)
+{
+	int ret;
+
+	struct switchtec_sn_ver_info sn_info = {};
+	struct {
+		uint32_t id;
+		uint32_t serial;
+		uint32_t version;
+	} token;
+
+	const char *desc = CMD_DESC_DEBUG_TOKEN "\n\n"
+			   "Use the generated token file on your security "
+			   "management system to generate the signature file "
+			   "required for command 'mfg debug-unlock'";
+
+	struct {
+		struct switchtec_dev *dev;
+		int out_fd;
+		const char *out_filename;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG,
+		{"token_file", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
+		  .argument_type=optional_positional,
+		  .force_default="debug.tkn",
+		  .help="debug unlock token file"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
+	if (ret) {
+		switchtec_perror("mfg debug unlock token");
+		return ret;
+	}
+
+	token.id = htole32(1);
+	token.serial = htole32(sn_info.chip_serial);
+	token.version = htole32(sn_info.ver_sec_unlock);
+
+	ret = write(cfg.out_fd, &token, sizeof(token));
+	if(ret <= 0) {
+		switchtec_perror("mfg debug unlock token");
+		return ret;
+	}
+
+	fprintf(stderr, "\nToken data saved to %s\n", cfg.out_filename);
+	close(cfg.out_fd);
+
+	return 0;
+}
 
 static const struct cmd commands[] = {
 	CMD(ping, CMD_DESC_PING),
@@ -1184,6 +1239,7 @@ static const struct cmd commands[] = {
 	CMD(kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD),
 	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
 	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
+	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
 	{}
 };
 
@@ -1196,3 +1252,5 @@ static struct subcommand subcmd = {
 };
 
 REGISTER_SUBCMD(subcmd);
+
+#endif /* __linux__ */
