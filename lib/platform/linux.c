@@ -267,10 +267,14 @@ int switchtec_list(struct switchtec_device_info **devlist)
 
 static int linux_get_device_id(struct switchtec_dev *dev)
 {
+	int ret;
 	char link_path[PATH_MAX];
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
 
-	snprintf(link_path, sizeof(link_path), "%s/%s/device/device",
-		 sys_path, basename(dev->name));
+	ret = dev_to_sysfs_path(ldev, "device/device", link_path,
+				sizeof(link_path));
+	if (ret)
+		return ret;
 
 	return sysfs_read_int(link_path, 16);
 }
