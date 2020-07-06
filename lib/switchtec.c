@@ -1123,7 +1123,7 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 		cmd.start = res.hdr.next_start;
 	}
 
-	ret = read;
+	ret = 0;
 
 ret_free_log_defs:
 	free_log_defs(&defs);
@@ -1157,7 +1157,7 @@ static int log_b_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 		cmd.offset = htole32(read);
 	}
 
-	return read;
+	return 0;
 }
 
 static int log_c_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
