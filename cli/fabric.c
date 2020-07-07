@@ -22,6 +22,8 @@
  *
  */
 
+#ifdef __linux__
+
 #include "commands.h"
 #include "argconfig.h"
 #include "common.h"
@@ -2041,3 +2043,5 @@ static struct subcommand subcmd = {
 };
 
 REGISTER_SUBCMD(subcmd);
+
+#endif //__linux__
