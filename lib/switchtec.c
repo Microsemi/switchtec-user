@@ -212,6 +212,11 @@ struct switchtec_dev *switchtec_open(const char *device)
 	char *endptr;
 	struct switchtec_dev *ret;
 
+	if (sscanf(device, "%i@%i", &bus, &dev) == 2) {
+		ret = switchtec_open_i2c_by_adapter(bus, dev);
+		goto found;
+	}
+
 	if (sscanf(device, "%2049[^@]@%i", path, &dev) == 2) {
 		ret = switchtec_open_i2c(path, dev);
 		goto found;
@@ -235,11 +240,6 @@ struct switchtec_dev *switchtec_open(const char *device)
 
 	if (sscanf(device, "%x:%x:%x.%x", &domain, &bus, &dev, &func) == 4) {
 		ret = switchtec_open_by_pci_addr(domain, bus, dev, func);
-		goto found;
-	}
-
-	if (sscanf(device, "%i@%i", &bus, &dev) == 2) {
-		ret = switchtec_open_i2c_by_adapter(bus, dev);
 		goto found;
 	}
 
