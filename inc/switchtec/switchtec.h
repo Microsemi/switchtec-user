@@ -306,8 +306,6 @@ enum switchtec_event_id {
 	SWITCHTEC_MAX_EVENTS,
 };
 
-
-
 /*********** Platform Functions ***********/
 
 struct switchtec_dev *switchtec_open(const char *device);
@@ -372,7 +370,7 @@ typedef struct {
 
 int switchtec_ltssm_log(struct switchtec_dev *dev, int port, int *log_count, ltssm_log_data *log_data);
 int switchtec_status(struct switchtec_dev *dev,
-		struct switchtec_status **status);
+			      struct switchtec_status **status);
 void switchtec_status_free(struct switchtec_status *status, int ports);
 int switchtec_get_device_info(struct switchtec_dev *dev,
 			      enum switchtec_boot_phase *phase,
