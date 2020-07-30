@@ -731,38 +731,6 @@ static int bw(int argc, char **argv)
 	return 0;
 }
 
-#define CMD_DESC_LTMON "dump port ltssm state machine"
-static int ltmon(int argc, char **argv)
-{
-	int ret;
-	static struct {
-		struct switchtec_dev *dev;
-		int phy_port;
-	} cfg = {
-		.phy_port = 0xff
-	};
-	const struct argconfig_options opts[] = {
-		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
-			"physical port ID"},
-		{NULL}};
-
-	argconfig_parse(argc, argv, CMD_DESC_LTMON, opts, &cfg, sizeof(cfg));
-
-	if (cfg.phy_port == 0xff)
-		printf("physical port: all\n");
-
-	ret = switchtec_get_port_ltmon_dmp(cfg.dev, cfg.phy_port);
-
-	if (ret != 0) {
-		switchtec_perror("ltmon_dmp");
-		return 1;
-	}
-
-	return 0;
-}
-
-
 #define CMD_DESC_LATENCY "measure the latency of a port"
 
 static int latency(int argc, char **argv)
@@ -2437,7 +2405,6 @@ static const struct cmd commands[] = {
 	CMD(info, CMD_DESC_INFO),
 	CMD(gui, CMD_DESC_GUI),
 	CMD(status, CMD_DESC_STATUS),
-	CMD(ltmon, CMD_DESC_LTMON),
 	CMD(bw, CMD_DESC_BW),
 	CMD(latency, CMD_DESC_LATENCY),
 	CMD(events, CMD_DESC_EVENTS),
