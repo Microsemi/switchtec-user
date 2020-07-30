@@ -306,6 +306,8 @@ enum switchtec_event_id {
 	SWITCHTEC_MAX_EVENTS,
 };
 
+
+
 /*********** Platform Functions ***********/
 
 struct switchtec_dev *switchtec_open(const char *device);
@@ -356,15 +358,16 @@ int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
 
+/* Data structure for LTSSM log */
 typedef struct {
-     uint8_t  : 3;
-     uint8_t minor_state : 4;
-     uint8_t major_state : 4;
-     uint8_t  : 2;
-     uint8_t link_rate: 2;
+     uint32_t  : 3;
+     uint32_t minor_state : 4;
+     uint32_t major_state : 4;
+     uint32_t  : 2;
+     uint32_t link_rate: 2;
      uint32_t : 17;
      uint32_t tstamp: 26;
-     uint8_t : 6;
+     uint32_t : 6;
 }__attribute__((packed)) ltssm_log_data;
 
 int switchtec_ltssm_log(struct switchtec_dev *dev, int port, int *log_count, ltssm_log_data *log_data);
