@@ -97,7 +97,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
  * build is non-trivial. After evaluating the development effort
  * and the resources available, we have decided to remove Windows
  * build support from release roadmap.
- * 
+ *
  */
 int mfg_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt)
@@ -546,6 +546,38 @@ static int bw(int argc, char **argv)
 	free(port_ids);
 	return 0;
 }
+
+#define CMD_DESC_LTMON "dump port ltssm state machine"
+static int ltmon(int argc, char **argv)
+{
+	int ret;
+	static struct {
+		struct switchtec_dev *dev;
+		int phy_port;
+	} cfg = {
+		.phy_port = 0xff
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
+			"physical port ID"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_LTMON, opts, &cfg, sizeof(cfg));
+
+	if (cfg.phy_port == 0xff)
+		printf("physical port: all\n");
+
+	ret = switchtec_get_port_ltmon_dmp(cfg.dev, cfg.phy_port);
+
+	if (ret != 0) {
+		switchtec_perror("ltmon_dmp");
+		return 1;
+	}
+
+	return 0;
+}
+
 
 #define CMD_DESC_LATENCY "measure the latency of a port"
 
@@ -2221,12 +2253,14 @@ static const struct cmd commands[] = {
 	CMD(info, CMD_DESC_INFO),
 	CMD(gui, CMD_DESC_GUI),
 	CMD(status, CMD_DESC_STATUS),
+	CMD(ltmon, CMD_DESC_LTMON),
 	CMD(bw, CMD_DESC_BW),
 	CMD(latency, CMD_DESC_LATENCY),
 	CMD(events, CMD_DESC_EVENTS),
 	CMD(event_wait, CMD_DESC_EVENT_WAIT),
 	CMD(log_dump, CMD_DESC_LOG_DUMP),
 	CMD(log_parse, CMD_DESC_LOG_PARSE),
+	CMD(ltssm_log, CMD_DESC_LTSSM_LOG),
 	CMD(test, CMD_DESC_TEST),
 	CMD(temp, CMD_DESC_TEMP),
 	CMD(port_bind_info, CMD_DESC_PORT_BIND_INFO),
