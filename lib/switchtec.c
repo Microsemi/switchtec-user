@@ -1453,7 +1453,7 @@ int switchtec_get_port_ltmon_dmp(struct switchtec_dev *dev,
 		uint8_t log_dump_idx;
 		uint8_t log_dump_num;
 	} __attribute__((packed)) sub_cmd_id = {
-		.sub_cmd_id = MRPC_LTMON_DMP,
+		.sub_cmd_id = MRPC_DIAG_PORT_LTSSM_LOG_DMP,
 		.phys_port_id = phys_port_id,
 		.log_dump_idx = ltmon_start_idx,
 		.log_dump_num = ltmon_num_entries
