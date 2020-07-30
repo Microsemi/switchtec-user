@@ -753,7 +753,7 @@ static bool parse_int(char *str, int *val)
 
 	if ((endptr == str) || (*endptr != '\0') || (errno != 0))
 	    return false;
-	
+
 	return true;
 }
 
@@ -905,7 +905,7 @@ static int read_mailbox_log_defs(FILE *log_def_file, struct log_defs *defs)
 						    (num_entries_alloc *
 						     sizeof(*mod_defs->entries)));
 			if (!mod_defs->entries)
-				goto err_free_log_defs;			
+				goto err_free_log_defs;
 		}
 
 		mod_defs->entries[mod_defs->num_entries] = strdup(line);
@@ -987,7 +987,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 			 * DWord
 			 */
 			mod_id = (log_data[i].data[2] >> 16) & 0xFFF;
-			log_sev = (log_data[i].data[2] >> 28) & 0xF;		
+			log_sev = (log_data[i].data[2] >> 28) & 0xF;
 
 			if ((mod_id > defs->num_alloc) ||
 			    (strlen(defs->module_defs[mod_id].mod_name) == 0)) {
@@ -1433,4 +1433,45 @@ int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port)
 	return switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
 			    sizeof(sub_cmd_id), &output, sizeof(output));
 }
+
+/**
+ * @brief Get a port's LTSSM State Machine Trace
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  phy_port	Switchtec port to query LTSSM Trace
+ * @param[in]  fd		File descriptor to dump the data to
+ * @param[in]  log_def_file	Log definition file
+ * @return 0 on success, error code on failure
+ */
+int switchtec_get_port_ltmon_dmp(struct switchtec_dev *dev,
+			      uint8_t phys_port_id)
+{
+	int ret;
+
+
+	struct ltmon_dmp_cmd {
+		uint8_t sub_cmd_id;
+		uint8_t phys_port_id;
+		uint8_t log_dump_idx;
+		uint8_t log_dump_num;
+	} __attribute__((packed)) sub_cmd_id = {
+		.sub_cmd_id = MRPC_LTMON_DMP,
+		.phys_port_id = phys_port_id,
+		.log_dump_idx = 0,
+		.log_dump_num = 128
+	};
+
+
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &sub_cmd_id,
+			    sizeof(sub_cmd_id),
+			    NULL, 0);
+	if (ret == 0) {
+	} else if (ERRNO_MRPC(errno) == ERR_MPRC_UNSUPPORTED) {
+		errno = 0;
+	} else {
+		return -1;
+	}
+
+	return 0;
+}
+
 /**@}*/
