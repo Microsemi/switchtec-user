@@ -1438,15 +1438,14 @@ int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port)
  * @brief Get a port's LTSSM State Machine Trace
  * @param[in]  dev	Switchtec device handle
  * @param[in]  phy_port	Switchtec port to query LTSSM Trace
- * @param[in]  fd		File descriptor to dump the data to
- * @param[in]  log_def_file	Log definition file
  * @return 0 on success, error code on failure
  */
 int switchtec_get_port_ltmon_dmp(struct switchtec_dev *dev,
 			      uint8_t phys_port_id)
 {
 	int ret;
-
+	int ltmon_start_idx = 0;
+	int ltmon_num_entries = 128;
 
 	struct ltmon_dmp_cmd {
 		uint8_t sub_cmd_id;
@@ -1456,20 +1455,30 @@ int switchtec_get_port_ltmon_dmp(struct switchtec_dev *dev,
 	} __attribute__((packed)) sub_cmd_id = {
 		.sub_cmd_id = MRPC_LTMON_DMP,
 		.phys_port_id = phys_port_id,
-		.log_dump_idx = 0,
-		.log_dump_num = 128
+		.log_dump_idx = ltmon_start_idx,
+		.log_dump_num = ltmon_num_entries
 	};
+
+	struct {
+		uint32_t entry;
+		uint32_t timestamp;
+	} ltmon_log[ltmon_num_entries];
 
 
 	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &sub_cmd_id,
 			    sizeof(sub_cmd_id),
-			    NULL, 0);
+			    ltmon_log, sizeof(ltmon_log));
 	if (ret == 0) {
 	} else if (ERRNO_MRPC(errno) == ERR_MPRC_UNSUPPORTED) {
 		errno = 0;
 	} else {
 		return -1;
 	}
+	printf("LTSSM Log Dump for Phys Port ID: %d\n",phys_port_id);
+	for (int i = 0; i < ltmon_num_entries; i++) {
+		printf("%03d - 0x%08x:0x%08x\n", i, ltmon_log[i].timestamp,ltmon_log[i].entry);
+	}
+
 
 	return 0;
 }
