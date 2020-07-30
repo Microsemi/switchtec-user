@@ -476,11 +476,13 @@ char * link_rate_conversion(uint8_t link_rate) {
 static int ltssm_log(int argc, char **argv) {
 	int ret;
 	int port;
-        int log_count, i = 0;
+	int log_count, i = 0;
 
 	static struct {
 		struct switchtec_dev *dev;
 		int phy_port;
+		int dump;
+		int nowrap;
 	} cfg = {
 		.phy_port = 0xff
 	};
@@ -490,7 +492,7 @@ static int ltssm_log(int argc, char **argv) {
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
 			"physical port ID"},
 		{NULL}};
 
@@ -498,16 +500,16 @@ static int ltssm_log(int argc, char **argv) {
 
 	port = cfg.phy_port;
 	ret = switchtec_ltssm_log(cfg.dev, port, &log_count, ltssm_log_output_data);
-
-	printf("Log Index  -  Timestamp  - Link Rate -  Major State  - Minor State \n");
+	printf("LTSSM Log for Physical Port %d (autowrap ON)\n\n",port);
+	printf("Idx\tDeltaTime\tRate\tMajor_State\tMinor_State\n");
 	for(i = 0; i < log_count ; i++) {
 		if(ltssm_log_output_data[i].major_state < 15) {
-		printf("%10d ", i);
-		printf("%12x ", ltssm_log_output_data[i].tstamp);
-		printf("%10s ", link_rate_conversion(ltssm_log_output_data[i].link_rate));
-		printf("%12s . ", major_state_string[ltssm_log_output_data[i].major_state]);
-		printf("     %-12s ", minor_state_string[ltssm_log_output_data[i].major_state][ltssm_log_output_data[i].minor_state]);
-		printf("\n");
+			printf("%3d\t", i);
+			printf("%09x\t", ltssm_log_output_data[i].tstamp);
+			printf("%4s\t", link_rate_conversion(ltssm_log_output_data[i].link_rate));
+			printf("%11s\t", major_state_string[ltssm_log_output_data[i].major_state]);
+			printf(".%-11s ", minor_state_string[ltssm_log_output_data[i].major_state][ltssm_log_output_data[i].minor_state]);
+			printf("\n");
 		}
 	}
 
