@@ -172,6 +172,7 @@ struct switchtec_status {
 	unsigned int acs_ctrl;		//!< ACS Setting of the Port
 };
 
+
 /**
  * @brief The types of bandwidth
  */
@@ -879,6 +880,10 @@ int switchtec_lat_get(struct switchtec_dev *dev, int clear,
 gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
                            size_t *map_size);
 void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map);
+
+/********** LTMON *********/
+int switchtec_get_port_ltmon_dmp(struct switchtec_dev *dev,
+			      uint8_t phys_port_id);
 
 #ifdef __cplusplus
 }
