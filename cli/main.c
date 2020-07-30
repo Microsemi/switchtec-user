@@ -334,17 +334,17 @@ char * link_rate_conversion(uint8_t link_rate);
 
 char* major_state_string[11] =
 {
-        "Detect ",
-        "Poll   ",
-        "Cfg    ",
-        "L0     ",
-        "Recov  ",
+        "Detect",
+        "Poll",
+        "Cfg",
+        "L0",
+        "Recov",
         "Disable",
-        "Loopbk ",
-        "HotRst ",
-        "TxL0s  ",
-        "L1     ",
-        "L2     "
+        "Loopbk",
+        "HotRst",
+        "TxL0s",
+        "L1",
+        "L2"
 };
 
 char* minor_state_string[11][12] =
@@ -387,8 +387,8 @@ char* minor_state_string[11][12] =
         "IDLE"
     },
     {
-        "INACTIVE   ",
-        "L0         ",
+        "INACTIVE",
+        "L0",
         "TX_EL_IDLE ",
         "TX_IDLE_MIN",
     },
@@ -432,10 +432,10 @@ char* minor_state_string[11][12] =
     },
     {
         "INACTIVE",
-        "IDLE    ",
-        "TO_L0   ",
-        "FTS0    ",
-        "FTS1    ",
+        "IDLE",
+        "TO_L0",
+        "FTS0",
+        "FTS1",
     },
     {
         "INACTIVE",
@@ -454,8 +454,6 @@ char* minor_state_string[11][12] =
 };
 
 char * link_rate_conversion(uint8_t link_rate) {
-
-
     switch(link_rate) {
          case 0:
               return "2.5G";
@@ -464,11 +462,10 @@ char * link_rate_conversion(uint8_t link_rate) {
          case 2:
               return "8.0G";
          case 3:
-              return "16G";
+              return "16.0G";
          default:
               return "2.5G";
     }
-
     return "2.5G";
 }
 
@@ -501,12 +498,12 @@ static int ltssm_log(int argc, char **argv) {
 	port = cfg.phy_port;
 	ret = switchtec_ltssm_log(cfg.dev, port, &log_count, ltssm_log_output_data);
 	printf("LTSSM Log for Physical Port %d (autowrap ON)\n\n",port);
-	printf("Idx\tDeltaTime\tRate\tMajor_State\tMinor_State\n");
+	printf("Idx\tDeltaTime\tPCIeRate\tMajor_State\tMinor_State\n");
 	for(i = 0; i < log_count ; i++) {
 		if(ltssm_log_output_data[i].major_state < 15) {
 			printf("%3d\t", i);
 			printf("%09x\t", ltssm_log_output_data[i].tstamp);
-			printf("%4s\t", link_rate_conversion(ltssm_log_output_data[i].link_rate));
+			printf("%8s\t", link_rate_conversion(ltssm_log_output_data[i].link_rate));
 			printf("%11s\t", major_state_string[ltssm_log_output_data[i].major_state]);
 			printf(".%-11s ", minor_state_string[ltssm_log_output_data[i].major_state][ltssm_log_output_data[i].minor_state]);
 			printf("\n");
