@@ -469,7 +469,7 @@ char * link_rate_conversion(uint8_t link_rate) {
     return "2.5G";
 }
 
-#define CMD_DESC_LTSSM_LOG "Display LTMON log"
+#define CMD_DESC_LTSSM_LOG "Display LTSSM log"
 static int ltssm_log(int argc, char **argv) {
 	int ret;
 	int port;
