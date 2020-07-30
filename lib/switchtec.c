@@ -398,6 +398,101 @@ static const char *lane_reversal_str(int link_up,
 	}
 }
 
+
+
+
+
+/**
+ * @brief Get the LTSSM log of a port on a switchtec device
+ * @param[in]  dev    Switchtec device handle
+ * @param[in]  port   Switchtec Port
+ * @param[out] log    A pointer to an array containing the log 
+ *
+ */
+
+int switchtec_ltssm_log(struct switchtec_dev *dev,
+		int port, int *log_count,
+		ltssm_log_data *ltssm_log_output_data) 
+{
+	int ret = 1;
+
+	struct {
+		uint8_t sub_cmd;
+		uint8_t port;
+		uint8_t freeze;
+		uint8_t unused;
+	} ltssm_freeze;
+
+	ltssm_freeze.sub_cmd = 14;
+	ltssm_freeze.port = port;
+	ltssm_freeze.freeze = 1; //Freeze
+
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze, sizeof(ltssm_freeze), NULL, 0);
+
+	struct {
+		uint8_t sub_cmd;
+		uint8_t port;
+	}ltssm_status;
+
+	struct {
+		uint32_t w0_trigger_count;
+		uint32_t w1_trigger_count;
+		uint8_t log_num;
+	}ltssm_status_output;
+
+	ltssm_status.sub_cmd = 13;
+	ltssm_status.port = port;
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_status, sizeof(ltssm_status),
+			&ltssm_status_output, sizeof(ltssm_status_output)); 
+
+	*(log_count) = ltssm_status_output.log_num;
+//	printf("No.of logs for the port %d, is %d \n", port, ltssm_status_output.log_num);
+
+
+
+	struct {
+		uint8_t sub_cmd;
+		uint8_t port;
+		uint8_t log_index;
+		uint8_t no_of_logs;
+	}ltssm_log_dump;
+	int log_num;
+
+	ltssm_log_dump.sub_cmd = 15;
+	ltssm_log_dump.port = port;
+	ltssm_log_dump.log_index = 0;
+	ltssm_log_dump.no_of_logs = ltssm_status_output.log_num;
+	if(ltssm_log_dump.no_of_logs <= 126) {
+		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_log_dump, sizeof(ltssm_log_dump),
+				ltssm_log_output_data, (sizeof(ltssm_log_data) * 128));
+	}
+	else {
+
+		log_num = ltssm_log_dump.no_of_logs - 126;
+		ltssm_log_dump.no_of_logs = 126;
+		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_log_dump, sizeof(ltssm_log_dump),
+				ltssm_log_output_data, (sizeof(ltssm_log_data) * 126));
+
+
+		ltssm_log_dump.log_index = 126;
+		ltssm_log_dump.no_of_logs = log_num;
+
+		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_log_dump, sizeof(ltssm_log_dump),
+				&ltssm_log_output_data[126], (sizeof(ltssm_log_data) * log_num));
+
+	}
+
+
+	ltssm_freeze.sub_cmd = 14;
+	ltssm_freeze.port = port;
+	ltssm_freeze.freeze = 0; //Unfreeze
+
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze, sizeof(ltssm_freeze), NULL, 0);
+
+	return ret;
+}
+
+
 /**
  * @brief Get the status of all the ports on a switchtec device
  * @param[in]  dev    Switchtec device handle
