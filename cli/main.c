@@ -330,9 +330,9 @@ static char *pci_acs_to_string(char *buf, size_t buflen, int acs_ctrl,
 	return buf;
 }
 
-char * link_rate_conversion(uint8_t link_rate);
+// char * link_rate_conversion(uint8_t link_rate);
 
-char* major_state_string[11] =
+static const char* major_state_string[11] =
 {
         "Detect",
         "Poll",
@@ -347,7 +347,7 @@ char* major_state_string[11] =
         "L2"
 };
 
-char* minor_state_string[11][12] =
+static const char* minor_state_string[11][12] =
 {
     {
         "INACTIVE",
@@ -453,7 +453,7 @@ char* minor_state_string[11][12] =
     }
 };
 
-char * link_rate_conversion(uint8_t link_rate) {
+static char * link_rate_conversion(uint8_t link_rate) {
     switch(link_rate) {
          case 0:
               return "2.5G";
@@ -494,6 +494,11 @@ static int ltssm_log(int argc, char **argv) {
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_LTSSM_LOG, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_is_gen3(cfg.dev)) {
+		fprintf (stderr, "This command is not supported on Switchtec Gen3\n");
+		return 0;
+	}
 
 	port = cfg.phy_port;
 	ret = switchtec_ltssm_log(cfg.dev, port, &log_count, ltssm_log_output_data);
