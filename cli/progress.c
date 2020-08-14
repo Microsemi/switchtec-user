@@ -154,7 +154,7 @@ void progress_update(int cur, int total)
 	fflush(stdout);
 }
 
-void progress_finish(void)
+void progress_finish(int no_progress_bar)
 {
 	struct timeval now;
 	struct timeval elapsed;
@@ -162,7 +162,9 @@ void progress_finish(void)
 	gettimeofday(&now, NULL);
 	timeval_subtract(&elapsed, &now, &start_time);
 
-	print_bar(100, 100);
+	if (!no_progress_bar) {
+		print_bar(100, 100);
+	}
 	printf("Time: ");
 	print_time(&elapsed);
 	printf("\n");
