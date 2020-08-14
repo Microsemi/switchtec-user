@@ -573,7 +573,7 @@ static int fw_transfer(int argc, char **argv)
 		return -3;
 	}
 
-	progress_finish();
+	progress_finish(0);
 	printf("\n");
 
 	return 0;
