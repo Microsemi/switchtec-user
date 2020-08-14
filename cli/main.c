@@ -97,7 +97,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
  * build is non-trivial. After evaluating the development effort
  * and the resources available, we have decided to remove Windows
  * build support from release roadmap.
- * 
+ *
  */
 int mfg_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt)
@@ -1456,6 +1456,7 @@ static int fw_update(int argc, char **argv)
 		int force;
 		int set_boot_rw;
 	} cfg = {};
+	int no_progress_bar = 0;
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
@@ -1471,6 +1472,8 @@ static int fw_update(int argc, char **argv)
 		 "firmware is stuck in a busy state"},
 		{"set-boot-rw", 'W', "", CFG_NONE, &cfg.set_boot_rw, no_argument,
 		 "set the bootloader and map partition as RW (only valid for BOOT and MAP images)"},
+		{"no-progress", "p", CFG_NONE, &no_progress_bar, no_argument,
+		"don't print progress to stdout"}
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -1528,8 +1531,13 @@ static int fw_update(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
-				      cfg.force, progress_update);
+	if (no_progress_bar) {
+		ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
+					      cfg.force, NULL);
+	} else {
+		ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, cfg.dont_activate,
+					      cfg.force, progress_update);
+	}
 	fclose(cfg.fimg);
 
 	if (ret) {
@@ -1538,7 +1546,7 @@ static int fw_update(int argc, char **argv)
 		goto set_boot_ro;
 	}
 
-	progress_finish();
+	progress_finish(no_progress_bar);
 	printf("\n");
 
 	print_fw_part_info(cfg.dev);
@@ -1709,6 +1717,7 @@ static int fw_read(int argc, char **argv)
 		int bl2;
 		int key;
 	} cfg = {};
+	int no_progress_bar = 0;
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
@@ -1727,6 +1736,8 @@ static int fw_read(int argc, char **argv)
 		 "read the BL2 partiton instead of the main firmware"},
 		{"key", 'k', "", CFG_NONE, &cfg.key, no_argument,
 		 "read the key manifest partiton instead of the main firmware"},
+		{"no-progress", "p", CFG_NONE, &no_progress_bar, no_argument,
+		"don't print progress to stdout"}
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_FW_READ, opts, &cfg, sizeof(cfg));
@@ -1770,9 +1781,14 @@ static int fw_read(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
-					inf, progress_update);
-	progress_finish();
+	if (no_progress_bar) {
+		ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
+						inf, NULL);
+	} else {
+		ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
+						inf, progress_update);
+	}
+	progress_finish(no_progress_bar);
 
 	if (ret < 0)
 		switchtec_perror("fw_read");
