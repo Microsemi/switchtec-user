@@ -27,6 +27,6 @@
 
 void progress_start(void);
 void progress_update(int cur, int total);
-void progress_finish(void);
+void progress_finish(int no_progress_bar);
 
 #endif
