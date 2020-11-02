@@ -1374,3 +1374,134 @@ int switchtec_ep_bar_write64(struct switchtec_dev *dev, uint16_t pdfid,
 	val = htole64(val);
 	return ep_bar_write(dev, pdfid, bar, addr, &val, 8);
 }
+
+static int admin_passthru_start(struct switchtec_dev *dev, uint16_t pdfid,
+				size_t data_len, void *data,
+				size_t *rsp_len)
+{
+	int ret;
+	int copy_len;
+	struct {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint16_t pdfid;
+		uint16_t expected_rsp_len;
+		uint8_t data[SWITCHTEC_NVME_ADMIN_PASSTHRU_MAX_DATA_LEN];
+	} cmd = {
+		.subcmd = MRPC_NVME_ADMIN_PASSTHRU_START,
+		.pdfid = htole16(pdfid),
+		.expected_rsp_len = htole16(*rsp_len)
+	};
+
+	struct {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint16_t rsp_len;
+		uint16_t rsvd1;
+	} reply = {};
+
+	if (data_len && data != NULL) {
+		copy_len = data_len > sizeof(cmd.data)?
+				sizeof(cmd.data) : data_len;
+		memcpy(cmd.data, data, copy_len);
+	}
+
+	ret = switchtec_cmd(dev, MRPC_NVME_ADMIN_PASSTHRU,
+			    &cmd, sizeof(cmd), &reply, sizeof(reply));
+	if (ret) {
+		*rsp_len = 0;
+		return ret;
+	}
+
+	*rsp_len = le16toh(reply.rsp_len);
+	return 0;
+}
+
+static int admin_passthru_data(struct switchtec_dev *dev, uint16_t pdfid,
+			       size_t rsp_len, void *rsp)
+{
+	size_t offset = 0;
+	int ret;
+	struct {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint16_t pdfid;
+		uint16_t offset;
+	} cmd = {
+		.subcmd = MRPC_NVME_ADMIN_PASSTHRU_DATA,
+		.pdfid = htole16(pdfid),
+	};
+
+	struct {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint16_t offset;
+		uint16_t len;
+		uint8_t data[MRPC_MAX_DATA_LEN - 8];
+	} reply = {};
+
+	while (offset < rsp_len) {
+		cmd.offset = htole16(offset);
+
+		ret = switchtec_cmd(dev, MRPC_NVME_ADMIN_PASSTHRU,
+				    &cmd, sizeof(cmd), &reply,
+				    sizeof(reply));
+		if (ret)
+			return ret;
+
+		memcpy((uint8_t*)rsp + offset, reply.data,
+		       htole16(reply.len));
+		offset += htole16(reply.len);
+	}
+
+	return 0;
+}
+
+static int admin_passthru_end(struct switchtec_dev *dev, uint16_t pdfid)
+{
+	struct {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint16_t pdfid;
+		uint16_t rsvd1;
+	} cmd = {};
+
+	cmd.subcmd = MRPC_NVME_ADMIN_PASSTHRU_END;
+	cmd.pdfid = htole16(pdfid);
+
+	return switchtec_cmd(dev, MRPC_NVME_ADMIN_PASSTHRU,
+			     &cmd, sizeof(cmd), NULL, 0);
+}
+
+/**
+ * @brief Send an ADMIN PASSTHRU command to device and get reply
+ * @param[in] dev	Switchtec device handle
+ * @param[in] pdfid	The PDFID for the device
+ * @param[in] data_len	Length of data for this command
+ * @param[in] data	Data for this command
+ * @param[in/out] rsp_len Expected reply length/actual response length
+ * @param[out] rsp	Reply from device
+ * @return 0 on success, error code on failure
+ */
+int switchtec_nvme_admin_passthru(struct switchtec_dev *dev, uint16_t pdfid,
+				  size_t data_len, void *data,
+				  size_t *rsp_len, void *rsp)
+{
+	int ret;
+
+	ret = admin_passthru_start(dev, pdfid, data_len, data, rsp_len);
+	if (ret)
+		return ret;
+
+	if (*rsp_len && rsp != NULL) {
+		ret = admin_passthru_data(dev, pdfid, *rsp_len, rsp);
+		if (ret) {
+			*rsp_len = 0;
+			return ret;
+		}
+	}
+
+	ret = admin_passthru_end(dev, pdfid);
+
+	return ret;
+}
