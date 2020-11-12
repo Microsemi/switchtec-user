@@ -586,7 +586,7 @@ static int linux_get_devices(struct switchtec_dev *dev,
 			continue;
 
 		if (status[i].port.upstream) {
-			status->pci_bdf = strdup(basename(searchpath));
+			status[i].pci_bdf = strdup(basename(searchpath));
 			get_port_bdf_path(&status[i]);
 			continue;
 		}
