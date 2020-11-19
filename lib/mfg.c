@@ -111,33 +111,63 @@ static void RSA_get0_key(const RSA *r, const BIGNUM **n,
 }
 #endif
 
-/**
- * @brief Get secure boot configurations
- * @param[in]  dev	Switchtec device handle
- * @param[out] state	Current secure boot settings
- * @return 0 on success, error code on failure
- */
-int switchtec_security_config_get(struct switchtec_dev *dev,
-				  struct switchtec_security_cfg_state *state)
+static int secure_config_get(struct switchtec_dev *dev,
+			     struct switchtec_security_cfg_state *state,
+			     struct switchtec_security_cfg_otp_region *otp,
+			     bool *otp_valid)
 {
 	int ret;
+	uint8_t subcmd = 0;
 	struct cfg_reply {
 		uint32_t valid;
 		uint32_t rsvd1;
 		uint64_t cfg;
-		uint32_t  public_key_exponent;
-		uint8_t  rsvd2;
-		uint8_t  public_key_num;
-		uint8_t  public_key_ver;
-		uint8_t  rsvd3;
-		uint8_t  public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
-		uint8_t  rsvd4[32];
+		uint32_t public_key_exponent;
+		uint8_t rsvd2;
+		uint8_t public_key_num;
+		uint8_t public_key_ver;
+		uint8_t rsvd3;
+		uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
+		uint8_t rsvd4[32];
 	} reply;
 
-	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET, NULL, 0,
+	if (otp_valid)
+		*otp_valid = false;
+
+	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET_EXT,
+				&subcmd, sizeof(subcmd),
 				&reply, sizeof(reply));
-	if (ret)
+	if (ret && ERRNO_MRPC(errno) != ERR_CMD_INVALID)
 		return ret;
+
+	if (!ret) {
+		if (otp) {
+			otp->basic_valid = !!(reply.valid & BIT(5));
+			otp->basic = !!(reply.valid & BIT(6));
+			otp->mixed_ver_valid = !!(reply.valid & BIT(7));
+			otp->mixed_ver = !!(reply.valid & BIT(8));
+			otp->main_fw_ver_valid = !!(reply.valid & BIT(9));
+			otp->main_fw_ver = !!(reply.valid & BIT(10));
+			otp->sec_unlock_ver_valid = !!(reply.valid & BIT(11));
+			otp->sec_unlock_ver = !!(reply.valid & BIT(12));
+			otp->kmsk_valid[0] = !!(reply.valid & BIT(13));
+			otp->kmsk[0] = !!(reply.valid & BIT(14));
+			otp->kmsk_valid[1] = !!(reply.valid & BIT(15));
+			otp->kmsk[1] = !!(reply.valid & BIT(16));
+			otp->kmsk_valid[2] = !!(reply.valid & BIT(17));
+			otp->kmsk[2] = !!(reply.valid & BIT(18));
+			otp->kmsk_valid[3] = !!(reply.valid & BIT(19));
+			otp->kmsk[3] = !!(reply.valid & BIT(20));
+
+			if (otp_valid)
+				*otp_valid = true;
+		}
+	} else {
+		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET, NULL, 0,
+					&reply, sizeof(reply));
+		if (ret)
+			return ret;
+	}
 
 	reply.valid = le32toh(reply.valid);
 	reply.cfg = le64toh(reply.cfg);
@@ -176,6 +206,30 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 	       SWITCHTEC_KMSK_NUM * SWITCHTEC_KMSK_LEN);
 
 	return 0;
+}
+
+/**
+ * @brief Get secure boot configurations
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] state	Current secure boot settings
+ * @return 0 on success, error code on failure
+ */
+int switchtec_security_config_get(struct switchtec_dev *dev,
+				  struct switchtec_security_cfg_state *state)
+{
+	return secure_config_get(dev, state, NULL, NULL);
+}
+
+/**
+ * @brief Get secure boot extended configurations
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] ext	Current extended secure boot settings
+ * @return 0 on success, error code on failure
+ */
+int switchtec_security_config_get_ext(struct switchtec_dev *dev,
+		struct switchtec_security_cfg_state_ext *ext)
+{
+	return secure_config_get(dev, &ext->state, &ext->otp, &ext->otp_valid);
 }
 
 /**
