@@ -122,13 +122,13 @@ static int secure_config_get(struct switchtec_dev *dev,
 		uint32_t valid;
 		uint32_t rsvd1;
 		uint64_t cfg;
-		uint32_t  public_key_exponent;
-		uint8_t  rsvd2;
-		uint8_t  public_key_num;
-		uint8_t  public_key_ver;
-		uint8_t  rsvd3;
-		uint8_t  public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
-		uint8_t  rsvd4[32];
+		uint32_t public_key_exponent;
+		uint8_t rsvd2;
+		uint8_t public_key_num;
+		uint8_t public_key_ver;
+		uint8_t rsvd3;
+		uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
+		uint8_t rsvd4[32];
 	} reply;
 
 	if (otp_valid)
