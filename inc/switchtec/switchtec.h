@@ -241,6 +241,38 @@ struct switchtec_fw_image_info {
 	unsigned long secure_version;
 };
 
+struct switchtec_fw_metadata_gen4 {
+        char magic[4];
+        char sub_magic[4];
+        uint32_t hdr_version;
+        uint32_t secure_version;
+        uint32_t header_len;
+        uint32_t metadata_len;
+        uint32_t image_len;
+        uint32_t type;
+        uint32_t rsvd;
+        uint32_t version;
+        uint32_t sequence;
+        uint32_t reserved1;
+        uint8_t date_str[8];
+        uint8_t time_str[8];
+        uint8_t img_str[16];
+        uint8_t rsvd1[4];
+        uint32_t image_crc;
+        uint8_t public_key_modulus[512];
+        uint8_t public_key_exponent[4];
+        uint8_t uart_port;
+        uint8_t uart_rate;
+        uint8_t bist_enable;
+        uint8_t bist_gpio_pin_cfg;
+        uint8_t bist_gpio_level_cfg;
+        uint8_t rsvd2[3];
+        uint32_t xml_version;
+        uint32_t relocatable_img_len;
+        uint32_t link_addr;
+        uint32_t header_crc;
+};
+
 struct switchtec_fw_part_summary {
 	struct switchtec_fw_part_type {
 		struct switchtec_fw_image_info *active, *inactive;
@@ -342,6 +374,8 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
 			int index, int flags,
 			uint32_t data[5]);
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
+int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
+                                  struct switchtec_fw_image_info *info);
 
 /*********** Generic Accessors ***********/
 
