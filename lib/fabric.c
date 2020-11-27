@@ -1380,31 +1380,60 @@ static int admin_passthru_start(struct switchtec_dev *dev, uint16_t pdfid,
 				size_t *rsp_len)
 {
 	int ret;
-	int copy_len;
+	uint16_t copy_len;
+	uint16_t offset = 0;
+
 	struct {
 		uint8_t subcmd;
 		uint8_t rsvd[3];
 		uint16_t pdfid;
 		uint16_t expected_rsp_len;
-		uint8_t data[SWITCHTEC_NVME_ADMIN_PASSTHRU_MAX_DATA_LEN];
+		uint8_t more_data;
+		uint8_t rsvd1[3];
+		uint16_t data_offset;
+		uint16_t data_len;
+		uint8_t data[MRPC_MAX_DATA_LEN - 16];
 	} cmd = {
 		.subcmd = MRPC_NVME_ADMIN_PASSTHRU_START,
-		.pdfid = htole16(pdfid),
-		.expected_rsp_len = htole16(*rsp_len)
+		.pdfid = htole16(pdfid)
 	};
 
 	struct {
-		uint8_t subcmd;
-		uint8_t rsvd[3];
 		uint16_t rsp_len;
 		uint16_t rsvd1;
 	} reply = {};
 
 	if (data_len && data != NULL) {
-		copy_len = data_len > sizeof(cmd.data)?
-				sizeof(cmd.data) : data_len;
-		memcpy(cmd.data, data, copy_len);
+		cmd.more_data = data_len > sizeof(cmd.data);
+		while (cmd.more_data) {
+			copy_len = sizeof(cmd.data);
+			memcpy(cmd.data, data + offset, copy_len);
+
+			cmd.data_offset = htole16(offset);
+			cmd.data_len = htole16(copy_len);
+
+			ret = switchtec_cmd(dev, MRPC_NVME_ADMIN_PASSTHRU,
+					    &cmd, sizeof(cmd), NULL, 0);
+			if (ret)
+				return ret;
+
+			offset += copy_len;
+			data_len -= copy_len;
+			cmd.more_data = data_len > sizeof(cmd.data);
+		}
+
+		if (data_len) {
+			memcpy(cmd.data, data + offset, data_len);
+
+			cmd.data_offset = htole16(offset);
+			cmd.data_len = htole16(data_len);
+		} else {
+			cmd.data_len = 0;
+			cmd.data_offset = 0;
+		}
 	}
+
+	cmd.expected_rsp_len = htole16(*rsp_len);
 
 	ret = switchtec_cmd(dev, MRPC_NVME_ADMIN_PASSTHRU,
 			    &cmd, sizeof(cmd), &reply, sizeof(reply));
@@ -1433,11 +1462,9 @@ static int admin_passthru_data(struct switchtec_dev *dev, uint16_t pdfid,
 	};
 
 	struct {
-		uint8_t subcmd;
-		uint8_t rsvd[3];
 		uint16_t offset;
 		uint16_t len;
-		uint8_t data[MRPC_MAX_DATA_LEN - 8];
+		uint8_t data[MRPC_MAX_DATA_LEN - 4];
 	} reply = {};
 
 	while (offset < rsp_len) {
