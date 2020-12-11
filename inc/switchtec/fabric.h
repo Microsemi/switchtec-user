@@ -702,7 +702,7 @@ int switchtec_ep_bar_write64(struct switchtec_dev *dev, uint16_t pdfid,
 			     uint8_t bar_index, uint64_t val, uint64_t addr);
 
 /********** ADMIN PASSTHRU COMMAND *********/
-#define SWITCHTEC_NVME_ADMIN_PASSTHRU_MAX_DATA_LEN (MRPC_MAX_DATA_LEN - 8)
+#define SWITCHTEC_NVME_ADMIN_PASSTHRU_MAX_DATA_LEN (4096 + 16 * 4)
 
 int switchtec_nvme_admin_passthru(struct switchtec_dev *dev, uint16_t pdfid,
 				  size_t data_len, void *data,

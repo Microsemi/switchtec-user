@@ -111,7 +111,20 @@ static int ping(int argc, char **argv)
 	return 0;
 }
 
-static void print_security_config(struct switchtec_security_cfg_state *state)
+static const char* program_status_to_string(enum switchtec_otp_program_status s)
+{
+	switch(s) {
+	case SWITCHTEC_OTP_PROGRAMMABLE:
+		return "R/W (Programmable)";
+	case SWITCHTEC_OTP_UNPROGRAMMABLE:
+		return "R/O (Unprogrammable)";
+	default:
+		return "Unknown";
+	}
+}
+
+static void print_security_config(struct switchtec_security_cfg_state *state,
+				  struct switchtec_security_cfg_otp_region *otp)
 {
 	int key_idx;
 	int i;
@@ -194,6 +207,27 @@ static void print_security_config(struct switchtec_security_cfg_state *state)
 				printf("%02x", state->public_key[key_idx][i]);
 		printf("\n");
 	}
+
+	if (otp) {
+		printf("\nOTP Region Program Status\n");
+		printf("\tBasic Secure Settings %s%s\n",
+		       otp->basic_valid? "(Valid):  ": "(Invalid):",
+		       program_status_to_string(otp->basic));
+		printf("\tMixed Version %s\t%s\n",
+		       otp->mixed_ver_valid? "(Valid):  ": "(Invalid):",
+		       program_status_to_string(otp->mixed_ver));
+		printf("\tMain FW Version %s\t%s\n",
+		       otp->main_fw_ver_valid? "(Valid):  ": "(Invalid):",
+		       program_status_to_string(otp->main_fw_ver));
+		printf("\tSecure Unlock Version %s%s\n",
+		       otp->sec_unlock_ver_valid? "(Valid):  ": "(Invalid):",
+		       program_status_to_string(otp->sec_unlock_ver));
+		for (i = 0; i < 4; i++) {
+			printf("\tKMSK%d %s\t\t%s\n", i,
+			       otp->kmsk_valid[i]? "(Valid):  ": "(Invalid):",
+			       program_status_to_string(otp->kmsk[i]));
+		}
+	}
 }
 
 static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
@@ -236,16 +270,24 @@ static int info(int argc, char **argv)
 
 	static struct {
 		struct switchtec_dev *dev;
+		int verbose;
 	} cfg = {};
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_MFG,
-		{NULL}
-	};
+		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
+		 "print additional chip information"},
+		{NULL}};
 
-	struct switchtec_security_cfg_state state = {};
+	struct switchtec_security_cfg_state_ext ext_state = {};
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
+
+	ret = switchtec_security_config_get_ext(cfg.dev, &ext_state);
+	if (ret) {
+		switchtec_perror("mfg info");
+		return ret;
+	}
 
 	phase_id = switchtec_boot_phase(cfg.dev);
 	printf("Current Boot Phase: \t\t\t%s\n", phase_id_to_string(phase_id));
@@ -266,13 +308,23 @@ static int info(int argc, char **argv)
 		return 0;
 	}
 
-	ret = switchtec_security_config_get(cfg.dev, &state);
-	if (ret) {
-		switchtec_perror("mfg info");
-		return ret;
+	if (cfg.verbose)  {
+		if (!ext_state.otp_valid) {
+			print_security_config(&ext_state.state, NULL);
+			fprintf(stderr,
+				"\nAdditional (verbose) chip info is not available on this chip!\n\n");
+		} else if (phase_id != SWITCHTEC_BOOT_PHASE_FW) {
+			print_security_config(&ext_state.state, NULL);
+			fprintf(stderr,
+				"\nAdditional (verbose) chip info is only available in the Main Firmware phase!\n\n");
+		} else {
+			print_security_config(&ext_state.state, &ext_state.otp);
+		}
+
+		return 0;
 	}
 
-	print_security_config(&state);
+	print_security_config(&ext_state.state, NULL);
 
 	return 0;
 }
@@ -714,7 +766,7 @@ static int state_set(int argc, char **argv)
 		return -3;
 	}
 
-	print_security_config(&state);
+	print_security_config(&state, NULL);
 
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
