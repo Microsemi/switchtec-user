@@ -731,6 +731,9 @@ int switchtec_fw_file_secure_version_newer(struct switchtec_dev *dev,
 	if (ret)
 		return 0;
 
+	if (!info.signed_image)
+		return 0;
+
 	ret = switchtec_sn_ver_get(dev, &sn_info);
 	if (ret) {
 		sn_info.ver_bl2 = 0xffffffff;
