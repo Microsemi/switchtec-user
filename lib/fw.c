@@ -603,6 +603,7 @@ static int switchtec_fw_file_info_gen3(int fd,
 	info->type = switchtec_fw_id_to_type(info);
 
 	info->secure_version = 0;
+	info->signed_image = 0;
 
 	return 0;
 
@@ -616,6 +617,7 @@ static int switchtec_fw_file_info_gen4(int fd,
 {
 	int ret;
 	struct switchtec_fw_metadata_gen4 hdr = {};
+	uint8_t exp_zero[4] = {};
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
@@ -667,6 +669,8 @@ static int switchtec_fw_file_info_gen4(int fd,
 	info->type = switchtec_fw_id_to_type(info);
 
 	info->secure_version = le32toh(hdr.secure_version);
+	info->signed_image = !!memcmp(hdr.public_key_exponent, exp_zero, 4);
+
 	return 0;
 
 invalid_file:
