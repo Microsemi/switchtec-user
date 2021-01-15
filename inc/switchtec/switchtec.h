@@ -239,6 +239,7 @@ struct switchtec_fw_image_info {
 	void *metadata;
 
 	unsigned long secure_version;
+	bool signed_image;
 };
 
 struct switchtec_fw_part_summary {
