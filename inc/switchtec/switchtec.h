@@ -116,6 +116,8 @@ enum switchtec_variant {
 	SWITCHTEC_PFXI,
 	SWITCHTEC_PSX,
 	SWITCHTEC_PAX,
+	SWITCHTEC_PAXA,
+	SWITCHTEC_PFXA,
 	SWITCHTEC_VAR_UNKNOWN,
 };
 
@@ -424,13 +426,22 @@ static inline int switchtec_is_pfxi(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return whether a Switchtec device is PFX-A.
+ */
+static inline int switchtec_is_pfxa(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PFXA;
+}
+
+/**
  * @brief Return whether a Switchtec device is PFX(L/I).
  */
 static inline int switchtec_is_pfx_all(struct switchtec_dev *dev)
 {
 	return switchtec_is_pfx(dev) ||
 	       switchtec_is_pfxl(dev) ||
-	       switchtec_is_pfxi(dev);
+	       switchtec_is_pfxi(dev) ||
+	       switchtec_is_pfxa(dev);
 }
 
 /**
@@ -455,6 +466,14 @@ static inline int switchtec_is_psx_pfx_all(struct switchtec_dev *dev)
 static inline int switchtec_is_pax(struct switchtec_dev *dev)
 {
 	return switchtec_variant(dev) == SWITCHTEC_PAX;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PAX.
+ */
+static inline int switchtec_is_paxa(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PAXA;
 }
 
 /**
@@ -496,7 +515,9 @@ static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
 	      switchtec_is_pfxl(dev) ? "PFX-L" :
 	      switchtec_is_pfxi(dev) ? "PFX-I" :
 	      switchtec_is_psx(dev) ? "PSX" :
-	      switchtec_is_pax(dev) ? "PAX" : "Unknown";
+	      switchtec_is_pax(dev) ? "PAX" :
+	      switchtec_is_pfxa(dev)? "PFX-A" :
+	      switchtec_is_paxa(dev)? "PAX-A" : "Unknown";
 
 	return str;
 }
