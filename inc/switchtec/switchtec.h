@@ -83,6 +83,7 @@ typedef __gas struct switchtec_gas *gasptr_t;
 enum switchtec_gen {
 	SWITCHTEC_GEN3,
 	SWITCHTEC_GEN4,
+	SWITCHTEC_GEN5,
 	SWITCHTEC_GEN_UNKNOWN,
 };
 
@@ -394,6 +395,14 @@ static inline int switchtec_is_gen4(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return whether a Switchtec device is a Gen 5 device.
+ */
+static inline int switchtec_is_gen5(struct switchtec_dev *dev)
+{
+	return switchtec_gen(dev) == SWITCHTEC_GEN5;
+}
+
+/**
  * @brief Return whether a Switchtec device is PFX.
  */
 static inline int switchtec_is_pfx(struct switchtec_dev *dev)
@@ -501,7 +510,8 @@ static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
 	const char *str;
 
 	str =  switchtec_is_gen3(dev) ? "GEN3" :
-	       switchtec_is_gen4(dev) ? "GEN4" : "Unknown";
+	       switchtec_is_gen4(dev) ? "GEN4" :
+	       switchtec_is_gen5(dev) ? "GEN5" : "Unknown";
 
 	return str;
 }
@@ -515,6 +525,7 @@ switchtec_fw_image_gen_str(struct switchtec_fw_image_info *inf)
 	switch (inf->gen) {
 	case SWITCHTEC_GEN3: return "GEN3";
 	case SWITCHTEC_GEN4: return "GEN4";
+	case SWITCHTEC_GEN5: return "GEN5";
 	default:	     return "UNKNOWN";
 	}
 }

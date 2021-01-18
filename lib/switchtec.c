@@ -1300,6 +1300,9 @@ static enum switchtec_gen map_to_gen(uint32_t gen)
 	case 0:
 		ret = SWITCHTEC_GEN4;
 		break;
+	case 1:
+		ret = SWITCHTEC_GEN5;
+		break;
 	default:
 		ret = SWITCHTEC_GEN_UNKNOWN;
 		break;
