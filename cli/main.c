@@ -1434,24 +1434,25 @@ static int fw_info(int argc, char **argv)
 	return 0;
 }
 
-static char * part_to_string(int partition_id) {
-       switch(partition_id){
+static char *part_to_string(int partition_id)
+{
+	switch (partition_id) {
 
-               case 0: return "Partition Map 0";
-               case 1: return "Partition Map 1";
-               case 2: return "Key Manifest 0";
-               case 3: return "Key Manifest 1";
-               case 4: return "BL2 0";
-               case 5: return "BL2 1";
-               case 6: return "Cfg 0";
-               case 7: return "Cfg 1";
-               case 8: return "Main Fw 0";
-               case 9: return "Main FW 1";
-               default: return "Invalid Partition ID";
-       }
+	case 0: return "Partition Map 0";
+	case 1: return "Partition Map 1";
+	case 2: return "Key Manifest 0";
+	case 3: return "Key Manifest 1";
+	case 4: return "BL2 0";
+	case 5: return "BL2 1";
+	case 6: return "Cfg 0";
+	case 7: return "Cfg 1";
+	case 8: return "Main Fw 0";
+	case 9: return "Main FW 1";
+	default: return "Invalid Partition ID";
+	}
 }
 
-#define CMD_DESC_FW_META_INFO "return metadata information from the selected flash partition"
+#define CMD_DESC_FW_META_INFO "Return metadata information from the selected flash partition"
 
 static int fw_meta_info(int argc, char **argv)
 {
