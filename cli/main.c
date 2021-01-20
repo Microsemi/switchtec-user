@@ -1456,65 +1456,60 @@ static char *part_to_string(int partition_id)
 
 static int fw_meta_info(int argc, char **argv)
 {
-       int ret, i, nr_info;
-       static struct {
-               struct switchtec_dev *dev;
-               int partition_id;
-       } cfg = {};
+	int ret, i, nr_info;
+	static struct {
+		struct switchtec_dev *dev;
+		int partition_id;
+	} cfg = {};
 
-       struct switchtec_fw_image_info inf;
-       struct switchtec_fw_metadata_gen4 *metadata;
+	struct switchtec_fw_image_info inf;
 
-       const struct argconfig_options opts[] = {
-               DEVICE_OPTION,
-               {"flash_part", 'p', "", CFG_NONNEGATIVE, &cfg.partition_id, required_argument,
-                       "Flash Partition ID"},
-               {NULL}};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"flash_part", 'p', "", CFG_NONNEGATIVE, &cfg.partition_id,
+			required_argument, "Flash Partition ID"},
+		{NULL} };
 
-       argconfig_parse(argc, argv, CMD_DESC_FW_META_INFO, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_FW_META_INFO, opts, &cfg,
+			sizeof(cfg));
 
-       if(cfg.partition_id > 9 ) {
-               printf("Invalid Partition ID \n");
-               return -1;
-       }
+	if (cfg.partition_id > 9) {
+		printf("Invalid Partition ID \n");
+		return -1;
+	}
+	inf.part_id = cfg.partition_id;
+	nr_info = 1;
 
-       inf.part_id = cfg.partition_id;
-       nr_info = 1;
+	if (!switchtec_is_gen4(cfg.dev)) {
+		printf("This command is only supported on Gen.4 Switches \n");
+		return -1;
+	}
+	ret = switchtec_fw_part_info(cfg.dev, nr_info, &inf);
 
-       if( !switchtec_is_gen4(cfg.dev) ){
-               printf("This command is only supported on Gen.4 Switches \n");
-               return -1;
-       }
-       ret = switchtec_fw_part_info(cfg.dev, nr_info, &inf);
+	printf("Switchtec Flash Partition Info \n");
+	printf("Partition Type: %s \n", part_to_string(inf.part_id));
 
-       metadata = (struct switchtec_fw_metadata_gen4 *)malloc(sizeof(metadata));
-       metadata = (struct switchtec_fw_metadata_gen4 *)inf.metadata;
+	if (inf.valid) {
+		printf("Image Version: %s \n", inf.version);
+		printf("Image Length: 0x%lx \n", inf.image_len);
+		printf("Image CRC: 0x%lx \n", inf.image_crc);
+		printf("Secure Version: 0x%lx \n", inf.secure_version);
+		printf("Public Key Exponent : 0x");
+		for (i = 0; i <= 3; i++)
+			printf("%02x", inf.public_key_exponent[i]);
+		printf("\n");
+		printf("Public Key Modulus : \n");
+		for (i = 0; i < 512; i++) {
+			if ((i%15 == 0) && (i != 0))
+				printf("\n");
+			printf("%02x:", inf.public_key_modulus[i]);
+		}
+		printf("\n");
+	} else {
+		printf("Partition Invalid \n");
+	}
 
-       printf("Switchtec Flash Partition Info \n");
-       printf("Partition Type: %s \n", part_to_string(inf.part_id));
-
-       if(inf.valid) {
-               printf("Image Version: %s \n", inf.version);
-               printf("Image Length: 0x%x \n", metadata->image_len);
-               printf("Image CRC: 0x%x \n", metadata->image_crc);
-               printf("Secure Version: 0x%x \n", metadata->secure_version);
-               printf("Public Key Exponent : 0x");
-               for(i=0; i<=3; i++) {
-                       printf("%02x", metadata->public_key_exponent[i]);
-               }
-               printf("\n");
-               printf("Public Key Modulus : \n");
-               for(i=0; i< 512; i++) {
-                       if((i%15 == 0) && (i !=0))
-                                printf("\n");
-                        printf("%02x:", metadata->public_key_modulus[i]);
-               }
-               printf("\n");
-       } else {
-               printf("Partition Invalid \n");
-       }
-
-       return ret;
+	return ret;
 }
 
 #define CMD_DESC_FW_UPDATE "upload a new firmware image to flash"
