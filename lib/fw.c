@@ -925,6 +925,11 @@ static int switchtec_fw_info_metadata_gen4(struct switchtec_dev *dev,
 	inf->part_body_offset = le32toh(metadata->header_len);
 	inf->image_crc = le32toh(metadata->image_crc);
 	inf->image_len = le32toh(metadata->image_len);
+	inf->secure_version = le32toh(metadata->secure_version);
+	memcpy(inf->public_key_exponent, metadata->public_key_exponent,
+	      sizeof(metadata->public_key_exponent));
+	memcpy(inf->public_key_modulus, metadata->public_key_modulus,
+	      sizeof(metadata->public_key_modulus));
 	inf->metadata = metadata;
 
 	return 0;
@@ -1040,7 +1045,7 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
  *	\p nr_info entries
  * @return number of part info on success, negative on failure
  */
-static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
+int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 				  struct switchtec_fw_image_info *info)
 {
 	int ret;

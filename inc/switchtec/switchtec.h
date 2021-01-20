@@ -229,6 +229,9 @@ struct switchtec_fw_image_info {
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
 
+	uint8_t public_key_modulus[512];	//!< Pub Key Mod of the image
+	uint8_t public_key_exponent[4];		//!< Pub Key Exp of the image
+
 	bool valid;
 	bool active;
 	bool running;
@@ -343,6 +346,8 @@ int switchtec_event_ctl(struct switchtec_dev *dev,
 			int index, int flags,
 			uint32_t data[5]);
 int switchtec_event_wait(struct switchtec_dev *dev, int timeout_ms);
+int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
+                                  struct switchtec_fw_image_info *info);
 
 /*********** Generic Accessors ***********/
 
