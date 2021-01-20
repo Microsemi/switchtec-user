@@ -1491,7 +1491,7 @@ static int fw_meta_info(int argc, char **argv)
 
 	if (inf.valid) {
 		printf("Image Version: %s \n", inf.version);
-		printf("Image Length: 0x%lx \n", inf.image_len);
+		printf("Image Length: 0x%x \n", (int)inf.image_len);
 		printf("Image CRC: 0x%lx \n", inf.image_crc);
 		printf("Secure Version: 0x%lx \n", inf.secure_version);
 		printf("Public Key Exponent : 0x");
