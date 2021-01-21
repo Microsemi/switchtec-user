@@ -1493,6 +1493,14 @@ static int fw_update(int argc, char **argv)
 		return -1;
 	}
 
+	switchtec_fw_file_info(fileno(cfg.fimg), &info);
+	if (switchtec_gen(cfg.dev) != info.gen) {
+		fprintf(stderr,
+			"\nThe image is for %s devices and cannot be applied to this device!\n",
+			switchtec_fw_image_gen_str(&info));
+		return -1;
+	}
+
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
 		fclose(cfg.fimg);
@@ -1516,7 +1524,6 @@ static int fw_update(int argc, char **argv)
 	}
 
 	if(switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
-		switchtec_fw_file_info(fileno(cfg.fimg), &info);
 		fprintf(stderr, "\n\nWARNING:\n"
 			"Updating this image will IRREVERSIBLY update device %s image\n"
 			"secure version to 0x%08lx!\n\n",
