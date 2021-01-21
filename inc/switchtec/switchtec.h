@@ -792,6 +792,7 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);
+enum switchtec_gen switchtec_fw_version_to_gen(unsigned int version);
 int switchtec_bind_info(struct switchtec_dev *dev,
 			struct switchtec_bind_status_out *bind_status,
 			int phy_port);
