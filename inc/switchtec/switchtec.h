@@ -83,6 +83,7 @@ typedef __gas struct switchtec_gas *gasptr_t;
 enum switchtec_gen {
 	SWITCHTEC_GEN3,
 	SWITCHTEC_GEN4,
+	SWITCHTEC_GEN5,
 	SWITCHTEC_GEN_UNKNOWN,
 };
 
@@ -115,6 +116,8 @@ enum switchtec_variant {
 	SWITCHTEC_PFXI,
 	SWITCHTEC_PSX,
 	SWITCHTEC_PAX,
+	SWITCHTEC_PAXA,
+	SWITCHTEC_PFXA,
 	SWITCHTEC_VAR_UNKNOWN,
 };
 
@@ -391,6 +394,14 @@ static inline int switchtec_is_gen4(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return whether a Switchtec device is a Gen 5 device.
+ */
+static inline int switchtec_is_gen5(struct switchtec_dev *dev)
+{
+	return switchtec_gen(dev) == SWITCHTEC_GEN5;
+}
+
+/**
  * @brief Return whether a Switchtec device is PFX.
  */
 static inline int switchtec_is_pfx(struct switchtec_dev *dev)
@@ -415,13 +426,22 @@ static inline int switchtec_is_pfxi(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return whether a Switchtec device is PFX-A.
+ */
+static inline int switchtec_is_pfxa(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PFXA;
+}
+
+/**
  * @brief Return whether a Switchtec device is PFX(L/I).
  */
 static inline int switchtec_is_pfx_all(struct switchtec_dev *dev)
 {
 	return switchtec_is_pfx(dev) ||
 	       switchtec_is_pfxl(dev) ||
-	       switchtec_is_pfxi(dev);
+	       switchtec_is_pfxi(dev) ||
+	       switchtec_is_pfxa(dev);
 }
 
 /**
@@ -449,6 +469,14 @@ static inline int switchtec_is_pax(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return whether a Switchtec device is PAX.
+ */
+static inline int switchtec_is_paxa(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PAXA;
+}
+
+/**
  * @brief Return the generation string of a Switchtec device.
  */
 static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
@@ -456,7 +484,8 @@ static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
 	const char *str;
 
 	str =  switchtec_is_gen3(dev) ? "GEN3" :
-	       switchtec_is_gen4(dev) ? "GEN4" : "Unknown";
+	       switchtec_is_gen4(dev) ? "GEN4" :
+	       switchtec_is_gen5(dev) ? "GEN5" : "Unknown";
 
 	return str;
 }
@@ -470,6 +499,7 @@ switchtec_fw_image_gen_str(struct switchtec_fw_image_info *inf)
 	switch (inf->gen) {
 	case SWITCHTEC_GEN3: return "GEN3";
 	case SWITCHTEC_GEN4: return "GEN4";
+	case SWITCHTEC_GEN5: return "GEN5";
 	default:	     return "UNKNOWN";
 	}
 }
@@ -485,7 +515,9 @@ static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
 	      switchtec_is_pfxl(dev) ? "PFX-L" :
 	      switchtec_is_pfxi(dev) ? "PFX-I" :
 	      switchtec_is_psx(dev) ? "PSX" :
-	      switchtec_is_pax(dev) ? "PAX" : "Unknown";
+	      switchtec_is_pax(dev) ? "PAX" :
+	      switchtec_is_pfxa(dev)? "PFX-A" :
+	      switchtec_is_paxa(dev)? "PAX-A" : "Unknown";
 
 	return str;
 }
