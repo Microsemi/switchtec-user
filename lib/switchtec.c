@@ -1396,11 +1396,6 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 	uint32_t sub_cmd_id;
 	uint32_t temp;
 
-	if (!switchtec_is_gen3(dev) && !switchtec_is_gen4(dev)) {
-		errno = ENOTSUP;
-		return -100.0;
-	}
-
 	if (switchtec_is_gen3(dev)) {
 		sub_cmd_id = MRPC_DIETEMP_SET_MEAS;
 		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
