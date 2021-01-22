@@ -384,6 +384,28 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 }
 
 /**
+ * @brief Extract generation information from FW version number
+ * @param[in] version		Firmware version number
+ * @return Generation information contained in the FW version number
+ */
+enum switchtec_gen switchtec_fw_version_to_gen(unsigned int version)
+{
+	uint8_t major = (version >> 24) & 0xff;
+
+	switch (major) {
+	case 1:
+	case 2:	return SWITCHTEC_GEN3;
+	case 3:
+	case 4:
+	case 5: return SWITCHTEC_GEN4;
+	case 6:
+	case 7:
+	case 8: return SWITCHTEC_GEN5;
+	default: return SWITCHTEC_GEN_UNKNOWN;
+	}
+}
+
+/**
  * @brief Write a firmware file to the switchtec device
  * @param[in] dev		Switchtec device handle
  * @param[in] fimg		FILE pointer for the image file to write
@@ -571,7 +593,8 @@ switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
 {
 	switch (info->gen) {
 	case SWITCHTEC_GEN3: return switchtec_fw_id_to_type_gen3(info);
-	case SWITCHTEC_GEN4: return switchtec_fw_id_to_type_gen4(info);
+	case SWITCHTEC_GEN4:
+	case SWITCHTEC_GEN5: return switchtec_fw_id_to_type_gen4(info);
 	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
 	}
 }
@@ -618,6 +641,7 @@ static int switchtec_fw_file_info_gen4(int fd,
 	int ret;
 	struct switchtec_fw_metadata_gen4 hdr = {};
 	uint8_t exp_zero[4] = {};
+	uint32_t version;
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
@@ -633,8 +657,6 @@ static int switchtec_fw_file_info_gen4(int fd,
 
 	if (!info)
 		return 0;
-
-	info->gen = SWITCHTEC_GEN4;
 
 	switch (le32toh(hdr.type)) {
 	case SWITCHTEC_FW_IMG_TYPE_MAP_GEN4:
@@ -663,8 +685,10 @@ static int switchtec_fw_file_info_gen4(int fd,
 	};
 
 	info->image_crc = le32toh(hdr.image_crc);
-	version_to_string(le32toh(hdr.version), info->version, sizeof(info->version));
+	version = le32toh(hdr.version);
+	version_to_string(version, info->version, sizeof(info->version));
 	info->image_len = le32toh(hdr.image_len);
+	info->gen = switchtec_fw_version_to_gen(version);
 
 	info->type = switchtec_fw_id_to_type(info);
 
