@@ -1104,7 +1104,7 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 	if (info == NULL || nr_info == 0)
 		return -EINVAL;
 
-	if (dev->gen == SWITCHTEC_GEN4) {
+	if (dev->gen > SWITCHTEC_GEN3) {
 		ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd,
 				    sizeof(subcmd), &all_info,
 				    sizeof(all_info));
@@ -1130,6 +1130,7 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 			ret = switchtec_fw_part_info_gen3(dev, inf);
 			break;
 		case SWITCHTEC_GEN4:
+		case SWITCHTEC_GEN5:
 			ret = switchtec_fw_part_info_gen4(dev, inf, &all_info);
 			break;
 		default:
@@ -1278,6 +1279,7 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 		nr_info = ARRAY_SIZE(switchtec_fw_partitions_gen3);
 		break;
 	case SWITCHTEC_GEN4:
+	case SWITCHTEC_GEN5:
 		nr_info = ARRAY_SIZE(switchtec_fw_partitions_gen4);
 		break;
 	default:
@@ -1301,6 +1303,7 @@ switchtec_fw_part_summary(struct switchtec_dev *dev)
 				switchtec_fw_partitions_gen3[i];
 		break;
 	case SWITCHTEC_GEN4:
+	case SWITCHTEC_GEN5:
 		for (i = 0; i < nr_info; i++)
 			summary->all[i].part_id =
 				switchtec_fw_partitions_gen4[i];
