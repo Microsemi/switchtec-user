@@ -1495,7 +1495,8 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info)
 {
 	switch (info->gen) {
 	case SWITCHTEC_GEN3: return switchtec_fw_img_write_hdr_gen3(fd, info);
-	case SWITCHTEC_GEN4: return switchtec_fw_img_write_hdr_gen4(fd, info);
+	case SWITCHTEC_GEN4:
+	case SWITCHTEC_GEN5: return switchtec_fw_img_write_hdr_gen4(fd, info);
 	default:
 		errno = EINVAL;
 		return -1;
