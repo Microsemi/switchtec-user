@@ -163,8 +163,17 @@ static int secure_config_get(struct switchtec_dev *dev,
 				*otp_valid = true;
 		}
 	} else {
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET, NULL, 0,
-					&reply, sizeof(reply));
+		if (switchtec_gen(dev) == SWITCHTEC_GEN5) {
+			subcmd = 1;
+			ret = switchtec_mfg_cmd(dev,
+						MRPC_SECURITY_CONFIG_GET_GEN5,
+						&subcmd, sizeof(subcmd),
+						&reply, sizeof(reply));
+		} else {
+			ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET,
+						NULL, 0, &reply,
+						sizeof(reply));
+		}
 		if (ret)
 			return ret;
 	}
