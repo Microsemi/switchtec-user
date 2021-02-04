@@ -81,9 +81,12 @@
 #define SWITCHTEC_I2C_PORT_BITSHIFT		18
 #define SWITCHTEC_I2C_PORT_BITMASK		0x0f
 #define SWITCHTEC_I2C_ADDR_BITSHIFT		22
+#define SWITCHTEC_I2C_ADDR_BITSHIFT_GEN5	23
 #define SWITCHTEC_I2C_ADDR_BITMASK		0x7f
 #define SWITCHTEC_CMD_MAP_BITSHIFT		29
+#define SWITCHTEC_CMD_MAP_BITSHIFT_GEN5		30
 #define SWITCHTEC_CMD_MAP_BITMASK		0xfff
+#define SWITCHTEC_CMD_MAP_BITMASK_GEN5		0x3fff
 
 #define SWITCHTEC_JTAG_LOCK_AFT_RST_BITMASK	0x40
 #define SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK	0x80
@@ -111,6 +114,20 @@ static void RSA_get0_key(const RSA *r, const BIGNUM **n,
 }
 #endif
 
+static void get_i2c_operands(enum switchtec_gen gen, uint32_t *addr_shift,
+			     uint32_t *map_shift, uint32_t *map_mask)
+{
+	if (gen > SWITCHTEC_GEN4) {
+		*addr_shift = SWITCHTEC_I2C_ADDR_BITSHIFT_GEN5;
+		*map_shift = SWITCHTEC_CMD_MAP_BITSHIFT_GEN5;
+		*map_mask = SWITCHTEC_CMD_MAP_BITMASK_GEN5;
+	} else {
+		*addr_shift = SWITCHTEC_I2C_ADDR_BITSHIFT;
+		*map_shift = SWITCHTEC_CMD_MAP_BITSHIFT;
+		*map_mask = SWITCHTEC_CMD_MAP_BITMASK;
+	}
+}
+
 static int secure_config_get(struct switchtec_dev *dev,
 			     struct switchtec_security_cfg_state *state,
 			     struct switchtec_security_cfg_otp_region *otp,
@@ -118,6 +135,9 @@ static int secure_config_get(struct switchtec_dev *dev,
 {
 	int ret;
 	uint8_t subcmd = 0;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
 	struct cfg_reply {
 		uint32_t valid;
 		uint32_t rsvd1;
@@ -204,9 +224,12 @@ static int secure_config_get(struct switchtec_dev *dev,
 	state->i2c_recovery_tmo =
 		(reply.cfg >> SWITCHTEC_RC_TMO_BITSHIFT) & 0x0f;
 	state->i2c_port = (reply.cfg >> SWITCHTEC_I2C_PORT_BITSHIFT) & 0xf;
-	state->i2c_addr = (reply.cfg >> SWITCHTEC_I2C_ADDR_BITSHIFT) & 0x7f;
-	state->i2c_cmd_map =
-		(reply.cfg >> SWITCHTEC_CMD_MAP_BITSHIFT) & 0xfff;
+
+	get_i2c_operands(switchtec_gen(dev), &addr_shift, &map_shift,
+			 &map_mask);
+	state->i2c_addr =
+		(reply.cfg >> addr_shift) & SWITCHTEC_I2C_ADDR_BITMASK;
+	state->i2c_cmd_map = (reply.cfg >> map_shift) & map_mask;
 
 	state->public_key_exponent = reply.public_key_exponent;
 	state->public_key_num = reply.public_key_num;
@@ -293,6 +316,9 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 		uint8_t rsvd[4];
 	} sd;
 	uint64_t ldata = 0;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
 
 	memset(&sd, 0, sizeof(sd));
 
@@ -312,11 +338,14 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 			SWITCHTEC_RC_TMO_BITSHIFT;
 	sd.cfg |= (setting->i2c_port & SWITCHTEC_I2C_PORT_BITMASK) <<
 			SWITCHTEC_I2C_PORT_BITSHIFT;
-	sd.cfg |= (setting->i2c_addr & SWITCHTEC_I2C_ADDR_BITMASK) <<
-			SWITCHTEC_I2C_ADDR_BITSHIFT;
 
-	ldata = setting->i2c_cmd_map & SWITCHTEC_CMD_MAP_BITMASK;
-	ldata <<= SWITCHTEC_CMD_MAP_BITSHIFT;
+	get_i2c_operands(switchtec_gen(dev), &addr_shift, &map_shift,
+			 &map_mask);
+	sd.cfg |= (setting->i2c_addr & SWITCHTEC_I2C_ADDR_BITMASK) <<
+			addr_shift;
+
+	ldata = setting->i2c_cmd_map & map_mask;
+	ldata <<= map_shift;
 	sd.cfg |= ldata;
 
 	sd.cfg = htole64(sd.cfg);
@@ -577,7 +606,8 @@ int switchtec_read_sec_cfg_file(FILE *setting_file,
 	struct setting_file_header {
 		uint8_t magic[4];
 		uint32_t version;
-		uint32_t rsvd;
+		uint8_t hw_gen;
+		uint8_t rsvd[3];
 		uint32_t crc;
 	};
 	struct setting_file_data {
@@ -589,6 +619,10 @@ int switchtec_read_sec_cfg_file(FILE *setting_file,
 		struct setting_file_header header;
 		struct setting_file_data data;
 	} file_data;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
+	enum switchtec_gen gen;
 
 	rlen = fread(&file_data, 1, sizeof(file_data), setting_file);
 
@@ -602,6 +636,16 @@ int switchtec_read_sec_cfg_file(FILE *setting_file,
 			sizeof(file_data.data), 0, 1, 1);
 	if (crc != le32toh(file_data.header.crc))
 		return -EBADF;
+	switch (file_data.header.hw_gen) {
+	case 0:
+		gen = SWITCHTEC_GEN4;
+		break;
+	case 1:
+		gen = SWITCHTEC_GEN5;
+		break;
+	default:
+		return -EBADF;
+	}
 
 	memset(set, 0, sizeof(struct switchtec_security_cfg_set));
 
@@ -625,12 +669,12 @@ int switchtec_read_sec_cfg_file(FILE *setting_file,
 	set->i2c_port =
 		(file_data.data.cfg >> SWITCHTEC_I2C_PORT_BITSHIFT) &
 		SWITCHTEC_I2C_PORT_BITMASK;
+
+	get_i2c_operands(gen, &addr_shift, &map_shift, &map_mask);
 	set->i2c_addr =
-		(file_data.data.cfg >> SWITCHTEC_I2C_ADDR_BITSHIFT) &
+		(file_data.data.cfg >> addr_shift) &
 		SWITCHTEC_I2C_ADDR_BITMASK;
-	set->i2c_cmd_map =
-		(file_data.data.cfg >> SWITCHTEC_CMD_MAP_BITSHIFT) &
-		SWITCHTEC_CMD_MAP_BITMASK;
+	set->i2c_cmd_map = (file_data.data.cfg >> map_shift) & map_mask;
 
 	set->public_key_exponent = le32toh(file_data.data.pub_key_exponent);
 
