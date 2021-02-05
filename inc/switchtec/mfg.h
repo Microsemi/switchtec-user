@@ -52,19 +52,6 @@ enum switchtec_secure_state {
 	SWITCHTEC_SECURE_STATE_UNKNOWN = 0xff,
 };
 
-enum switchtec_spi_clk_rate {
-	SWITCHTEC_SPI_RATE_100M = 1,
-	SWITCHTEC_SPI_RATE_67M,
-	SWITCHTEC_SPI_RATE_50M,
-	SWITCHTEC_SPI_RATE_40M,
-	SWITCHTEC_SPI_RATE_33_33M,
-	SWITCHTEC_SPI_RATE_28_57M,
-	SWITCHTEC_SPI_RATE_25M,
-	SWITCHTEC_SPI_RATE_22_22M,
-	SWITCHTEC_SPI_RATE_20M,
-	SWITCHTEC_SPI_RATE_18_18M
-};
-
 struct switchtec_security_cfg_state {
 	uint8_t basic_setting_valid;
 	uint8_t public_key_exp_valid;
@@ -80,7 +67,7 @@ struct switchtec_security_cfg_state {
 	uint8_t jtag_bl1_unlock_allowed;
 	uint8_t jtag_post_bl1_unlock_allowed;
 
-	enum switchtec_spi_clk_rate spi_clk_rate;
+	float spi_clk_rate;
 	uint32_t i2c_recovery_tmo;
 	uint32_t i2c_port;
 	uint32_t i2c_addr;
@@ -128,7 +115,7 @@ struct switchtec_security_cfg_set {
 	uint8_t jtag_bl1_unlock_allowed;
 	uint8_t jtag_post_bl1_unlock_allowed;
 
-	uint32_t spi_clk_rate;
+	float spi_clk_rate;
 	uint32_t i2c_recovery_tmo;
 	uint32_t i2c_port;
 	uint32_t i2c_addr;
@@ -199,8 +186,9 @@ int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 					uint32_t ver_sec_unlock,
 					struct switchtec_pubkey *public_key,
 			 		struct switchtec_signature *signature);
-int switchtec_read_sec_cfg_file(FILE *setting_file,
-			        struct switchtec_security_cfg_set *set);
+int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
+				FILE *setting_file,
+				struct switchtec_security_cfg_set *set);
 int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk);
 int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk);
 int switchtec_read_signature_file(FILE *sig_file,
