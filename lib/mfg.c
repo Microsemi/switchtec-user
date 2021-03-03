@@ -169,6 +169,27 @@ static int get_configs(struct switchtec_dev *dev, struct get_cfgs_reply *cfgs)
 	return ret;
 }
 
+int switchtec_security_spi_avail_rate_get(struct switchtec_dev *dev,
+		struct switchtec_security_spi_avail_rate *rates)
+{
+	int ret;
+	struct get_cfgs_reply reply;
+
+	ret = get_configs(dev, &reply);
+	if (ret)
+		return ret;
+
+	rates->num_rates = 10;
+	if (reply.spi_core_clk_high)
+		memcpy(rates->rates, spi_clk_hi_rate_float,
+		       sizeof(spi_clk_hi_rate_float));
+	else
+		memcpy(rates->rates, spi_clk_rate_float,
+		       sizeof(spi_clk_rate_float));
+
+	return 0;
+}
+
 static int secure_config_get(struct switchtec_dev *dev,
 			     struct switchtec_security_cfg_state *state,
 			     struct switchtec_security_cfg_otp_region *otp,
