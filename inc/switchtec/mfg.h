@@ -32,6 +32,8 @@
 #define SWITCHTEC_KMSK_LEN	64
 #define SWITCHTEC_KMSK_NUM	4
 
+#define SWITCHTEC_SECURITY_SPI_RATE_MAX_NUM	16
+
 struct switchtec_sn_ver_info {
 	uint32_t chip_serial;
 	uint32_t ver_km;
@@ -155,12 +157,19 @@ struct switchtec_signature{
 	uint8_t signature[SWITCHTEC_SIG_LEN];
 };
 
+struct switchtec_security_spi_avail_rate {
+	int num_rates;
+	float rates[SWITCHTEC_SECURITY_SPI_RATE_MAX_NUM];
+};
+
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info);
 int switchtec_security_config_get(struct switchtec_dev *dev,
 			          struct switchtec_security_cfg_state *state);
 int switchtec_security_config_get_ext(struct switchtec_dev *dev,
 		struct switchtec_security_cfg_state_ext *ext);
+int switchtec_security_spi_avail_rate_get(struct switchtec_dev *dev,
+		struct switchtec_security_spi_avail_rate *rates);
 int switchtec_security_config_set(struct switchtec_dev *dev,
 				  struct switchtec_security_cfg_set *setting);
 int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd);
