@@ -64,11 +64,6 @@ static const struct argconfig_choice secure_state_choices[] = {
 	{}
 };
 
-static char *spi_rate_str[] = {
-	"100", "67", "50", "40", "33.33", "28.57",
-	"25", "22.22", "20", "18.18"
-};
-
 static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 {
 	switch(phase_id) {
@@ -176,8 +171,7 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 	printf("\tJTAG/EJTAG Unlock AFTER BL1: \t%d\n",
 		state->jtag_post_bl1_unlock_allowed);
 
-	printf("\tSPI Clock Rate: \t\t%s MHz\n",
-		spi_rate_str[state->spi_clk_rate-1]);
+	printf("\tSPI Clock Rate: \t\t%.2f MHz\n", state->spi_clk_rate);
 
 	printf("\tI2C Recovery TMO: \t\t%d Second(s)\n",
 		state->i2c_recovery_tmo);
@@ -246,8 +240,7 @@ static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
 	printf("\tJTAG/EJTAG Unlock AFTER BL1: \t%d\n",
 		set->jtag_post_bl1_unlock_allowed);
 
-	printf("\tSPI Clock Rate: \t\t%s MHz\n",
-		spi_rate_str[set->spi_clk_rate-1]);
+	printf("\tSPI Clock Rate: \t\t%.2f MHz\n", set->spi_clk_rate);
 
 	printf("\tI2C Recovery TMO: \t\t%d Second(s)\n",
 		set->i2c_recovery_tmo);
@@ -830,7 +823,8 @@ static int config_set(int argc, char **argv)
 		return -2;
 	}
 
-	ret = switchtec_read_sec_cfg_file(cfg.setting_fimg, &settings);
+	ret = switchtec_read_sec_cfg_file(cfg.dev, cfg.setting_fimg,
+					  &settings);
 	fclose(cfg.setting_fimg);
 	if (ret) {
 		fprintf(stderr, "Invalid secure setting file: %s!\n",
