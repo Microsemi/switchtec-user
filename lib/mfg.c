@@ -367,6 +367,7 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 	uint32_t map_shift;
 	uint32_t map_mask;
 	int spi_clk;
+	uint8_t cmd_buf[20] = {};
 
 	ret = get_configs(dev, &reply);
 	if (ret)
@@ -411,8 +412,15 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 
 	sd.pub_key_exponent = htole32(setting->public_key_exponent);
 
-	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET, &sd, sizeof(sd),
-				NULL, 0);
+	if (switchtec_gen(dev) == SWITCHTEC_GEN4) {
+		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET,
+					&sd, sizeof(sd), NULL, 0);
+	} else {
+		cmd_buf[0] = 1;
+		memcpy(cmd_buf + 4, &sd, sizeof(sd));
+		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET_GEN5,
+					cmd_buf, sizeof(cmd_buf), NULL, 0);
+	}
 	return ret;
 }
 
