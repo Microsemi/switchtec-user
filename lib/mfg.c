@@ -238,8 +238,12 @@ static int secure_config_get(struct switchtec_dev *dev,
 	state->jtag_post_bl1_unlock_allowed = !!(reply.cfg & 0x0200);
 
 	spi_clk = (reply.cfg >> SWITCHTEC_CLK_RATE_BITSHIFT) & 0x0f;
-	if (spi_clk == 0)
-		spi_clk = 7;
+	if (spi_clk == 0) {
+		if (switchtec_gen(dev) == SWITCHTEC_GEN5)
+			spi_clk = 9;
+		else
+			spi_clk = 7;
+	}
 
 	if (reply.spi_core_clk_high)
 		state->spi_clk_rate = spi_clk_hi_rate_float[spi_clk - 1];
