@@ -826,10 +826,15 @@ static int config_set(int argc, char **argv)
 	ret = switchtec_read_sec_cfg_file(cfg.dev, cfg.setting_fimg,
 					  &settings);
 	fclose(cfg.setting_fimg);
-	if (ret) {
+	if (ret == -EBADF) {
 		fprintf(stderr, "Invalid secure setting file: %s!\n",
 			cfg.setting_file);
 		return -3;
+	} else if (ret == -ENODEV) {
+		fprintf(stderr, "The security setting file is for a different generation of Switchtec device!\n");
+		return -5;
+	} else {
+		switchtec_perror("mfg config-set");
 	}
 
 	printf("Writing the below settings to device: \n");

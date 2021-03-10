@@ -744,6 +744,9 @@ int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
 		return -EBADF;
 	}
 
+	if (gen != switchtec_gen(dev))
+		return -ENODEV;
+
 	memset(set, 0, sizeof(struct switchtec_security_cfg_set));
 
 	file_data.data.cfg = le64toh(file_data.data.cfg);
