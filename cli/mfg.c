@@ -272,11 +272,11 @@ static int info(int argc, char **argv)
 		 "print additional chip information"},
 		{NULL}};
 
-	struct switchtec_security_cfg_state_ext ext_state = {};
+	struct switchtec_security_cfg_state state;
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_security_config_get_ext(cfg.dev, &ext_state);
+	ret = switchtec_security_config_get(cfg.dev, &state);
 	if (ret) {
 		switchtec_perror("mfg info");
 		return ret;
@@ -302,22 +302,22 @@ static int info(int argc, char **argv)
 	}
 
 	if (cfg.verbose)  {
-		if (!ext_state.otp_valid) {
-			print_security_config(&ext_state.state, NULL);
+		if (!state.otp_valid) {
+			print_security_config(&state, NULL);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is not available on this chip!\n\n");
 		} else if (phase_id != SWITCHTEC_BOOT_PHASE_FW) {
-			print_security_config(&ext_state.state, NULL);
+			print_security_config(&state, NULL);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is only available in the Main Firmware phase!\n\n");
 		} else {
-			print_security_config(&ext_state.state, &ext_state.otp);
+			print_security_config(&state, &state.otp);
 		}
 
 		return 0;
 	}
 
-	print_security_config(&ext_state.state, NULL);
+	print_security_config(&state, NULL);
 
 	return 0;
 }
