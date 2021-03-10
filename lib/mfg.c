@@ -190,10 +190,14 @@ int switchtec_security_spi_avail_rate_get(struct switchtec_dev *dev,
 	return 0;
 }
 
-static int secure_config_get(struct switchtec_dev *dev,
-			     struct switchtec_security_cfg_state *state,
-			     struct switchtec_security_cfg_otp_region *otp,
-			     bool *otp_valid)
+/**
+ * @brief Get secure boot configurations
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] state	Current secure boot settings
+ * @return 0 on success, error code on failure
+ */
+int switchtec_security_config_get(struct switchtec_dev *dev,
+				  struct switchtec_security_cfg_state *state)
 {
 	int ret;
 	uint8_t subcmd = 0;
@@ -203,8 +207,7 @@ static int secure_config_get(struct switchtec_dev *dev,
 	int spi_clk;
 	struct get_cfgs_reply reply;
 
-	if (otp_valid)
-		*otp_valid = false;
+	state->otp_valid = false;
 
 	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET_EXT,
 				&subcmd, sizeof(subcmd),
@@ -213,27 +216,24 @@ static int secure_config_get(struct switchtec_dev *dev,
 		return ret;
 
 	if (!ret) {
-		if (otp) {
-			otp->basic_valid = !!(reply.valid & BIT(5));
-			otp->basic = !!(reply.valid & BIT(6));
-			otp->mixed_ver_valid = !!(reply.valid & BIT(7));
-			otp->mixed_ver = !!(reply.valid & BIT(8));
-			otp->main_fw_ver_valid = !!(reply.valid & BIT(9));
-			otp->main_fw_ver = !!(reply.valid & BIT(10));
-			otp->sec_unlock_ver_valid = !!(reply.valid & BIT(11));
-			otp->sec_unlock_ver = !!(reply.valid & BIT(12));
-			otp->kmsk_valid[0] = !!(reply.valid & BIT(13));
-			otp->kmsk[0] = !!(reply.valid & BIT(14));
-			otp->kmsk_valid[1] = !!(reply.valid & BIT(15));
-			otp->kmsk[1] = !!(reply.valid & BIT(16));
-			otp->kmsk_valid[2] = !!(reply.valid & BIT(17));
-			otp->kmsk[2] = !!(reply.valid & BIT(18));
-			otp->kmsk_valid[3] = !!(reply.valid & BIT(19));
-			otp->kmsk[3] = !!(reply.valid & BIT(20));
+		state->otp.basic_valid = !!(reply.valid & BIT(5));
+		state->otp.basic = !!(reply.valid & BIT(6));
+		state->otp.mixed_ver_valid = !!(reply.valid & BIT(7));
+		state->otp.mixed_ver = !!(reply.valid & BIT(8));
+		state->otp.main_fw_ver_valid = !!(reply.valid & BIT(9));
+		state->otp.main_fw_ver = !!(reply.valid & BIT(10));
+		state->otp.sec_unlock_ver_valid = !!(reply.valid & BIT(11));
+		state->otp.sec_unlock_ver = !!(reply.valid & BIT(12));
+		state->otp.kmsk_valid[0] = !!(reply.valid & BIT(13));
+		state->otp.kmsk[0] = !!(reply.valid & BIT(14));
+		state->otp.kmsk_valid[1] = !!(reply.valid & BIT(15));
+		state->otp.kmsk[1] = !!(reply.valid & BIT(16));
+		state->otp.kmsk_valid[2] = !!(reply.valid & BIT(17));
+		state->otp.kmsk[2] = !!(reply.valid & BIT(18));
+		state->otp.kmsk_valid[3] = !!(reply.valid & BIT(19));
+		state->otp.kmsk[3] = !!(reply.valid & BIT(20));
 
-			if (otp_valid)
-				*otp_valid = true;
-		}
+		state->otp_valid = true;
 	} else {
 		ret = get_configs(dev, &reply);
 		if (ret)
@@ -288,30 +288,6 @@ static int secure_config_get(struct switchtec_dev *dev,
 	       SWITCHTEC_KMSK_NUM * SWITCHTEC_KMSK_LEN);
 
 	return 0;
-}
-
-/**
- * @brief Get secure boot configurations
- * @param[in]  dev	Switchtec device handle
- * @param[out] state	Current secure boot settings
- * @return 0 on success, error code on failure
- */
-int switchtec_security_config_get(struct switchtec_dev *dev,
-				  struct switchtec_security_cfg_state *state)
-{
-	return secure_config_get(dev, state, NULL, NULL);
-}
-
-/**
- * @brief Get secure boot extended configurations
- * @param[in]  dev	Switchtec device handle
- * @param[out] ext	Current extended secure boot settings
- * @return 0 on success, error code on failure
- */
-int switchtec_security_config_get_ext(struct switchtec_dev *dev,
-		struct switchtec_security_cfg_state_ext *ext)
-{
-	return secure_config_get(dev, &ext->state, &ext->otp, &ext->otp_valid);
 }
 
 /**

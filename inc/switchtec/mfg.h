@@ -54,6 +54,27 @@ enum switchtec_secure_state {
 	SWITCHTEC_SECURE_STATE_UNKNOWN = 0xff,
 };
 
+/**
+ * @brief Flag which indicates if an OTP region is programmable or not
+ */
+enum switchtec_otp_program_status {
+	SWITCHTEC_OTP_PROGRAMMABLE = 0,
+	SWITCHTEC_OTP_UNPROGRAMMABLE = 1,
+};
+
+struct switchtec_security_cfg_otp_region {
+	bool basic_valid;
+	bool mixed_ver_valid;
+	bool main_fw_ver_valid;
+	bool sec_unlock_ver_valid;
+	bool kmsk_valid[4];
+	enum switchtec_otp_program_status basic;
+	enum switchtec_otp_program_status mixed_ver;
+	enum switchtec_otp_program_status main_fw_ver;
+	enum switchtec_otp_program_status sec_unlock_ver;
+	enum switchtec_otp_program_status kmsk[4];
+};
+
 struct switchtec_security_cfg_state {
 	uint8_t basic_setting_valid;
 	uint8_t public_key_exp_valid;
@@ -79,35 +100,8 @@ struct switchtec_security_cfg_state {
 	uint32_t public_key_ver;
 
 	uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
-};
 
-/**
- * @brief Flag which indicates if an OTP region is programmable or not
- */
-enum switchtec_otp_program_status {
-	SWITCHTEC_OTP_PROGRAMMABLE = 0,
-	SWITCHTEC_OTP_UNPROGRAMMABLE = 1,
-};
-
-struct switchtec_security_cfg_otp_region {
-	bool basic_valid;
-	bool mixed_ver_valid;
-	bool main_fw_ver_valid;
-	bool sec_unlock_ver_valid;
-	bool kmsk_valid[4];
-	enum switchtec_otp_program_status basic;
-	enum switchtec_otp_program_status mixed_ver;
-	enum switchtec_otp_program_status main_fw_ver;
-	enum switchtec_otp_program_status sec_unlock_ver;
-	enum switchtec_otp_program_status kmsk[4];
-};
-
-/**
- * @brief extended security configuration
- */
-struct switchtec_security_cfg_state_ext {
 	bool otp_valid;
-	struct switchtec_security_cfg_state state;
 	struct switchtec_security_cfg_otp_region otp;
 };
 
@@ -166,8 +160,6 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info);
 int switchtec_security_config_get(struct switchtec_dev *dev,
 			          struct switchtec_security_cfg_state *state);
-int switchtec_security_config_get_ext(struct switchtec_dev *dev,
-		struct switchtec_security_cfg_state_ext *ext);
 int switchtec_security_spi_avail_rate_get(struct switchtec_dev *dev,
 		struct switchtec_security_spi_avail_rate *rates);
 int switchtec_security_config_set(struct switchtec_dev *dev,
