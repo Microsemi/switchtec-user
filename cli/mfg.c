@@ -306,7 +306,8 @@ static int info(int argc, char **argv)
 			print_security_config(&state, NULL);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is not available on this chip!\n\n");
-		} else if (phase_id != SWITCHTEC_BOOT_PHASE_FW) {
+		} else if (switchtec_gen(cfg.dev) == SWITCHTEC_GEN4 &&
+			   phase_id != SWITCHTEC_BOOT_PHASE_FW) {
 			print_security_config(&state, NULL);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is only available in the Main Firmware phase!\n\n");
