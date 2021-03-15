@@ -166,6 +166,8 @@ static int switchtec_fw_wait(struct switchtec_dev *dev,
 		    *status != SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT &&
 		    *status != SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
 			return *status;
+		if (bgstatus == MRPC_BG_STAT_OFFSET)
+			return SWITCHTEC_DLSTAT_ERROR_OFFSET;
 		if (bgstatus == MRPC_BG_STAT_ERROR)
 			return SWITCHTEC_DLSTAT_ERROR_PROGRAM;
 
@@ -530,6 +532,8 @@ void switchtec_fw_perror(const char *s, int ret)
 		msg = "Activation failed due to XML version mismatch";  break;
 	case SWITCHTEC_DLSTAT_UNKNOWN_ACT:
 		msg = "Activation failed due to unknown error";  break;
+	case SWITCHTEC_DLSTAT_ERROR_OFFSET:
+		msg = "Data offset error during programming";  break;
 	case SWITCHTEC_DLSTAT_ERROR_PROGRAM:
 		msg = "Failed to program to flash";  break;
 
