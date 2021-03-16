@@ -152,6 +152,7 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 		printf("Disabled by Default But Can Be Enabled\n");
 		break;
 	case SWITCHTEC_DEBUG_MODE_DISABLED:
+	case SWITCHTEC_DEBUG_MODE_DISABLED_EXT:
 		printf("Always Disabled\n");
 		break;
 	default:
@@ -834,7 +835,7 @@ static int config_set(int argc, char **argv)
 	} else if (ret == -ENODEV) {
 		fprintf(stderr, "The security setting file is for a different generation of Switchtec device!\n");
 		return -5;
-	} else {
+	} else if (ret) {
 		switchtec_perror("mfg config-set");
 	}
 
