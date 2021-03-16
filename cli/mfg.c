@@ -834,7 +834,7 @@ static int config_set(int argc, char **argv)
 	} else if (ret == -ENODEV) {
 		fprintf(stderr, "The security setting file is for a different generation of Switchtec device!\n");
 		return -5;
-	} else {
+	} else if (ret) {
 		switchtec_perror("mfg config-set");
 	}
 
