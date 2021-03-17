@@ -161,15 +161,19 @@ static int switchtec_fw_wait(struct switchtec_dev *dev,
 		ret = switchtec_fw_dlstatus(dev, status, &bgstatus);
 		if (ret < 0)
 			return ret;
-		if (*status != SWITCHTEC_DLSTAT_INPROGRESS &&
-		    *status != SWITCHTEC_DLSTAT_COMPLETES &&
-		    *status != SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT &&
-		    *status != SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
-			return *status;
+
 		if (bgstatus == MRPC_BG_STAT_OFFSET)
 			return SWITCHTEC_DLSTAT_ERROR_OFFSET;
-		if (bgstatus == MRPC_BG_STAT_ERROR)
-			return SWITCHTEC_DLSTAT_ERROR_PROGRAM;
+
+		if (bgstatus == MRPC_BG_STAT_ERROR) {
+			if (*status != SWITCHTEC_DLSTAT_INPROGRESS &&
+			    *status != SWITCHTEC_DLSTAT_COMPLETES &&
+			    *status != SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT &&
+			    *status != SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
+				return *status;
+			else
+				return SWITCHTEC_DLSTAT_ERROR_PROGRAM;
+		}
 
 	} while (bgstatus == MRPC_BG_STAT_INPROGRESS);
 
