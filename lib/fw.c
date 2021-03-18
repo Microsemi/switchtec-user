@@ -161,13 +161,19 @@ static int switchtec_fw_wait(struct switchtec_dev *dev,
 		ret = switchtec_fw_dlstatus(dev, status, &bgstatus);
 		if (ret < 0)
 			return ret;
-		if (*status != SWITCHTEC_DLSTAT_INPROGRESS &&
-		    *status != SWITCHTEC_DLSTAT_COMPLETES &&
-		    *status != SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT &&
-		    *status != SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
-			return *status;
-		if (bgstatus == MRPC_BG_STAT_ERROR)
-			return SWITCHTEC_DLSTAT_HARDWARE_ERR;
+
+		if (bgstatus == MRPC_BG_STAT_OFFSET)
+			return SWITCHTEC_DLSTAT_ERROR_OFFSET;
+
+		if (bgstatus == MRPC_BG_STAT_ERROR) {
+			if (*status != SWITCHTEC_DLSTAT_INPROGRESS &&
+			    *status != SWITCHTEC_DLSTAT_COMPLETES &&
+			    *status != SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT &&
+			    *status != SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
+				return *status;
+			else
+				return SWITCHTEC_DLSTAT_ERROR_PROGRAM;
+		}
 
 	} while (bgstatus == MRPC_BG_STAT_INPROGRESS);
 
@@ -510,8 +516,31 @@ void switchtec_fw_perror(const char *s, int ret)
 		msg = "Length incorrect";  break;
 	case SWITCHTEC_DLSTAT_HARDWARE_ERR:
 		msg = "Hardware Error";  break;
+	case SWITCHTEC_DLSTAT_PACKAGE_TOO_SMALL:
+		msg = "Package length less than 32 bytes";  break;
+	case SWITCHTEC_DLSTAT_SIG_MEM_ALLOC:
+		msg = "Signature memory allocation failed";  break;
+	case SWITCHTEC_DLSTAT_SEEPROM:
+		msg = "SEEPROM download failed";  break;
+	case SWITCHTEC_DLSTAT_READONLY_PARTITION:
+		msg = "Programming a read-only partition";  break;
 	case SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT:
 		msg = "Download Timeout";  break;
+	case SWITCHTEC_DLSTAT_SEEPROM_TWI_NOT_ENABLED:
+		msg = "SEEPROM or related TWI bus isn't enabled";  break;
+	case SWITCHTEC_DLSTAT_PROGRAM_RUNNING:
+		msg = "Programming a running partition";  break;
+	case SWITCHTEC_DLSTAT_NOT_ALLOWED:
+		msg = "Programming not allowed over this interface";  break;
+	case SWITCHTEC_DLSTAT_XML_MISMATCH_ACT:
+		msg = "Activation failed due to XML version mismatch";  break;
+	case SWITCHTEC_DLSTAT_UNKNOWN_ACT:
+		msg = "Activation failed due to unknown error";  break;
+	case SWITCHTEC_DLSTAT_ERROR_OFFSET:
+		msg = "Data offset error during programming";  break;
+	case SWITCHTEC_DLSTAT_ERROR_PROGRAM:
+		msg = "Failed to program to flash";  break;
+
 	case SWITCHTEC_DLSTAT_NO_FILE:
 		msg = "No Image Transferred"; break;
 	default:
