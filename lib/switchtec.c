@@ -1029,6 +1029,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 			log_sev = (log_data[i].data[2] >> 28) & 0xF;		
 
 			if ((mod_id > defs->num_alloc) ||
+			    (defs->module_defs[mod_id].mod_name == NULL) ||
 			    (strlen(defs->module_defs[mod_id].mod_name) == 0)) {
 				if (fprintf(log_file, "(Invalid module ID: 0x%x)\n",
 					mod_id) < 0)
