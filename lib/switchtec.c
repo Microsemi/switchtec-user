@@ -1236,11 +1236,23 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  int fd,
 			  FILE *log_def_file)
 {
+	int subcmd;
+
 	switch (type) {
 	case SWITCHTEC_LOG_RAM:
-		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd, log_def_file);
+		if (switchtec_is_gen5(dev))
+			subcmd = MRPC_FWLOGRD_RAM_GEN5;
+		else
+			subcmd = MRPC_FWLOGRD_RAM;
+
+		return log_a_to_file(dev, subcmd, fd, log_def_file);
 	case SWITCHTEC_LOG_FLASH:
-		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd, log_def_file);
+		if (switchtec_is_gen5(dev))
+			subcmd = MRPC_FWLOGRD_FLASH_GEN5;
+		else
+			subcmd = MRPC_FWLOGRD_FLASH;
+
+		return log_a_to_file(dev, subcmd, fd, log_def_file);
 	case SWITCHTEC_LOG_MEMLOG:
 		return log_b_to_file(dev, MRPC_FWLOGRD_MEMLOG, fd);
 	case SWITCHTEC_LOG_REGS:
