@@ -134,6 +134,15 @@ static const struct switchtec_device_id switchtec_device_id_tbl[] = {
 	{0x4268, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 68XG4
 	{0x4252, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 52XG4
 	{0x4236, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 36XG4
+	{0x4352, SWITCHTEC_GEN4, SWITCHTEC_PFXA},  //PFXA 52XG4
+	{0x4336, SWITCHTEC_GEN4, SWITCHTEC_PFXA},  //PFXA 36XG4
+	{0x4328, SWITCHTEC_GEN4, SWITCHTEC_PFXA},  //PFXA 28XG4
+	{0x4452, SWITCHTEC_GEN4, SWITCHTEC_PSXA},  //PSXA 52XG4
+	{0x4436, SWITCHTEC_GEN4, SWITCHTEC_PSXA},  //PSXA 36XG4
+	{0x4428, SWITCHTEC_GEN4, SWITCHTEC_PSXA},  //PSXA 28XG4
+	{0x4552, SWITCHTEC_GEN4, SWITCHTEC_PAXA},  //PAXA 52XG4
+	{0x4536, SWITCHTEC_GEN4, SWITCHTEC_PAXA},  //PAXA 36XG4
+	{0x4528, SWITCHTEC_GEN4, SWITCHTEC_PAXA},  //PAXA 28XG4
 	{0x4228, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 28XG4
 	{0},
 };
@@ -173,7 +182,7 @@ static int set_local_pax_id(struct switchtec_dev *dev)
 
 	dev->local_pax_id = -1;
 
-	if (!switchtec_is_pax(dev))
+	if (!switchtec_is_pax_all(dev))
 		return 0;
 
 	ret = switchtec_cmd(dev, MRPC_GET_PAX_ID, NULL, 0,
@@ -352,7 +361,7 @@ _PURE int switchtec_partition(struct switchtec_dev *dev)
 
 int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id)
 {
-	if (!(switchtec_is_gen4(dev) && switchtec_is_pax(dev)) &&
+	if (!(switchtec_is_gen4(dev) && switchtec_is_pax_all(dev)) &&
 	    (pax_id != SWITCHTEC_PAX_ID_LOCAL))
 		return -1;
 

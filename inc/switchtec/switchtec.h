@@ -115,6 +115,9 @@ enum switchtec_variant {
 	SWITCHTEC_PFXI,
 	SWITCHTEC_PSX,
 	SWITCHTEC_PAX,
+	SWITCHTEC_PAXA,
+	SWITCHTEC_PFXA,
+	SWITCHTEC_PSXA,
 	SWITCHTEC_VAR_UNKNOWN,
 };
 
@@ -415,13 +418,22 @@ static inline int switchtec_is_pfxi(struct switchtec_dev *dev)
 }
 
 /**
- * @brief Return whether a Switchtec device is PFX(L/I).
+ * @brief Return whether a Switchtec device is PFX-A.
+ */
+static inline int switchtec_is_pfxa(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PFXA;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PFX(L/I/A).
  */
 static inline int switchtec_is_pfx_all(struct switchtec_dev *dev)
 {
 	return switchtec_is_pfx(dev) ||
 	       switchtec_is_pfxl(dev) ||
-	       switchtec_is_pfxi(dev);
+	       switchtec_is_pfxi(dev) ||
+	       switchtec_is_pfxa(dev);
 }
 
 /**
@@ -433,11 +445,28 @@ static inline int switchtec_is_psx(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return whether a Switchtec device is PSX-A.
+ */
+static inline int switchtec_is_psxa(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PSXA;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PSX(A).
+ */
+static inline int switchtec_is_psx_all(struct switchtec_dev *dev)
+{
+	return switchtec_is_psx(dev) ||
+	       switchtec_is_psxa(dev);
+}
+
+/**
  * @brief Return whether a Switchtec device is PFX or PSX.
  */
 static inline int switchtec_is_psx_pfx_all(struct switchtec_dev *dev)
 {
-	return switchtec_is_psx(dev) || switchtec_is_pfx_all(dev);
+	return switchtec_is_psx_all(dev) || switchtec_is_pfx_all(dev);
 }
 
 /**
@@ -446,6 +475,22 @@ static inline int switchtec_is_psx_pfx_all(struct switchtec_dev *dev)
 static inline int switchtec_is_pax(struct switchtec_dev *dev)
 {
 	return switchtec_variant(dev) == SWITCHTEC_PAX;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PAX-A.
+ */
+static inline int switchtec_is_paxa(struct switchtec_dev *dev)
+{
+	return switchtec_variant(dev) == SWITCHTEC_PAXA;
+}
+
+/**
+ * @brief Return whether a Switchtec device is PAX(A).
+ */
+static inline int switchtec_is_pax_all(struct switchtec_dev *dev)
+{
+	return switchtec_is_pax(dev) || switchtec_is_paxa(dev);
 }
 
 /**
@@ -485,7 +530,10 @@ static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
 	      switchtec_is_pfxl(dev) ? "PFX-L" :
 	      switchtec_is_pfxi(dev) ? "PFX-I" :
 	      switchtec_is_psx(dev) ? "PSX" :
-	      switchtec_is_pax(dev) ? "PAX" : "Unknown";
+	      switchtec_is_pax(dev) ? "PAX" :
+	      switchtec_is_pfxa(dev) ? "PFX-A" :
+	      switchtec_is_psxa(dev) ? "PSX-A" :
+	      switchtec_is_paxa(dev) ? "PAX-A" : "Unknown";
 
 	return str;
 }
@@ -661,17 +709,29 @@ int switchtec_event_wait_for(struct switchtec_dev *dev,
  * @see switchtec_fw_dlstatus()
  */
 enum switchtec_fw_dlstatus {
-	SWITCHTEC_DLSTAT_READY = 0,
-	SWITCHTEC_DLSTAT_INPROGRESS = 1,
-	SWITCHTEC_DLSTAT_HEADER_INCORRECT = 2,
-	SWITCHTEC_DLSTAT_OFFSET_INCORRECT = 3,
-	SWITCHTEC_DLSTAT_CRC_INCORRECT = 4,
-	SWITCHTEC_DLSTAT_LENGTH_INCORRECT = 5,
-	SWITCHTEC_DLSTAT_HARDWARE_ERR = 6,
-	SWITCHTEC_DLSTAT_COMPLETES = 7,
-	SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT = 8,
-	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 9,
-	SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT = 14,
+	SWITCHTEC_DLSTAT_READY = 0x0,
+	SWITCHTEC_DLSTAT_INPROGRESS = 0x1,
+	SWITCHTEC_DLSTAT_HEADER_INCORRECT = 0x2,
+	SWITCHTEC_DLSTAT_OFFSET_INCORRECT = 0x3,
+	SWITCHTEC_DLSTAT_CRC_INCORRECT = 0x4,
+	SWITCHTEC_DLSTAT_LENGTH_INCORRECT = 0x5,
+	SWITCHTEC_DLSTAT_HARDWARE_ERR = 0x6,
+	SWITCHTEC_DLSTAT_COMPLETES = 0x7,
+	SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT = 0x8,
+	SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT = 0x9,
+	SWITCHTEC_DLSTAT_PACKAGE_TOO_SMALL = 0xa,
+	SWITCHTEC_DLSTAT_SIG_MEM_ALLOC = 0xb,
+	SWITCHTEC_DLSTAT_SEEPROM = 0xc,
+	SWITCHTEC_DLSTAT_READONLY_PARTITION = 0xd,
+	SWITCHTEC_DLSTAT_DOWNLOAD_TIMEOUT = 0xe,
+	SWITCHTEC_DLSTAT_SEEPROM_TWI_NOT_ENABLED = 0xf,
+	SWITCHTEC_DLSTAT_PROGRAM_RUNNING = 0x10,
+	SWITCHTEC_DLSTAT_NOT_ALLOWED = 0x11,
+	SWITCHTEC_DLSTAT_XML_MISMATCH_ACT = 0x12,
+	SWITCHTEC_DLSTAT_UNKNOWN_ACT = 0x13,
+
+	SWITCHTEC_DLSTAT_ERROR_PROGRAM = 0x1000,
+	SWITCHTEC_DLSTAT_ERROR_OFFSET = 0x1001,
 
 	SWITCHTEC_DLSTAT_NO_FILE = 0x7d009,
 };
