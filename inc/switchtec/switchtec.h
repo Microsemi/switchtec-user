@@ -491,6 +491,20 @@ static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return the revision string
+ */
+static inline const char *switchtec_rev_str(enum switchtec_rev rev)
+{
+	const char *str;
+
+	str =  (rev == SWITCHTEC_REVA) ? "REVA" :
+	       (rev == SWITCHTEC_REVB) ? "REVB" :
+	       (rev == SWITCHTEC_REVC) ? "REVC" : "Unknown";
+
+	return str;
+}
+
+/**
  * @brief Return the generation string of a Switchtec fw image.
  */
 static inline const char *
