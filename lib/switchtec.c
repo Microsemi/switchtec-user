@@ -1020,6 +1020,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 			log_sev = (log_data[i].data[2] >> 28) & 0xF;		
 
 			if ((mod_id > defs->num_alloc) ||
+			    (defs->module_defs[mod_id].mod_name == NULL) ||
 			    (strlen(defs->module_defs[mod_id].mod_name) == 0)) {
 				if (fprintf(log_file, "(Invalid module ID: 0x%x)\n",
 					mod_id) < 0)
@@ -1235,11 +1236,23 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  int fd,
 			  FILE *log_def_file)
 {
+	int subcmd;
+
 	switch (type) {
 	case SWITCHTEC_LOG_RAM:
-		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd, log_def_file);
+		if (switchtec_is_gen5(dev))
+			subcmd = MRPC_FWLOGRD_RAM_GEN5;
+		else
+			subcmd = MRPC_FWLOGRD_RAM;
+
+		return log_a_to_file(dev, subcmd, fd, log_def_file);
 	case SWITCHTEC_LOG_FLASH:
-		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd, log_def_file);
+		if (switchtec_is_gen5(dev))
+			subcmd = MRPC_FWLOGRD_FLASH_GEN5;
+		else
+			subcmd = MRPC_FWLOGRD_FLASH;
+
+		return log_a_to_file(dev, subcmd, fd, log_def_file);
 	case SWITCHTEC_LOG_MEMLOG:
 		return log_b_to_file(dev, MRPC_FWLOGRD_MEMLOG, fd);
 	case SWITCHTEC_LOG_REGS:
