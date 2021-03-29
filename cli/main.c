@@ -177,6 +177,7 @@ static int print_dev_info(struct switchtec_dev *dev)
 	int ret;
 	int device_id;
 	char version[64];
+	enum switchtec_rev hw_rev;
 
 	device_id = switchtec_device_id(dev);
 
@@ -186,8 +187,15 @@ static int print_dev_info(struct switchtec_dev *dev)
 		return ret;
 	}
 
+	ret = switchtec_get_device_info(dev, NULL, NULL, &hw_rev);
+	if (ret) {
+		switchtec_perror("dev info");
+		return ret;
+	}
+
 	printf("%s:\n", switchtec_name(dev));
 	printf("    Generation:  %s\n", switchtec_gen_str(dev));
+	printf("    HW Revision: %s\n", switchtec_rev_str(hw_rev));
 	printf("    Variant:     %s\n", switchtec_variant_str(dev));
 	printf("    Device ID:   0x%04x\n", device_id);
 	printf("    FW Version:  %s\n", version);
