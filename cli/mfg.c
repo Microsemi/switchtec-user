@@ -83,7 +83,6 @@ static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 static int ping(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
 	static struct {
 		struct switchtec_dev *dev;
 	} cfg = {};
@@ -94,14 +93,13 @@ static int ping(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_PING, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
+	ret = switchtec_get_device_info(cfg.dev, NULL, NULL, NULL);
 	if (ret) {
 		switchtec_perror("mfg ping");
 		return ret;
 	}
 
 	printf("Mfg Ping: \t\tSUCCESS\n");
-	printf("Current Boot Phase: \t%s\n", phase_id_to_string(phase_id));
 
 	return 0;
 }
