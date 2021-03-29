@@ -1381,7 +1381,7 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 			*rev = (dev_info >> 8) & 0x0f;
 		if (gen)
 			*gen = map_to_gen((dev_info >> 12) & 0x0f);
-	} else if (ERRNO_MRPC(errno) == ERR_MPRC_UNSUPPORTED) {
+	} else if (ERRNO_MRPC(errno) == ERR_CMD_INVALID) {
 		if (phase)
 			*phase = SWITCHTEC_BOOT_PHASE_FW;
 		if (gen)
