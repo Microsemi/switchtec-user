@@ -97,7 +97,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
  * build is non-trivial. After evaluating the development effort
  * and the resources available, we have decided to remove Windows
  * build support from release roadmap.
- * 
+ *
  */
 int mfg_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt)
