@@ -338,6 +338,70 @@ static char *pci_acs_to_string(char *buf, size_t buflen, int acs_ctrl,
 	return buf;
 }
 
+static void status_print_normal(struct switchtec_dev *dev, int ports,
+				struct switchtec_status *status,
+				struct switchtec_bwcntr_res *bw_data,
+				bool verbose)
+{
+	struct switchtec_status *s;
+	const char *bw_suf;
+	double bw_val;
+	char buf[100];
+	int p;
+
+	for (p = 0; p < ports; p++) {
+		s = &status[p];
+		print_port_title(dev, &s->port);
+
+		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
+			continue;
+
+		printf("\tPhys Port ID:    \t%d (Stack %d, Port %d)\n",
+		       s->port.phys_id, s->port.stack, s->port.stk_id);
+		if (s->pci_bdf)
+			printf("\tBus-Dev-Func:    \t%s\n", s->pci_bdf);
+		if (verbose && s->pci_bdf_path)
+			printf("\tBus-Dev-Func Path:\t%s\n", s->pci_bdf_path);
+
+		printf("\tStatus:          \t%s\n",
+		       s->link_up ? "UP" : "DOWN");
+		printf("\tLTSSM:           \t%s\n", s->ltssm_str);
+		printf("\tMax-Width:       \tx%d\n", s->cfg_lnk_width);
+
+		if (!s->link_up) continue;
+
+		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
+		printf("\tLane Reversal:   \t%s\n", s->lane_reversal_str);
+		printf("\tFirst Act Lane:  \t%d\n", s->first_act_lane);
+		printf("\tLanes:           \t%s\n", s->lanes);
+		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
+		       s->link_rate, switchtec_gen_transfers[s->link_rate],
+		       switchtec_gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
+
+		bw_val = switchtec_bwcntr_tot(&bw_data[p].egress);
+		bw_suf = suffix_si_get(&bw_val);
+		printf("\tOut Bytes:       \t%-.3g %sB\n", bw_val, bw_suf);
+
+		bw_val = switchtec_bwcntr_tot(&bw_data[p].ingress);
+		bw_suf = suffix_si_get(&bw_val);
+		printf("\tIn Bytes:        \t%-.3g %sB\n", bw_val, bw_suf);
+
+		if (s->acs_ctrl != -1) {
+			pci_acs_to_string(buf, sizeof(buf), s->acs_ctrl,
+					  verbose);
+			printf("\tACS:             \t%s\n", buf);
+		}
+
+		if (!s->vendor_id || !s->device_id || !s->pci_dev)
+			continue;
+
+		printf("\tDevice:          \t%04x:%04x (%s)\n",
+		       s->vendor_id, s->device_id, s->pci_dev);
+		if (s->class_devices)
+			printf("\t                 \t%s\n", s->class_devices);
+	}
+}
+
 #define CMD_DESC_STATUS "display switch port status information"
 
 static int status(int argc, char **argv)
@@ -348,9 +412,6 @@ static int status(int argc, char **argv)
 	int port_ids[SWITCHTEC_MAX_PORTS];
 	struct switchtec_bwcntr_res bw_data[SWITCHTEC_MAX_PORTS];
 	int p;
-	double bw_val;
-	const char *bw_suf;
-	char buf[100];
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -392,57 +453,7 @@ static int status(int argc, char **argv)
 	if (cfg.reset_bytes)
 		memset(bw_data, 0, sizeof(bw_data));
 
-	for (p = 0; p < ports; p++) {
-		struct switchtec_status *s = &status[p];
-		print_port_title(cfg.dev, &s->port);
-
-		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
-			continue;
-
-		printf("\tPhys Port ID:    \t%d (Stack %d, Port %d)\n",
-		       s->port.phys_id, s->port.stack, s->port.stk_id);
-		if (s->pci_bdf)
-			printf("\tBus-Dev-Func:    \t%s\n", s->pci_bdf);
-		if (cfg.verbose && s->pci_bdf_path)
-			printf("\tBus-Dev-Func Path:\t%s\n", s->pci_bdf_path);
-
-		printf("\tStatus:          \t%s\n",
-		       s->link_up ? "UP" : "DOWN");
-		printf("\tLTSSM:           \t%s\n", s->ltssm_str);
-		printf("\tMax-Width:       \tx%d\n", s->cfg_lnk_width);
-
-		if (!s->link_up) continue;
-
-		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
-		printf("\tLane Reversal:   \t%s\n", s->lane_reversal_str);
-		printf("\tFirst Act Lane:  \t%d\n", s->first_act_lane);
-		printf("\tLanes:           \t%s\n", s->lanes);
-		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
-		       s->link_rate, switchtec_gen_transfers[s->link_rate],
-		       switchtec_gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
-
-		bw_val = switchtec_bwcntr_tot(&bw_data[p].egress);
-		bw_suf = suffix_si_get(&bw_val);
-		printf("\tOut Bytes:       \t%-.3g %sB\n", bw_val, bw_suf);
-
-		bw_val = switchtec_bwcntr_tot(&bw_data[p].ingress);
-		bw_suf = suffix_si_get(&bw_val);
-		printf("\tIn Bytes:        \t%-.3g %sB\n", bw_val, bw_suf);
-
-		if (s->acs_ctrl != -1) {
-			pci_acs_to_string(buf, sizeof(buf), s->acs_ctrl,
-					  cfg.verbose);
-			printf("\tACS:             \t%s\n", buf);
-		}
-
-		if (!s->vendor_id || !s->device_id || !s->pci_dev)
-			continue;
-
-		printf("\tDevice:          \t%04x:%04x (%s)\n",
-		       s->vendor_id, s->device_id, s->pci_dev);
-		if (s->class_devices)
-			printf("\t                 \t%s\n", s->class_devices);
-	}
+	status_print_normal(cfg.dev, ports, status, bw_data, cfg.verbose);
 
 	ret = 0;
 
