@@ -44,6 +44,16 @@
 static struct switchtec_dev *global_dev = NULL;
 static int global_pax_id = SWITCHTEC_PAX_ID_LOCAL;
 
+enum output_format {
+	FMT_NORMAL,
+	FMT_TABLE,
+};
+
+static const struct argconfig_choice output_fmt_choices[] = {
+	{"normal", FMT_NORMAL, "Human Readable Output"},
+	{"table",  FMT_TABLE,  "Tabular Output"},
+};
+
 static const struct argconfig_choice bandwidth_types[] = {
 	{"RAW", SWITCHTEC_BW_TYPE_RAW, "get the raw bandwidth"},
 	{"PAYLOAD", SWITCHTEC_BW_TYPE_PAYLOAD, "get the payload bandwidth"},
@@ -402,6 +412,39 @@ static void status_print_normal(struct switchtec_dev *dev, int ports,
 	}
 }
 
+static void status_print_table(int ports, struct switchtec_status *status)
+{
+	struct switchtec_status *s, *map[SWITCHTEC_MAX_PORTS] = {};
+	int p;
+
+	for (p = 0; p < ports; p++) {
+		s = &status[p];
+		map[s->port.phys_id] = s;
+	}
+
+	for (p = 0; p < SWITCHTEC_MAX_PORTS; p++) {
+		if (!map[p])
+			continue;
+		s = map[p];
+
+		printf("[%02d] ", s->port.phys_id);
+		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
+			printf("part:      ");
+		else
+			printf("part:%02d.%02d ", s->port.partition,
+			       s->port.log_id);
+		printf("w:cfg[x%02d]-neg[x%02d] ", s->cfg_lnk_width,
+		       s->neg_lnk_width);
+		printf("stk:%d.%d ", s->port.stack, s->port.stk_id);
+		printf("lanes:%-16s ", s->lanes);
+		printf("rev:%d ", s->lane_reversal);
+		printf(s->port.upstream ? "usp " : "dsp ");
+		printf("link:%d ", s->link_up);
+		printf("rate:G%d ", s->link_rate);
+		printf("LTSSM:%s\n", s->ltssm_str);
+	}
+}
+
 #define CMD_DESC_STATUS "display switch port status information"
 
 static int status(int argc, char **argv)
@@ -417,13 +460,17 @@ static int status(int argc, char **argv)
 		struct switchtec_dev *dev;
 		int reset_bytes;
 		int verbose;
+		int fmt;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
+		 "output format (default: normal)",
+		 .choices=output_fmt_choices},
 		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
 		 "reset byte counters"},
 		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
-		 "print additional information"},
+		 "print additional information (only with 'normal' format)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_STATUS, opts, &cfg, sizeof(cfg));
@@ -453,7 +500,14 @@ static int status(int argc, char **argv)
 	if (cfg.reset_bytes)
 		memset(bw_data, 0, sizeof(bw_data));
 
-	status_print_normal(cfg.dev, ports, status, bw_data, cfg.verbose);
+	switch (cfg.fmt) {
+	case FMT_NORMAL:
+		status_print_normal(cfg.dev, ports, status, bw_data, cfg.verbose);
+		break;
+	case FMT_TABLE:
+		status_print_table(ports, status);
+		break;
+	}
 
 	ret = 0;
 
