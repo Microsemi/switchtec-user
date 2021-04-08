@@ -313,6 +313,7 @@ enum switchtec_event_id {
 /*********** Platform Functions ***********/
 
 struct switchtec_dev *switchtec_open(const char *device);
+struct switchtec_dev *switchtec_open_no_mrpc(const char *device);
 struct switchtec_dev *switchtec_open_by_path(const char *path);
 struct switchtec_dev *switchtec_open_by_index(int index);
 struct switchtec_dev *switchtec_open_by_pci_addr(int domain, int bus,
