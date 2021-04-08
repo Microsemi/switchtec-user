@@ -97,7 +97,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
  * build is non-trivial. After evaluating the development effort
  * and the resources available, we have decided to remove Windows
  * build support from release roadmap.
- * 
+ *
  */
 int mfg_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt)
@@ -328,6 +328,194 @@ static char *pci_acs_to_string(char *buf, size_t buflen, int acs_ctrl,
 		buf[ptr - 1] = 0;
 
 	return buf;
+}
+
+// char * link_rate_conversion(uint8_t link_rate);
+
+static const char* major_state_string[11] =
+{
+        "Detect",
+        "Poll",
+        "Cfg",
+        "L0",
+        "Recov",
+        "Disable",
+        "Loopbk",
+        "HotRst",
+        "TxL0s",
+        "L1",
+        "L2"
+};
+
+static const char* minor_state_string[11][12] =
+{
+    {
+        "INACTIVE",
+        "QUIET",
+        "SPD_CHG0",
+        "SPD_CHG1",
+        "ACTIVE0",
+        "ACTIVE1",
+        "ACTIVE2",
+        "P1_TO_P0",
+        "P0_TO_P1_0",
+        "P0_TO_P1_1",
+        "P0_TO_P1_2"
+    },
+    {
+        "INACTIVE",
+        "ACTIVE_ENTRY",
+        "ACTIVE",
+        "CFG",
+        "COMP",
+        "COMP_ENTRY",
+        "COMP_EIOS",
+        "COMP_EIOS_ACK",
+        "COMP_IDLE"
+    },
+    {
+        "INACTIVE",
+        "US_LW_START",
+        "US_LW_ACCEPT",
+        "US_LN_WAIT",
+        "US_LN_ACCEPT",
+        "DS_LW_START",
+        "DS_LW_ACCEPT",
+        "DS_LN_WAIT",
+        "DS_LN_ACCEPT",
+        "COMPLETE",
+        "IDLE"
+    },
+    {
+        "INACTIVE",
+        "L0",
+        "TX_EL_IDLE ",
+        "TX_IDLE_MIN",
+    },
+    {
+        "INACTIVE",
+        "RCVR_LOCK",
+        "RCVR_CFG",
+        "IDLE",
+        "SPEED0",
+        "SPEED1",
+        "SPEED2",
+        "SPEED3",
+        "EQ_PH0",
+        "EQ_PH1",
+        "EQ_PH2",
+        "EQ_PH3"
+    },
+    {
+        "INACTIVE",
+        "DISABLE0",
+        "DISABLE1",
+        "DISABLE2",
+        "DISABLE3"
+    },
+    {
+        "INACTIVE",
+        "ENTRY",
+        "ENTRY_EXIT",
+        "EIOS",
+        "EIOS_ACK",
+        "IDLE",
+        "ACTIVE",
+        "EXIT0",
+        "EXIT1"
+    },
+    {
+         "INACTIVE",
+         "HOT_RESET",
+         "MASTER_UP",
+         "MASTER_DOWN"
+    },
+    {
+        "INACTIVE",
+        "IDLE",
+        "TO_L0",
+        "FTS0",
+        "FTS1",
+    },
+    {
+        "INACTIVE",
+        "IDLE",
+        "SUBSTATE",
+        "TO_L0",
+    },
+    {
+        "INACTIVE",
+        "IDLE",
+        "TX_WAKE0",
+        "TX_WAKE1",
+        "EXIT",
+        "SPEED",
+    }
+};
+
+static char * link_rate_conversion(uint8_t link_rate) {
+    switch(link_rate) {
+         case 0:
+              return "2.5G";
+         case 1:
+              return "5.0G";
+         case 2:
+              return "8.0G";
+         case 3:
+              return "16.0G";
+         default:
+              return "2.5G";
+    }
+    return "2.5G";
+}
+
+#define CMD_DESC_LTSSM_LOG "Display LTSSM log"
+static int ltssm_log(int argc, char **argv) {
+	int ret;
+	int port;
+	int log_count, i = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int phy_port;
+		int dump;
+		int nowrap;
+	} cfg = {
+		.phy_port = 0xff
+	};
+
+
+	ltssm_log_data ltssm_log_output_data[128];
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
+			"physical port ID"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_LTSSM_LOG, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_is_gen3(cfg.dev)) {
+		fprintf (stderr, "This command is not supported on Switchtec Gen3\n");
+		return 0;
+	}
+
+	port = cfg.phy_port;
+	ret = switchtec_ltssm_log(cfg.dev, port, &log_count, ltssm_log_output_data);
+	printf("LTSSM Log for Physical Port %d (autowrap ON)\n\n",port);
+	printf("Idx\tDeltaTime\tPCIeRate\tMajor_State\tMinor_State\n");
+	for(i = 0; i < log_count ; i++) {
+		if(ltssm_log_output_data[i].major_state < 15) {
+			printf("%3d\t", i);
+			printf("%09x\t", ltssm_log_output_data[i].tstamp);
+			printf("%8s\t", link_rate_conversion(ltssm_log_output_data[i].link_rate));
+			printf("%11s\t", major_state_string[ltssm_log_output_data[i].major_state]);
+			printf(".%-11s ", minor_state_string[ltssm_log_output_data[i].major_state][ltssm_log_output_data[i].minor_state]);
+			printf("\n");
+		}
+	}
+
+	return ret;
 }
 
 #define CMD_DESC_STATUS "display switch port status information"
@@ -2241,6 +2429,7 @@ static const struct cmd commands[] = {
 	CMD(event_wait, CMD_DESC_EVENT_WAIT),
 	CMD(log_dump, CMD_DESC_LOG_DUMP),
 	CMD(log_parse, CMD_DESC_LOG_PARSE),
+	CMD(ltssm_log, CMD_DESC_LTSSM_LOG),
 	CMD(test, CMD_DESC_TEST),
 	CMD(temp, CMD_DESC_TEMP),
 	CMD(port_bind_info, CMD_DESC_PORT_BIND_INFO),

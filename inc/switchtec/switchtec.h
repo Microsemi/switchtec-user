@@ -359,8 +359,22 @@ switchtec_boot_phase(struct switchtec_dev *dev);
 int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_hard_reset(struct switchtec_dev *dev);
+
+/* Data structure for LTSSM log */
+typedef struct {
+     uint32_t  : 3;
+     uint32_t minor_state : 4;
+     uint32_t major_state : 4;
+     uint32_t  : 2;
+     uint32_t link_rate: 2;
+     uint32_t : 17;
+     uint32_t tstamp: 26;
+     uint32_t : 6;
+}__attribute__((packed)) ltssm_log_data;
+
+int switchtec_ltssm_log(struct switchtec_dev *dev, int port, int *log_count, ltssm_log_data *log_data);
 int switchtec_status(struct switchtec_dev *dev,
-		     struct switchtec_status **status);
+			      struct switchtec_status **status);
 void switchtec_status_free(struct switchtec_status *status, int ports);
 int switchtec_get_device_info(struct switchtec_dev *dev,
 			      enum switchtec_boot_phase *phase,

@@ -83,7 +83,8 @@ def echo_cmd(dev):
                            format(sub_cmd_in, sub_cmd_out))
 
 def die_temp(dev):
-    dev.cmd(MRPC_DIETEMP, struct.pack("<L", MRPC_DIETEMP_SET_MEAS))
+    # Comment out this next line for Gen4 switch
+    # dev.cmd(MRPC_DIETEMP, struct.pack("<L", MRPC_DIETEMP_SET_MEAS))
     temp_packed = dev.cmd(MRPC_DIETEMP, struct.pack("<L", MRPC_DIETEMP_GET), 4)
 
     temp, = struct.unpack("<L", temp_packed)
