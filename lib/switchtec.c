@@ -147,10 +147,9 @@ static const struct switchtec_device_id switchtec_device_id_tbl[] = {
 	{0},
 };
 
-static int set_gen_variant(struct switchtec_dev * dev)
+static int find_gen_variant_from_list(struct switchtec_dev *dev)
 {
 	const struct switchtec_device_id *id = switchtec_device_id_tbl;
-	int ret;
 
 	dev->boot_phase = SWITCHTEC_BOOT_PHASE_FW;
 	dev->gen = SWITCHTEC_GEN_UNKNOWN;
@@ -167,6 +166,17 @@ static int set_gen_variant(struct switchtec_dev * dev)
 
 		id++;
 	}
+
+	return -1;
+}
+
+static int set_gen_variant(struct switchtec_dev * dev)
+{
+	int ret;
+
+	ret = find_gen_variant_from_list(dev);
+	if (!ret)
+		return 0;
 
 	ret = switchtec_get_device_info(dev, &dev->boot_phase, &dev->gen, NULL);
 	if (ret)
@@ -194,24 +204,7 @@ static int set_local_pax_id(struct switchtec_dev *dev)
 	return 0;
 }
 
-/**
- * @brief Open a Switchtec device by string
- * @param[in] device A string representing the device to open
- * @return A switchtec_dev structure for use in other library functions
- *	or NULL if an error occurred.
- *
- * The string can be specified as:
- *   * A path to the device (/dev/switchtec0)
- *   * An index (0, 1, etc)
- *   * An index with a 'switchtec' prefix (switchtec0)
- *   * A BDF (bus, device function) string (3:00.1)
- *   * An I2C device with slave number (/dev/i2c-1@0x20)
- *   * An I2C adapter number and slave number (0@0x20)
- *   * An I2C device delimited with a colon (/dev/i2c-1:0x20)
- *     (must start with a / so that it is distinguishable from a BDF)
- *   * A UART device (/dev/ttyUSB0)
- */
-struct switchtec_dev *switchtec_open(const char *device)
+static struct switchtec_dev *open_dev_by_name(const char *device)
 {
 	int idx;
 	int domain = 0;
@@ -269,14 +262,38 @@ struct switchtec_dev *switchtec_open(const char *device)
 		goto found;
 	}
 
-	errno = ENODEV;
-	return NULL;
-
+	ret = NULL;
 found:
-	if (!ret) {
+	if (!ret)
 		errno = ENODEV;
+
+	return ret;
+}
+
+/**
+ * @brief Open a Switchtec device by string
+ * @param[in] device A string representing the device to open
+ * @return A switchtec_dev structure for use in other library functions
+ *	or NULL if an error occurred.
+ *
+ * The string can be specified as:
+ *   * A path to the device (/dev/switchtec0)
+ *   * An index (0, 1, etc)
+ *   * An index with a 'switchtec' prefix (switchtec0)
+ *   * A BDF (bus, device function) string (3:00.1)
+ *   * An I2C device with slave number (/dev/i2c-1@0x20)
+ *   * An I2C adapter number and slave number (0@0x20)
+ *   * An I2C device delimited with a colon (/dev/i2c-1:0x20)
+ *     (must start with a / so that it is distinguishable from a BDF)
+ *   * A UART device (/dev/ttyUSB0)
+ */
+struct switchtec_dev *switchtec_open(const char *device)
+{
+	struct switchtec_dev *ret;
+
+	ret = open_dev_by_name(device);
+	if (!ret)
 		return NULL;
-	}
 
 	snprintf(ret->name, sizeof(ret->name), "%s", device);
 
@@ -285,6 +302,43 @@ found:
 
 	if (set_local_pax_id(ret))
 		return NULL;
+
+	return ret;
+}
+
+/**
+ * @brief Open a Switchtec device by string, without sending MRPC command
+ * @param[in] device A string representing the device to open
+ * @return A switchtec_dev structure for use in other library functions
+ *	or NULL if an error occurred.
+ *
+ * The string can be specified as:
+ *   * A path to the device (/dev/switchtec0)
+ *   * An index (0, 1, etc)
+ *   * An index with a 'switchtec' prefix (switchtec0)
+ *   * A BDF (bus, device function) string (3:00.1)
+ *   * An I2C device with slave number (/dev/i2c-1@0x20)
+ *   * An I2C adapter number and slave number (0@0x20)
+ *   * An I2C device delimited with a colon (/dev/i2c-1:0x20)
+ *     (must start with a / so that it is distinguishable from a BDF)
+ *   * A UART device (/dev/ttyUSB0)
+ */
+struct switchtec_dev *switchtec_open_no_mrpc(const char *device)
+{
+	struct switchtec_dev *ret;
+	int not_found;
+
+	ret = open_dev_by_name(device);
+	if (!ret)
+		return NULL;
+
+	snprintf(ret->name, sizeof(ret->name), "%s", device);
+
+	not_found = find_gen_variant_from_list(ret);
+	if (not_found)
+		return NULL;
+
+	ret->local_pax_id = -1;
 
 	return ret;
 }
