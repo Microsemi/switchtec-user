@@ -324,6 +324,7 @@ struct switchtec_dev *switchtec_open_eth(const char *ip, const int inst);
 
 void switchtec_close(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
+void switchtec_list_free(struct switchtec_device_info *devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen);
 int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,

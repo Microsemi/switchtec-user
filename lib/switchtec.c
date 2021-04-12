@@ -195,6 +195,15 @@ static int set_local_pax_id(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Free a list of device info structures allocated by switchtec_list()
+ * @param[in] devlist switchtec_device_info structure list as returned by switchtec_list()
+ */
+void switchtec_list_free(struct switchtec_device_info *devlist)
+{
+	free(devlist);
+}
+
+/**
  * @brief Open a Switchtec device by string
  * @param[in] device A string representing the device to open
  * @return A switchtec_dev structure for use in other library functions
