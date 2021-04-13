@@ -416,6 +416,7 @@ static int status(int argc, char **argv)
 		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
 		printf("\tLane Reversal:   \t%s\n", s->lane_reversal_str);
 		printf("\tFirst Act Lane:  \t%d\n", s->first_act_lane);
+		printf("\tLanes:           \t%s\n", s->lanes);
 		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
 		       s->link_rate, switchtec_gen_transfers[s->link_rate],
 		       switchtec_gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
