@@ -146,4 +146,3 @@ uint32_t crc32(const uint8_t *msg_ptr, uint32_t byte_cnt,
 	else
 		return (remainder);
 }
-
