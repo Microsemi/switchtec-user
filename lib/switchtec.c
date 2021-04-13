@@ -446,6 +446,33 @@ static const char *lane_reversal_str(int link_up,
 	}
 }
 
+static void generate_lane_str(struct switchtec_status *s)
+{
+	int i, l;
+
+	for (i = 0; i < s->cfg_lnk_width; i++)
+		s->lanes[i] = 'x';
+
+	if (!s->link_up)
+		return;
+
+	l = s->first_act_lane;
+	if (!l && s->lane_reversal)
+		l += s->neg_lnk_width - 1;
+
+	for (i = 0; i < s->neg_lnk_width; i++) {
+		if (l < 0)
+			break;
+
+		if (i < 10)
+			s->lanes[l] = '0' + i;
+		else
+			s->lanes[l] = 'a' + i - 10;
+
+		l += s->lane_reversal ? -1 : 1;
+	}
+}
+
 /**
  * @brief Get the status of all the ports on a switchtec device
  * @param[in]  dev    Switchtec device handle
@@ -523,6 +550,7 @@ int switchtec_status(struct switchtec_dev *dev,
 							   s[p].lane_reversal);
 		s[p].first_act_lane = ports[i].first_act_lane & 0xF;
 		s[p].acs_ctrl = -1;
+		generate_lane_str(&s[p]);
 
 		p++;
 	}

@@ -165,6 +165,7 @@ struct switchtec_status {
 	unsigned char lane_reversal;	//!< Lane reversal
 	const char *lane_reversal_str;	//!< Lane reversal as a string
 	unsigned char first_act_lane;	//!< First active lane
+	char lanes[17];
 
 	char *pci_bdf;			//!< PCI BDF of the port
 	char *pci_bdf_path;		//!< PCI BDF path of the port
