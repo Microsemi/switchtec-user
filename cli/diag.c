@@ -33,7 +33,9 @@
 struct diag_common_cfg {
 	struct switchtec_dev *dev;
 	struct switchtec_status port;
+	enum switchtec_diag_end end;
 	int port_id;
+	int far_end;
 };
 
 #define DEFAULT_DIAG_COMMON_CFG {	\
@@ -43,6 +45,10 @@ struct diag_common_cfg {
 #define PORT_OPTION {							\
 	"port", 'p', "PORT_ID", CFG_POSITIVE, &cfg.port_id,		\
 	required_argument, "physical port ID to dump data for",		\
+}
+#define FAR_END_OPTION {						\
+	"far-end", 'f', "", CFG_NONE, &cfg.far_end, no_argument,	\
+	"get the far-end coefficients instead of the local ones",	\
 }
 
 static int get_port(struct switchtec_dev *dev, int port_id,
@@ -84,6 +90,47 @@ static int diag_parse_common_cfg(int argc, char **argv, const char *desc,
 		return ret;
 
 	cfg->port_id = cfg->port.port.phys_id;
+
+	if (cfg->far_end)
+		cfg->end = SWITCHTEC_DIAG_FAR_END;
+	else
+		cfg->end = SWITCHTEC_DIAG_LOCAL;
+
+	return 0;
+}
+
+#define CMD_DESC_PORT_EQ_TXCOEFF "Dump port equalization coefficients"
+
+static int port_eq_txcoeff(int argc, char **argv)
+{
+	struct diag_common_cfg cfg = DEFAULT_DIAG_COMMON_CFG;
+	struct switchtec_port_eq_coeff coeff;
+	int i, ret;
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, {}
+	};
+
+	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXCOEFF,
+				    &cfg, opts);
+	if (ret)
+		return ret;
+
+	ret = switchtec_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, cfg.end,
+					      &coeff);
+	if (ret) {
+		switchtec_perror("port_eq_coeff");
+		return -1;
+	}
+
+	printf("%s TX Coefficients for physical port %d\n\n",
+	       cfg.far_end ? "Far End" : "Local", cfg.port_id);
+	printf("Lane  Pre-Cursor  Post-Cursor\n");
+
+	for (i = 0; i < coeff.lane_cnt; i++) {
+		printf("%4d  %7d      %8d\n", i, coeff.cursors[i].pre,
+		       coeff.cursors[i].post);
+	}
 
 	return 0;
 }
@@ -127,6 +174,7 @@ static int rcvr_obj(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
+	CMD(port_eq_txcoeff,	CMD_DESC_PORT_EQ_TXCOEFF),
 	CMD(rcvr_obj,		CMD_DESC_RCVR_OBJ),
 	{}
 };
