@@ -979,6 +979,20 @@ gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
                            size_t *map_size);
 void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map);
 
+/********** DIAGNOSTIC FUNCTIONS *********/
+
+struct switchtec_rcvr_obj {
+	int port_id;
+	int lane_id;
+	int ctle;
+	int target_amplitude;
+	int speculative_dfe;
+	int dynamic_dfe[7];
+};
+
+int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
+			    int lane_id, struct switchtec_rcvr_obj *res);
+
 #ifdef __cplusplus
 }
 #endif
