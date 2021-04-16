@@ -47,5 +47,29 @@ struct switchtec_diag_rcvr_obj_dump_out {
 	int8_t dynamic_dfe[7];
 };
 
+enum {
+	DIAG_PORT_EQ_STATUS_OP_PER_PORT = 0,
+	DIAG_PORT_EQ_STATUS_OP_PER_LANE = 1,
+};
+
+struct switchtec_diag_port_eq_status_in {
+	uint8_t sub_cmd;
+	uint8_t op_type;
+	uint8_t port_id;
+	uint8_t lane_id;
+};
+
+struct switchtec_diag_port_eq_status_out {
+	uint8_t sub_cmd;
+	uint8_t op_type;
+	uint8_t port_id;
+	uint8_t lane_id;
+
+	struct {
+		uint8_t pre;
+		uint8_t post;
+	} cursors[16];
+};
+
 #endif
 /**@}*/

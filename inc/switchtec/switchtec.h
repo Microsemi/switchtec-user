@@ -990,8 +990,24 @@ struct switchtec_rcvr_obj {
 	int dynamic_dfe[7];
 };
 
+struct switchtec_port_eq_coeff {
+	int lane_cnt;
+	struct {
+		int pre;
+		int post;
+	} cursors[16];
+};
+
+enum switchtec_diag_end {
+	SWITCHTEC_DIAG_LOCAL,
+	SWITCHTEC_DIAG_FAR_END,
+};
+
 int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
 			    int lane_id, struct switchtec_rcvr_obj *res);
+int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
+				    enum switchtec_diag_end end,
+				    struct switchtec_port_eq_coeff *res);
 
 #ifdef __cplusplus
 }

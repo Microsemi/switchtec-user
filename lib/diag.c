@@ -75,4 +75,52 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
 	return 0;
 }
 
+/**
+ * @brief Get the port equalization TX coefficients
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[in]  end      Get coefficents for the Local or the Far End
+ * @param[out] res      Resulting port equalization coefficients
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
+				    enum switchtec_diag_end end,
+				    struct switchtec_port_eq_coeff *res)
+{
+	struct switchtec_diag_port_eq_status_out out = {};
+	struct switchtec_diag_port_eq_status_in in = {
+		.op_type = DIAG_PORT_EQ_STATUS_OP_PER_PORT,
+		.port_id = port_id,
+	};
+	int ret, i;
+
+	if (!res) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		in.sub_cmd = MRPC_PORT_EQ_LOCAL_TX_COEFF_DUMP;
+	} else if (end == SWITCHTEC_DIAG_FAR_END) {
+		in.sub_cmd = MRPC_PORT_EQ_FAR_END_TX_COEFF_DUMP;
+	} else {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in, sizeof(in),
+			    &out, sizeof(out));
+	if (ret)
+		return -1;
+
+	res->lane_cnt = out.lane_id;
+	for (i = 0; i < res->lane_cnt; i++) {
+		res->cursors[i].pre = out.cursors[i].pre;
+		res->cursors[i].post = out.cursors[i].post;
+	}
+
+	return 0;
+}
+
 /**@}*/
