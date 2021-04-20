@@ -34,8 +34,10 @@ struct diag_common_cfg {
 	struct switchtec_dev *dev;
 	struct switchtec_status port;
 	enum switchtec_diag_end end;
+	enum switchtec_diag_link link;
 	int port_id;
 	int far_end;
+	int prev;
 };
 
 #define DEFAULT_DIAG_COMMON_CFG {	\
@@ -49,6 +51,10 @@ struct diag_common_cfg {
 #define FAR_END_OPTION {						\
 	"far-end", 'f', "", CFG_NONE, &cfg.far_end, no_argument,	\
 	"get the far-end coefficients instead of the local ones",	\
+}
+#define PREV_OPTION {							\
+	"prev", 'P', "", CFG_NONE, &cfg.prev, no_argument,		\
+	"return the data for the previous link",			\
 }
 
 static int get_port(struct switchtec_dev *dev, int port_id,
@@ -95,6 +101,11 @@ static int diag_parse_common_cfg(int argc, char **argv, const char *desc,
 		cfg->end = SWITCHTEC_DIAG_FAR_END;
 	else
 		cfg->end = SWITCHTEC_DIAG_LOCAL;
+
+	if (cfg->prev)
+		cfg->link = SWITCHTEC_DIAG_LINK_PREVIOUS;
+	else
+		cfg->link = SWITCHTEC_DIAG_LINK_CURRENT;
 
 	return 0;
 }
@@ -246,10 +257,47 @@ static int rcvr_obj(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_RCVR_EXTENDED "Dump RX mode and DTCLK"
+
+static int rcvr_extended(int argc, char **argv)
+{
+	struct diag_common_cfg cfg = DEFAULT_DIAG_COMMON_CFG;
+	struct switchtec_rcvr_ext ext;
+	int i, ret;
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION, PORT_OPTION, PREV_OPTION, {}
+	};
+
+	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_RCVR_EXTENDED,
+				    &cfg, opts);
+	if (ret)
+		return ret;
+
+	printf("Mode and DTCLCK for physical port %d %s\n\n",
+	       cfg.port_id, cfg.prev ? "(Previous Link-Up)" : "");
+	printf("Lane      MODE   DTCLK_5  DTCLK_8_6  DTCLK_9\n");
+
+	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
+		ret = switchtec_diag_rcvr_ext(cfg.dev, cfg.port_id, i,
+					      cfg.link, &ext);
+		if (ret) {
+			switchtec_perror("rx_mode");
+			return -1;
+		}
+
+		printf("%4d  %#8x  %7d  %9d  %7d\n", i, ext.ctle2_rx_mode,
+		       ext.dtclk_5, ext.dtclk_8_6, ext.dtclk_9);
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	CMD(port_eq_txcoeff,	CMD_DESC_PORT_EQ_TXCOEFF),
 	CMD(port_eq_txfslf,	CMD_DESC_PORT_EQ_TXFSLF),
 	CMD(port_eq_txtable,	CMD_DESC_PORT_EQ_TXTABLE),
+	CMD(rcvr_extended,	CMD_DESC_RCVR_EXTENDED),
 	CMD(rcvr_obj,		CMD_DESC_RCVR_OBJ),
 	{}
 };
