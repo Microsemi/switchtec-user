@@ -59,6 +59,13 @@ struct switchtec_diag_port_eq_status_in {
 	uint8_t lane_id;
 };
 
+struct switchtec_diag_port_eq_status_in2 {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t lane_id;
+	uint8_t resvd;
+};
+
 struct switchtec_diag_port_eq_status_out {
 	uint8_t sub_cmd;
 	uint8_t op_type;
@@ -69,6 +76,23 @@ struct switchtec_diag_port_eq_status_out {
 		uint8_t pre;
 		uint8_t post;
 	} cursors[16];
+};
+
+struct switchtec_diag_port_eq_table_out {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t lane_id;
+	uint8_t step_cnt;
+	struct {
+		uint8_t pre_cursor;
+		uint8_t post_cursor;
+		uint8_t fom;
+		uint8_t pre_cursor_up;
+		uint8_t post_cursor_up;
+		uint8_t error_status;
+		uint8_t active_status;
+		uint8_t speed;
+	} steps[126];
 };
 
 #endif

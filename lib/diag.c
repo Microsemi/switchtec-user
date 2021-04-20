@@ -123,4 +123,48 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 	return 0;
 }
 
+/**
+ * @brief Get the far end TX equalization table
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[out] res      Resulting port equalization table
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+				    struct switchtec_port_eq_table *res)
+{
+	struct switchtec_diag_port_eq_table_out out = {};
+	struct switchtec_diag_port_eq_status_in2 in = {
+		.sub_cmd = MRPC_PORT_EQ_FAR_END_TX_EQ_TABLE_DUMP,
+		.port_id = port_id,
+	};
+	int ret, i;
+
+	if (!res) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in, sizeof(in),
+			    &out, sizeof(out));
+	if (ret)
+		return -1;
+
+	res->lane_id = out.lane_id;
+	res->step_cnt = out.step_cnt;
+	for (i = 0; i < res->step_cnt; i++) {
+		res->steps[i].pre_cursor     = out.steps[i].pre_cursor;
+		res->steps[i].post_cursor    = out.steps[i].post_cursor;
+		res->steps[i].fom            = out.steps[i].fom;
+		res->steps[i].pre_cursor_up  = out.steps[i].pre_cursor_up;
+		res->steps[i].post_cursor_up = out.steps[i].post_cursor_up;
+		res->steps[i].error_status   = out.steps[i].error_status;
+		res->steps[i].active_status  = out.steps[i].active_status;
+		res->steps[i].speed          = out.steps[i].speed;
+	}
+
+	return 0;
+}
+
 /**@}*/

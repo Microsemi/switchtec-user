@@ -998,6 +998,22 @@ struct switchtec_port_eq_coeff {
 	} cursors[16];
 };
 
+struct switchtec_port_eq_table {
+	int lane_id;
+	int step_cnt;
+
+	struct {
+		int pre_cursor;
+		int post_cursor;
+		int fom;
+		int pre_cursor_up;
+		int post_cursor_up;
+		int error_status;
+		int active_status;
+		int speed;
+	} steps[126];
+};
+
 enum switchtec_diag_end {
 	SWITCHTEC_DIAG_LOCAL,
 	SWITCHTEC_DIAG_FAR_END,
@@ -1008,6 +1024,8 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
 int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 				    enum switchtec_diag_end end,
 				    struct switchtec_port_eq_coeff *res);
+int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+				    struct switchtec_port_eq_table *res);
 
 #ifdef __cplusplus
 }
