@@ -135,6 +135,44 @@ static int port_eq_txcoeff(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_PORT_EQ_TXTABLE "Dump far end port equalization table"
+
+static int port_eq_txtable(int argc, char **argv)
+{
+	struct diag_common_cfg cfg = DEFAULT_DIAG_COMMON_CFG;
+	struct switchtec_port_eq_table table;
+	int i, ret;
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION, PORT_OPTION, {}
+	};
+
+	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXTABLE,
+				    &cfg, opts);
+	if (ret)
+		return ret;
+
+	ret = switchtec_diag_port_eq_tx_table(cfg.dev, cfg.port_id, &table);
+	if (ret) {
+		switchtec_perror("port_eq_table");
+		return -1;
+	}
+
+	printf("Far End TX Equalization Table for physical port %d, lane %d\n\n",
+	       cfg.port_id, table.lane_id);
+	printf("Step  Pre-Cursor  Post-Cursor  FOM  Pre-Up  Post-Up  Error  Active  Speed\n");
+
+	for (i = 0; i < table.step_cnt; i++) {
+		printf("%4d  %10d  %11d  %3d  %6d  %7d  %5d  %6d  %5d\n",
+		       i, table.steps[i].pre_cursor, table.steps[i].post_cursor,
+		       table.steps[i].fom, table.steps[i].pre_cursor_up,
+		       table.steps[i].post_cursor_up, table.steps[i].error_status,
+		       table.steps[i].active_status, table.steps[i].speed);
+	}
+
+	return 0;
+}
+
 #define CMD_DESC_RCVR_OBJ "Dump analog RX coefficients/adaptation objects"
 
 static int rcvr_obj(int argc, char **argv)
@@ -175,6 +213,7 @@ static int rcvr_obj(int argc, char **argv)
 
 static const struct cmd commands[] = {
 	CMD(port_eq_txcoeff,	CMD_DESC_PORT_EQ_TXCOEFF),
+	CMD(port_eq_txtable,	CMD_DESC_PORT_EQ_TXTABLE),
 	CMD(rcvr_obj,		CMD_DESC_RCVR_OBJ),
 	{}
 };
