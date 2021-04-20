@@ -228,7 +228,7 @@ static int rcvr_obj(int argc, char **argv)
 	int i, j, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, PORT_OPTION, {}
+		DEVICE_OPTION, PORT_OPTION, PREV_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_RCVR_OBJ,
@@ -236,12 +236,13 @@ static int rcvr_obj(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	printf("Coefficients for physical port %d\n\n", cfg.port_id);
+	printf("Coefficients for physical port %d %s\n\n", cfg.port_id,
+	       cfg.prev ? "(Previous Link-Up)" : "");
 	printf("Lane  CTLE  Tgt-Amp  Spec-DFE  DFE0 DFE1 DFE2 DFE3 DFE4 DFE5 DFE6\n");
 
 	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
 		ret = switchtec_diag_rcvr_obj(cfg.dev, cfg.port_id, i,
-					SWITCHTEC_DIAG_LINK_CURRENT, &obj);
+					      cfg.link, &obj);
 		if (ret) {
 			switchtec_perror("rcvr_obj");
 			return -1;
