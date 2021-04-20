@@ -135,6 +135,41 @@ static int port_eq_txcoeff(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_PORT_EQ_TXFSLF "Dump FS/LF output data"
+
+static int port_eq_txfslf(int argc, char **argv)
+{
+	struct diag_common_cfg cfg = DEFAULT_DIAG_COMMON_CFG;
+	struct switchtec_port_eq_tx_fslf data;
+	int i, ret;
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, {}
+	};
+
+	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXFSLF,
+				    &cfg, opts);
+	if (ret)
+		return ret;
+
+	printf("%s Equalization FS/LF data for physical port %d\n\n",
+	       cfg.far_end ? "Far End" : "Local", cfg.port_id);
+	printf("Lane    FS    LF\n");
+
+	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
+		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, i,
+						     cfg.end, &data);
+		if (ret) {
+			switchtec_perror("port_eq_fs_ls");
+			return -1;
+		}
+
+		printf("%4d  %4d  %4d\n", i, data.fs, data.lf);
+	}
+
+	return 0;
+}
+
 #define CMD_DESC_PORT_EQ_TXTABLE "Dump far end port equalization table"
 
 static int port_eq_txtable(int argc, char **argv)
@@ -213,6 +248,7 @@ static int rcvr_obj(int argc, char **argv)
 
 static const struct cmd commands[] = {
 	CMD(port_eq_txcoeff,	CMD_DESC_PORT_EQ_TXCOEFF),
+	CMD(port_eq_txfslf,	CMD_DESC_PORT_EQ_TXFSLF),
 	CMD(port_eq_txtable,	CMD_DESC_PORT_EQ_TXTABLE),
 	CMD(rcvr_obj,		CMD_DESC_RCVR_OBJ),
 	{}
