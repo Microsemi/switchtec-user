@@ -177,6 +177,7 @@ static int print_dev_info(struct switchtec_dev *dev)
 	int ret;
 	int device_id;
 	char version[64];
+	enum switchtec_rev hw_rev;
 
 	device_id = switchtec_device_id(dev);
 
@@ -186,8 +187,15 @@ static int print_dev_info(struct switchtec_dev *dev)
 		return ret;
 	}
 
+	ret = switchtec_get_device_info(dev, NULL, NULL, &hw_rev);
+	if (ret) {
+		switchtec_perror("dev info");
+		return ret;
+	}
+
 	printf("%s:\n", switchtec_name(dev));
 	printf("    Generation:  %s\n", switchtec_gen_str(dev));
+	printf("    HW Revision: %s\n", switchtec_rev_str(hw_rev));
 	printf("    Variant:     %s\n", switchtec_variant_str(dev));
 	printf("    Device ID:   0x%04x\n", device_id);
 	printf("    FW Version:  %s\n", version);
@@ -1493,6 +1501,14 @@ static int fw_update(int argc, char **argv)
 		return -1;
 	}
 
+	switchtec_fw_file_info(fileno(cfg.fimg), &info);
+	if (switchtec_gen(cfg.dev) != info.gen) {
+		fprintf(stderr,
+			"\nThe image is for %s devices and cannot be applied to this device!\n",
+			switchtec_fw_image_gen_str(&info));
+		return -1;
+	}
+
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
 		fclose(cfg.fimg);
@@ -1516,7 +1532,6 @@ static int fw_update(int argc, char **argv)
 	}
 
 	if(switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
-		switchtec_fw_file_info(fileno(cfg.fimg), &info);
 		fprintf(stderr, "\n\nWARNING:\n"
 			"Updating this image will IRREVERSIBLY update device %s image\n"
 			"secure version to 0x%08lx!\n\n",

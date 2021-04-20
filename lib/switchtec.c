@@ -144,6 +144,36 @@ static const struct switchtec_device_id switchtec_device_id_tbl[] = {
 	{0x4536, SWITCHTEC_GEN4, SWITCHTEC_PAXA},  //PAXA 36XG4
 	{0x4528, SWITCHTEC_GEN4, SWITCHTEC_PAXA},  //PAXA 28XG4
 	{0x4228, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 28XG4
+	{0x5000, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 100XG5
+	{0x5084, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 84XG5
+	{0x5068, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 68XG5
+	{0x5052, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 52XG5
+	{0x5036, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 36XG5
+	{0x5028, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 28XG5
+	{0x5100, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 100XG5
+	{0x5184, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 84XG5
+	{0x5168, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 68XG5
+	{0x5152, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 52XG5
+	{0x5136, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 36XG5
+	{0x5128, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 28XG5
+	{0x5200, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 100XG5
+	{0x5284, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 84XG5
+	{0x5268, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 68XG5
+	{0x5252, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 52XG5
+	{0x5236, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 36XG5
+	{0x5228, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 28XG5
+	{0x5300, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 100XG5
+	{0x5384, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 84XG5
+	{0x5368, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 68XG5
+	{0x5352, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 52XG5
+	{0x5336, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 36XG5
+	{0x5328, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 28XG5
+	{0x5400, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 100XG5
+	{0x5484, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 84XG5
+	{0x5468, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 68XG5
+	{0x5452, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 52XG5
+	{0x5436, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 36XG5
+	{0x5428, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 28XG5
 	{0},
 };
 
@@ -1008,6 +1038,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 			log_sev = (log_data[i].data[2] >> 28) & 0xF;		
 
 			if ((mod_id > defs->num_alloc) ||
+			    (defs->module_defs[mod_id].mod_name == NULL) ||
 			    (strlen(defs->module_defs[mod_id].mod_name) == 0)) {
 				if (fprintf(log_file, "(Invalid module ID: 0x%x)\n",
 					mod_id) < 0)
@@ -1223,11 +1254,23 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  int fd,
 			  FILE *log_def_file)
 {
+	int subcmd;
+
 	switch (type) {
 	case SWITCHTEC_LOG_RAM:
-		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd, log_def_file);
+		if (switchtec_is_gen5(dev))
+			subcmd = MRPC_FWLOGRD_RAM_GEN5;
+		else
+			subcmd = MRPC_FWLOGRD_RAM;
+
+		return log_a_to_file(dev, subcmd, fd, log_def_file);
 	case SWITCHTEC_LOG_FLASH:
-		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd, log_def_file);
+		if (switchtec_is_gen5(dev))
+			subcmd = MRPC_FWLOGRD_FLASH_GEN5;
+		else
+			subcmd = MRPC_FWLOGRD_FLASH;
+
+		return log_a_to_file(dev, subcmd, fd, log_def_file);
 	case SWITCHTEC_LOG_MEMLOG:
 		return log_b_to_file(dev, MRPC_FWLOGRD_MEMLOG, fd);
 	case SWITCHTEC_LOG_REGS:
@@ -1309,6 +1352,9 @@ static enum switchtec_gen map_to_gen(uint32_t gen)
 	case 0:
 		ret = SWITCHTEC_GEN4;
 		break;
+	case 1:
+		ret = SWITCHTEC_GEN5;
+		break;
 	default:
 		ret = SWITCHTEC_GEN_UNKNOWN;
 		break;
@@ -1353,7 +1399,7 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 			*rev = (dev_info >> 8) & 0x0f;
 		if (gen)
 			*gen = map_to_gen((dev_info >> 12) & 0x0f);
-	} else if (ERRNO_MRPC(errno) == ERR_MPRC_UNSUPPORTED) {
+	} else if (ERRNO_MRPC(errno) == ERR_CMD_INVALID) {
 		if (phase)
 			*phase = SWITCHTEC_BOOT_PHASE_FW;
 		if (gen)
@@ -1380,11 +1426,6 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 	int ret;
 	uint32_t sub_cmd_id;
 	uint32_t temp;
-
-	if (!switchtec_is_gen3(dev) && !switchtec_is_gen4(dev)) {
-		errno = ENOTSUP;
-		return -100.0;
-	}
 
 	if (switchtec_is_gen3(dev)) {
 		sub_cmd_id = MRPC_DIETEMP_SET_MEAS;

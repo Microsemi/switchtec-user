@@ -83,6 +83,7 @@ typedef __gas struct switchtec_gas *gasptr_t;
 enum switchtec_gen {
 	SWITCHTEC_GEN3,
 	SWITCHTEC_GEN4,
+	SWITCHTEC_GEN5,
 	SWITCHTEC_GEN_UNKNOWN,
 };
 
@@ -395,6 +396,14 @@ static inline int switchtec_is_gen4(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Return whether a Switchtec device is a Gen 5 device.
+ */
+static inline int switchtec_is_gen5(struct switchtec_dev *dev)
+{
+	return switchtec_gen(dev) == SWITCHTEC_GEN5;
+}
+
+/**
  * @brief Return whether a Switchtec device is PFX.
  */
 static inline int switchtec_is_pfx(struct switchtec_dev *dev)
@@ -502,7 +511,22 @@ static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
 	const char *str;
 
 	str =  switchtec_is_gen3(dev) ? "GEN3" :
-	       switchtec_is_gen4(dev) ? "GEN4" : "Unknown";
+	       switchtec_is_gen4(dev) ? "GEN4" :
+	       switchtec_is_gen5(dev) ? "GEN5" : "Unknown";
+
+	return str;
+}
+
+/**
+ * @brief Return the revision string
+ */
+static inline const char *switchtec_rev_str(enum switchtec_rev rev)
+{
+	const char *str;
+
+	str =  (rev == SWITCHTEC_REVA) ? "REVA" :
+	       (rev == SWITCHTEC_REVB) ? "REVB" :
+	       (rev == SWITCHTEC_REVC) ? "REVC" : "Unknown";
 
 	return str;
 }
@@ -516,6 +540,7 @@ switchtec_fw_image_gen_str(struct switchtec_fw_image_info *inf)
 	switch (inf->gen) {
 	case SWITCHTEC_GEN3: return "GEN3";
 	case SWITCHTEC_GEN4: return "GEN4";
+	case SWITCHTEC_GEN5: return "GEN5";
 	default:	     return "UNKNOWN";
 	}
 }
@@ -782,6 +807,7 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);
+enum switchtec_gen switchtec_fw_version_to_gen(unsigned int version);
 int switchtec_bind_info(struct switchtec_dev *dev,
 			struct switchtec_bind_status_out *bind_status,
 			int phy_port);
