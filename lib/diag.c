@@ -213,4 +213,52 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 	return 0;
 }
 
+/**
+ * @brief Get the Extended Receiver Object
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[in]  lane_id  Lane ID
+ * @param[in]  link     Current or previous link-up
+ * @param[out] res      Resulting receiver object
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
+			    int lane_id, enum switchtec_diag_link link,
+			    struct switchtec_rcvr_ext *res)
+{
+	struct switchtec_diag_rcvr_ext_out out = {};
+	struct switchtec_diag_ext_recv_obj_dump_in in = {
+		.port_id = port_id,
+		.lane_id = lane_id,
+	};
+	int ret;
+
+	if (!res) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
+		in.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_RCVR_EXT;
+	} else if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
+		in.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_RCVR_EXT_PREV;
+	} else {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_EXT_RCVR_OBJ_DUMP, &in, sizeof(in),
+			    &out, sizeof(out));
+	if (ret)
+		return -1;
+
+	res->ctle2_rx_mode = out.ctle2_rx_mode;
+	res->dtclk_9 = out.dtclk_9;
+	res->dtclk_8_6 = out.dtclk_8_6;
+	res->dtclk_5 = out.dtclk_5;
+
+	return 0;
+}
+
 /**@}*/

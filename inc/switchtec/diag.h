@@ -104,5 +104,21 @@ struct switchtec_diag_port_eq_tx_fslf_out {
 	uint8_t resvd[3];
 };
 
+struct switchtec_diag_ext_recv_obj_dump_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t lane_id;
+	uint8_t resvd;
+};
+
+struct switchtec_diag_rcvr_ext_out {
+	uint8_t port_id;
+	uint8_t lane_id;
+	uint16_t ctle2_rx_mode;
+	uint8_t dtclk_9;
+	uint8_t dtclk_8_6;
+	uint8_t dtclk_5;
+};
+
 #endif
 /**@}*/
