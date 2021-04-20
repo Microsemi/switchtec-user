@@ -95,5 +95,14 @@ struct switchtec_diag_port_eq_table_out {
 	} steps[126];
 };
 
+struct switchtec_diag_port_eq_tx_fslf_out {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t lane_id;
+	uint8_t fs;
+	uint8_t lf;
+	uint8_t resvd[3];
+};
+
 #endif
 /**@}*/

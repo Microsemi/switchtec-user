@@ -1014,6 +1014,11 @@ struct switchtec_port_eq_table {
 	} steps[126];
 };
 
+struct switchtec_port_eq_tx_fslf {
+	int fs;
+	int lf;
+};
+
 enum switchtec_diag_end {
 	SWITCHTEC_DIAG_LOCAL,
 	SWITCHTEC_DIAG_FAR_END,
@@ -1026,6 +1031,9 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 				    struct switchtec_port_eq_coeff *res);
 int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 				    struct switchtec_port_eq_table *res);
+int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
+				 int lane_id, enum switchtec_diag_end end,
+				 struct switchtec_port_eq_tx_fslf *res);
 
 #ifdef __cplusplus
 }

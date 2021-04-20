@@ -167,4 +167,50 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 	return 0;
 }
 
+/**
+ * @brief Get the equalization FS/LF
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[in]  lane_id	Physical port ID
+ * @param[in]  end      Get coefficents for the Local or the Far End
+ * @param[out] res      Resulting FS/LF values
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
+				   int lane_id, enum switchtec_diag_end end,
+				   struct switchtec_port_eq_tx_fslf *res)
+{
+	struct switchtec_diag_port_eq_tx_fslf_out out = {};
+	struct switchtec_diag_port_eq_status_in2 in = {
+		.port_id = port_id,
+		.lane_id = lane_id,
+	};
+	int ret;
+
+	if (!res) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		in.sub_cmd = MRPC_PORT_EQ_LOCAL_TX_FSLF_DUMP;
+	} else if (end == SWITCHTEC_DIAG_FAR_END) {
+		in.sub_cmd = MRPC_PORT_EQ_FAR_END_TX_FSLF_DUMP;
+	} else {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in, sizeof(in),
+			    &out, sizeof(out));
+	if (ret)
+		return -1;
+
+	res->fs = out.fs;
+	res->lf = out.lf;
+
+	return 0;
+}
+
 /**@}*/
