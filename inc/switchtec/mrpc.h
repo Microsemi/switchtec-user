@@ -208,6 +208,7 @@ enum mrpc_sub_cmd {
 
 	MRPC_EXT_RCVR_OBJ_DUMP_RCVR_EXT = 0,
 	MRPC_EXT_RCVR_OBJ_DUMP_RCVR_EXT_PREV = 1,
+	MRPC_EXT_RCVR_OBJ_DUMP_PREV = 2,
 };
 
 #endif

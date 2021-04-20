@@ -40,15 +40,22 @@
  * @param[in]  dev	Switchtec device handle
  * @param[in]  port_id	Physical port ID
  * @param[in]  lane_id  Lane ID
+ * @param[in]  link     Current or previous link-up
  * @param[out] res      Resulting receiver object
  *
  * @return 0 on success, error code on failure
  */
 int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
-		int lane_id, struct switchtec_rcvr_obj *res)
+		int lane_id, enum switchtec_diag_link link,
+		struct switchtec_rcvr_obj *res)
 {
 	struct switchtec_diag_rcvr_obj_dump_out out = {};
 	struct switchtec_diag_rcvr_obj_dump_in in = {
+		.port_id = port_id,
+		.lane_id = lane_id,
+	};
+	struct switchtec_diag_ext_recv_obj_dump_in ext_in = {
+		.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_PREV,
 		.port_id = port_id,
 		.lane_id = lane_id,
 	};
@@ -59,8 +66,17 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
 		return -1;
 	}
 
-	ret = switchtec_cmd(dev, MRPC_RCVR_OBJ_DUMP, &in, sizeof(in),
-			    &out, sizeof(out));
+	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
+		ret = switchtec_cmd(dev, MRPC_RCVR_OBJ_DUMP, &in, sizeof(in),
+				    &out, sizeof(out));
+	} else if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
+		ret = switchtec_cmd(dev, MRPC_EXT_RCVR_OBJ_DUMP, &ext_in,
+				    sizeof(ext_in), &out, sizeof(out));
+	} else {
+		errno = -EINVAL;
+		return -1;
+	}
+
 	if (ret)
 		return -1;
 

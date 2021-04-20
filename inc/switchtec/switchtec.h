@@ -1037,7 +1037,8 @@ enum switchtec_diag_link {
 };
 
 int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
-			    int lane_id, struct switchtec_rcvr_obj *res);
+		int lane_id, enum switchtec_diag_link link,
+		struct switchtec_rcvr_obj *res);
 int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
 			    int lane_id, enum switchtec_diag_link link,
 			    struct switchtec_rcvr_ext *res);

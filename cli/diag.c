@@ -241,7 +241,7 @@ static int rcvr_obj(int argc, char **argv)
 
 	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
 		ret = switchtec_diag_rcvr_obj(cfg.dev, cfg.port_id, i,
-					      &obj);
+					SWITCHTEC_DIAG_LINK_CURRENT, &obj);
 		if (ret) {
 			switchtec_perror("rcvr_obj");
 			return -1;
