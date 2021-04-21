@@ -149,7 +149,7 @@ int pax_handler(const char *optarg, void *value_addr,
 
 static int list(int argc, char **argv)
 {
-	struct switchtec_device_info *devices;
+	struct switchtec_device_info *devices = NULL;
 	int i, n;
 
 	static struct {
@@ -164,7 +164,7 @@ static int list(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_LIST, opts, &cfg, sizeof(cfg));
 
 	n = switchtec_list(&devices);
-	if (n < 0)
+	if (n <= 0)
 		return n;
 
 	for (i = 0; i < n; i++) {
