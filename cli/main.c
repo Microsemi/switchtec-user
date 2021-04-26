@@ -1778,11 +1778,14 @@ static int fw_read(int argc, char **argv)
 		goto close_and_exit;
 	}
 
-	fprintf(stderr, "Version:  %s\n", inf->version);
-	fprintf(stderr, "Type:     %s\n",
-		cfg.data ? "DAT" : cfg.bl2? "BL2" : cfg.key? "KEY" : "IMG");
-	fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
-	fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
+	if (inf->valid) {
+		fprintf(stderr, "Version:  %s\n", inf->version);
+		fprintf(stderr, "Type:     %s\n",
+			cfg.data ? "DAT" : cfg.bl2? "BL2" :
+			cfg.key? "KEY" : "IMG");
+		fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
+		fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
+	}
 
 	if (!inf->valid && !cfg.assume_yes) {
 		fprintf(stderr,
