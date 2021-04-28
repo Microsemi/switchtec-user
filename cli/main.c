@@ -1771,11 +1771,21 @@ static int fw_read(int argc, char **argv)
 	else
 		inf = cfg.inactive ? sum->img.inactive : sum->img.active;
 
-	fprintf(stderr, "Version:  %s\n", inf->version);
-	fprintf(stderr, "Type:     %s\n",
-		cfg.data ? "DAT" : cfg.bl2? "BL2" : cfg.key? "KEY" : "IMG");
-	fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
-	fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
+	if (!inf) {
+		fprintf(stderr,
+			"The specified partition on the flash is empty!\n");
+		ret = -1;
+		goto close_and_exit;
+	}
+
+	if (inf->valid) {
+		fprintf(stderr, "Version:  %s\n", inf->version);
+		fprintf(stderr, "Type:     %s\n",
+			cfg.data ? "DAT" : cfg.bl2? "BL2" :
+			cfg.key? "KEY" : "IMG");
+		fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
+		fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
+	}
 
 	if (!inf->valid && !cfg.assume_yes) {
 		fprintf(stderr,
