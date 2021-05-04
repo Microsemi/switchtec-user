@@ -191,7 +191,7 @@ static int port_eq_txtable(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, PORT_OPTION, {}
+		DEVICE_OPTION, PORT_OPTION, PREV_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXTABLE,
@@ -200,14 +200,14 @@ static int port_eq_txtable(int argc, char **argv)
 		return ret;
 
 	ret = switchtec_diag_port_eq_tx_table(cfg.dev, cfg.port_id,
-				SWITCHTEC_DIAG_LINK_CURRENT, &table);
+					      cfg.link, &table);
 	if (ret) {
 		switchtec_perror("port_eq_table");
 		return -1;
 	}
 
-	printf("Far End TX Equalization Table for physical port %d, lane %d\n\n",
-	       cfg.port_id, table.lane_id);
+	printf("Far End TX Equalization Table for physical port %d, lane %d %s\n\n",
+	       cfg.port_id, table.lane_id, cfg.prev ? "(Previous Link-Up)" : "");
 	printf("Step  Pre-Cursor  Post-Cursor  FOM  Pre-Up  Post-Up  Error  Active  Speed\n");
 
 	for (i = 0; i < table.step_cnt; i++) {
