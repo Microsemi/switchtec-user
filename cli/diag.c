@@ -170,7 +170,7 @@ static int port_eq_txfslf(int argc, char **argv)
 
 	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
 		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, i,
-						     cfg.end, &data);
+				cfg.end, SWITCHTEC_DIAG_LINK_CURRENT, &data);
 		if (ret) {
 			switchtec_perror("port_eq_fs_ls");
 			return -1;
