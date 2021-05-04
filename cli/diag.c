@@ -119,7 +119,7 @@ static int port_eq_txcoeff(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, {}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXCOEFF,
@@ -128,14 +128,15 @@ static int port_eq_txcoeff(int argc, char **argv)
 		return ret;
 
 	ret = switchtec_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, cfg.end,
-				SWITCHTEC_DIAG_LINK_CURRENT, &coeff);
+					      cfg.link, &coeff);
 	if (ret) {
 		switchtec_perror("port_eq_coeff");
 		return -1;
 	}
 
-	printf("%s TX Coefficients for physical port %d\n\n",
-	       cfg.far_end ? "Far End" : "Local", cfg.port_id);
+	printf("%s TX Coefficients for physical port %d %s\n\n",
+	       cfg.far_end ? "Far End" : "Local", cfg.port_id,
+	       cfg.prev ? "(Previous Link-Up)" : "");
 	printf("Lane  Pre-Cursor  Post-Cursor\n");
 
 	for (i = 0; i < coeff.lane_cnt; i++) {
