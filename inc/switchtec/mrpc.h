@@ -115,6 +115,8 @@ enum mrpc_cmd {
 	MRPC_BOOTUP_RESUME = 0x10B,
 	MRPC_SECURITY_CONFIG_GET_GEN5 = 0x10C,
 	MRPC_SECURITY_CONFIG_SET_GEN5 = 0x10D,
+
+	MRPC_MAX_ID = 0x140,
 };
 
 enum mrpc_bg_status {

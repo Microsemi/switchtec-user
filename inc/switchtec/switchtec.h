@@ -1037,6 +1037,12 @@ struct switchtec_rcvr_ext {
 	int dtclk_9;
 };
 
+struct switchtec_mrpc {
+	const char *tag;
+	const char *desc;
+	bool reserved;
+};
+
 enum switchtec_diag_end {
 	SWITCHTEC_DIAG_LOCAL,
 	SWITCHTEC_DIAG_FAR_END,
