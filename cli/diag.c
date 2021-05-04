@@ -156,7 +156,7 @@ static int port_eq_txfslf(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, {}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXFSLF,
@@ -164,13 +164,14 @@ static int port_eq_txfslf(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	printf("%s Equalization FS/LF data for physical port %d\n\n",
-	       cfg.far_end ? "Far End" : "Local", cfg.port_id);
+	printf("%s Equalization FS/LF data for physical port %d %s\n\n",
+	       cfg.far_end ? "Far End" : "Local", cfg.port_id,
+	       cfg.prev ? "(Previous Link-Up)" : "");
 	printf("Lane    FS    LF\n");
 
 	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
 		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, i,
-				cfg.end, SWITCHTEC_DIAG_LINK_CURRENT, &data);
+				cfg.end, cfg.link, &data);
 		if (ret) {
 			switchtec_perror("port_eq_fs_ls");
 			return -1;
