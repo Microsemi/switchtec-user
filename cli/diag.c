@@ -110,6 +110,44 @@ static int diag_parse_common_cfg(int argc, char **argv, const char *desc,
 	return 0;
 }
 
+#define CMD_DESC_LIST_MRPC "List permissible MRPC commands"
+
+static int list_mrpc(int argc, char **argv)
+{
+	struct switchtec_mrpc table[MRPC_MAX_ID];
+	int i, ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int all;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"all", 'a', "", CFG_NONE, &cfg.all, no_argument,
+		 "print all MRPC commands, including ones that are unknown"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_LIST_MRPC, opts, &cfg,
+			sizeof(cfg));
+	ret = switchtec_diag_perm_table(cfg.dev, table);
+	if (ret) {
+		switchtec_perror("perm_table");
+		return -1;
+	}
+
+	for (i = 0; i < MRPC_MAX_ID; i++) {
+		if (!table[i].tag)
+			continue;
+		if (!cfg.all && table[i].reserved)
+			continue;
+
+		printf("  0x%03x  %-25s  %s\n", i, table[i].tag,
+		       table[i].desc);
+	}
+
+	return 0;
+}
+
 #define CMD_DESC_PORT_EQ_TXCOEFF "Dump port equalization coefficients"
 
 static int port_eq_txcoeff(int argc, char **argv)
@@ -298,6 +336,7 @@ static int rcvr_extended(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
+	CMD(list_mrpc,		CMD_DESC_LIST_MRPC),
 	CMD(port_eq_txcoeff,	CMD_DESC_PORT_EQ_TXCOEFF),
 	CMD(port_eq_txfslf,	CMD_DESC_PORT_EQ_TXFSLF),
 	CMD(port_eq_txtable,	CMD_DESC_PORT_EQ_TXTABLE),
