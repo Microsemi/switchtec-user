@@ -111,6 +111,13 @@ struct switchtec_diag_ext_recv_obj_dump_in {
 	uint8_t resvd;
 };
 
+struct switchtec_diag_ext_dump_coeff_prev_in {
+	uint8_t sub_cmd;
+	uint8_t op_type;
+	uint8_t port_id;
+	uint8_t lane_id;
+};
+
 struct switchtec_diag_rcvr_ext_out {
 	uint8_t port_id;
 	uint8_t lane_id;

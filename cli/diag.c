@@ -128,7 +128,7 @@ static int port_eq_txcoeff(int argc, char **argv)
 		return ret;
 
 	ret = switchtec_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, cfg.end,
-					      &coeff);
+				SWITCHTEC_DIAG_LINK_CURRENT, &coeff);
 	if (ret) {
 		switchtec_perror("port_eq_coeff");
 		return -1;
