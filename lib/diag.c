@@ -163,11 +163,16 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
  * @return 0 on success, error code on failure
  */
 int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+				    enum switchtec_diag_link link,
 				    struct switchtec_port_eq_table *res)
 {
 	struct switchtec_diag_port_eq_table_out out = {};
 	struct switchtec_diag_port_eq_status_in2 in = {
 		.sub_cmd = MRPC_PORT_EQ_FAR_END_TX_EQ_TABLE_DUMP,
+		.port_id = port_id,
+	};
+	struct switchtec_diag_port_eq_status_in2 in_prev = {
+		.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_EQ_TX_TABLE_PREV,
 		.port_id = port_id,
 	};
 	int ret, i;
@@ -177,8 +182,17 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 		return -1;
 	}
 
-	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in, sizeof(in),
-			    &out, sizeof(out));
+	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
+		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in, sizeof(in),
+				    &out, sizeof(out));
+	} else if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
+		ret = switchtec_cmd(dev, MRPC_EXT_RCVR_OBJ_DUMP, &in_prev,
+				    sizeof(in_prev), &out, sizeof(out));
+	} else {
+		errno = -EINVAL;
+		return -1;
+	}
+
 	if (ret)
 		return -1;
 

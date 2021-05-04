@@ -199,7 +199,8 @@ static int port_eq_txtable(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	ret = switchtec_diag_port_eq_tx_table(cfg.dev, cfg.port_id, &table);
+	ret = switchtec_diag_port_eq_tx_table(cfg.dev, cfg.port_id,
+				SWITCHTEC_DIAG_LINK_CURRENT, &table);
 	if (ret) {
 		switchtec_perror("port_eq_table");
 		return -1;
