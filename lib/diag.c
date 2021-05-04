@@ -29,6 +29,7 @@
 
 #define SWITCHTEC_LIB_CORE
 
+#include "switchtec_priv.h"
 #include "switchtec/diag.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/utils.h"
@@ -318,6 +319,42 @@ int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
 	res->dtclk_9 = out.dtclk_9;
 	res->dtclk_8_6 = out.dtclk_8_6;
 	res->dtclk_5 = out.dtclk_5;
+
+	return 0;
+}
+
+/**
+ * @brief Get the permission table
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] table    Resulting MRPC permission table
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_perm_table(struct switchtec_dev *dev,
+			      struct switchtec_mrpc table[MRPC_MAX_ID])
+{
+	uint32_t perms[MRPC_MAX_ID / 32];
+	int i, ret;
+
+	ret = switchtec_cmd(dev, MRPC_MRPC_PERM_TABLE_GET, NULL, 0,
+			    perms, sizeof(perms));
+	if (ret)
+		return -1;
+
+	for (i = 0; i < MRPC_MAX_ID; i++) {
+		if (perms[i >> 5] & (1 << (i & 0x1f))) {
+			if (switchtec_mrpc_table[i].tag) {
+				table[i] = switchtec_mrpc_table[i];
+			} else {
+				table[i].tag = "UNKNOWN";
+				table[i].desc = "Unknown MRPC Command";
+				table[i].reserved = true;
+			}
+		} else {
+			table[i].tag = NULL;
+			table[i].desc = NULL;
+		}
+	}
 
 	return 0;
 }
