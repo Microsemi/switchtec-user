@@ -1115,6 +1115,37 @@ ret_print_error:
 	return -1;
 }
 
+static int parse_def_header(FILE *log_def_file, uint32_t *fw_version,
+			    uint32_t *sdk_version)
+{
+	char line[512];
+	int i;
+
+	*fw_version = 0;
+	*sdk_version = 0;
+	while (fgets(line, sizeof(line), log_def_file)) {
+		if (line[0] != '#')
+			continue;
+
+		i = 0;
+		while (line[i] == ' ' || line[i] == '#') i++;
+
+		if (strncasecmp(line + i, "SDK Version:", 12) == 0) {
+			i += 12;
+			while (line[i] == ' ') i++;
+			sscanf(line + i, "%i", (int*)sdk_version);
+		}
+		else if (strncasecmp(line + i, "FW Version:", 11) == 0) {
+			i += 11;
+			while (line[i] == ' ') i++;
+			sscanf(line + i, "%i", (int*)fw_version);
+		}
+	}
+
+	rewind(log_def_file);
+	return 0;
+}
+
 static int append_log_header(int fd, uint32_t sdk_version,
 			     uint32_t fw_version, int binary)
 {
@@ -1161,8 +1192,15 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 		.num_alloc = 0};
 	FILE *log_file;
 	int entry_idx = 0;
+	uint32_t fw_version = 0;
+	uint32_t sdk_version = 0;
+	int version_mismatch = 0;
 
 	if (log_def_file != NULL) {
+		ret = parse_def_header(log_def_file, &fw_version,
+				       &sdk_version);
+		if (ret)
+			return ret;
 		/* read the log definition file into defs */
 		ret = read_app_log_defs(log_def_file, &defs);
 		if (ret < 0)
@@ -1181,6 +1219,10 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 				res.hdr.sdk_version = 0;
 				res.hdr.fw_version = 0;
 			}
+
+			if (res.hdr.sdk_version != sdk_version ||
+			     res.hdr.fw_version != fw_version)
+				version_mismatch = true;
 
 			append_log_header(fd, res.hdr.sdk_version,
 					  res.hdr.fw_version,
@@ -1213,7 +1255,10 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 		cmd.start = res.hdr.next_start;
 	}
 
-	ret = 0;
+	if (log_def_file != NULL && version_mismatch)
+		ret = ENOEXEC;
+	else
+		ret = 0;
 
 ret_free_log_defs:
 	free_log_defs(&defs);

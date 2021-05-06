@@ -1025,6 +1025,10 @@ static int log_dump(int argc, char **argv)
 	else
 		fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
 
+	if (ret == ENOEXEC)
+		fprintf(stderr, "\nWARNING: The log data have different version numbers than those\n"
+				"of the log definition file. The output log file may contain errors.\n");
+
 	if (cfg.out_fd > 0)
 		close(cfg.out_fd);
 
