@@ -207,6 +207,14 @@ enum switchtec_log_parse_type {
 	SWITCHTEC_LOG_PARSE_TYPE_MAILBOX
 };
 
+/**
+ * @brief Log definition data types
+ */
+enum switchtec_log_def_type {
+	SWITCHTEC_LOG_DEF_TYPE_APP,
+	SWITCHTEC_LOG_DEF_TYPE_MAILBOX
+};
+
 enum switchtec_fw_type {
 	SWITCHTEC_FW_TYPE_UNKNOWN = 0,
 	SWITCHTEC_FW_TYPE_BOOT,
@@ -377,6 +385,9 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
 			enum switchtec_log_parse_type log_type);
+int switchtec_log_def_to_file(struct switchtec_dev *dev,
+			      enum switchtec_log_def_type type,
+			      FILE* file);
 float switchtec_die_temp(struct switchtec_dev *dev);
 
 /**

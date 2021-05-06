@@ -1344,6 +1344,64 @@ ret_free_log_defs:
 	return ret;
 }
 
+/**
+ * @brief Dump the Switchtec log definition data to a file
+ * @param[in]  dev          - Switchtec device handle
+ * @param[in]  type         - Type of log definition data to dump
+ * @param[in]  file           - File descriptor to dump the data to
+ * @return 0 on success, error code on failure
+ */
+int switchtec_log_def_to_file(struct switchtec_dev *dev,
+			      enum switchtec_log_def_type type,
+			      FILE* file)
+{
+	int ret;
+	struct log_cmd {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint16_t idx;
+		uint16_t mod_id;
+	} cmd = {};
+
+	struct log_reply {
+		uint16_t end_of_data;
+		uint16_t data_len;
+		uint16_t next_idx;
+		uint16_t next_mod_id;
+		uint8_t data[MRPC_MAX_DATA_LEN - 16];
+	} reply = {};
+
+	switch (type) {
+	case SWITCHTEC_LOG_DEF_TYPE_APP:
+		cmd.subcmd = MRPC_LOG_DEF_APP;
+		break;
+
+	case SWITCHTEC_LOG_DEF_TYPE_MAILBOX:
+		cmd.subcmd = MRPC_LOG_DEF_MAILBOX;
+		break;
+
+	default:
+		errno = EINVAL;
+		return -errno;
+	}
+
+	do {
+		ret = switchtec_cmd(dev, MRPC_LOG_DEF_GET, &cmd, sizeof(cmd),
+				    &reply, sizeof(reply));
+		if (ret)
+			return -1;
+
+		ret = fwrite(reply.data, reply.data_len, 1, file);
+		if (ret < 0)
+			return ret;
+
+		cmd.idx = reply.next_idx;
+		cmd.mod_id = reply.next_mod_id;
+	} while (!reply.end_of_data);
+
+	return 0;
+}
+
 static enum switchtec_gen map_to_gen(uint32_t gen)
 {
 	enum switchtec_gen ret = SWITCHTEC_GEN_UNKNOWN;
