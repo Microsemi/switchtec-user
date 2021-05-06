@@ -1115,6 +1115,37 @@ ret_print_error:
 	return -1;
 }
 
+static int append_log_header(int fd, uint32_t sdk_version,
+			     uint32_t fw_version, int binary)
+{
+	int ret;
+	struct log_header {
+		uint8_t magic[8];
+		uint32_t fw_version;
+		uint32_t sdk_version;
+		uint32_t flags;
+		uint32_t rsvd[3];
+	} header = {
+		.magic = {'S', 'W', 'M', 'C', 'L', 'O', 'G', 'F'},
+		.fw_version = fw_version,
+		.sdk_version = sdk_version
+	};
+	char hdr_str_fmt[] = "#########################\n"
+			     "## FW version %08x\n"
+			     "## SDK version %08x\n"
+			     "#########################\n\n";
+	char hdr_str[512];
+
+	if (binary) {
+		ret = write(fd, &header, sizeof(header));
+	} else {
+		snprintf(hdr_str, 512, hdr_str_fmt, fw_version, sdk_version);
+		ret = write(fd, hdr_str, strlen(hdr_str));
+	}
+
+	return ret;
+}
+
 static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 			 int fd, FILE *log_def_file)
 {
@@ -1145,6 +1176,16 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 				    &res, sizeof(res));
 		if (ret)
 			goto ret_free_log_defs;
+		if (read == 0) {
+			if (dev->gen < SWITCHTEC_GEN5) {
+				res.hdr.sdk_version = 0;
+				res.hdr.fw_version = 0;
+			}
+
+			append_log_header(fd, res.hdr.sdk_version,
+					  res.hdr.fw_version,
+					  log_def_file == NULL? 1 : 0);
+		}
 
 		if (log_def_file == NULL) {
 			/* write the binary log data to a file */
