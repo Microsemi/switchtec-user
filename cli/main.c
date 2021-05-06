@@ -890,9 +890,39 @@ static int event_wait(int argc, char **argv)
 
 #define CMD_DESC_LOG_DUMP "dump the firmware log to a file"
 
+#define LOG_FMT_TXT 0
+#define LOG_FMT_BIN 1
+
+static FILE *get_log_def_file(struct switchtec_dev *dev, unsigned type,
+			      int format)
+{
+	int ret;
+	FILE *file;
+
+	file = tmpfile();
+	if (file == NULL) {
+		fprintf(stderr,
+			"Cannot open temporary file for log definition data!\n");
+		return NULL;
+	}
+
+	ret = switchtec_log_def_to_file(dev, SWITCHTEC_LOG_DEF_TYPE_APP,
+					file);
+	if (ret) {
+		switchtec_perror("log_dump");
+		return NULL;
+	}
+
+	rewind(file);
+
+	return file;
+}
+
 static int log_dump(int argc, char **argv)
 {
 	int ret;
+	enum switchtec_boot_phase boot_phase;
+	FILE *log_def_to_use;
 
 	const struct argconfig_choice types[] = {
 		{"RAM", SWITCHTEC_LOG_RAM, "dump the app log from RAM"},
@@ -911,6 +941,11 @@ static int log_dump(int argc, char **argv)
 		 "dump NVLog header information in the last fatal error handling dump"},
 		{}
 	};
+	const struct argconfig_choice format[] = {
+		{"BIN", LOG_FMT_BIN, "output binary log data"},
+		{"TXT", LOG_FMT_TXT, "output text log data (default)"},
+		{}
+	};
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -919,10 +954,12 @@ static int log_dump(int argc, char **argv)
 		unsigned type;
 		FILE *log_def_file;
 		const char *log_def_filename;
+		int format;
 	} cfg = {
 		.type = SWITCHTEC_LOG_RAM,
 		.out_fd = 0,
-		.log_def_file = NULL
+		.log_def_file = NULL,
+		.format = LOG_FMT_BIN
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -936,12 +973,53 @@ static int log_dump(int argc, char **argv)
 		{"type", 't', "TYPE", CFG_CHOICES, &cfg.type,
 		  required_argument,
 		 "log type to dump", .choices=types},
+		{"format", 'f', "FORMAT", CFG_CHOICES, &cfg.format,
+		  required_argument,
+		 "output log file format", .choices=format},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_LOG_DUMP, opts, &cfg, sizeof(cfg));
 
+	ret = switchtec_get_device_info(cfg.dev, &boot_phase, NULL, NULL);
+	if (ret) {
+		switchtec_perror("log_dump");
+		return ret;
+	}
+
+	if (boot_phase != SWITCHTEC_BOOT_PHASE_FW &&
+	    (cfg.type == SWITCHTEC_LOG_RAM ||
+	     cfg.type == SWITCHTEC_LOG_FLASH) &&
+	    cfg.format == LOG_FMT_TXT &&
+	    cfg.log_def_file == NULL) {
+		fprintf(stderr, "Cannot generate text format log file in BL1/2 boot phase without\n"
+				"a log defintion file. Please provide log definiton file with '-d',\n"
+				"or specify binary log format with '-f BIN' instead\n");
+		return -1;
+	}
+
+	if (cfg.format == LOG_FMT_TXT &&
+	    (cfg.type != SWITCHTEC_LOG_RAM &&
+	     cfg.type != SWITCHTEC_LOG_FLASH)) {
+		fprintf(stderr,
+			"INFO: Only BIN format is supported for the given log type,\n"
+			"dumping logs in binary format instead.\n");
+
+		cfg.format = LOG_FMT_BIN;
+	}
+
+	if (cfg.format == LOG_FMT_BIN) {
+		log_def_to_use = NULL;
+	} else if (cfg.log_def_file) {
+		log_def_to_use = cfg.log_def_file;
+	} else {
+		log_def_to_use = get_log_def_file(cfg.dev, cfg.type,
+						  cfg.format);
+		if (!log_def_to_use)
+			return ret;
+	}
+
 	ret = switchtec_log_to_file(cfg.dev, cfg.type, cfg.out_fd,
-				    cfg.log_def_file);
+				    log_def_to_use);
 	if (ret < 0)
 		switchtec_perror("log_dump");
 	else
@@ -950,8 +1028,8 @@ static int log_dump(int argc, char **argv)
 	if (cfg.out_fd > 0)
 		close(cfg.out_fd);
 
-	if (cfg.log_def_file != NULL)
-		fclose(cfg.log_def_file);
+	if (log_def_to_use)
+		fclose(log_def_to_use);
 
 	return ret;
 }
