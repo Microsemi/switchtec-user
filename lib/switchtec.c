@@ -1115,6 +1115,68 @@ ret_print_error:
 	return -1;
 }
 
+static int parse_def_header(FILE *log_def_file, uint32_t *fw_version,
+			    uint32_t *sdk_version)
+{
+	char line[512];
+	int i;
+
+	*fw_version = 0;
+	*sdk_version = 0;
+	while (fgets(line, sizeof(line), log_def_file)) {
+		if (line[0] != '#')
+			continue;
+
+		i = 0;
+		while (line[i] == ' ' || line[i] == '#') i++;
+
+		if (strncasecmp(line + i, "SDK Version:", 12) == 0) {
+			i += 12;
+			while (line[i] == ' ') i++;
+			sscanf(line + i, "%i", (int*)sdk_version);
+		}
+		else if (strncasecmp(line + i, "FW Version:", 11) == 0) {
+			i += 11;
+			while (line[i] == ' ') i++;
+			sscanf(line + i, "%i", (int*)fw_version);
+		}
+	}
+
+	rewind(log_def_file);
+	return 0;
+}
+
+static int append_log_header(int fd, uint32_t sdk_version,
+			     uint32_t fw_version, int binary)
+{
+	int ret;
+	struct log_header {
+		uint8_t magic[8];
+		uint32_t fw_version;
+		uint32_t sdk_version;
+		uint32_t flags;
+		uint32_t rsvd[3];
+	} header = {
+		.magic = {'S', 'W', 'M', 'C', 'L', 'O', 'G', 'F'},
+		.fw_version = fw_version,
+		.sdk_version = sdk_version
+	};
+	char hdr_str_fmt[] = "#########################\n"
+			     "## FW version %08x\n"
+			     "## SDK version %08x\n"
+			     "#########################\n\n";
+	char hdr_str[512];
+
+	if (binary) {
+		ret = write(fd, &header, sizeof(header));
+	} else {
+		snprintf(hdr_str, 512, hdr_str_fmt, fw_version, sdk_version);
+		ret = write(fd, hdr_str, strlen(hdr_str));
+	}
+
+	return ret;
+}
+
 static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 			 int fd, FILE *log_def_file)
 {
@@ -1130,8 +1192,15 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 		.num_alloc = 0};
 	FILE *log_file;
 	int entry_idx = 0;
+	uint32_t fw_version = 0;
+	uint32_t sdk_version = 0;
+	int version_mismatch = 0;
 
 	if (log_def_file != NULL) {
+		ret = parse_def_header(log_def_file, &fw_version,
+				       &sdk_version);
+		if (ret)
+			return ret;
 		/* read the log definition file into defs */
 		ret = read_app_log_defs(log_def_file, &defs);
 		if (ret < 0)
@@ -1145,6 +1214,20 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 				    &res, sizeof(res));
 		if (ret)
 			goto ret_free_log_defs;
+		if (read == 0) {
+			if (dev->gen < SWITCHTEC_GEN5) {
+				res.hdr.sdk_version = 0;
+				res.hdr.fw_version = 0;
+			}
+
+			if (res.hdr.sdk_version != sdk_version ||
+			     res.hdr.fw_version != fw_version)
+				version_mismatch = true;
+
+			append_log_header(fd, res.hdr.sdk_version,
+					  res.hdr.fw_version,
+					  log_def_file == NULL? 1 : 0);
+		}
 
 		if (log_def_file == NULL) {
 			/* write the binary log data to a file */
@@ -1172,7 +1255,10 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 		cmd.start = res.hdr.next_start;
 	}
 
-	ret = 0;
+	if (log_def_file != NULL && version_mismatch)
+		ret = ENOEXEC;
+	else
+		ret = 0;
 
 ret_free_log_defs:
 	free_log_defs(&defs);
@@ -1342,6 +1428,64 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 ret_free_log_defs:
 	free_log_defs(&defs);
 	return ret;
+}
+
+/**
+ * @brief Dump the Switchtec log definition data to a file
+ * @param[in]  dev          - Switchtec device handle
+ * @param[in]  type         - Type of log definition data to dump
+ * @param[in]  file           - File descriptor to dump the data to
+ * @return 0 on success, error code on failure
+ */
+int switchtec_log_def_to_file(struct switchtec_dev *dev,
+			      enum switchtec_log_def_type type,
+			      FILE* file)
+{
+	int ret;
+	struct log_cmd {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint16_t idx;
+		uint16_t mod_id;
+	} cmd = {};
+
+	struct log_reply {
+		uint16_t end_of_data;
+		uint16_t data_len;
+		uint16_t next_idx;
+		uint16_t next_mod_id;
+		uint8_t data[MRPC_MAX_DATA_LEN - 16];
+	} reply = {};
+
+	switch (type) {
+	case SWITCHTEC_LOG_DEF_TYPE_APP:
+		cmd.subcmd = MRPC_LOG_DEF_APP;
+		break;
+
+	case SWITCHTEC_LOG_DEF_TYPE_MAILBOX:
+		cmd.subcmd = MRPC_LOG_DEF_MAILBOX;
+		break;
+
+	default:
+		errno = EINVAL;
+		return -errno;
+	}
+
+	do {
+		ret = switchtec_cmd(dev, MRPC_LOG_DEF_GET, &cmd, sizeof(cmd),
+				    &reply, sizeof(reply));
+		if (ret)
+			return -1;
+
+		ret = fwrite(reply.data, reply.data_len, 1, file);
+		if (ret < 0)
+			return ret;
+
+		cmd.idx = reply.next_idx;
+		cmd.mod_id = reply.next_mod_id;
+	} while (!reply.end_of_data);
+
+	return 0;
 }
 
 static enum switchtec_gen map_to_gen(uint32_t gen)

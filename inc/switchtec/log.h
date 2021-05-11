@@ -51,7 +51,9 @@ struct log_a_retr_result {
 		uint32_t count;
 		uint32_t remain;
 		uint32_t next_start;
-		uint32_t reserved2[3];
+		uint32_t sdk_version;
+		uint32_t fw_version;
+		uint32_t reserved2;
 	} hdr;
 
 	struct log_a_data data[(MRPC_MAX_DATA_LEN -
