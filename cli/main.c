@@ -1043,7 +1043,7 @@ static int log_dump(int argc, char **argv)
 static int log_parse(int argc, char **argv)
 {
 	int ret;
-
+	struct switchtec_log_file_ver_info info;
 	const struct argconfig_choice log_types[] = {
 		{"APP", SWITCHTEC_LOG_PARSE_TYPE_APP, "app log"},
 		{"MAILBOX", SWITCHTEC_LOG_PARSE_TYPE_MAILBOX, "mailbox log"},
@@ -1090,12 +1090,23 @@ static int log_parse(int argc, char **argv)
 			&cfg, sizeof(cfg));
 
 	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
-				  cfg.parsed_log_file, cfg.log_type);
+				  cfg.parsed_log_file, cfg.log_type,
+				  &info);
 	if (ret < 0)
 		switchtec_perror("log_parse");
 	else
 		fprintf(stderr, "\nParsed log saved to %s.\n",
 			cfg.parsed_log_filename);
+
+	if (ret == ENOEXEC) {
+		fprintf(stderr, "\nWARNING: The two input files have different version numbers.\n");
+		fprintf(stderr, "\t\tFW Version\tSDK Version\n");
+		fprintf(stderr, "Log file:\t0x%08x\t0x%08x\n",
+			info.log_fw_version, info.log_sdk_version);
+		fprintf(stderr, "Log def file:\t0x%08x\t0x%08x\n\n",
+			info.def_fw_version, info.def_sdk_version);
+		fprintf(stderr,	"The log file is parsed but the output file might contain errors.\n");
+	}
 
 	if (cfg.bin_log_file != NULL)
 		fclose(cfg.bin_log_file);

@@ -1414,11 +1414,13 @@ static int parse_log_header(FILE *bin_log_file, uint32_t *fw_version,
  * @param[in] log_def_file    - Log definition file
  * @param[in] parsed_log_file - Parsed output file
  * @param[in] log_type        - log type
+ * @param[out] info           - log file version info
  * @return 0 on success, error code on failure
  */
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
-			enum switchtec_log_parse_type log_type)
+			enum switchtec_log_parse_type log_type,
+			struct switchtec_log_file_ver_info *info)
 {
 	int ret;
 	struct log_a_data log_data;
@@ -1428,6 +1430,8 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	int entry_idx = 0;
 	uint32_t fw_version_log;
 	uint32_t sdk_version_log;
+	uint32_t fw_version_def;
+	uint32_t sdk_version_def;
 
 	if ((log_type != SWITCHTEC_LOG_PARSE_TYPE_APP) &&
 	    (log_type != SWITCHTEC_LOG_PARSE_TYPE_MAILBOX)) {
@@ -1439,7 +1443,18 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			       &sdk_version_log);
 	if (ret)
 		return ret;
+	ret = parse_def_header(log_def_file, &fw_version_def,
+			       &sdk_version_def);
+	if (ret)
+		return ret;
 
+	if (info) {
+		info->def_fw_version = fw_version_def;
+		info->def_sdk_version = sdk_version_def;
+
+		info->log_fw_version = fw_version_def;
+		info->log_sdk_version = sdk_version_log;
+	}
 	/* read the log definition file into defs */
 	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP)
 		ret = read_app_log_defs(log_def_file, &defs);
@@ -1466,6 +1481,10 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		errno = SWITCHTEC_ERR_BIN_LOG_READ_ERROR;
 		ret = -1;
 	}
+
+	if (fw_version_def != fw_version_log ||
+	    sdk_version_def != sdk_version_log)
+		ret = ENOEXEC;
 
 ret_free_log_defs:
 	free_log_defs(&defs);

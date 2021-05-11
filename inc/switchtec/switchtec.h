@@ -208,6 +208,16 @@ enum switchtec_log_parse_type {
 };
 
 /**
+ * @brief Information about log file and log definition file
+ */
+struct switchtec_log_file_ver_info {
+	unsigned int log_fw_version;
+	unsigned int log_sdk_version;
+	unsigned int def_fw_version;
+	unsigned int def_sdk_version;
+};
+
+/**
  * @brief Log definition data types
  */
 enum switchtec_log_def_type {
@@ -384,7 +394,8 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  FILE *log_def_file);
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
-			enum switchtec_log_parse_type log_type);
+			enum switchtec_log_parse_type log_type,
+			struct switchtec_log_file_ver_info *info);
 int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,
 			      FILE* file);
