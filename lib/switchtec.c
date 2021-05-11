@@ -1375,6 +1375,39 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 	return -errno;
 }
 
+static int parse_log_header(FILE *bin_log_file, uint32_t *fw_version,
+			    uint32_t *sdk_version)
+{
+	struct log_header {
+		uint8_t magic[8];
+		uint32_t fw_version;
+		uint32_t sdk_version;
+		uint32_t flags;
+		uint32_t rsvd[3];
+	} header;
+
+	char sig[8] = {'S', 'W', 'M', 'C', 'L', 'O', 'G', 'F'};
+	int ret;
+
+	ret = fread(&header, sizeof(header), 1, bin_log_file);
+	if (ret <= 0) {
+		errno = EBADF;
+		return -EBADF;
+	}
+
+	if (memcmp(sig, header.magic, 8)) {
+		rewind(bin_log_file);
+		*fw_version = 0;
+		*sdk_version = 0;
+		return 0;
+	}
+
+	*fw_version = header.fw_version;
+	*sdk_version = header.sdk_version;
+
+	return 0;
+}
+
 /**
  * @brief Parse a binary app log or mailbox log to a text file
  * @param[in] bin_log_file    - Binary log input file
@@ -1393,6 +1426,8 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		.module_defs = NULL,
 		.num_alloc = 0};
 	int entry_idx = 0;
+	uint32_t fw_version_log;
+	uint32_t sdk_version_log;
 
 	if ((log_type != SWITCHTEC_LOG_PARSE_TYPE_APP) &&
 	    (log_type != SWITCHTEC_LOG_PARSE_TYPE_MAILBOX)) {
@@ -1400,12 +1435,19 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		return -errno;
 	}
 
+	ret = parse_log_header(bin_log_file, &fw_version_log,
+			       &sdk_version_log);
+	if (ret)
+		return ret;
+
 	/* read the log definition file into defs */
 	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP)
 		ret = read_app_log_defs(log_def_file, &defs);
 	else
 		ret = read_mailbox_log_defs(log_def_file, &defs);
 
+	ret = append_log_header(fileno(parsed_log_file), sdk_version_log,
+				fw_version_log, 0);
 	if (ret < 0)
 		return ret;
 
