@@ -979,6 +979,81 @@ gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
                            size_t *map_size);
 void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map);
 
+/********** DIAGNOSTIC FUNCTIONS *********/
+
+struct switchtec_rcvr_obj {
+	int port_id;
+	int lane_id;
+	int ctle;
+	int target_amplitude;
+	int speculative_dfe;
+	int dynamic_dfe[7];
+};
+
+struct switchtec_port_eq_coeff {
+	int lane_cnt;
+	struct {
+		int pre;
+		int post;
+	} cursors[16];
+};
+
+struct switchtec_port_eq_table {
+	int lane_id;
+	int step_cnt;
+
+	struct {
+		int pre_cursor;
+		int post_cursor;
+		int fom;
+		int pre_cursor_up;
+		int post_cursor_up;
+		int error_status;
+		int active_status;
+		int speed;
+	} steps[126];
+};
+
+struct switchtec_port_eq_tx_fslf {
+	int fs;
+	int lf;
+};
+
+struct switchtec_rcvr_ext {
+	int ctle2_rx_mode;
+	int dtclk_5;
+	int dtclk_8_6;
+	int dtclk_9;
+};
+
+enum switchtec_diag_end {
+	SWITCHTEC_DIAG_LOCAL,
+	SWITCHTEC_DIAG_FAR_END,
+};
+
+enum switchtec_diag_link {
+	SWITCHTEC_DIAG_LINK_CURRENT,
+	SWITCHTEC_DIAG_LINK_PREVIOUS,
+};
+
+int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
+		int lane_id, enum switchtec_diag_link link,
+		struct switchtec_rcvr_obj *res);
+int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
+			    int lane_id, enum switchtec_diag_link link,
+			    struct switchtec_rcvr_ext *res);
+
+int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_end end, enum switchtec_diag_link link,
+		struct switchtec_port_eq_coeff *res);
+int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+				    enum switchtec_diag_link link,
+				    struct switchtec_port_eq_table *res);
+int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
+				 int lane_id, enum switchtec_diag_end end,
+				 enum switchtec_diag_link link,
+				 struct switchtec_port_eq_tx_fslf *res);
+
 #ifdef __cplusplus
 }
 #endif
