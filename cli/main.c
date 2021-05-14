@@ -942,8 +942,8 @@ static int log_dump(int argc, char **argv)
 		{}
 	};
 	const struct argconfig_choice format[] = {
-		{"BIN", LOG_FMT_BIN, "output binary log data"},
-		{"TXT", LOG_FMT_TXT, "output text log data (default)"},
+		{"BIN", LOG_FMT_BIN, "output binary log data (default)"},
+		{"TXT", LOG_FMT_TXT, "output text log data"},
 		{}
 	};
 
