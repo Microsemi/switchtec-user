@@ -1455,7 +1455,7 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		info->def_fw_version = fw_version_def;
 		info->def_sdk_version = sdk_version_def;
 
-		info->log_fw_version = fw_version_def;
+		info->log_fw_version = fw_version_log;
 		info->log_sdk_version = sdk_version_log;
 	}
 	/* read the log definition file into defs */
