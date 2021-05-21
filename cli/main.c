@@ -1458,10 +1458,22 @@ static void print_fw_part_line(const char *tag,
 	       inf->valid ? "" : "  (Invalid)");
 }
 
+static void print_seeprom_part_line(const char *tag,
+				    struct switchtec_fw_image_info *inf)
+{
+	if (!inf)
+		return;
+
+	printf("  %-4s\tVersion: %-8s\tCRC: %08lx\n",
+	       tag, inf->version, inf->image_crc);
+}
+
 static int print_fw_part_info(struct switchtec_dev *dev)
 {
 	struct switchtec_fw_part_summary *sum;
 	struct switchtec_fw_image_info *inf;
+	struct switchtec_fw_image_info seeprom_inf;
+	int ret;
 	int i;
 
 	sum = switchtec_fw_part_summary(dev);
@@ -1485,6 +1497,16 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	print_fw_part_line("BL2", sum->bl2.inactive);
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
+
+	if (switchtec_gen(dev) > SWITCHTEC_GEN4) {
+		printf("Other Partitions:\n");
+		ret = switchtec_get_seeprom_summary(dev, &seeprom_inf);
+		if (!ret)
+			print_seeprom_part_line("SEEPROM",
+						sum->seeprom.active);
+		else
+			switchtec_perror("SEEPROM_info");
+	}
 
 	switchtec_fw_part_summary_free(sum);
 
