@@ -957,6 +957,8 @@ static int switchtec_fw_info_metadata_gen4(struct switchtec_dev *dev,
 
 	if (inf->part_id == SWITCHTEC_FW_PART_ID_G4_NVLOG)
 		return 1;
+	if (inf->part_id == SWITCHTEC_FW_PART_ID_G4_SEEPROM)
+		subcmd.subcmd = MRPC_PART_INFO_GET_SEEPROM;
 
 	metadata = malloc(sizeof(*metadata));
 	if (!metadata)
@@ -1358,6 +1360,36 @@ void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary)
 		free(summary->all[i].metadata);
 
 	free(summary);
+}
+
+/**
+ * @brief Return SEEPROM information structure in the device
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] inf	pointer to the struct to hold info data
+ * @return 0 on success, error code on failure.
+ */
+int switchtec_get_seeprom_summary(struct switchtec_dev *dev,
+				  struct switchtec_fw_image_info *inf)
+{
+	int ret;
+
+	inf->part_id = SWITCHTEC_FW_PART_ID_G4_SEEPROM;
+	ret = switchtec_fw_info_metadata_gen4(dev, inf);
+	if (ret)
+		return ret;
+
+	inf->part_addr = 0;
+	inf->part_len = 256;
+	inf->active = true;
+	inf->running = true;
+	inf->read_only = false;
+	inf->valid = true;
+
+	if (inf->metadata)
+		free(inf->metadata);
+	inf->metadata = NULL;
+
+	return 0;
 }
 
 /**
