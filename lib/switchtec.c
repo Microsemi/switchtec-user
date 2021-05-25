@@ -625,6 +625,9 @@ const char *switchtec_strerror(void)
 	case ERR_MRPC_NO_PREV_DATA:
 		msg = "No previous adaptation object data";
 		break;
+	case ERR_MRPC_SEEPROM_HW_INV:
+		msg = "SEEPROM hardware not accessible or invalid";
+		break;
 	case ERR_STACK_INVALID: 	msg = "Invalid Stack"; break;
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
 	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
