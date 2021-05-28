@@ -1486,6 +1486,9 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
 
+	printf("Other Partitions:\n");
+	print_fw_part_line("SEEPROM", sum->seeprom.active);
+
 	switchtec_fw_part_summary_free(sum);
 
 	return 0;
