@@ -359,4 +359,22 @@ int switchtec_diag_perm_table(struct switchtec_dev *dev,
 	return 0;
 }
 
+/**
+ * @brief Control the refclk output for a stack
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  stack_id	Stack ID to control the refclk of
+ * @param[in]  en	Set to true to enable, false to disable
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
+{
+	struct switchtec_diag_refclk_ctl_in cmd = {
+		.sub_cmd = en ? MRPC_REFCLK_S_ENABLE : MRPC_REFCLK_S_DISABLE,
+		.stack_id = stack_id,
+	};
+
+	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
+}
+
 /**@}*/

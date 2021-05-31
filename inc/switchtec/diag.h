@@ -127,5 +127,10 @@ struct switchtec_diag_rcvr_ext_out {
 	uint8_t dtclk_5;
 };
 
+struct switchtec_diag_refclk_ctl_in {
+	uint8_t sub_cmd;
+	uint8_t stack_id;
+};
+
 #endif
 /**@}*/
