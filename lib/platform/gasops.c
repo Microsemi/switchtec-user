@@ -53,6 +53,7 @@ static const char gasop_noretry_cmds[] = {
 	[MRPC_SECURE_STATE_SET] = 1,
 	[MRPC_BOOTUP_RESUME] = 1,
 	[MRPC_DBG_UNLOCK] = 1,
+	[MRPC_SECURITY_CONFIG_SET_GEN5] = 1,
 };
 static const int gasop_noretry_cmds_count = sizeof(gasop_noretry_cmds) /
 					    sizeof(char);

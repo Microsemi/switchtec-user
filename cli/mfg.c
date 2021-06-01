@@ -64,11 +64,6 @@ static const struct argconfig_choice secure_state_choices[] = {
 	{}
 };
 
-static char *spi_rate_str[] = {
-	"100", "67", "50", "40", "33.33", "28.57",
-	"25", "22.22", "20", "18.18"
-};
-
 static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 {
 	switch(phase_id) {
@@ -88,7 +83,6 @@ static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
 static int ping(int argc, char **argv)
 {
 	int ret;
-	enum switchtec_boot_phase phase_id;
 	static struct {
 		struct switchtec_dev *dev;
 	} cfg = {};
@@ -99,14 +93,13 @@ static int ping(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_PING, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_get_device_info(cfg.dev, &phase_id, NULL, NULL);
+	ret = switchtec_get_device_info(cfg.dev, NULL, NULL, NULL);
 	if (ret) {
 		switchtec_perror("mfg ping");
 		return ret;
 	}
 
 	printf("Mfg Ping: \t\tSUCCESS\n");
-	printf("Current Boot Phase: \t%s\n", phase_id_to_string(phase_id));
 
 	return 0;
 }
@@ -157,6 +150,7 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 		printf("Disabled by Default But Can Be Enabled\n");
 		break;
 	case SWITCHTEC_DEBUG_MODE_DISABLED:
+	case SWITCHTEC_DEBUG_MODE_DISABLED_EXT:
 		printf("Always Disabled\n");
 		break;
 	default:
@@ -176,8 +170,7 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 	printf("\tJTAG/EJTAG Unlock AFTER BL1: \t%d\n",
 		state->jtag_post_bl1_unlock_allowed);
 
-	printf("\tSPI Clock Rate: \t\t%s MHz\n",
-		spi_rate_str[state->spi_clk_rate-1]);
+	printf("\tSPI Clock Rate: \t\t%.2f MHz\n", state->spi_clk_rate);
 
 	printf("\tI2C Recovery TMO: \t\t%d Second(s)\n",
 		state->i2c_recovery_tmo);
@@ -246,8 +239,7 @@ static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
 	printf("\tJTAG/EJTAG Unlock AFTER BL1: \t%d\n",
 		set->jtag_post_bl1_unlock_allowed);
 
-	printf("\tSPI Clock Rate: \t\t%s MHz\n",
-		spi_rate_str[set->spi_clk_rate-1]);
+	printf("\tSPI Clock Rate: \t\t%.2f MHz\n", set->spi_clk_rate);
 
 	printf("\tI2C Recovery TMO: \t\t%d Second(s)\n",
 		set->i2c_recovery_tmo);
@@ -279,11 +271,11 @@ static int info(int argc, char **argv)
 		 "print additional chip information"},
 		{NULL}};
 
-	struct switchtec_security_cfg_state_ext ext_state = {};
+	struct switchtec_security_cfg_state state;
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_security_config_get_ext(cfg.dev, &ext_state);
+	ret = switchtec_security_config_get(cfg.dev, &state);
 	if (ret) {
 		switchtec_perror("mfg info");
 		return ret;
@@ -309,22 +301,23 @@ static int info(int argc, char **argv)
 	}
 
 	if (cfg.verbose)  {
-		if (!ext_state.otp_valid) {
-			print_security_config(&ext_state.state, NULL);
+		if (!state.otp_valid) {
+			print_security_config(&state, NULL);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is not available on this chip!\n\n");
-		} else if (phase_id != SWITCHTEC_BOOT_PHASE_FW) {
-			print_security_config(&ext_state.state, NULL);
+		} else if (switchtec_gen(cfg.dev) == SWITCHTEC_GEN4 &&
+			   phase_id != SWITCHTEC_BOOT_PHASE_FW) {
+			print_security_config(&state, NULL);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is only available in the Main Firmware phase!\n\n");
 		} else {
-			print_security_config(&ext_state.state, &ext_state.otp);
+			print_security_config(&state, &state.otp);
 		}
 
 		return 0;
 	}
 
-	print_security_config(&ext_state.state, NULL);
+	print_security_config(&state, NULL);
 
 	return 0;
 }
@@ -830,12 +823,18 @@ static int config_set(int argc, char **argv)
 		return -2;
 	}
 
-	ret = switchtec_read_sec_cfg_file(cfg.setting_fimg, &settings);
+	ret = switchtec_read_sec_cfg_file(cfg.dev, cfg.setting_fimg,
+					  &settings);
 	fclose(cfg.setting_fimg);
-	if (ret) {
+	if (ret == -EBADF) {
 		fprintf(stderr, "Invalid secure setting file: %s!\n",
 			cfg.setting_file);
 		return -3;
+	} else if (ret == -ENODEV) {
+		fprintf(stderr, "The security setting file is for a different generation of Switchtec device!\n");
+		return -5;
+	} else if (ret) {
+		switchtec_perror("mfg config-set");
 	}
 
 	printf("Writing the below settings to device: \n");

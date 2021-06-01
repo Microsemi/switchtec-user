@@ -83,6 +83,7 @@ typedef __gas struct switchtec_gas *gasptr_t;
 enum switchtec_gen {
 	SWITCHTEC_GEN3,
 	SWITCHTEC_GEN4,
+	SWITCHTEC_GEN5,
 	SWITCHTEC_GEN_UNKNOWN,
 };
 
@@ -206,6 +207,24 @@ enum switchtec_log_parse_type {
 	SWITCHTEC_LOG_PARSE_TYPE_MAILBOX
 };
 
+/**
+ * @brief Information about log file and log definition file
+ */
+struct switchtec_log_file_ver_info {
+	unsigned int log_fw_version;
+	unsigned int log_sdk_version;
+	unsigned int def_fw_version;
+	unsigned int def_sdk_version;
+};
+
+/**
+ * @brief Log definition data types
+ */
+enum switchtec_log_def_type {
+	SWITCHTEC_LOG_DEF_TYPE_APP,
+	SWITCHTEC_LOG_DEF_TYPE_MAILBOX
+};
+
 enum switchtec_fw_type {
 	SWITCHTEC_FW_TYPE_UNKNOWN = 0,
 	SWITCHTEC_FW_TYPE_BOOT,
@@ -324,6 +343,7 @@ struct switchtec_dev *switchtec_open_eth(const char *ip, const int inst);
 
 void switchtec_close(struct switchtec_dev *dev);
 int switchtec_list(struct switchtec_device_info **devlist);
+void switchtec_list_free(struct switchtec_device_info *devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen);
 int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
@@ -374,7 +394,11 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  FILE *log_def_file);
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
-			enum switchtec_log_parse_type log_type);
+			enum switchtec_log_parse_type log_type,
+			struct switchtec_log_file_ver_info *info);
+int switchtec_log_def_to_file(struct switchtec_dev *dev,
+			      enum switchtec_log_def_type type,
+			      FILE* file);
 float switchtec_die_temp(struct switchtec_dev *dev);
 
 /**
@@ -391,6 +415,14 @@ static inline int switchtec_is_gen3(struct switchtec_dev *dev)
 static inline int switchtec_is_gen4(struct switchtec_dev *dev)
 {
 	return switchtec_gen(dev) == SWITCHTEC_GEN4;
+}
+
+/**
+ * @brief Return whether a Switchtec device is a Gen 5 device.
+ */
+static inline int switchtec_is_gen5(struct switchtec_dev *dev)
+{
+	return switchtec_gen(dev) == SWITCHTEC_GEN5;
 }
 
 /**
@@ -501,7 +533,22 @@ static inline const char *switchtec_gen_str(struct switchtec_dev *dev)
 	const char *str;
 
 	str =  switchtec_is_gen3(dev) ? "GEN3" :
-	       switchtec_is_gen4(dev) ? "GEN4" : "Unknown";
+	       switchtec_is_gen4(dev) ? "GEN4" :
+	       switchtec_is_gen5(dev) ? "GEN5" : "Unknown";
+
+	return str;
+}
+
+/**
+ * @brief Return the revision string
+ */
+static inline const char *switchtec_rev_str(enum switchtec_rev rev)
+{
+	const char *str;
+
+	str =  (rev == SWITCHTEC_REVA) ? "REVA" :
+	       (rev == SWITCHTEC_REVB) ? "REVB" :
+	       (rev == SWITCHTEC_REVC) ? "REVC" : "Unknown";
 
 	return str;
 }
@@ -515,6 +562,7 @@ switchtec_fw_image_gen_str(struct switchtec_fw_image_info *inf)
 	switch (inf->gen) {
 	case SWITCHTEC_GEN3: return "GEN3";
 	case SWITCHTEC_GEN4: return "GEN4";
+	case SWITCHTEC_GEN5: return "GEN5";
 	default:	     return "UNKNOWN";
 	}
 }
@@ -781,6 +829,7 @@ int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,
 			     enum switchtec_fw_ro ro);
+enum switchtec_gen switchtec_fw_version_to_gen(unsigned int version);
 int switchtec_bind_info(struct switchtec_dev *dev,
 			struct switchtec_bind_status_out *bind_status,
 			int phy_port);
@@ -940,6 +989,81 @@ int switchtec_lat_get(struct switchtec_dev *dev, int clear,
 gasptr_t switchtec_gas_map(struct switchtec_dev *dev, int writeable,
                            size_t *map_size);
 void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map);
+
+/********** DIAGNOSTIC FUNCTIONS *********/
+
+struct switchtec_rcvr_obj {
+	int port_id;
+	int lane_id;
+	int ctle;
+	int target_amplitude;
+	int speculative_dfe;
+	int dynamic_dfe[7];
+};
+
+struct switchtec_port_eq_coeff {
+	int lane_cnt;
+	struct {
+		int pre;
+		int post;
+	} cursors[16];
+};
+
+struct switchtec_port_eq_table {
+	int lane_id;
+	int step_cnt;
+
+	struct {
+		int pre_cursor;
+		int post_cursor;
+		int fom;
+		int pre_cursor_up;
+		int post_cursor_up;
+		int error_status;
+		int active_status;
+		int speed;
+	} steps[126];
+};
+
+struct switchtec_port_eq_tx_fslf {
+	int fs;
+	int lf;
+};
+
+struct switchtec_rcvr_ext {
+	int ctle2_rx_mode;
+	int dtclk_5;
+	int dtclk_8_6;
+	int dtclk_9;
+};
+
+enum switchtec_diag_end {
+	SWITCHTEC_DIAG_LOCAL,
+	SWITCHTEC_DIAG_FAR_END,
+};
+
+enum switchtec_diag_link {
+	SWITCHTEC_DIAG_LINK_CURRENT,
+	SWITCHTEC_DIAG_LINK_PREVIOUS,
+};
+
+int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
+		int lane_id, enum switchtec_diag_link link,
+		struct switchtec_rcvr_obj *res);
+int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
+			    int lane_id, enum switchtec_diag_link link,
+			    struct switchtec_rcvr_ext *res);
+
+int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_end end, enum switchtec_diag_link link,
+		struct switchtec_port_eq_coeff *res);
+int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+				    enum switchtec_diag_link link,
+				    struct switchtec_port_eq_table *res);
+int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
+				 int lane_id, enum switchtec_diag_end end,
+				 enum switchtec_diag_link link,
+				 struct switchtec_port_eq_tx_fslf *res);
 
 #ifdef __cplusplus
 }

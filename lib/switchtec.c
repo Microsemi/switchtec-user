@@ -144,6 +144,36 @@ static const struct switchtec_device_id switchtec_device_id_tbl[] = {
 	{0x4536, SWITCHTEC_GEN4, SWITCHTEC_PAXA},  //PAXA 36XG4
 	{0x4528, SWITCHTEC_GEN4, SWITCHTEC_PAXA},  //PAXA 28XG4
 	{0x4228, SWITCHTEC_GEN4, SWITCHTEC_PAX},   //PAX 28XG4
+	{0x5000, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 100XG5
+	{0x5084, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 84XG5
+	{0x5068, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 68XG5
+	{0x5052, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 52XG5
+	{0x5036, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 36XG5
+	{0x5028, SWITCHTEC_GEN5, SWITCHTEC_PFX},   //PFX 28XG5
+	{0x5100, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 100XG5
+	{0x5184, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 84XG5
+	{0x5168, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 68XG5
+	{0x5152, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 52XG5
+	{0x5136, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 36XG5
+	{0x5128, SWITCHTEC_GEN5, SWITCHTEC_PSX},   //PSX 28XG5
+	{0x5200, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 100XG5
+	{0x5284, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 84XG5
+	{0x5268, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 68XG5
+	{0x5252, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 52XG5
+	{0x5236, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 36XG5
+	{0x5228, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 28XG5
+	{0x5300, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 100XG5
+	{0x5384, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 84XG5
+	{0x5368, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 68XG5
+	{0x5352, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 52XG5
+	{0x5336, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 36XG5
+	{0x5328, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 28XG5
+	{0x5400, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 100XG5
+	{0x5484, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 84XG5
+	{0x5468, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 68XG5
+	{0x5452, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 52XG5
+	{0x5436, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 36XG5
+	{0x5428, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 28XG5
 	{0},
 };
 
@@ -192,6 +222,15 @@ static int set_local_pax_id(struct switchtec_dev *dev)
 
 	dev->local_pax_id = local_pax_id;
 	return 0;
+}
+
+/**
+ * @brief Free a list of device info structures allocated by switchtec_list()
+ * @param[in] devlist switchtec_device_info structure list as returned by switchtec_list()
+ */
+void switchtec_list_free(struct switchtec_device_info *devlist)
+{
+	free(devlist);
 }
 
 /**
@@ -583,6 +622,9 @@ const char *switchtec_strerror(void)
 	case ERR_PARAM_INVALID:		msg = "Invalid parameter"; break;
 	case ERR_BAD_FW_STATE:		msg = "Bad firmware state"; break;
 	case ERR_MRPC_DENIED:		msg = "MRPC request denied"; break;
+	case ERR_MRPC_NO_PREV_DATA:
+		msg = "No previous adaptation object data";
+		break;
 	case ERR_STACK_INVALID: 	msg = "Invalid Stack"; break;
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
 	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
@@ -999,6 +1041,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 			log_sev = (log_data[i].data[2] >> 28) & 0xF;		
 
 			if ((mod_id > defs->num_alloc) ||
+			    (defs->module_defs[mod_id].mod_name == NULL) ||
 			    (strlen(defs->module_defs[mod_id].mod_name) == 0)) {
 				if (fprintf(log_file, "(Invalid module ID: 0x%x)\n",
 					mod_id) < 0)
@@ -1075,6 +1118,68 @@ ret_print_error:
 	return -1;
 }
 
+static int parse_def_header(FILE *log_def_file, uint32_t *fw_version,
+			    uint32_t *sdk_version)
+{
+	char line[512];
+	int i;
+
+	*fw_version = 0;
+	*sdk_version = 0;
+	while (fgets(line, sizeof(line), log_def_file)) {
+		if (line[0] != '#')
+			continue;
+
+		i = 0;
+		while (line[i] == ' ' || line[i] == '#') i++;
+
+		if (strncasecmp(line + i, "SDK Version:", 12) == 0) {
+			i += 12;
+			while (line[i] == ' ') i++;
+			sscanf(line + i, "%i", (int*)sdk_version);
+		}
+		else if (strncasecmp(line + i, "FW Version:", 11) == 0) {
+			i += 11;
+			while (line[i] == ' ') i++;
+			sscanf(line + i, "%i", (int*)fw_version);
+		}
+	}
+
+	rewind(log_def_file);
+	return 0;
+}
+
+static int append_log_header(int fd, uint32_t sdk_version,
+			     uint32_t fw_version, int binary)
+{
+	int ret;
+	struct log_header {
+		uint8_t magic[8];
+		uint32_t fw_version;
+		uint32_t sdk_version;
+		uint32_t flags;
+		uint32_t rsvd[3];
+	} header = {
+		.magic = {'S', 'W', 'M', 'C', 'L', 'O', 'G', 'F'},
+		.fw_version = fw_version,
+		.sdk_version = sdk_version
+	};
+	char hdr_str_fmt[] = "#########################\n"
+			     "## FW version %08x\n"
+			     "## SDK version %08x\n"
+			     "#########################\n\n";
+	char hdr_str[512];
+
+	if (binary) {
+		ret = write(fd, &header, sizeof(header));
+	} else {
+		snprintf(hdr_str, 512, hdr_str_fmt, fw_version, sdk_version);
+		ret = write(fd, hdr_str, strlen(hdr_str));
+	}
+
+	return ret;
+}
+
 static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 			 int fd, FILE *log_def_file)
 {
@@ -1090,8 +1195,15 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 		.num_alloc = 0};
 	FILE *log_file;
 	int entry_idx = 0;
+	uint32_t fw_version = 0;
+	uint32_t sdk_version = 0;
+	int version_mismatch = 0;
 
 	if (log_def_file != NULL) {
+		ret = parse_def_header(log_def_file, &fw_version,
+				       &sdk_version);
+		if (ret)
+			return ret;
 		/* read the log definition file into defs */
 		ret = read_app_log_defs(log_def_file, &defs);
 		if (ret < 0)
@@ -1105,6 +1217,20 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 				    &res, sizeof(res));
 		if (ret)
 			goto ret_free_log_defs;
+		if (read == 0) {
+			if (dev->gen < SWITCHTEC_GEN5) {
+				res.hdr.sdk_version = 0;
+				res.hdr.fw_version = 0;
+			}
+
+			if (res.hdr.sdk_version != sdk_version ||
+			     res.hdr.fw_version != fw_version)
+				version_mismatch = true;
+
+			append_log_header(fd, res.hdr.sdk_version,
+					  res.hdr.fw_version,
+					  log_def_file == NULL? 1 : 0);
+		}
 
 		if (log_def_file == NULL) {
 			/* write the binary log data to a file */
@@ -1132,7 +1258,10 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 		cmd.start = res.hdr.next_start;
 	}
 
-	ret = 0;
+	if (log_def_file != NULL && version_mismatch)
+		ret = ENOEXEC;
+	else
+		ret = 0;
 
 ret_free_log_defs:
 	free_log_defs(&defs);
@@ -1214,11 +1343,23 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 			  int fd,
 			  FILE *log_def_file)
 {
+	int subcmd;
+
 	switch (type) {
 	case SWITCHTEC_LOG_RAM:
-		return log_a_to_file(dev, MRPC_FWLOGRD_RAM, fd, log_def_file);
+		if (switchtec_is_gen5(dev))
+			subcmd = MRPC_FWLOGRD_RAM_GEN5;
+		else
+			subcmd = MRPC_FWLOGRD_RAM;
+
+		return log_a_to_file(dev, subcmd, fd, log_def_file);
 	case SWITCHTEC_LOG_FLASH:
-		return log_a_to_file(dev, MRPC_FWLOGRD_FLASH, fd, log_def_file);
+		if (switchtec_is_gen5(dev))
+			subcmd = MRPC_FWLOGRD_FLASH_GEN5;
+		else
+			subcmd = MRPC_FWLOGRD_FLASH;
+
+		return log_a_to_file(dev, subcmd, fd, log_def_file);
 	case SWITCHTEC_LOG_MEMLOG:
 		return log_b_to_file(dev, MRPC_FWLOGRD_MEMLOG, fd);
 	case SWITCHTEC_LOG_REGS:
@@ -1237,17 +1378,52 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 	return -errno;
 }
 
+static int parse_log_header(FILE *bin_log_file, uint32_t *fw_version,
+			    uint32_t *sdk_version)
+{
+	struct log_header {
+		uint8_t magic[8];
+		uint32_t fw_version;
+		uint32_t sdk_version;
+		uint32_t flags;
+		uint32_t rsvd[3];
+	} header;
+
+	char sig[8] = {'S', 'W', 'M', 'C', 'L', 'O', 'G', 'F'};
+	int ret;
+
+	ret = fread(&header, sizeof(header), 1, bin_log_file);
+	if (ret <= 0) {
+		errno = EBADF;
+		return -EBADF;
+	}
+
+	if (memcmp(sig, header.magic, 8)) {
+		rewind(bin_log_file);
+		*fw_version = 0;
+		*sdk_version = 0;
+		return 0;
+	}
+
+	*fw_version = header.fw_version;
+	*sdk_version = header.sdk_version;
+
+	return 0;
+}
+
 /**
  * @brief Parse a binary app log or mailbox log to a text file
  * @param[in] bin_log_file    - Binary log input file
  * @param[in] log_def_file    - Log definition file
  * @param[in] parsed_log_file - Parsed output file
  * @param[in] log_type        - log type
+ * @param[out] info           - log file version info
  * @return 0 on success, error code on failure
  */
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
-			enum switchtec_log_parse_type log_type)
+			enum switchtec_log_parse_type log_type,
+			struct switchtec_log_file_ver_info *info)
 {
 	int ret;
 	struct log_a_data log_data;
@@ -1255,6 +1431,10 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		.module_defs = NULL,
 		.num_alloc = 0};
 	int entry_idx = 0;
+	uint32_t fw_version_log;
+	uint32_t sdk_version_log;
+	uint32_t fw_version_def;
+	uint32_t sdk_version_def;
 
 	if ((log_type != SWITCHTEC_LOG_PARSE_TYPE_APP) &&
 	    (log_type != SWITCHTEC_LOG_PARSE_TYPE_MAILBOX)) {
@@ -1262,12 +1442,30 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		return -errno;
 	}
 
+	ret = parse_log_header(bin_log_file, &fw_version_log,
+			       &sdk_version_log);
+	if (ret)
+		return ret;
+	ret = parse_def_header(log_def_file, &fw_version_def,
+			       &sdk_version_def);
+	if (ret)
+		return ret;
+
+	if (info) {
+		info->def_fw_version = fw_version_def;
+		info->def_sdk_version = sdk_version_def;
+
+		info->log_fw_version = fw_version_log;
+		info->log_sdk_version = sdk_version_log;
+	}
 	/* read the log definition file into defs */
 	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP)
 		ret = read_app_log_defs(log_def_file, &defs);
 	else
 		ret = read_mailbox_log_defs(log_def_file, &defs);
 
+	ret = append_log_header(fileno(parsed_log_file), sdk_version_log,
+				fw_version_log, 0);
 	if (ret < 0)
 		return ret;
 
@@ -1287,9 +1485,71 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		ret = -1;
 	}
 
+	if (fw_version_def != fw_version_log ||
+	    sdk_version_def != sdk_version_log)
+		ret = ENOEXEC;
+
 ret_free_log_defs:
 	free_log_defs(&defs);
 	return ret;
+}
+
+/**
+ * @brief Dump the Switchtec log definition data to a file
+ * @param[in]  dev          - Switchtec device handle
+ * @param[in]  type         - Type of log definition data to dump
+ * @param[in]  file           - File descriptor to dump the data to
+ * @return 0 on success, error code on failure
+ */
+int switchtec_log_def_to_file(struct switchtec_dev *dev,
+			      enum switchtec_log_def_type type,
+			      FILE* file)
+{
+	int ret;
+	struct log_cmd {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint16_t idx;
+		uint16_t mod_id;
+	} cmd = {};
+
+	struct log_reply {
+		uint16_t end_of_data;
+		uint16_t data_len;
+		uint16_t next_idx;
+		uint16_t next_mod_id;
+		uint8_t data[MRPC_MAX_DATA_LEN - 16];
+	} reply = {};
+
+	switch (type) {
+	case SWITCHTEC_LOG_DEF_TYPE_APP:
+		cmd.subcmd = MRPC_LOG_DEF_APP;
+		break;
+
+	case SWITCHTEC_LOG_DEF_TYPE_MAILBOX:
+		cmd.subcmd = MRPC_LOG_DEF_MAILBOX;
+		break;
+
+	default:
+		errno = EINVAL;
+		return -errno;
+	}
+
+	do {
+		ret = switchtec_cmd(dev, MRPC_LOG_DEF_GET, &cmd, sizeof(cmd),
+				    &reply, sizeof(reply));
+		if (ret)
+			return -1;
+
+		ret = fwrite(reply.data, reply.data_len, 1, file);
+		if (ret < 0)
+			return ret;
+
+		cmd.idx = reply.next_idx;
+		cmd.mod_id = reply.next_mod_id;
+	} while (!reply.end_of_data);
+
+	return 0;
 }
 
 static enum switchtec_gen map_to_gen(uint32_t gen)
@@ -1299,6 +1559,9 @@ static enum switchtec_gen map_to_gen(uint32_t gen)
 	switch (gen) {
 	case 0:
 		ret = SWITCHTEC_GEN4;
+		break;
+	case 1:
+		ret = SWITCHTEC_GEN5;
 		break;
 	default:
 		ret = SWITCHTEC_GEN_UNKNOWN;
@@ -1344,7 +1607,7 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 			*rev = (dev_info >> 8) & 0x0f;
 		if (gen)
 			*gen = map_to_gen((dev_info >> 12) & 0x0f);
-	} else if (ERRNO_MRPC(errno) == ERR_MPRC_UNSUPPORTED) {
+	} else if (ERRNO_MRPC(errno) == ERR_CMD_INVALID) {
 		if (phase)
 			*phase = SWITCHTEC_BOOT_PHASE_FW;
 		if (gen)
@@ -1371,11 +1634,6 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 	int ret;
 	uint32_t sub_cmd_id;
 	uint32_t temp;
-
-	if (!switchtec_is_gen3(dev) && !switchtec_is_gen4(dev)) {
-		errno = ENOTSUP;
-		return -100.0;
-	}
 
 	if (switchtec_is_gen3(dev)) {
 		sub_cmd_id = MRPC_DIETEMP_SET_MEAS;

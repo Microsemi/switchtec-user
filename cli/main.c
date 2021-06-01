@@ -177,6 +177,7 @@ static int print_dev_info(struct switchtec_dev *dev)
 	int ret;
 	int device_id;
 	char version[64];
+	enum switchtec_rev hw_rev;
 
 	device_id = switchtec_device_id(dev);
 
@@ -186,8 +187,15 @@ static int print_dev_info(struct switchtec_dev *dev)
 		return ret;
 	}
 
+	ret = switchtec_get_device_info(dev, NULL, NULL, &hw_rev);
+	if (ret) {
+		switchtec_perror("dev info");
+		return ret;
+	}
+
 	printf("%s:\n", switchtec_name(dev));
 	printf("    Generation:  %s\n", switchtec_gen_str(dev));
+	printf("    HW Revision: %s\n", switchtec_rev_str(hw_rev));
 	printf("    Variant:     %s\n", switchtec_variant_str(dev));
 	printf("    Device ID:   0x%04x\n", device_id);
 	printf("    FW Version:  %s\n", version);
@@ -882,9 +890,39 @@ static int event_wait(int argc, char **argv)
 
 #define CMD_DESC_LOG_DUMP "dump the firmware log to a file"
 
+#define LOG_FMT_TXT 0
+#define LOG_FMT_BIN 1
+
+static FILE *get_log_def_file(struct switchtec_dev *dev, unsigned type,
+			      int format)
+{
+	int ret;
+	FILE *file;
+
+	file = tmpfile();
+	if (file == NULL) {
+		fprintf(stderr,
+			"Cannot open temporary file for log definition data!\n");
+		return NULL;
+	}
+
+	ret = switchtec_log_def_to_file(dev, SWITCHTEC_LOG_DEF_TYPE_APP,
+					file);
+	if (ret) {
+		switchtec_perror("log_dump");
+		return NULL;
+	}
+
+	rewind(file);
+
+	return file;
+}
+
 static int log_dump(int argc, char **argv)
 {
 	int ret;
+	enum switchtec_boot_phase boot_phase;
+	FILE *log_def_to_use;
 
 	const struct argconfig_choice types[] = {
 		{"RAM", SWITCHTEC_LOG_RAM, "dump the app log from RAM"},
@@ -903,6 +941,11 @@ static int log_dump(int argc, char **argv)
 		 "dump NVLog header information in the last fatal error handling dump"},
 		{}
 	};
+	const struct argconfig_choice format[] = {
+		{"BIN", LOG_FMT_BIN, "output binary log data (default)"},
+		{"TXT", LOG_FMT_TXT, "output text log data"},
+		{}
+	};
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -911,10 +954,12 @@ static int log_dump(int argc, char **argv)
 		unsigned type;
 		FILE *log_def_file;
 		const char *log_def_filename;
+		int format;
 	} cfg = {
 		.type = SWITCHTEC_LOG_RAM,
 		.out_fd = 0,
-		.log_def_file = NULL
+		.log_def_file = NULL,
+		.format = LOG_FMT_BIN
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -928,22 +973,67 @@ static int log_dump(int argc, char **argv)
 		{"type", 't', "TYPE", CFG_CHOICES, &cfg.type,
 		  required_argument,
 		 "log type to dump", .choices=types},
+		{"format", 'f', "FORMAT", CFG_CHOICES, &cfg.format,
+		  required_argument,
+		 "output log file format", .choices=format},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_LOG_DUMP, opts, &cfg, sizeof(cfg));
 
+	ret = switchtec_get_device_info(cfg.dev, &boot_phase, NULL, NULL);
+	if (ret) {
+		switchtec_perror("log_dump");
+		return ret;
+	}
+
+	if (boot_phase != SWITCHTEC_BOOT_PHASE_FW &&
+	    (cfg.type == SWITCHTEC_LOG_RAM ||
+	     cfg.type == SWITCHTEC_LOG_FLASH) &&
+	    cfg.format == LOG_FMT_TXT &&
+	    cfg.log_def_file == NULL) {
+		fprintf(stderr, "Cannot generate text format log file in BL1/2 boot phase without\n"
+				"a log defintion file. Please provide log definiton file with '-d',\n"
+				"or specify binary log format with '-f BIN' instead\n");
+		return -1;
+	}
+
+	if (cfg.format == LOG_FMT_TXT &&
+	    (cfg.type != SWITCHTEC_LOG_RAM &&
+	     cfg.type != SWITCHTEC_LOG_FLASH)) {
+		fprintf(stderr,
+			"INFO: Only BIN format is supported for the given log type,\n"
+			"dumping logs in binary format instead.\n");
+
+		cfg.format = LOG_FMT_BIN;
+	}
+
+	if (cfg.format == LOG_FMT_BIN) {
+		log_def_to_use = NULL;
+	} else if (cfg.log_def_file) {
+		log_def_to_use = cfg.log_def_file;
+	} else {
+		log_def_to_use = get_log_def_file(cfg.dev, cfg.type,
+						  cfg.format);
+		if (!log_def_to_use)
+			return ret;
+	}
+
 	ret = switchtec_log_to_file(cfg.dev, cfg.type, cfg.out_fd,
-				    cfg.log_def_file);
+				    log_def_to_use);
 	if (ret < 0)
 		switchtec_perror("log_dump");
 	else
 		fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
 
+	if (ret == ENOEXEC)
+		fprintf(stderr, "\nWARNING: The log data have different version numbers than those\n"
+				"of the log definition file. The output log file may contain errors.\n");
+
 	if (cfg.out_fd > 0)
 		close(cfg.out_fd);
 
-	if (cfg.log_def_file != NULL)
-		fclose(cfg.log_def_file);
+	if (log_def_to_use)
+		fclose(log_def_to_use);
 
 	return ret;
 }
@@ -953,7 +1043,7 @@ static int log_dump(int argc, char **argv)
 static int log_parse(int argc, char **argv)
 {
 	int ret;
-
+	struct switchtec_log_file_ver_info info;
 	const struct argconfig_choice log_types[] = {
 		{"APP", SWITCHTEC_LOG_PARSE_TYPE_APP, "app log"},
 		{"MAILBOX", SWITCHTEC_LOG_PARSE_TYPE_MAILBOX, "mailbox log"},
@@ -1000,12 +1090,23 @@ static int log_parse(int argc, char **argv)
 			&cfg, sizeof(cfg));
 
 	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
-				  cfg.parsed_log_file, cfg.log_type);
+				  cfg.parsed_log_file, cfg.log_type,
+				  &info);
 	if (ret < 0)
 		switchtec_perror("log_parse");
 	else
 		fprintf(stderr, "\nParsed log saved to %s.\n",
 			cfg.parsed_log_filename);
+
+	if (ret == ENOEXEC) {
+		fprintf(stderr, "\nWARNING: The two input files have different version numbers.\n");
+		fprintf(stderr, "\t\tFW Version\tSDK Version\n");
+		fprintf(stderr, "Log file:\t0x%08x\t0x%08x\n",
+			info.log_fw_version, info.log_sdk_version);
+		fprintf(stderr, "Log def file:\t0x%08x\t0x%08x\n\n",
+			info.def_fw_version, info.def_sdk_version);
+		fprintf(stderr,	"The log file is parsed but the output file might contain errors.\n");
+	}
 
 	if (cfg.bin_log_file != NULL)
 		fclose(cfg.bin_log_file);
@@ -1385,6 +1486,9 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
 
+	printf("Other Partitions:\n");
+	print_fw_part_line("SEEPROM", sum->seeprom.active);
+
 	switchtec_fw_part_summary_free(sum);
 
 	return 0;
@@ -1493,6 +1597,14 @@ static int fw_update(int argc, char **argv)
 		return -1;
 	}
 
+	switchtec_fw_file_info(fileno(cfg.fimg), &info);
+	if (switchtec_gen(cfg.dev) != info.gen) {
+		fprintf(stderr,
+			"\nThe image is for %s devices and cannot be applied to this device!\n",
+			switchtec_fw_image_gen_str(&info));
+		return -1;
+	}
+
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret) {
 		fclose(cfg.fimg);
@@ -1516,7 +1628,6 @@ static int fw_update(int argc, char **argv)
 	}
 
 	if(switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
-		switchtec_fw_file_info(fileno(cfg.fimg), &info);
 		fprintf(stderr, "\n\nWARNING:\n"
 			"Updating this image will IRREVERSIBLY update device %s image\n"
 			"secure version to 0x%08lx!\n\n",
@@ -1756,11 +1867,21 @@ static int fw_read(int argc, char **argv)
 	else
 		inf = cfg.inactive ? sum->img.inactive : sum->img.active;
 
-	fprintf(stderr, "Version:  %s\n", inf->version);
-	fprintf(stderr, "Type:     %s\n",
-		cfg.data ? "DAT" : cfg.bl2? "BL2" : cfg.key? "KEY" : "IMG");
-	fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
-	fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
+	if (!inf) {
+		fprintf(stderr,
+			"The specified partition on the flash is empty!\n");
+		ret = -1;
+		goto close_and_exit;
+	}
+
+	if (inf->valid) {
+		fprintf(stderr, "Version:  %s\n", inf->version);
+		fprintf(stderr, "Type:     %s\n",
+			cfg.data ? "DAT" : cfg.bl2? "BL2" :
+			cfg.key? "KEY" : "IMG");
+		fprintf(stderr, "Img Len:  0x%x\n", (int)inf->image_len);
+		fprintf(stderr, "CRC:      0x%x\n", (int)inf->image_crc);
+	}
 
 	if (!inf->valid && !cfg.assume_yes) {
 		fprintf(stderr,
