@@ -1037,6 +1037,12 @@ struct switchtec_rcvr_ext {
 	int dtclk_9;
 };
 
+struct switchtec_mrpc {
+	const char *tag;
+	const char *desc;
+	bool reserved;
+};
+
 enum switchtec_diag_end {
 	SWITCHTEC_DIAG_LOCAL,
 	SWITCHTEC_DIAG_FAR_END,
@@ -1064,6 +1070,9 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 				 int lane_id, enum switchtec_diag_end end,
 				 enum switchtec_diag_link link,
 				 struct switchtec_port_eq_tx_fslf *res);
+
+int switchtec_diag_perm_table(struct switchtec_dev *dev,
+			      struct switchtec_mrpc table[MRPC_MAX_ID]);
 
 #ifdef __cplusplus
 }

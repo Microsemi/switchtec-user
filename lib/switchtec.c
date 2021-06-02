@@ -1593,7 +1593,12 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 	} reply;
 
 	ping_dw = time(NULL);
-	ret = switchtec_cmd(dev, MRPC_GET_DEV_INFO, &ping_dw,
+
+	/*
+	 * The I2C TWI Ping command also dumps information about the
+	 * revision and image phase.
+	 */
+	ret = switchtec_cmd(dev, MRPC_I2C_TWI_PING, &ping_dw,
 			    sizeof(ping_dw),
 			    &reply, sizeof(reply));
 	if (ret == 0) {
