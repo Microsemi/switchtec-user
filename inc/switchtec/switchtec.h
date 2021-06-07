@@ -1073,6 +1073,7 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 
 int switchtec_diag_perm_table(struct switchtec_dev *dev,
 			      struct switchtec_mrpc table[MRPC_MAX_ID]);
+int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en);
 
 #ifdef __cplusplus
 }

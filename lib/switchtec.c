@@ -617,6 +617,7 @@ const char *switchtec_strerror(void)
 	case ERR_NO_BG_THREAD:
 		msg = "No background thread run for the command"; break;
 
+	case ERR_REFCLK_SUBCMD_INVALID:
 	case ERR_SUBCMD_INVALID: 	msg = "Invalid subcommand"; break;
 	case ERR_CMD_INVALID: 		msg = "Invalid command"; break;
 	case ERR_PARAM_INVALID:		msg = "Invalid parameter"; break;
@@ -625,6 +626,7 @@ const char *switchtec_strerror(void)
 	case ERR_MRPC_NO_PREV_DATA:
 		msg = "No previous adaptation object data";
 		break;
+	case ERR_REFCLK_STACK_ID_INVALID:
 	case ERR_STACK_INVALID: 	msg = "Invalid Stack"; break;
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
 	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
@@ -804,7 +806,7 @@ static bool parse_int(char *str, int *val)
 
 	if ((endptr == str) || (*endptr != '\0') || (errno != 0))
 	    return false;
-	
+
 	return true;
 }
 
@@ -956,7 +958,7 @@ static int read_mailbox_log_defs(FILE *log_def_file, struct log_defs *defs)
 						    (num_entries_alloc *
 						     sizeof(*mod_defs->entries)));
 			if (!mod_defs->entries)
-				goto err_free_log_defs;			
+				goto err_free_log_defs;
 		}
 
 		mod_defs->entries[mod_defs->num_entries] = strdup(line);
@@ -1038,7 +1040,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 			 * DWord
 			 */
 			mod_id = (log_data[i].data[2] >> 16) & 0xFFF;
-			log_sev = (log_data[i].data[2] >> 28) & 0xF;		
+			log_sev = (log_data[i].data[2] >> 28) & 0xF;
 
 			if ((mod_id > defs->num_alloc) ||
 			    (defs->module_defs[mod_id].mod_name == NULL) ||
