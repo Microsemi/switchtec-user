@@ -37,6 +37,116 @@
 #include <errno.h>
 
 /**
+ * @brief Setup Loopback Mode
+ * @param[in]  dev	    Switchtec device handle
+ * @param[in]  port_id	    Physical port ID
+ * @param[in]  enable       Any enum switchtec_diag_loopback_enable flags
+ *			    or'd together to enable specific loopback modes
+ * @param[in]  ltssm_speed  LTSSM loopback max speed
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
+		int enable, enum switchtec_diag_ltssm_speed ltssm_speed)
+{
+	struct switchtec_diag_loopback_in int_in = {
+		.sub_cmd = MRPC_LOOPBACK_SET_INT_LOOPBACK,
+		.port_id = port_id,
+		.enable = enable,
+	};
+	struct switchtec_diag_loopback_ltssm_in ltssm_in = {
+		.sub_cmd = MRPC_LOOPBACK_SET_LTSSM_LOOPBACK,
+		.port_id = port_id,
+		.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM),
+		.speed = ltssm_speed,
+	};
+	int ret;
+
+	int_in.type = DIAG_LOOPBACK_RX_TO_TX;
+	int_in.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX);
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+			    sizeof(int_in), NULL, 0);
+	if (ret)
+		return ret;
+
+	int_in.type = DIAG_LOOPBACK_TX_TO_RX;
+	int_in.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX);
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+			    sizeof(int_in), NULL, 0);
+	if (ret)
+		return ret;
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
+			    sizeof(ltssm_in), NULL, 0);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+/**
+ * @brief Setup Loopback Mode
+ * @param[in]  dev	     Switchtec device handle
+ * @param[in]  port_id	     Physical port ID
+ * @param[out] enabled       Set of enum switchtec_diag_loopback_enable
+ *			     indicating which loopback modes are enabled
+ * @param[out] ltssm_speed   LTSSM loopback max speed
+ *
+ * @return 0 on succes, error code on failure
+ */
+int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
+		int *enabled, enum switchtec_diag_ltssm_speed *ltssm_speed)
+{
+	struct switchtec_diag_loopback_in int_in = {
+		.sub_cmd = MRPC_LOOPBACK_GET_INT_LOOPBACK,
+		.port_id = port_id,
+		.type = DIAG_LOOPBACK_RX_TO_TX,
+	};
+	struct switchtec_diag_loopback_ltssm_in lt_in = {
+		.sub_cmd = MRPC_LOOPBACK_GET_LTSSM_LOOPBACK,
+		.port_id = port_id,
+	};
+	struct switchtec_diag_loopback_out int_out;
+	struct switchtec_diag_loopback_ltssm_out lt_out;
+	int ret, en = 0;
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in, sizeof(int_in),
+			    &int_out, sizeof(int_out));
+	if (ret)
+		return ret;
+
+	if (int_out.enabled)
+		en |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
+
+	int_in.type = DIAG_LOOPBACK_TX_TO_RX;
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in, sizeof(int_in),
+			    &int_out, sizeof(int_out));
+	if (ret)
+		return ret;
+
+	if (int_out.enabled)
+		en |= SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX;
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &lt_in, sizeof(lt_in),
+			    &lt_out, sizeof(lt_out));
+	if (ret)
+		return ret;
+
+	if (lt_out.enabled)
+		en |= SWITCHTEC_DIAG_LOOPBACK_LTSSM;
+
+	if (enabled)
+		*enabled = en;
+
+	if (ltssm_speed)
+		*ltssm_speed = lt_out.speed;
+
+	return 0;
+}
+
+/**
  * @brief Get the receiver object
  * @param[in]  dev	Switchtec device handle
  * @param[in]  port_id	Physical port ID
