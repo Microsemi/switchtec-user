@@ -45,7 +45,7 @@ struct diag_common_cfg {
 }
 
 #define PORT_OPTION {							\
-	"port", 'p', "PORT_ID", CFG_POSITIVE, &cfg.port_id,		\
+	"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,		\
 	required_argument, "physical port ID to dump data for",		\
 }
 #define FAR_END_OPTION {						\
