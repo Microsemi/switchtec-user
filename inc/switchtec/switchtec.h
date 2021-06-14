@@ -1049,6 +1049,16 @@ enum switchtec_diag_loopback_enable {
 	SWITCHTEC_DIAG_LOOPBACK_LTSSM = 1 << 2,
 };
 
+enum switchtec_diag_pattern {
+	SWITCHTEC_DIAG_PATTERN_PRBS_7,
+	SWITCHTEC_DIAG_PATTERN_PRBS_11,
+	SWITCHTEC_DIAG_PATTERN_PRBS_23,
+	SWITCHTEC_DIAG_PATTERN_PRBS_31,
+	SWITCHTEC_DIAG_PATTERN_PRBS_9,
+	SWITCHTEC_DIAG_PATTERN_PRBS_15,
+	SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED,
+};
+
 enum switchtec_diag_ltssm_speed {
 	SWITCHTEC_DIAG_LTSSM_GEN1 = 0,
 	SWITCHTEC_DIAG_LTSSM_GEN2 = 1,
@@ -1070,6 +1080,17 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 		int enable, enum switchtec_diag_ltssm_speed ltssm_speed);
 int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
 		int *enabled, enum switchtec_diag_ltssm_speed *ltssm_speed);
+int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_pattern type);
+int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_pattern *type);
+int switchtec_diag_pattern_mon_set(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_pattern type);
+int switchtec_diag_pattern_mon_get(struct switchtec_dev *dev, int port_id,
+		int lane_id, enum switchtec_diag_pattern *type,
+		unsigned long long *err_cnt);
+int switchtec_diag_pattern_inject(struct switchtec_dev *dev, int port_id,
+				  unsigned int err_cnt);
 
 int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
 		int lane_id, enum switchtec_diag_link link,

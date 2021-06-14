@@ -165,5 +165,27 @@ struct switchtec_diag_loopback_ltssm_out {
 	uint8_t resvd;
 };
 
+struct switchtec_diag_pat_gen_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t pattern_type;
+	uint8_t lane_id;
+};
+
+struct switchtec_diag_pat_gen_inject {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint16_t resvd;
+	uint32_t err_cnt;
+};
+
+struct switchtec_diag_pat_gen_out {
+	uint8_t port_id;
+	uint8_t pattern_type;
+	uint16_t resvd;
+	uint32_t err_cnt_lo;
+	uint32_t err_cnt_hi;
+};
+
 #endif
 /**@}*/
