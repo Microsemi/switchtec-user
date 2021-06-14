@@ -110,6 +110,130 @@ static int diag_parse_common_cfg(int argc, char **argv, const char *desc,
 	return 0;
 }
 
+static const struct argconfig_choice loopback_ltssm_speeds[] = {
+	{"GEN1", SWITCHTEC_DIAG_LTSSM_GEN1, "GEN1 LTSSM Speed"},
+	{"GEN2", SWITCHTEC_DIAG_LTSSM_GEN2, "GEN2 LTSSM Speed"},
+	{"GEN3", SWITCHTEC_DIAG_LTSSM_GEN3, "GEN3 LTSSM Speed"},
+	{"GEN4", SWITCHTEC_DIAG_LTSSM_GEN4, "GEN4 LTSSM Speed"},
+	{}
+};
+
+static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
+{
+	enum switchtec_diag_ltssm_speed speed;
+	const struct argconfig_choice *s;
+	int ret, b = 0, enable;
+	const char *speed_str;
+	char buf[100];
+
+	ret = switchtec_diag_loopback_get(dev, port_id, &enable, &speed);
+	if (ret) {
+		switchtec_perror("loopback_get");
+		return -1;
+	}
+
+	if (!enable)
+		b += snprintf(&buf[b], sizeof(buf) - b, "DISABLED, ");
+	if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
+		b += snprintf(&buf[b], sizeof(buf) - b, "RX->TX, ");
+	if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
+		b += snprintf(&buf[b], sizeof(buf) - b, "TX->RX, ");
+	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM)
+		b += snprintf(&buf[b], sizeof(buf) - b, "LTSSM, ");
+
+	/* Drop trailing comma */
+	buf[b - 2] = '\0';
+
+	speed_str = "";
+	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM) {
+		for (s = loopback_ltssm_speeds; s->name; s++) {
+			if (s->value == speed) {
+				speed_str = s->name;
+				break;
+			}
+		}
+	}
+
+	printf("Port: %d    %-30s %s\n", port_id, buf, speed_str);
+
+	return 0;
+}
+
+#define CMD_DESC_LOOPBACK "Enable Loopback on specified ports"
+
+static int loopback(int argc, char **argv)
+{
+	int ret, enable = 0;
+
+	struct {
+		struct switchtec_dev *dev;
+		struct switchtec_status port;
+		int port_id;
+		int disable;
+		int enable_tx_to_rx;
+		int enable_rx_to_tx;
+		int enable_ltssm;
+		int speed;
+	} cfg = {
+		.port_id = -1,
+		.speed = SWITCHTEC_DIAG_LTSSM_GEN4,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
+		 required_argument, "physical port ID to set/get loopback for"},
+		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
+		 "Disable all loopback modes"},
+		{"ltssm", 'l', "", CFG_NONE, &cfg.enable_ltssm, no_argument,
+		 "Enable LTSSM loopback mode"},
+		{"rx-to-tx", 'r', "", CFG_NONE, &cfg.enable_rx_to_tx, no_argument,
+		 "Enable RX->TX loopback mode"},
+		{"tx-to-rx", 't', "", CFG_NONE, &cfg.enable_tx_to_rx, no_argument,
+		 "Enable TX->RX loopback mode"},
+		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed, required_argument,
+		 "LTSSM Speed (if enabling the LTSSM loopback mode), default: GEN4",
+		 .choices = loopback_ltssm_speeds},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_LOOPBACK, opts, &cfg, sizeof(cfg));
+
+	if (cfg.port_id < 0) {
+		fprintf(stderr, "Must specify -p / --port_id\n");
+		return -1;
+	}
+
+	if (cfg.disable && (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx ||
+			    cfg.enable_ltssm)) {
+		fprintf(stderr,
+			"Must not specify -d / --disable with an enable flag\n");
+		return -1;
+	}
+
+	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
+	if (ret)
+		return ret;
+
+	if (cfg.disable || cfg.enable_rx_to_tx || cfg.enable_tx_to_rx ||
+	    cfg.enable_ltssm) {
+		if (cfg.enable_rx_to_tx)
+			enable |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
+		if (cfg.enable_tx_to_rx)
+			enable |= SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX;
+		if (cfg.enable_ltssm)
+			enable |= SWITCHTEC_DIAG_LOOPBACK_LTSSM;
+
+		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id,
+						  enable, cfg.speed);
+		if (ret) {
+			switchtec_perror("loopback_set");
+			return -1;
+		}
+	}
+
+	return print_loopback_mode(cfg.dev, cfg.port_id);
+}
+
 #define CMD_DESC_LIST_MRPC "List permissible MRPC commands"
 
 static int list_mrpc(int argc, char **argv)
@@ -384,6 +508,7 @@ static int refclk(int argc, char **argv)
 
 static const struct cmd commands[] = {
 	CMD(list_mrpc,		CMD_DESC_LIST_MRPC),
+	CMD(loopback,		CMD_DESC_LOOPBACK),
 	CMD(port_eq_txcoeff,	CMD_DESC_PORT_EQ_TXCOEFF),
 	CMD(port_eq_txfslf,	CMD_DESC_PORT_EQ_TXFSLF),
 	CMD(port_eq_txtable,	CMD_DESC_PORT_EQ_TXTABLE),
