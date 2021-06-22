@@ -234,6 +234,172 @@ static int loopback(int argc, char **argv)
 	return print_loopback_mode(cfg.dev, cfg.port_id);
 }
 
+static const struct argconfig_choice pattern_types[] = {
+	{"PRBS7",   SWITCHTEC_DIAG_PATTERN_PRBS_7,  "PRBS 7"},
+	{"PRBS11",  SWITCHTEC_DIAG_PATTERN_PRBS_11, "PRBS 11"},
+	{"PRBS23",  SWITCHTEC_DIAG_PATTERN_PRBS_23, "PRBS 23"},
+	{"PRBS31",  SWITCHTEC_DIAG_PATTERN_PRBS_31, "PRBS 31"},
+	{"PRBS9",   SWITCHTEC_DIAG_PATTERN_PRBS_9,  "PRBS 9"},
+	{"PRBS15",  SWITCHTEC_DIAG_PATTERN_PRBS_15, "PRBS 15"},
+	{}
+};
+
+static const char *pattern_to_str(enum switchtec_diag_pattern type)
+{
+	const struct argconfig_choice *s;
+
+	for (s = pattern_types; s->name; s++) {
+		if (s->value == type)
+			return s->name;
+	}
+
+	return "UNKNOWN";
+}
+
+static int print_pattern_mode(struct switchtec_dev *dev,
+		struct switchtec_status *port, int port_id)
+{
+	enum switchtec_diag_pattern gen_pat, mon_pat;
+	unsigned long long err_cnt;
+	int ret, lane_id;
+
+	ret = switchtec_diag_pattern_gen_get(dev, port_id, &gen_pat);
+	if (ret) {
+		switchtec_perror("pattern_gen_get");
+		return -1;
+	}
+
+	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, &err_cnt);
+	if (ret) {
+		switchtec_perror("pattern_mon_get");
+		return -1;
+	}
+
+	printf("Port: %d\n", port_id);
+	if (gen_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED)
+		printf("  Generator: Disabled\n");
+	else
+		printf("  Generator: %s\n", pattern_to_str(gen_pat));
+
+	if (mon_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED) {
+		printf("  Monitor: Disabled\n");
+	} else {
+		printf("  Monitor: %-20s\n", pattern_to_str(mon_pat));
+		printf("    Lane %-2d    Errors: 0x%llx\n", 0, err_cnt);
+		for (lane_id = 1; lane_id < port->cfg_lnk_width; lane_id++) {
+			ret = switchtec_diag_pattern_mon_get(dev, port_id,
+					lane_id, NULL, &err_cnt);
+			printf("    Lane %-2d    Errors: 0x%llx\n", lane_id,
+			       err_cnt);
+			if (ret) {
+				switchtec_perror("pattern_mon_get");
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+#define CMD_DESC_PATTERN "Enable pattern generation and monitor"
+
+static int pattern(int argc, char **argv)
+{
+	int ret;
+
+	struct {
+		struct switchtec_dev *dev;
+		struct switchtec_status port;
+		int port_id;
+		int disable;
+		int generate;
+		int monitor;
+		int pattern;
+		int inject_errs;
+	} cfg = {
+		.port_id = -1,
+		.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_31,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
+		 required_argument, "physical port ID to set/get loopback for"},
+		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
+		 "Disable all generators and monitors"},
+		{"inject", 'i', "NUM", CFG_NONNEGATIVE, &cfg.inject_errs,
+		 required_argument,
+		 "Inject the specified number of errors into all lanes of the TX port"},
+		{"generate", 'g', "", CFG_NONE, &cfg.generate, no_argument,
+		 "Enable Pattern Generator on specified port"},
+		{"monitor", 'm', "", CFG_NONE, &cfg.monitor, no_argument,
+		 "Enable Pattern Monitor on specified port"},
+		{"pattern", 't', "PATTERN", CFG_CHOICES, &cfg.pattern,
+		 required_argument,
+		 "pattern to generate or monitor for (default: PRBS31)",
+		 .choices = pattern_types},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_PATTERN, opts, &cfg, sizeof(cfg));
+
+	if (cfg.port_id < 0) {
+		fprintf(stderr, "Must specify -p / --port_id\n");
+		return -1;
+	}
+
+	if (cfg.disable && (cfg.generate || cfg.monitor)) {
+		fprintf(stderr,
+			"Must not specify -d / --disable with an enable flag\n");
+		return -1;
+	}
+
+	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
+	if (ret)
+		return ret;
+
+	if (cfg.disable) {
+		cfg.generate = 1;
+		cfg.monitor = 1;
+		cfg.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED;
+	}
+
+	if (cfg.monitor) {
+		ret = switchtec_diag_pattern_mon_set(cfg.dev, cfg.port_id,
+						     cfg.pattern);
+		if (ret) {
+			switchtec_perror("pattern_mon_set");
+			return -1;
+		}
+	}
+
+	if (cfg.generate) {
+		ret = switchtec_diag_pattern_gen_set(cfg.dev, cfg.port_id,
+						     cfg.pattern);
+		if (ret) {
+			switchtec_perror("pattern_gen_set");
+			return -1;
+		}
+	}
+
+	if (cfg.inject_errs > 1000) {
+		fprintf(stderr, "Too many errors to inject. --inject / -i must be less than 1000\n");
+		return -1;
+	}
+
+	if (cfg.inject_errs) {
+		ret = switchtec_diag_pattern_inject(cfg.dev, cfg.port_id,
+						    cfg.inject_errs);
+		if (ret) {
+			switchtec_perror("pattern_inject");
+			return -1;
+		}
+		printf("Injected %d errors\n", cfg.inject_errs);
+		return 0;
+	}
+
+	return print_pattern_mode(cfg.dev, &cfg.port, cfg.port_id);
+}
+
 #define CMD_DESC_LIST_MRPC "List permissible MRPC commands"
 
 static int list_mrpc(int argc, char **argv)
@@ -509,6 +675,7 @@ static int refclk(int argc, char **argv)
 static const struct cmd commands[] = {
 	CMD(list_mrpc,		CMD_DESC_LIST_MRPC),
 	CMD(loopback,		CMD_DESC_LOOPBACK),
+	CMD(pattern,		CMD_DESC_PATTERN),
 	CMD(port_eq_txcoeff,	CMD_DESC_PORT_EQ_TXCOEFF),
 	CMD(port_eq_txfslf,	CMD_DESC_PORT_EQ_TXFSLF),
 	CMD(port_eq_txtable,	CMD_DESC_PORT_EQ_TXTABLE),
