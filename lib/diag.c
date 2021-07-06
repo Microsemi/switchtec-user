@@ -37,6 +37,185 @@
 #include "switchtec/utils.h"
 
 #include <errno.h>
+#include <math.h>
+#include <strings.h>
+#include <unistd.h>
+
+static int switchtec_diag_eye_status(int status)
+{
+	switch (status) {
+	case 0: return 0;
+	case 2:
+		errno = EINVAL;
+		return -1;
+	case 3:
+		errno = EBUSY;
+		return -1;
+	default:
+		errno = EPROTO;
+		return -1;
+	}
+}
+
+static int switchtec_diag_eye_cmd(struct switchtec_dev *dev, void *in,
+				  size_t size)
+{
+	struct switchtec_diag_port_eye_cmd out;
+	int ret;
+
+	ret = switchtec_cmd(dev, MRPC_EYE_OBSERVE, in, size, &out,
+			    sizeof(out));
+
+	if (ret)
+		return ret;
+
+	return switchtec_diag_eye_status(out.status);
+}
+
+/**
+ * @brief Set the data mode for the next Eye Capture
+ * @param[in]  dev	       Switchtec device handle
+ * @param[in]  mode	       Mode to use (raw or ratio)
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
+				enum switchtec_diag_eye_data_mode mode)
+{
+	struct switchtec_diag_port_eye_cmd in = {
+		.sub_cmd = MRPC_EYE_OBSERVE_SET_DATA_MODE,
+		.data_mode = mode,
+	};
+
+	return switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+}
+
+/**
+ * @brief Start a PCIe Eye Capture
+ * @param[in]  dev	       Switchtec device handle
+ * @param[in]  lane_mask       Bitmap of the lanes to capture
+ * @param[in]  x_range         Time range: start should be between 0 and 63,
+ *			       end between start and 63.
+ * @param[in]  y_range         Voltage range: start should be between -255 and 255,
+ *			       end between start and 255.
+ * @param[in]  step_interval   Sampling time in milliseconds for each step
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
+			     struct range *x_range, struct range *y_range,
+			     int step_interval)
+{
+	struct switchtec_diag_port_eye_start in = {
+		.sub_cmd = MRPC_EYE_OBSERVE_START,
+		.lane_mask[0] = lane_mask[0],
+		.lane_mask[1] = lane_mask[1],
+		.lane_mask[2] = lane_mask[2],
+		.lane_mask[3] = lane_mask[3],
+		.x_start = x_range->start,
+		.y_start = y_range->start,
+		.x_end = x_range->end,
+		.y_end = y_range->end,
+		.x_step = x_range->step,
+		.y_step = y_range->step,
+		.step_interval = step_interval,
+	};
+
+	return switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+}
+
+static uint64_t hi_lo_to_uint64(uint32_t lo, uint32_t hi)
+{
+	uint64_t ret;
+
+	ret = le32toh(hi);
+	ret <<= 32;
+	ret |= le32toh(lo);
+
+	return ret;
+}
+
+/**
+ * @brief Start a PCIe Eye Capture
+ * @param[in]  dev	       Switchtec device handle
+ * @param[out] pixels          Resulting pixel data
+ * @param[in]  pixel_cnt       Space in pixel array
+ * @param[out] lane_id         The lane for the resulting pixels
+ *
+ * @return number of pixels fetched on success, error code on failure
+ *
+ * pixel_cnt needs to be greater than 62 in raw mode or 496 in ratio
+ * mode, otherwise data will be lost and the number of pixels fetched
+ * will be greater than the space in the pixel buffer.
+ */
+int switchtec_diag_eye_fetch(struct switchtec_dev *dev, double *pixels,
+			     size_t pixel_cnt, int *lane_id)
+{
+	struct switchtec_diag_port_eye_cmd in = {
+		.sub_cmd = MRPC_EYE_OBSERVE_FETCH,
+	};
+	struct switchtec_diag_port_eye_fetch out;
+	uint64_t samples, errors;
+	int i, ret, data_count;
+
+retry:
+	ret = switchtec_cmd(dev, MRPC_EYE_OBSERVE, &in, sizeof(in), &out,
+			    sizeof(out));
+	if (ret)
+		return ret;
+
+	if (out.status == 1) {
+		usleep(5000);
+		goto retry;
+	}
+
+	ret = switchtec_diag_eye_status(out.status);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < 4; i++) {
+		*lane_id = ffs(out.lane_mask[i]);
+		if (*lane_id)
+			break;
+	}
+
+	data_count = out.data_count_lo | ((int)out.data_count_hi << 8);
+
+	for (i = 0; i < data_count && i < pixel_cnt; i++) {
+		switch (out.data_mode) {
+		case SWITCHTEC_DIAG_EYE_RAW:
+			errors = hi_lo_to_uint64(out.raw[i].error_cnt_lo,
+						 out.raw[i].error_cnt_hi);
+			samples = hi_lo_to_uint64(out.raw[i].sample_cnt_lo,
+						  out.raw[i].sample_cnt_hi);
+			if (samples)
+				pixels[i] = (double)errors / samples;
+			else
+				pixels[i] = nan("");
+			break;
+		case SWITCHTEC_DIAG_EYE_RATIO:
+			pixels[i] = le32toh(out.ratio[i].ratio) / 65536.;
+			break;
+		}
+	}
+
+	return data_count;
+}
+
+/**
+ * @brief Cancel in-progress eye capture
+ * @param[in]  dev	       Switchtec device handle
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_eye_cancel(struct switchtec_dev *dev)
+{
+	struct switchtec_diag_port_eye_cmd in = {
+		.sub_cmd = MRPC_EYE_OBSERVE_CANCEL,
+	};
+
+	return switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+}
 
 /**
  * @brief Setup Loopback Mode
