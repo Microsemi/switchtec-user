@@ -24,6 +24,7 @@
 #include "commands.h"
 #include "argconfig.h"
 #include "common.h"
+#include "progress.h"
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
@@ -107,6 +108,287 @@ static int diag_parse_common_cfg(int argc, char **argv, const char *desc,
 	else
 		cfg->link = SWITCHTEC_DIAG_LINK_CURRENT;
 
+	return 0;
+}
+
+static const struct argconfig_choice eye_modes[] = {
+	{"RAW", SWITCHTEC_DIAG_EYE_RAW,
+	 "raw data mode (slow, more accurate)"},
+	{"RATIO", SWITCHTEC_DIAG_EYE_RATIO,
+	 "ratio data mode (faster, less accurate)"},
+	{}
+};
+
+enum output_format {
+	FMT_CSV,
+};
+
+static const struct argconfig_choice output_fmt_choices[] = {
+	{"csv", FMT_CSV, "Raw Data in CSV format"},
+};
+
+static void print_eye_csv(FILE *f, struct range *X, struct range *Y,
+			  double *pixels, const char *title)
+{
+	size_t stride = RANGE_CNT(X);
+	int x, y, i, j = 0;
+
+	fprintf(f, "%s\n", title);
+
+	for_range(x, X)
+		fprintf(f, ", %d", x);
+	fprintf(f, "\n");
+
+	for_range(y, Y) {
+		fprintf(f, "%d", y);
+		i = 0;
+		for_range(x, X)  {
+			fprintf(f, ", %e", pixels[j * stride + i]);
+			i++;
+		}
+		fprintf(f, "\n");
+		j++;
+	}
+}
+
+static void eye_set_title(char *title, int port, int lane, int gen)
+{
+	sprintf(title, "Eye Observation, Port %d, Lane %d, Gen %d",
+		port, lane, gen);
+}
+
+static void write_eye_csv_files(int port_id, int lane_id, int num_lanes,
+		int gen, struct range *X, struct range *Y, double *pixels)
+{
+	int stride = RANGE_CNT(X) * RANGE_CNT(Y);
+	char title[128], fname[128];
+	FILE *f;
+	int l;
+
+	for (l = 0; l < num_lanes; l++) {
+		eye_set_title(title, port_id, lane_id + l, gen);
+
+		snprintf(fname, sizeof(fname), "eye_port%d_lane%d.csv",
+			 port_id, lane_id + l);
+		f = fopen(fname, "w");
+		if (!f) {
+			fprintf(stderr, "Unable to write CSV file '%s': %m\n",
+				fname);
+			continue;
+		}
+
+		print_eye_csv(f, X, Y, &pixels[l * stride], title);
+		fclose(f);
+
+		fprintf(stderr, "Wrote %s\n", fname);
+	}
+}
+
+static double *eye_observe_dev(struct switchtec_dev *dev, int port_id,
+			       int lane_id, int num_lanes, int mode, int interval,
+			       struct range *X, struct range *Y, int *gen)
+{
+	size_t stride = RANGE_CNT(X) * RANGE_CNT(Y);
+	size_t pixel_cnt = stride * num_lanes;
+	struct switchtec_status status;
+	int i, ret, first_lane, lane;
+	size_t lane_cnt[num_lanes];
+	int lane_mask[4] = {};
+	double tmp[500];
+	double *pixels;
+
+	ret = switchtec_calc_lane_mask(dev, port_id, lane_id, num_lanes,
+				       lane_mask, &status);
+	if (ret < 0) {
+		switchtec_perror("Invalid lane");
+		return NULL;
+	}
+
+	for (i = 0; i < 4; i++) {
+		first_lane = ffs(lane_mask[i]);
+		if (first_lane)
+			break;
+	}
+
+	pixels = calloc(pixel_cnt, sizeof(*pixels));
+	if (!pixels) {
+		perror("allocating pixels");
+		return NULL;
+	}
+
+	switchtec_diag_eye_cancel(dev);
+
+	ret = switchtec_diag_eye_set_mode(dev, mode);
+	if (ret) {
+		switchtec_perror("eye_set_mode");
+		goto out_err;
+	}
+
+	ret = switchtec_diag_eye_start(dev, lane_mask, X, Y, interval);
+	if (ret) {
+		switchtec_perror("eye_start");
+		goto out_err;
+	}
+
+	if (num_lanes > 1)
+		fprintf(stderr, "Observing Port %d, Lane %d to %d, Gen %d\n",
+			port_id, lane_id, lane_id + num_lanes - 1,
+			status.link_rate);
+	else
+		fprintf(stderr, "Observing Port %d, Lane %d, Gen %d\n",
+			port_id, lane_id, status.link_rate);
+
+	*gen = status.link_rate;
+
+	memset(lane_cnt, 0, sizeof(lane_cnt));
+	progress_start();
+	for (i = 0; i < pixel_cnt; i += ret) {
+		ret = switchtec_diag_eye_fetch(dev, tmp, ARRAY_SIZE(tmp),
+					       &lane);
+		if (ret == 0) {
+			fprintf(stderr, "No data for specified lane.\n");
+			goto out_err;
+		}
+
+		if (ret < 0) {
+			switchtec_perror("eye_fetch");
+			goto out_err;
+		}
+
+		if (ret > ARRAY_SIZE(tmp)) {
+			fprintf(stderr, "Not enough pixels allocated!\n");
+			goto out_err;
+		}
+
+		lane -= first_lane;
+
+		if (status.lane_reversal)
+			lane = num_lanes - lane - 1;
+
+		memcpy(&pixels[lane * stride + lane_cnt[lane]], tmp,
+		       ret * sizeof(double));
+		lane_cnt[lane] += ret;
+
+		progress_update_norate(i, pixel_cnt);
+	}
+
+	progress_finish(false);
+	fprintf(stderr, "\n");
+	return pixels;
+
+out_err:
+	free(pixels);
+	return NULL;
+}
+
+#define CMD_DESC_EYE "Capture PCIe Eye Errors"
+
+static int eye(int argc, char **argv)
+{
+	double *pixels;
+	int gen;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int fmt;
+		int port_id;
+		int lane_id;
+		int num_lanes;
+		int mode;
+		struct range x_range, y_range;
+		int step_interval;
+	} cfg = {
+		.fmt = FMT_CSV,
+		.port_id = -1,
+		.lane_id = 0,
+		.num_lanes = 1,
+		.mode = SWITCHTEC_DIAG_EYE_RAW,
+		.x_range.start = 0,
+		.x_range.end = 63,
+		.x_range.step = 1,
+		.y_range.start = -255,
+		.y_range.end = 255,
+		.y_range.step = 5,
+		.step_interval = 1,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
+		 "output format (default: csv)",
+		 .choices=output_fmt_choices},
+		{"lane", 'l', "LANE_ID", CFG_NONNEGATIVE, &cfg.lane_id,
+		 required_argument, "lane id within the port to observe"},
+		{"mode", 'm', "MODE", CFG_CHOICES, &cfg.mode,
+		 required_argument, "data mode for the capture",
+		 .choices=eye_modes},
+		{"num-lanes", 'n', "NUM", CFG_POSITIVE, &cfg.num_lanes,
+		 required_argument,
+		 "number of lanes to capture, if greater than one, format must be csv (default: 1)"},
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
+		 required_argument, "physical port ID to observe"},
+		{"t-start", 't', "NUM", CFG_NONNEGATIVE, &cfg.x_range.start,
+		 required_argument, "start time (0 to 63)"},
+		{"t-end", 'T', "NUM", CFG_NONNEGATIVE, &cfg.x_range.end,
+		 required_argument, "end time (t-start to 63)"},
+		{"t-step", 's', "NUM", CFG_NONNEGATIVE, &cfg.x_range.step,
+		 required_argument, "time step (default 1)"},
+		{"v-start", 'v', "NUM", CFG_INT, &cfg.y_range.start,
+		 required_argument, "start voltage (-255 to 255)"},
+		{"v-end", 'V', "NUM", CFG_INT, &cfg.y_range.end,
+		 required_argument, "end voltage (v-start to 255)"},
+		{"v-step", 'S', "NUM", CFG_NONNEGATIVE, &cfg.y_range.step,
+		 required_argument, "voltage step (default: 5)"},
+		{"interval", 'i', "NUM", CFG_NONNEGATIVE, &cfg.step_interval,
+		 required_argument, "step interval in ms (default: 1ms)"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_EYE, opts, &cfg,
+			sizeof(cfg));
+
+	if (cfg.port_id < 0) {
+		fprintf(stderr, "Must specify a port ID with --port/-p\n");
+		return -1;
+	}
+
+	if (cfg.x_range.start > 63) {
+		fprintf(stderr, "Start time (--t-start/-t) is out of range (0, 63)\n");
+		return -1;
+	}
+
+	if (cfg.x_range.end > 63 || cfg.x_range.end <= cfg.x_range.start) {
+		fprintf(stderr, "End time (--t-end/-T) is out of range (t-start, 63)\n");
+		return -1;
+	}
+
+	if (cfg.y_range.start < -255 || cfg.y_range.start > 255) {
+		fprintf(stderr, "Start voltage (--v-start/-v) is out of range (-255, 255)\n");
+		return -1;
+	}
+
+	if (cfg.y_range.end > 255 || cfg.y_range.end <= cfg.y_range.start) {
+		fprintf(stderr, "End voltage (--v-end/-V) is out of range (v-start, 255)\n");
+		return -1;
+	}
+
+	if (cfg.num_lanes > 1 && cfg.fmt != FMT_CSV) {
+		fprintf(stderr, "--format/-f must be CSV if --num-lanes/-n is greater than 1\n");
+		return -1;
+	}
+
+	pixels = eye_observe_dev(cfg.dev, cfg.port_id, cfg.lane_id,
+				 cfg.num_lanes, cfg.mode, cfg.step_interval,
+				 &cfg.x_range, &cfg.y_range, &gen);
+	if (!pixels)
+		return -1;
+
+	if (cfg.fmt == FMT_CSV) {
+		write_eye_csv_files(cfg.port_id, cfg.lane_id, cfg.num_lanes,
+				    gen, &cfg.x_range, &cfg.y_range, pixels);
+		free(pixels);
+		return 0;
+	}
+
+	free(pixels);
 	return 0;
 }
 
@@ -673,6 +955,7 @@ static int refclk(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
+	CMD(eye,		CMD_DESC_EYE),
 	CMD(list_mrpc,		CMD_DESC_LIST_MRPC),
 	CMD(loopback,		CMD_DESC_LOOPBACK),
 	CMD(pattern,		CMD_DESC_PATTERN),
