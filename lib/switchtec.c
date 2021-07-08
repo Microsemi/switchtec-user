@@ -628,6 +628,7 @@ const char *switchtec_strerror(void)
 		break;
 	case ERR_REFCLK_STACK_ID_INVALID:
 	case ERR_STACK_INVALID: 	msg = "Invalid Stack"; break;
+	case ERR_LOOPBACK_PORT_INVALID:
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
 	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;

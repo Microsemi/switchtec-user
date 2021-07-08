@@ -132,5 +132,60 @@ struct switchtec_diag_refclk_ctl_in {
 	uint8_t stack_id;
 };
 
+enum switchtec_diag_loopback_type {
+	DIAG_LOOPBACK_RX_TO_TX = 0,
+	DIAG_LOOPBACK_TX_TO_RX = 1,
+};
+
+struct switchtec_diag_loopback_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t enable;
+	uint8_t type;
+};
+
+struct switchtec_diag_loopback_out {
+	uint8_t port_id;
+	uint8_t enabled;
+	uint8_t type;
+	uint8_t resvdd;
+};
+
+struct switchtec_diag_loopback_ltssm_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t enable;
+	uint8_t speed;
+};
+
+struct switchtec_diag_loopback_ltssm_out {
+	uint8_t port_id;
+	uint8_t enabled;
+	uint8_t speed;
+	uint8_t resvd;
+};
+
+struct switchtec_diag_pat_gen_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t pattern_type;
+	uint8_t lane_id;
+};
+
+struct switchtec_diag_pat_gen_inject {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint16_t resvd;
+	uint32_t err_cnt;
+};
+
+struct switchtec_diag_pat_gen_out {
+	uint8_t port_id;
+	uint8_t pattern_type;
+	uint16_t resvd;
+	uint32_t err_cnt_lo;
+	uint32_t err_cnt_hi;
+};
+
 #endif
 /**@}*/
