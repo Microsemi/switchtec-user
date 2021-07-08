@@ -806,7 +806,7 @@ int switchtec_fw_file_secure_version_newer(struct switchtec_dev *dev,
 
 		break;
 	case SWITCHTEC_FW_TYPE_KEY:
-		if (info.secure_version > sn_info.ver_km) 
+		if (info.secure_version > sn_info.ver_km)
 			return 1;
 
 		break;

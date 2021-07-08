@@ -1,4 +1,3 @@
-
 /*
  * Microsemi Switchtec(tm) PCIe Management Library
  * Copyright (c) 2017, Microsemi Corporation
