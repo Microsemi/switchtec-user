@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 static struct timeval start_time;
 
@@ -135,7 +136,7 @@ void progress_start(void)
 	gettimeofday(&start_time, NULL);
 }
 
-void progress_update(int cur, int total)
+static void __progress_update(int cur, int total, bool no_rate)
 {
 	struct timeval eta;
 	double rate = 0.0;
@@ -148,10 +149,21 @@ void progress_update(int cur, int total)
 	else
 		print_time(&eta);
 
-	fprintf(stderr, "  %3.0fkB/s ", rate / 1024);
+	if (!no_rate)
+		fprintf(stderr, "  %3.0fkB/s ", rate / 1024);
 
 	fprintf(stderr, "\r");
 	fflush(stderr);
+}
+
+void progress_update(int cur, int total)
+{
+	__progress_update(cur, total, false);
+}
+
+void progress_update_norate(int cur, int total)
+{
+	__progress_update(cur, total, true);
 }
 
 void progress_finish(int no_progress_bar)
