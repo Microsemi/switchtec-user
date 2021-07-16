@@ -29,4 +29,20 @@
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 #endif
 
+#define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
+
+struct range {
+	int start, end, step;
+};
+
+#define _RANGE_CNT(start, end, step) DIV_ROUND_UP((end) - (start) + 1, (step))
+#define RANGE_CNT(rng) _RANGE_CNT((rng)->start, (rng)->end, (rng)->step)
+
+#define for_range(i, rng) \
+	for((i) = (rng)->start; (i) <= (rng)->end; (i) += (rng)->step)
+
+#define for_rev_range(i, rng) \
+	for((i) = (rng)->start + (RANGE_CNT(rng) - 1) * (rng)->step; \
+	    (i) >= (rng)->start; (i) -= (rng)->step)
+
 #endif
