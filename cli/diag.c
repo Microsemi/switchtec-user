@@ -21,14 +21,18 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+
+#include "config.h"
 #include "commands.h"
 #include "argconfig.h"
 #include "common.h"
 #include "progress.h"
+#include "graph.h"
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
 
+#include <math.h>
 #include <stdio.h>
 
 struct diag_common_cfg {
@@ -121,9 +125,20 @@ static const struct argconfig_choice eye_modes[] = {
 
 enum output_format {
 	FMT_CSV,
+	FMT_TEXT,
+	FMT_CURSES,
 };
 
 static const struct argconfig_choice output_fmt_choices[] = {
+#if defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES)
+	#define FMT_DEFAULT FMT_CURSES
+	#define FMT_DEFAULT_STR "curses"
+	{"curses", FMT_CURSES, "Display data in a curses scrollable window"},
+#else
+	#define FMT_DEFAULT FMT_TEXT
+	#define FMT_DEFAULT_STR "text"
+#endif
+	{"text", FMT_TEXT, "Display data in a simplified text format"},
 	{"csv", FMT_CSV, "Raw Data in CSV format"},
 };
 
@@ -392,13 +407,41 @@ out_err:
 	return NULL;
 }
 
+static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
+		     double *pixels, const char *title)
+{
+	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
+	int data[pixel_cnt], shades[pixel_cnt];
+	int i, val;
+
+	for (i = 0; i < pixel_cnt; i++) {
+		if (pixels[i] == 0) {
+			data[i] = '.';
+			shades[i] = 0;
+		} else {
+			val = ceil(-log10(pixels[i]));
+			if (val >= 9)
+				val = 9;
+			data[i] = '0' + val;
+			shades[i] = GRAPH_SHADE_MAX - val - 3;
+		}
+	}
+
+	if (fmt == FMT_TEXT) {
+		graph_draw_text(X, Y, data, title, 'T', 'V');
+		return 0;
+	}
+
+	return graph_draw_win(X, Y, data, shades, title, 'T', 'V');
+}
+
 #define CMD_DESC_EYE "Capture PCIe Eye Errors"
 
 static int eye(int argc, char **argv)
 {
+	char title[128], subtitle[50];
 	double *pixels = NULL;
-	char subtitle[50];
-	int gen;
+	int ret, gen;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -412,7 +455,7 @@ static int eye(int argc, char **argv)
 		FILE *plot_file;
 		const char *plot_filename;
 	} cfg = {
-		.fmt = FMT_CSV,
+		.fmt = FMT_DEFAULT,
 		.port_id = -1,
 		.lane_id = 0,
 		.num_lanes = 1,
@@ -428,7 +471,7 @@ static int eye(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_OPTIONAL,
 		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
-		 "output format (default: csv)",
+		 "output format (default: " FMT_DEFAULT_STR ")",
 		 .choices=output_fmt_choices},
 		{"lane", 'l', "LANE_ID", CFG_NONNEGATIVE, &cfg.lane_id,
 		 required_argument, "lane id within the port to observe"},
@@ -474,6 +517,9 @@ static int eye(int argc, char **argv)
 		gen = 0;
 		sscanf(subtitle, "Eye Observation, Port %d, Lane %d, Gen %d",
 		       &cfg.port_id, &cfg.lane_id, &gen);
+
+		snprintf(title, sizeof(title), "%s (%s)", subtitle,
+			 cfg.plot_filename);
 	} else {
 		if (!cfg.dev) {
 			fprintf(stderr,
@@ -511,12 +557,15 @@ static int eye(int argc, char **argv)
 		return -1;
 	}
 
-	if (!pixels)
+	if (!pixels) {
 		pixels = eye_observe_dev(cfg.dev, cfg.port_id, cfg.lane_id,
 				cfg.num_lanes, cfg.mode, cfg.step_interval,
 				&cfg.x_range, &cfg.y_range, &gen);
-	if (!pixels)
-		return -1;
+		if (!pixels)
+			return -1;
+
+		eye_set_title(title, cfg.port_id, cfg.lane_id, gen);
+	}
 
 	if (cfg.fmt == FMT_CSV) {
 		write_eye_csv_files(cfg.port_id, cfg.lane_id, cfg.num_lanes,
@@ -525,8 +574,10 @@ static int eye(int argc, char **argv)
 		return 0;
 	}
 
+	ret = eye_graph(cfg.fmt, &cfg.x_range, &cfg.y_range, pixels, title);
+
 	free(pixels);
-	return 0;
+	return ret;
 }
 
 static const struct argconfig_choice loopback_ltssm_speeds[] = {
