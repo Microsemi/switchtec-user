@@ -403,6 +403,9 @@ int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,
 			      FILE* file);
 float switchtec_die_temp(struct switchtec_dev *dev);
+int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
+		int lane_id, int num_lanes, int *lane_mask,
+		struct switchtec_status *port);
 
 /**
  * @brief Return whether a Switchtec device is a Gen 3 device.

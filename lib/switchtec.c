@@ -628,6 +628,10 @@ const char *switchtec_strerror(void)
 			msg = "Error writing parsed log file"; break;
 		case SWITCHTEC_ERR_LOG_DEF_DATA_INVAL:
 			msg = "Invalid log definition data"; break;
+		case SWITCHTEC_ERR_INVALID_PORT:
+			msg = "Invalid port specified"; break;
+		case SWITCHTEC_ERR_INVALID_LANE:
+			msg = "Invalid lane specified"; break;
 		default:
 			msg = "Unknown Switchtec error"; break;
 		}
@@ -1776,4 +1780,86 @@ int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port)
 	return switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
 			    sizeof(sub_cmd_id), &output, sizeof(output));
 }
+
+static int __switchtec_calc_lane_id(struct switchtec_status *port, int lane_id)
+{
+	int lane;
+
+	if (lane_id >= port->neg_lnk_width) {
+		errno = SWITCHTEC_ERR_INVALID_LANE;
+		return -1;
+	}
+
+	lane = port->port.phys_id * 2;
+	if (!port->lane_reversal)
+		lane += lane_id;
+	else
+		lane += port->cfg_lnk_width - 1 - lane_id;
+
+	switch (port->port.phys_id) {
+	/* Trident (Gen4) - Ports 48 to 51 maps to 96 to 99 */
+	case 48: return 96;
+	case 49: return 97;
+	case 50: return 98;
+	case 51: return 99;
+	/* Hrapoon (Gen5) - Ports 56 to 59 maps to 96 to 99 */
+	case 56: return 96;
+	case 57: return 97;
+	case 58: return 98;
+	case 59: return 99;
+	default: return lane;
+	}
+}
+
+/**
+ * @brief Calculate the lane mask for lanes within a physical port
+ * @param[in] dev		Switchtec device handle
+ * @param[in] phys_port_id	Physical port id
+ * @param[in] lane_id		Lane number within the port
+ * @param[in] num_lanes		Number of consecutive lanes to set
+ * @param[out] lane_mask	Pointer to array of 4 integers to set the
+ *				bits of the lanes to
+ * @param[out] status		Optionally, return the status of the port
+ * @return The 0 or -1 on error (with errno set appropriately)
+ */
+int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
+		int lane_id, int num_lanes, int *lane_mask,
+		struct switchtec_status *port)
+{
+	struct switchtec_status *status;
+	int ports, i, l, lane;
+	int rc = 0;
+
+	ports = switchtec_status(dev, &status);
+	if (ports < 0)
+		return ports;
+
+	for (i = 0; i < ports; i++)
+		if (status[i].port.phys_id == phys_port_id)
+			break;
+
+	if (i == ports) {
+		errno = SWITCHTEC_ERR_INVALID_PORT;
+		rc = -1;
+		goto out;
+	}
+
+	if (port)
+		*port = status[i];
+
+	for (l = lane_id; l < lane_id + num_lanes; l++) {
+		lane = __switchtec_calc_lane_id(&status[i], l);
+		if (lane < 0) {
+			rc = -1;
+			goto out;
+		}
+
+		lane_mask[lane >> 5] |= 1 << (lane & 0x1F);
+	}
+
+out:
+	switchtec_status_free(status, ports);
+	return rc;
+}
+
 /**@}*/
