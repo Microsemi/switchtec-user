@@ -127,6 +127,117 @@ static const struct argconfig_choice output_fmt_choices[] = {
 	{"csv", FMT_CSV, "Raw Data in CSV format"},
 };
 
+static double *load_eye_csv(FILE *f, struct range *X, struct range *Y,
+			    char *title, size_t title_sz)
+{
+	size_t pixel_cnt;
+	char line[2000];
+	double *pixels;
+	int i = 0, y;
+	char *tok;
+
+	tok = fgets(title, title_sz, f);
+	if (!tok)
+		return NULL;
+
+	if (title[strlen(title) - 1] == '\n')
+		title[strlen(title) - 1] = 0;
+
+	/* Parse the header line for the X range */
+	tok = fgets(line, sizeof(line), f);
+	if (!tok)
+		return NULL;
+
+	tok = strtok(line, ",");
+	if (!tok)
+		return NULL;
+	X->start = atoi(tok);
+	if (X->start < 0 || X->start > 63)
+		return NULL;
+
+	tok = strtok(NULL, ",");
+	if (!tok)
+		return NULL;
+	X->end = atoi(tok);
+	if (X->start < 0 || X->start > 63)
+		return NULL;
+
+	X->step = X->end - X->start;
+	if (X->step <= 0)
+		return NULL;
+
+	while ((tok = strtok(NULL, ",")))
+		X->end = atoi(tok);
+
+	/* Parse the first column for the Y range */
+	tok = fgets(line, sizeof(line), f);
+	if (!tok)
+		return NULL;
+	Y->start = atoi(line);
+	if (Y->start < -255 || Y->start > 255)
+		return NULL;
+
+	tok = fgets(line, sizeof(line), f);
+	if (!tok)
+		return NULL;
+	Y->end = atoi(line);
+	if (Y->end < -255 || Y->end > 255)
+		return NULL;
+
+	Y->step = Y->end - Y->start;
+	if (Y->step <= 0)
+		return NULL;
+
+	while ((tok = fgets(line, sizeof(line), f)))
+		Y->end = atoi(line);
+
+	rewind(f);
+
+	/* Load the data */
+	pixel_cnt = RANGE_CNT(X);
+	pixel_cnt *= RANGE_CNT(Y);
+	pixels = calloc(pixel_cnt, sizeof(*pixels));
+	if (!pixels) {
+		perror("allocating pixels");
+		return NULL;
+	}
+
+	/* Read the Title line */
+	tok = fgets(line, sizeof(line), f);
+	if (!tok)
+		goto out_err;
+
+	/* Read the Header line */
+	tok = fgets(line, sizeof(line), f);
+	if (!tok)
+		goto out_err;
+
+	for (y = 0; y < RANGE_CNT(Y); y++) {
+		if (i != RANGE_CNT(X) * y)
+			goto out_err;
+
+		tok = fgets(line, sizeof(line), f);
+		if (!tok)
+			goto out_err;
+
+		tok = strtok(line, ",");
+		if (!tok)
+			goto out_err;
+
+		while ((tok = strtok(NULL, ","))) {
+			if (i >= pixel_cnt)
+				goto out_err;
+			pixels[i++] = strtod(tok, NULL);
+		}
+	}
+
+	return pixels;
+
+out_err:
+	free(pixels);
+	return NULL;
+}
+
 static void print_eye_csv(FILE *f, struct range *X, struct range *Y,
 			  double *pixels, const char *title)
 {
@@ -285,7 +396,8 @@ out_err:
 
 static int eye(int argc, char **argv)
 {
-	double *pixels;
+	double *pixels = NULL;
+	char subtitle[50];
 	int gen;
 
 	static struct {
@@ -297,6 +409,8 @@ static int eye(int argc, char **argv)
 		int mode;
 		struct range x_range, y_range;
 		int step_interval;
+		FILE *plot_file;
+		const char *plot_filename;
 	} cfg = {
 		.fmt = FMT_CSV,
 		.port_id = -1,
@@ -312,7 +426,7 @@ static int eye(int argc, char **argv)
 		.step_interval = 1,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION,
+		DEVICE_OPTION_OPTIONAL,
 		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
 		 "output format (default: csv)",
 		 .choices=output_fmt_choices},
@@ -326,6 +440,8 @@ static int eye(int argc, char **argv)
 		 "number of lanes to capture, if greater than one, format must be csv (default: 1)"},
 		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
 		 required_argument, "physical port ID to observe"},
+		{"plot", 'P', "FILE", CFG_FILE_R, &cfg.plot_file,
+		 required_argument, "plot a CSV file from an earlier capture"},
 		{"t-start", 't', "NUM", CFG_NONNEGATIVE, &cfg.x_range.start,
 		 required_argument, "start time (0 to 63)"},
 		{"t-end", 'T', "NUM", CFG_NONNEGATIVE, &cfg.x_range.end,
@@ -345,9 +461,29 @@ static int eye(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_EYE, opts, &cfg,
 			sizeof(cfg));
 
-	if (cfg.port_id < 0) {
-		fprintf(stderr, "Must specify a port ID with --port/-p\n");
-		return -1;
+	if (cfg.plot_file) {
+		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
+				&cfg.y_range, subtitle, sizeof(subtitle));
+		if (!pixels) {
+			fprintf(stderr, "Unable to parse CSV file: %s\n",
+				cfg.plot_filename);
+			return -1;
+		}
+
+		cfg.num_lanes = 1;
+		gen = 0;
+		sscanf(subtitle, "Eye Observation, Port %d, Lane %d, Gen %d",
+		       &cfg.port_id, &cfg.lane_id, &gen);
+	} else {
+		if (!cfg.dev) {
+			fprintf(stderr,
+				"Must specify a switchtec device if not using -P\n");
+			return -1;
+		}
+		if (cfg.port_id < 0) {
+			fprintf(stderr, "Must specify a port ID with --port/-p\n");
+			return -1;
+		}
 	}
 
 	if (cfg.x_range.start > 63) {
@@ -375,9 +511,10 @@ static int eye(int argc, char **argv)
 		return -1;
 	}
 
-	pixels = eye_observe_dev(cfg.dev, cfg.port_id, cfg.lane_id,
-				 cfg.num_lanes, cfg.mode, cfg.step_interval,
-				 &cfg.x_range, &cfg.y_range, &gen);
+	if (!pixels)
+		pixels = eye_observe_dev(cfg.dev, cfg.port_id, cfg.lane_id,
+				cfg.num_lanes, cfg.mode, cfg.step_interval,
+				&cfg.x_range, &cfg.y_range, &gen);
 	if (!pixels)
 		return -1;
 
