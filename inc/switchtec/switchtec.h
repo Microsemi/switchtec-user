@@ -998,6 +998,58 @@ void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map);
 
 /********** DIAGNOSTIC FUNCTIONS *********/
 
+#define SWITCHTEC_DIAG_CROSS_HAIR_ALL_LANES -1
+#define SWITCHTEC_DIAG_CROSS_HAIR_MAX_LANES 64
+
+enum switchtec_diag_cross_hair_state {
+	SWITCHTEC_DIAG_CROSS_HAIR_DISABLED = 0,
+	SWITCHTEC_DIAG_CROSS_HAIR_RESVD,
+	SWITCHTEC_DIAG_CROSS_HAIR_WAITING,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_TOP_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_TOP_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_TOP_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_BOT_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_BOT_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_BOT_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_TOP_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_TOP_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_TOP_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_BOT_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_BOT_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_BOT_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_DONE,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR,
+};
+
+struct switchtec_diag_cross_hair {
+	enum switchtec_diag_cross_hair_state state;
+	int lane_id;
+
+	union {
+		struct {
+			/* Valid when state is Error */
+			int prev_state;
+			int x_pos;
+			int y_pos;
+		};
+		/* Valid when state is DONE */
+		struct {
+			int eye_left_lim;
+			int eye_right_lim;
+			int eye_bot_left_lim;
+			int eye_bot_right_lim;
+			int eye_top_left_lim;
+			int eye_top_right_lim;
+		};
+	};
+};
+
 struct switchtec_rcvr_obj {
 	int port_id;
 	int lane_id;
@@ -1086,6 +1138,11 @@ enum switchtec_diag_link {
 	SWITCHTEC_DIAG_LINK_CURRENT,
 	SWITCHTEC_DIAG_LINK_PREVIOUS,
 };
+
+int switchtec_diag_cross_hair_enable(struct switchtec_dev *dev, int lane_id);
+int switchtec_diag_cross_hair_disable(struct switchtec_dev *dev);
+int switchtec_diag_cross_hair_get(struct switchtec_dev *dev, int start_lane_id,
+		int num_lanes, struct switchtec_diag_cross_hair *res);
 
 int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
 				enum switchtec_diag_eye_data_mode mode);
