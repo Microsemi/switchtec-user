@@ -923,6 +923,7 @@ static int log_dump(int argc, char **argv)
 	int ret;
 	enum switchtec_boot_phase boot_phase;
 	FILE *log_def_to_use;
+	struct switchtec_log_file_info info;
 
 	const struct argconfig_choice types[] = {
 		{"RAM", SWITCHTEC_LOG_RAM, "dump the app log from RAM"},
@@ -1019,15 +1020,24 @@ static int log_dump(int argc, char **argv)
 	}
 
 	ret = switchtec_log_to_file(cfg.dev, cfg.type, cfg.out_fd,
-				    log_def_to_use);
+				    log_def_to_use, &info);
 	if (ret < 0)
 		switchtec_perror("log_dump");
 	else
 		fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
 
-	if (ret == ENOEXEC)
-		fprintf(stderr, "\nWARNING: The log data have different version numbers than those\n"
-				"of the log definition file. The output log file may contain errors.\n");
+	if (info.version_mismatch) {
+		fprintf(stderr, "\nWARNING: The two input files have different version numbers.\n");
+		fprintf(stderr, "\t\tFW Version\tSDK Version\n");
+		fprintf(stderr, "Log file:\t0x%08x\t0x%08x\n",
+			info.log_fw_version, info.log_sdk_version);
+		fprintf(stderr, "Log def file:\t0x%08x\t0x%08x\n\n",
+			info.def_fw_version, info.def_sdk_version);
+		fprintf(stderr,	"The log file is parsed but the output file might contain errors.\n");
+	}
+
+	if (info.overflow)
+		fprintf(stderr, "\nWARNING: The log buffer pointer has wrapped. The log data may be incomplete!\n");
 
 	if (cfg.out_fd > 0)
 		close(cfg.out_fd);
@@ -1043,7 +1053,7 @@ static int log_dump(int argc, char **argv)
 static int log_parse(int argc, char **argv)
 {
 	int ret;
-	struct switchtec_log_file_ver_info info;
+	struct switchtec_log_file_info info;
 	const struct argconfig_choice log_types[] = {
 		{"APP", SWITCHTEC_LOG_PARSE_TYPE_APP, "app log"},
 		{"MAILBOX", SWITCHTEC_LOG_PARSE_TYPE_MAILBOX, "mailbox log"},
@@ -1098,7 +1108,7 @@ static int log_parse(int argc, char **argv)
 		fprintf(stderr, "\nParsed log saved to %s.\n",
 			cfg.parsed_log_filename);
 
-	if (ret == ENOEXEC) {
+	if (info.version_mismatch) {
 		fprintf(stderr, "\nWARNING: The two input files have different version numbers.\n");
 		fprintf(stderr, "\t\tFW Version\tSDK Version\n");
 		fprintf(stderr, "Log file:\t0x%08x\t0x%08x\n",
