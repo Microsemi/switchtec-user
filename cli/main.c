@@ -44,6 +44,16 @@
 static struct switchtec_dev *global_dev = NULL;
 static int global_pax_id = SWITCHTEC_PAX_ID_LOCAL;
 
+enum output_format {
+	FMT_NORMAL,
+	FMT_TABLE,
+};
+
+static const struct argconfig_choice output_fmt_choices[] = {
+	{"normal", FMT_NORMAL, "Human Readable Output"},
+	{"table",  FMT_TABLE,  "Tabular Output"},
+};
+
 static const struct argconfig_choice bandwidth_types[] = {
 	{"RAW", SWITCHTEC_BW_TYPE_RAW, "get the raw bandwidth"},
 	{"PAYLOAD", SWITCHTEC_BW_TYPE_PAYLOAD, "get the payload bandwidth"},
@@ -97,7 +107,7 @@ int switchtec_handler(const char *optarg, void *value_addr,
  * build is non-trivial. After evaluating the development effort
  * and the resources available, we have decided to remove Windows
  * build support from release roadmap.
- * 
+ *
  */
 int mfg_handler(const char *optarg, void *value_addr,
 		const struct argconfig_options *opt)
@@ -338,6 +348,103 @@ static char *pci_acs_to_string(char *buf, size_t buflen, int acs_ctrl,
 	return buf;
 }
 
+static void status_print_normal(struct switchtec_dev *dev, int ports,
+				struct switchtec_status *status,
+				struct switchtec_bwcntr_res *bw_data,
+				bool verbose)
+{
+	struct switchtec_status *s;
+	const char *bw_suf;
+	double bw_val;
+	char buf[100];
+	int p;
+
+	for (p = 0; p < ports; p++) {
+		s = &status[p];
+		print_port_title(dev, &s->port);
+
+		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
+			continue;
+
+		printf("\tPhys Port ID:    \t%d (Stack %d, Port %d)\n",
+		       s->port.phys_id, s->port.stack, s->port.stk_id);
+		if (s->pci_bdf)
+			printf("\tBus-Dev-Func:    \t%s\n", s->pci_bdf);
+		if (verbose && s->pci_bdf_path)
+			printf("\tBus-Dev-Func Path:\t%s\n", s->pci_bdf_path);
+
+		printf("\tStatus:          \t%s\n",
+		       s->link_up ? "UP" : "DOWN");
+		printf("\tLTSSM:           \t%s\n", s->ltssm_str);
+		printf("\tMax-Width:       \tx%d\n", s->cfg_lnk_width);
+
+		if (!s->link_up) continue;
+
+		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
+		printf("\tLane Reversal:   \t%s\n", s->lane_reversal_str);
+		printf("\tFirst Act Lane:  \t%d\n", s->first_act_lane);
+		printf("\tLanes:           \t%s\n", s->lanes);
+		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
+		       s->link_rate, switchtec_gen_transfers[s->link_rate],
+		       switchtec_gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
+
+		bw_val = switchtec_bwcntr_tot(&bw_data[p].egress);
+		bw_suf = suffix_si_get(&bw_val);
+		printf("\tOut Bytes:       \t%-.3g %sB\n", bw_val, bw_suf);
+
+		bw_val = switchtec_bwcntr_tot(&bw_data[p].ingress);
+		bw_suf = suffix_si_get(&bw_val);
+		printf("\tIn Bytes:        \t%-.3g %sB\n", bw_val, bw_suf);
+
+		if (s->acs_ctrl != -1) {
+			pci_acs_to_string(buf, sizeof(buf), s->acs_ctrl,
+					  verbose);
+			printf("\tACS:             \t%s\n", buf);
+		}
+
+		if (!s->vendor_id || !s->device_id || !s->pci_dev)
+			continue;
+
+		printf("\tDevice:          \t%04x:%04x (%s)\n",
+		       s->vendor_id, s->device_id, s->pci_dev);
+		if (s->class_devices)
+			printf("\t                 \t%s\n", s->class_devices);
+	}
+}
+
+static void status_print_table(int ports, struct switchtec_status *status)
+{
+	struct switchtec_status *s, *map[SWITCHTEC_MAX_PORTS] = {};
+	int p;
+
+	for (p = 0; p < ports; p++) {
+		s = &status[p];
+		map[s->port.phys_id] = s;
+	}
+
+	for (p = 0; p < SWITCHTEC_MAX_PORTS; p++) {
+		if (!map[p])
+			continue;
+		s = map[p];
+
+		printf("[%02d] ", s->port.phys_id);
+		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
+			printf("part:      ");
+		else
+			printf("part:%02d.%02d ", s->port.partition,
+			       s->port.log_id);
+		printf("w:cfg[x%02d]-neg[x%02d] ", s->cfg_lnk_width,
+		       s->neg_lnk_width);
+		printf("stk:%d.%d ", s->port.stack, s->port.stk_id);
+		printf("lanes:%-16s ", s->lanes);
+		printf("rev:%d ", s->lane_reversal);
+		printf(s->port.upstream ? "usp " : "dsp ");
+		printf("link:%d ", s->link_up);
+		printf("rate:G%d ", s->link_rate);
+		printf("LTSSM:%s\n", s->ltssm_str);
+	}
+}
+
 #define CMD_DESC_STATUS "display switch port status information"
 
 static int status(int argc, char **argv)
@@ -348,21 +455,22 @@ static int status(int argc, char **argv)
 	int port_ids[SWITCHTEC_MAX_PORTS];
 	struct switchtec_bwcntr_res bw_data[SWITCHTEC_MAX_PORTS];
 	int p;
-	double bw_val;
-	const char *bw_suf;
-	char buf[100];
 
 	static struct {
 		struct switchtec_dev *dev;
 		int reset_bytes;
 		int verbose;
+		int fmt;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
+		 "output format (default: normal)",
+		 .choices=output_fmt_choices},
 		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
 		 "reset byte counters"},
 		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
-		 "print additional information"},
+		 "print additional information (only with 'normal' format)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_STATUS, opts, &cfg, sizeof(cfg));
@@ -392,55 +500,13 @@ static int status(int argc, char **argv)
 	if (cfg.reset_bytes)
 		memset(bw_data, 0, sizeof(bw_data));
 
-	for (p = 0; p < ports; p++) {
-		struct switchtec_status *s = &status[p];
-		print_port_title(cfg.dev, &s->port);
-
-		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
-			continue;
-
-		printf("\tPhys Port ID:    \t%d (Stack %d, Port %d)\n",
-		       s->port.phys_id, s->port.stack, s->port.stk_id);
-		if (s->pci_bdf)
-			printf("\tBus-Dev-Func:    \t%s\n", s->pci_bdf);
-		if (cfg.verbose && s->pci_bdf_path)
-			printf("\tBus-Dev-Func Path:\t%s\n", s->pci_bdf_path);
-
-		printf("\tStatus:          \t%s\n",
-		       s->link_up ? "UP" : "DOWN");
-		printf("\tLTSSM:           \t%s\n", s->ltssm_str);
-		printf("\tMax-Width:       \tx%d\n", s->cfg_lnk_width);
-
-		if (!s->link_up) continue;
-
-		printf("\tNeg Width:       \tx%d\n", s->neg_lnk_width);
-		printf("\tLane Reversal:   \t%s\n", s->lane_reversal_str);
-		printf("\tFirst Act Lane:  \t%d\n", s->first_act_lane);
-		printf("\tRate:            \tGen%d - %g GT/s  %g GB/s\n",
-		       s->link_rate, switchtec_gen_transfers[s->link_rate],
-		       switchtec_gen_datarate[s->link_rate]*s->neg_lnk_width/1000.);
-
-		bw_val = switchtec_bwcntr_tot(&bw_data[p].egress);
-		bw_suf = suffix_si_get(&bw_val);
-		printf("\tOut Bytes:       \t%-.3g %sB\n", bw_val, bw_suf);
-
-		bw_val = switchtec_bwcntr_tot(&bw_data[p].ingress);
-		bw_suf = suffix_si_get(&bw_val);
-		printf("\tIn Bytes:        \t%-.3g %sB\n", bw_val, bw_suf);
-
-		if (s->acs_ctrl != -1) {
-			pci_acs_to_string(buf, sizeof(buf), s->acs_ctrl,
-					  cfg.verbose);
-			printf("\tACS:             \t%s\n", buf);
-		}
-
-		if (!s->vendor_id || !s->device_id || !s->pci_dev)
-			continue;
-
-		printf("\tDevice:          \t%04x:%04x (%s)\n",
-		       s->vendor_id, s->device_id, s->pci_dev);
-		if (s->class_devices)
-			printf("\t                 \t%s\n", s->class_devices);
+	switch (cfg.fmt) {
+	case FMT_NORMAL:
+		status_print_normal(cfg.dev, ports, status, bw_data, cfg.verbose);
+		break;
+	case FMT_TABLE:
+		status_print_table(ports, status);
+		break;
 	}
 
 	ret = 0;
