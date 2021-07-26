@@ -327,6 +327,26 @@ static void write_eye_csv_files(int port_id, int lane_id, int num_lanes,
 	}
 }
 
+static void eye_graph_data(struct range *X, struct range *Y, double *pixels,
+			   int *data, int *shades)
+{
+	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
+	int i, val;
+
+	for (i = 0; i < pixel_cnt; i++) {
+		if (pixels[i] == 0) {
+			data[i] = '.';
+			shades[i] = 0;
+		} else {
+			val = ceil(-log10(pixels[i]));
+			if (val >= 9)
+				val = 9;
+			data[i] = '0' + val;
+			shades[i] = GRAPH_SHADE_MAX - val - 3;
+		}
+	}
+}
+
 static double *eye_observe_dev(struct switchtec_dev *dev, int port_id,
 			       int lane_id, int num_lanes, int mode, int interval,
 			       struct range *X, struct range *Y, int *gen)
@@ -429,20 +449,8 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 {
 	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
 	int data[pixel_cnt], shades[pixel_cnt];
-	int i, val;
 
-	for (i = 0; i < pixel_cnt; i++) {
-		if (pixels[i] == 0) {
-			data[i] = '.';
-			shades[i] = 0;
-		} else {
-			val = ceil(-log10(pixels[i]));
-			if (val >= 9)
-				val = 9;
-			data[i] = '0' + val;
-			shades[i] = GRAPH_SHADE_MAX - val - 3;
-		}
-	}
+	eye_graph_data(X, Y, pixels, data, shades);
 
 	if (fmt == FMT_TEXT) {
 		graph_draw_text(X, Y, data, title, 'T', 'V');
