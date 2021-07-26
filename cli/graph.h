@@ -25,15 +25,21 @@
 #ifndef GRAPH_H
 #define GRAPH_H
 
+#include <stdbool.h>
+
 #define GRAPH_SHADE_MAX 16
 #define GRAPH_SHADE_MASK	0x1F
 #define GRAPH_SHADE_HIGHLIGHT  (1 << 5)
 
 struct range;
 
+typedef int graph_anim_fn(struct range *X, struct range *Y, int *data,
+		int *shades, char *status, bool *redraw, void *opaque);
+
 void graph_draw_text(struct range *X, struct range *Y, int *data,
 		     const char *title, char x_title, char y_title);
 int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
-		const char *title, char x_title, char y_title, char *status);
+		   const char *title, char x_title, char y_title, char *status,
+		   graph_anim_fn *anim, void *opaque);
 
 #endif

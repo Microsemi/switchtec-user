@@ -201,7 +201,8 @@ static void init_shades(void)
 }
 
 int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
-		   const char *title, char x_title, char y_title, char *status)
+		   const char *title, char x_title, char y_title, char *status,
+		   graph_anim_fn *anim, void *opaque)
 {
 	WINDOW *xaxis, *yaxis, *datawin, *stwin = NULL;
 	const int x_off = 7, y_off = 4;
@@ -213,6 +214,7 @@ int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
 	int x_max, y_max;
 	int s_off;
 	int c, rem;
+	int ret;
 
 	if (!isatty(STDOUT_FILENO)) {
 		graph_draw_text(X, Y, data, title, x_title, y_title);
@@ -225,6 +227,9 @@ int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
 	curs_set(0);
 	keypad(stdscr, true);
 	start_color();
+
+	if (anim)
+		nodelay(stdscr, true);
 
 	if (status) {
 		s_off = 2;
@@ -322,6 +327,22 @@ int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
 			x_scroll = x_max;
 		if (y_scroll > y_max)
 			y_scroll = y_max;
+
+		if (anim) {
+			ret = anim(X, Y, data, shades, status, &need_redraw,
+				   opaque);
+			if (ret < 0) {
+				delwin(datawin);
+				delwin(yaxis);
+				delwin(xaxis);
+				endwin();
+				return 1;
+			}
+			if (ret > 0) {
+				anim = NULL;
+				nodelay(stdscr, false);
+			}
+		}
 	}
 
 out:
@@ -337,8 +358,8 @@ out:
 #else /* defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES) */
 
 int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
-		   const char *title, char x_title, char y_title, char *status)
-
+		   const char *title, char x_title, char y_title, char *status,
+		   graph_anim_fn *anim, void *opaque)
 {
 	graph_draw_text(X, Y, data, title, x_title, y_title);
 	return 0;
