@@ -31,11 +31,34 @@
 #define GRAPH_SHADE_MASK	0x1F
 #define GRAPH_SHADE_HIGHLIGHT  (1 << 5)
 
+#ifndef __CHECKER__
+#define GRAPH_TEXT_HLINE	L'─'
+#define GRAPH_TEXT_VLINE	L'│'
+#define GRAPH_TEXT_PLUS		L'┼'
+#else
+#define GRAPH_TEXT_HLINE	'-'
+#define GRAPH_TEXT_VLINE	'|'
+#define GRAPH_TEXT_PLUS		'+'
+#endif
+
+#if defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES)
+#include <ncurses.h>
+/* graph_init() or graph_draw_win() must be called before using GRAPH_* */
+#define GRAPH_HLINE	ACS_HLINE
+#define GRAPH_VLINE	ACS_VLINE
+#define GRAPH_PLUS	ACS_PLUS
+#else
+#define GRAPH_HLINE	GRAPH_TEXT_HLINE
+#define GRAPH_VLINE	GRAPH_TEXT_VLINE
+#define GRAPH_PLUS	GRAPH_TEXT_PLUS
+#endif
+
 struct range;
 
 typedef int graph_anim_fn(struct range *X, struct range *Y, int *data,
 		int *shades, char *status, bool *redraw, void *opaque);
 
+void graph_init(void);
 void graph_draw_text(struct range *X, struct range *Y, int *data,
 		     const char *title, char x_title, char y_title);
 int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,

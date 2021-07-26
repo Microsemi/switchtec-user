@@ -39,6 +39,8 @@
 #include <ncurses/curses.h>
 #endif
 
+static bool curses_initialized;
+
 enum {
 	PAIR_AXIS = 1,
 	PAIR_TITLE = 2,
@@ -76,7 +78,7 @@ static void draw_data(WINDOW *win, int x_cnt, int y_cnt, int *data,
 		      int *shades, int x_scroll, int y_scroll)
 {
 	bool shade = COLORS == 256;
-	int x, y, s, yy;
+	int x, y, s, yy, space_ch;
 
 	werase(win);
 	for (y = 0; y < y_cnt; y++) {
@@ -89,8 +91,15 @@ static void draw_data(WINDOW *win, int x_cnt, int y_cnt, int *data,
 			yy = y_cnt - y_scroll - y - 1;
 			mvwaddch(win, yy, (x - x_scroll) * 2,
 				 data[y * x_cnt + x]);
+
+			if (data[y * x_cnt + x] == ACS_HLINE ||
+			    data[y * x_cnt + x] == ACS_PLUS)
+				space_ch = ACS_HLINE;
+			else
+				space_ch = ' ';
+
 			mvwaddch(win,  yy, (x - x_scroll) * 2 + 1,
-				 ' ');
+				 space_ch);
 		}
 	}
 	wrefresh(win);
@@ -221,7 +230,11 @@ int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
 		return 0;
 	}
 
-	initscr();
+	if (!curses_initialized) {
+		initscr();
+		curses_initialized = true;
+	}
+
 	noecho();
 	cbreak();
 	curs_set(0);
@@ -355,6 +368,12 @@ out:
 	return 0;
 }
 
+void graph_init(void)
+{
+	initscr();
+	curses_initialized = true;
+}
+
 #else /* defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES) */
 
 int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
@@ -365,6 +384,10 @@ int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
 	return 0;
 }
 
+void graph_init(void)
+{
+}
+
 #endif /* defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES) */
 
 void graph_draw_text(struct range *X, struct range *Y, int *data,
@@ -372,6 +395,7 @@ void graph_draw_text(struct range *X, struct range *Y, int *data,
 {
 	int stride = RANGE_CNT(X);
 	int x, y, i, j = RANGE_CNT(Y) - 1;
+	int space_ch;
 
 	printf("    %s\n\n", title);
 
@@ -389,7 +413,15 @@ void graph_draw_text(struct range *X, struct range *Y, int *data,
 		printf("%5d  ", y);
 		i = 0;
 		for_range(x, X)  {
-			printf("%c ", data[j * stride + i]);
+			space_ch = ' ';
+			if (data[j * stride + i] == GRAPH_TEXT_HLINE ||
+			    data[j * stride + i] == GRAPH_TEXT_PLUS)
+				space_ch = GRAPH_TEXT_HLINE;
+			else if (data[j * stride + i] == '-' ||
+				 data[j * stride + i] == '+')
+				space_ch = '-';
+
+			printf("%lc%lc", data[j * stride + i], space_ch);
 			i++;
 		}
 		printf("\n");
