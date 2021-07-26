@@ -142,6 +142,8 @@ static void init_axis_color(WINDOW *xaxis, WINDOW *yaxis, char x_title, char y_t
 
 static void init_shades(void)
 {
+	int start;
+
 	init_pair(PAIR_SHADE_START +  0, COLOR_WHITE, COLOR_BLACK);
 	init_pair(PAIR_SHADE_START +  1, COLOR_WHITE, 0x11);
 	init_pair(PAIR_SHADE_START +  2, COLOR_WHITE, 0x12);
@@ -158,6 +160,24 @@ static void init_shades(void)
 	init_pair(PAIR_SHADE_START + 13, COLOR_WHITE, 0xa0);
 	init_pair(PAIR_SHADE_START + 14, COLOR_WHITE, 0xc4);
 	init_pair(PAIR_SHADE_START + 15, COLOR_WHITE, 0xca);
+
+	start = PAIR_SHADE_START + GRAPH_SHADE_HIGHLIGHT;
+	init_pair(start +  0, COLOR_GREEN, COLOR_BLACK);
+	init_pair(start +  1, COLOR_GREEN, 0x11);
+	init_pair(start +  2, COLOR_GREEN, 0x12);
+	init_pair(start +  3, COLOR_GREEN, 0x13);
+	init_pair(start +  4, COLOR_GREEN, 0x14);
+	init_pair(start +  5, COLOR_GREEN, 0x15);
+	init_pair(start +  6, COLOR_GREEN, 0x5d);
+	init_pair(start +  7, COLOR_GREEN, 0x5c);
+	init_pair(start +  8, COLOR_GREEN, 0x5b);
+	init_pair(start +  9, COLOR_GREEN, 0x5a);
+	init_pair(start + 10, COLOR_GREEN, 0x59);
+	init_pair(start + 11, COLOR_GREEN, 0x58);
+	init_pair(start + 12, COLOR_GREEN, 0x7c);
+	init_pair(start + 13, COLOR_GREEN, 0xa0);
+	init_pair(start + 14, COLOR_GREEN, 0xc4);
+	init_pair(start + 15, COLOR_GREEN, 0xca);
 }
 
 int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,

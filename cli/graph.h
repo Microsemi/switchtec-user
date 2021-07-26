@@ -26,6 +26,8 @@
 #define GRAPH_H
 
 #define GRAPH_SHADE_MAX 16
+#define GRAPH_SHADE_MASK	0x1F
+#define GRAPH_SHADE_HIGHLIGHT  (1 << 5)
 
 struct range;
 
