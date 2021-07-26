@@ -449,7 +449,7 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 		return 0;
 	}
 
-	return graph_draw_win(X, Y, data, shades, title, 'T', 'V');
+	return graph_draw_win(X, Y, data, shades, title, 'T', 'V', NULL);
 }
 
 #define CMD_DESC_EYE "Capture PCIe Eye Errors"

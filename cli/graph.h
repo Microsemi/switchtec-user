@@ -34,6 +34,6 @@ struct range;
 void graph_draw_text(struct range *X, struct range *Y, int *data,
 		     const char *title, char x_title, char y_title);
 int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
-		   const char *title, char x_title, char y_title);
+		const char *title, char x_title, char y_title, char *status);
 
 #endif
