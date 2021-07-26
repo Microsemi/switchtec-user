@@ -46,7 +46,10 @@ struct log_a_retr_result {
 	struct log_a_retr_hdr {
 		uint8_t sub_cmd_id;
 		uint8_t from_end;
-		uint8_t reserved1[2];
+		/* 'overflow' only used in MRPC_FWLOGRD_RAM_WITH_FLAG
+		 * and MRPC_FWLOGRD_FLASH_WITH_FLAG subcommand */
+		uint8_t overflow;
+		uint8_t reserved1;
 		uint32_t total;
 		uint32_t count;
 		uint32_t remain;

@@ -45,7 +45,7 @@ struct diag_common_cfg {
 }
 
 #define PORT_OPTION {							\
-	"port", 'p', "PORT_ID", CFG_POSITIVE, &cfg.port_id,		\
+	"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,		\
 	required_argument, "physical port ID to dump data for",		\
 }
 #define FAR_END_OPTION {						\
@@ -106,6 +106,334 @@ static int diag_parse_common_cfg(int argc, char **argv, const char *desc,
 		cfg->link = SWITCHTEC_DIAG_LINK_PREVIOUS;
 	else
 		cfg->link = SWITCHTEC_DIAG_LINK_CURRENT;
+
+	return 0;
+}
+
+static const struct argconfig_choice loopback_ltssm_speeds[] = {
+	{"GEN1", SWITCHTEC_DIAG_LTSSM_GEN1, "GEN1 LTSSM Speed"},
+	{"GEN2", SWITCHTEC_DIAG_LTSSM_GEN2, "GEN2 LTSSM Speed"},
+	{"GEN3", SWITCHTEC_DIAG_LTSSM_GEN3, "GEN3 LTSSM Speed"},
+	{"GEN4", SWITCHTEC_DIAG_LTSSM_GEN4, "GEN4 LTSSM Speed"},
+	{}
+};
+
+static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
+{
+	enum switchtec_diag_ltssm_speed speed;
+	const struct argconfig_choice *s;
+	int ret, b = 0, enable;
+	const char *speed_str;
+	char buf[100];
+
+	ret = switchtec_diag_loopback_get(dev, port_id, &enable, &speed);
+	if (ret) {
+		switchtec_perror("loopback_get");
+		return -1;
+	}
+
+	if (!enable)
+		b += snprintf(&buf[b], sizeof(buf) - b, "DISABLED, ");
+	if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
+		b += snprintf(&buf[b], sizeof(buf) - b, "RX->TX, ");
+	if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
+		b += snprintf(&buf[b], sizeof(buf) - b, "TX->RX, ");
+	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM)
+		b += snprintf(&buf[b], sizeof(buf) - b, "LTSSM, ");
+
+	/* Drop trailing comma */
+	buf[b - 2] = '\0';
+
+	speed_str = "";
+	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM) {
+		for (s = loopback_ltssm_speeds; s->name; s++) {
+			if (s->value == speed) {
+				speed_str = s->name;
+				break;
+			}
+		}
+	}
+
+	printf("Port: %d    %-30s %s\n", port_id, buf, speed_str);
+
+	return 0;
+}
+
+#define CMD_DESC_LOOPBACK "Enable Loopback on specified ports"
+
+static int loopback(int argc, char **argv)
+{
+	int ret, enable = 0;
+
+	struct {
+		struct switchtec_dev *dev;
+		struct switchtec_status port;
+		int port_id;
+		int disable;
+		int enable_tx_to_rx;
+		int enable_rx_to_tx;
+		int enable_ltssm;
+		int speed;
+	} cfg = {
+		.port_id = -1,
+		.speed = SWITCHTEC_DIAG_LTSSM_GEN4,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
+		 required_argument, "physical port ID to set/get loopback for"},
+		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
+		 "Disable all loopback modes"},
+		{"ltssm", 'l', "", CFG_NONE, &cfg.enable_ltssm, no_argument,
+		 "Enable LTSSM loopback mode"},
+		{"rx-to-tx", 'r', "", CFG_NONE, &cfg.enable_rx_to_tx, no_argument,
+		 "Enable RX->TX loopback mode"},
+		{"tx-to-rx", 't', "", CFG_NONE, &cfg.enable_tx_to_rx, no_argument,
+		 "Enable TX->RX loopback mode"},
+		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed, required_argument,
+		 "LTSSM Speed (if enabling the LTSSM loopback mode), default: GEN4",
+		 .choices = loopback_ltssm_speeds},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_LOOPBACK, opts, &cfg, sizeof(cfg));
+
+	if (cfg.port_id < 0) {
+		fprintf(stderr, "Must specify -p / --port_id\n");
+		return -1;
+	}
+
+	if (cfg.disable && (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx ||
+			    cfg.enable_ltssm)) {
+		fprintf(stderr,
+			"Must not specify -d / --disable with an enable flag\n");
+		return -1;
+	}
+
+	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
+	if (ret)
+		return ret;
+
+	if (cfg.disable || cfg.enable_rx_to_tx || cfg.enable_tx_to_rx ||
+	    cfg.enable_ltssm) {
+		if (cfg.enable_rx_to_tx)
+			enable |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
+		if (cfg.enable_tx_to_rx)
+			enable |= SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX;
+		if (cfg.enable_ltssm)
+			enable |= SWITCHTEC_DIAG_LOOPBACK_LTSSM;
+
+		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id,
+						  enable, cfg.speed);
+		if (ret) {
+			switchtec_perror("loopback_set");
+			return -1;
+		}
+	}
+
+	return print_loopback_mode(cfg.dev, cfg.port_id);
+}
+
+static const struct argconfig_choice pattern_types[] = {
+	{"PRBS7",   SWITCHTEC_DIAG_PATTERN_PRBS_7,  "PRBS 7"},
+	{"PRBS11",  SWITCHTEC_DIAG_PATTERN_PRBS_11, "PRBS 11"},
+	{"PRBS23",  SWITCHTEC_DIAG_PATTERN_PRBS_23, "PRBS 23"},
+	{"PRBS31",  SWITCHTEC_DIAG_PATTERN_PRBS_31, "PRBS 31"},
+	{"PRBS9",   SWITCHTEC_DIAG_PATTERN_PRBS_9,  "PRBS 9"},
+	{"PRBS15",  SWITCHTEC_DIAG_PATTERN_PRBS_15, "PRBS 15"},
+	{}
+};
+
+static const char *pattern_to_str(enum switchtec_diag_pattern type)
+{
+	const struct argconfig_choice *s;
+
+	for (s = pattern_types; s->name; s++) {
+		if (s->value == type)
+			return s->name;
+	}
+
+	return "UNKNOWN";
+}
+
+static int print_pattern_mode(struct switchtec_dev *dev,
+		struct switchtec_status *port, int port_id)
+{
+	enum switchtec_diag_pattern gen_pat, mon_pat;
+	unsigned long long err_cnt;
+	int ret, lane_id;
+
+	ret = switchtec_diag_pattern_gen_get(dev, port_id, &gen_pat);
+	if (ret) {
+		switchtec_perror("pattern_gen_get");
+		return -1;
+	}
+
+	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, &err_cnt);
+	if (ret) {
+		switchtec_perror("pattern_mon_get");
+		return -1;
+	}
+
+	printf("Port: %d\n", port_id);
+	if (gen_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED)
+		printf("  Generator: Disabled\n");
+	else
+		printf("  Generator: %s\n", pattern_to_str(gen_pat));
+
+	if (mon_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED) {
+		printf("  Monitor: Disabled\n");
+	} else {
+		printf("  Monitor: %-20s\n", pattern_to_str(mon_pat));
+		printf("    Lane %-2d    Errors: 0x%llx\n", 0, err_cnt);
+		for (lane_id = 1; lane_id < port->cfg_lnk_width; lane_id++) {
+			ret = switchtec_diag_pattern_mon_get(dev, port_id,
+					lane_id, NULL, &err_cnt);
+			printf("    Lane %-2d    Errors: 0x%llx\n", lane_id,
+			       err_cnt);
+			if (ret) {
+				switchtec_perror("pattern_mon_get");
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+#define CMD_DESC_PATTERN "Enable pattern generation and monitor"
+
+static int pattern(int argc, char **argv)
+{
+	int ret;
+
+	struct {
+		struct switchtec_dev *dev;
+		struct switchtec_status port;
+		int port_id;
+		int disable;
+		int generate;
+		int monitor;
+		int pattern;
+		int inject_errs;
+	} cfg = {
+		.port_id = -1,
+		.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_31,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
+		 required_argument, "physical port ID to set/get loopback for"},
+		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
+		 "Disable all generators and monitors"},
+		{"inject", 'i', "NUM", CFG_NONNEGATIVE, &cfg.inject_errs,
+		 required_argument,
+		 "Inject the specified number of errors into all lanes of the TX port"},
+		{"generate", 'g', "", CFG_NONE, &cfg.generate, no_argument,
+		 "Enable Pattern Generator on specified port"},
+		{"monitor", 'm', "", CFG_NONE, &cfg.monitor, no_argument,
+		 "Enable Pattern Monitor on specified port"},
+		{"pattern", 't', "PATTERN", CFG_CHOICES, &cfg.pattern,
+		 required_argument,
+		 "pattern to generate or monitor for (default: PRBS31)",
+		 .choices = pattern_types},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_PATTERN, opts, &cfg, sizeof(cfg));
+
+	if (cfg.port_id < 0) {
+		fprintf(stderr, "Must specify -p / --port_id\n");
+		return -1;
+	}
+
+	if (cfg.disable && (cfg.generate || cfg.monitor)) {
+		fprintf(stderr,
+			"Must not specify -d / --disable with an enable flag\n");
+		return -1;
+	}
+
+	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
+	if (ret)
+		return ret;
+
+	if (cfg.disable) {
+		cfg.generate = 1;
+		cfg.monitor = 1;
+		cfg.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED;
+	}
+
+	if (cfg.monitor) {
+		ret = switchtec_diag_pattern_mon_set(cfg.dev, cfg.port_id,
+						     cfg.pattern);
+		if (ret) {
+			switchtec_perror("pattern_mon_set");
+			return -1;
+		}
+	}
+
+	if (cfg.generate) {
+		ret = switchtec_diag_pattern_gen_set(cfg.dev, cfg.port_id,
+						     cfg.pattern);
+		if (ret) {
+			switchtec_perror("pattern_gen_set");
+			return -1;
+		}
+	}
+
+	if (cfg.inject_errs > 1000) {
+		fprintf(stderr, "Too many errors to inject. --inject / -i must be less than 1000\n");
+		return -1;
+	}
+
+	if (cfg.inject_errs) {
+		ret = switchtec_diag_pattern_inject(cfg.dev, cfg.port_id,
+						    cfg.inject_errs);
+		if (ret) {
+			switchtec_perror("pattern_inject");
+			return -1;
+		}
+		printf("Injected %d errors\n", cfg.inject_errs);
+		return 0;
+	}
+
+	return print_pattern_mode(cfg.dev, &cfg.port, cfg.port_id);
+}
+
+#define CMD_DESC_LIST_MRPC "List permissible MRPC commands"
+
+static int list_mrpc(int argc, char **argv)
+{
+	struct switchtec_mrpc table[MRPC_MAX_ID];
+	int i, ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int all;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"all", 'a', "", CFG_NONE, &cfg.all, no_argument,
+		 "print all MRPC commands, including ones that are unknown"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_LIST_MRPC, opts, &cfg,
+			sizeof(cfg));
+	ret = switchtec_diag_perm_table(cfg.dev, table);
+	if (ret) {
+		switchtec_perror("perm_table");
+		return -1;
+	}
+
+	for (i = 0; i < MRPC_MAX_ID; i++) {
+		if (!table[i].tag)
+			continue;
+		if (!cfg.all && table[i].reserved)
+			continue;
+
+		printf("  0x%03x  %-25s  %s\n", i, table[i].tag,
+		       table[i].desc);
+	}
 
 	return 0;
 }
@@ -297,12 +625,63 @@ static int rcvr_extended(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_REF_CLK "Enable or disable the output reference clock of a stack"
+
+static int refclk(int argc, char **argv)
+{
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		int enable;
+		int disable;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
+		 "disable the rfclk output"},
+		{"enable", 'e', "", CFG_NONE, &cfg.enable, no_argument,
+		 "enable the rfclk output"},
+		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack_id,
+		required_argument, "stack to operate on"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_REF_CLK, opts, &cfg,
+			sizeof(cfg));
+
+	if (!cfg.enable && !cfg.disable) {
+		fprintf(stderr, "Must set either --enable or --disable");
+		return -1;
+	}
+
+	if (cfg.enable && cfg.disable) {
+		fprintf(stderr, "Must not set both --enable and --disable");
+		return -1;
+	}
+
+	ret = switchtec_diag_refclk_ctl(cfg.dev, cfg.stack_id, cfg.enable);
+	if (ret) {
+		switchtec_perror("refclk_ctl");
+		return -1;
+	}
+
+	printf("REFCLK Output %s for Stack %d\n",
+	       cfg.enable ? "Enabled" : "Disabled", cfg.stack_id);
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
+	CMD(list_mrpc,		CMD_DESC_LIST_MRPC),
+	CMD(loopback,		CMD_DESC_LOOPBACK),
+	CMD(pattern,		CMD_DESC_PATTERN),
 	CMD(port_eq_txcoeff,	CMD_DESC_PORT_EQ_TXCOEFF),
 	CMD(port_eq_txfslf,	CMD_DESC_PORT_EQ_TXFSLF),
 	CMD(port_eq_txtable,	CMD_DESC_PORT_EQ_TXTABLE),
 	CMD(rcvr_extended,	CMD_DESC_RCVR_EXTENDED),
 	CMD(rcvr_obj,		CMD_DESC_RCVR_OBJ),
+	CMD(refclk,		CMD_DESC_REF_CLK),
 	{}
 };
 

@@ -147,6 +147,8 @@ struct switchtec_dev {
 	const struct switchtec_ops *ops;
 };
 
+extern const struct switchtec_mrpc switchtec_mrpc_table[MRPC_MAX_ID];
+
 static inline void version_to_string(uint32_t version, char *buf, size_t buflen)
 {
 	int major = version >> 24;

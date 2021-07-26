@@ -446,6 +446,33 @@ static const char *lane_reversal_str(int link_up,
 	}
 }
 
+static void generate_lane_str(struct switchtec_status *s)
+{
+	int i, l;
+
+	for (i = 0; i < s->cfg_lnk_width; i++)
+		s->lanes[i] = 'x';
+
+	if (!s->link_up)
+		return;
+
+	l = s->first_act_lane;
+	if (!l && s->lane_reversal)
+		l += s->neg_lnk_width - 1;
+
+	for (i = 0; i < s->neg_lnk_width; i++) {
+		if (l < 0)
+			break;
+
+		if (i < 10)
+			s->lanes[l] = '0' + i;
+		else
+			s->lanes[l] = 'a' + i - 10;
+
+		l += s->lane_reversal ? -1 : 1;
+	}
+}
+
 /**
  * @brief Get the status of all the ports on a switchtec device
  * @param[in]  dev    Switchtec device handle
@@ -523,6 +550,7 @@ int switchtec_status(struct switchtec_dev *dev,
 							   s[p].lane_reversal);
 		s[p].first_act_lane = ports[i].first_act_lane & 0xF;
 		s[p].acs_ctrl = -1;
+		generate_lane_str(&s[p]);
 
 		p++;
 	}
@@ -617,6 +645,7 @@ const char *switchtec_strerror(void)
 	case ERR_NO_BG_THREAD:
 		msg = "No background thread run for the command"; break;
 
+	case ERR_REFCLK_SUBCMD_INVALID:
 	case ERR_SUBCMD_INVALID: 	msg = "Invalid subcommand"; break;
 	case ERR_CMD_INVALID: 		msg = "Invalid command"; break;
 	case ERR_PARAM_INVALID:		msg = "Invalid parameter"; break;
@@ -625,7 +654,9 @@ const char *switchtec_strerror(void)
 	case ERR_MRPC_NO_PREV_DATA:
 		msg = "No previous adaptation object data";
 		break;
+	case ERR_REFCLK_STACK_ID_INVALID:
 	case ERR_STACK_INVALID: 	msg = "Invalid Stack"; break;
+	case ERR_LOOPBACK_PORT_INVALID:
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
 	case ERR_EVENT_INVALID: 	msg = "Invalid Event"; break;
 	case ERR_RST_RULE_FAILED: 	msg = "Reset rule search failed"; break;
@@ -804,7 +835,7 @@ static bool parse_int(char *str, int *val)
 
 	if ((endptr == str) || (*endptr != '\0') || (errno != 0))
 	    return false;
-	
+
 	return true;
 }
 
@@ -956,7 +987,7 @@ static int read_mailbox_log_defs(FILE *log_def_file, struct log_defs *defs)
 						    (num_entries_alloc *
 						     sizeof(*mod_defs->entries)));
 			if (!mod_defs->entries)
-				goto err_free_log_defs;			
+				goto err_free_log_defs;
 		}
 
 		mod_defs->entries[mod_defs->num_entries] = strdup(line);
@@ -1038,7 +1069,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 			 * DWord
 			 */
 			mod_id = (log_data[i].data[2] >> 16) & 0xFFF;
-			log_sev = (log_data[i].data[2] >> 28) & 0xF;		
+			log_sev = (log_data[i].data[2] >> 28) & 0xF;
 
 			if ((mod_id > defs->num_alloc) ||
 			    (defs->module_defs[mod_id].mod_name == NULL) ||
@@ -1181,7 +1212,8 @@ static int append_log_header(int fd, uint32_t sdk_version,
 }
 
 static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
-			 int fd, FILE *log_def_file)
+			 int fd, FILE *log_def_file,
+			 struct switchtec_log_file_info *info)
 {
 	int ret = -1;
 	int read = 0;
@@ -1197,7 +1229,6 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 	int entry_idx = 0;
 	uint32_t fw_version = 0;
 	uint32_t sdk_version = 0;
-	int version_mismatch = 0;
 
 	if (log_def_file != NULL) {
 		ret = parse_def_header(log_def_file, &fw_version,
@@ -1217,15 +1248,27 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 				    &res, sizeof(res));
 		if (ret)
 			goto ret_free_log_defs;
+		if (res.hdr.overflow && info)
+			info->overflow = 1;
 		if (read == 0) {
 			if (dev->gen < SWITCHTEC_GEN5) {
 				res.hdr.sdk_version = 0;
 				res.hdr.fw_version = 0;
 			}
 
+			if (info) {
+				info->def_fw_version = fw_version;
+				info->def_sdk_version = sdk_version;
+				info->log_fw_version = res.hdr.fw_version;
+				info->log_sdk_version = res.hdr.sdk_version;
+			}
+
 			if (res.hdr.sdk_version != sdk_version ||
-			     res.hdr.fw_version != fw_version)
-				version_mismatch = true;
+			     res.hdr.fw_version != fw_version) {
+				if (info && log_def_file)
+					info->version_mismatch = true;
+
+			}
 
 			append_log_header(fd, res.hdr.sdk_version,
 					  res.hdr.fw_version,
@@ -1258,10 +1301,7 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 		cmd.start = res.hdr.next_start;
 	}
 
-	if (log_def_file != NULL && version_mismatch)
-		ret = ENOEXEC;
-	else
-		ret = 0;
+	ret = 0;
 
 ret_free_log_defs:
 	free_log_defs(&defs);
@@ -1330,36 +1370,64 @@ static int log_c_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 	return 0;
 }
 
+static int log_ram_flash_to_file(struct switchtec_dev *dev,
+				 int gen5_cmd, int gen4_cmd, int gen4_cmd_lgcy,
+				 int fd, FILE *log_def_file,
+				 struct switchtec_log_file_info *info)
+{
+	int ret;
+
+	if (switchtec_is_gen5(dev)) {
+		return log_a_to_file(dev, gen5_cmd, fd, log_def_file,
+				     info);
+	} else {
+		ret = log_a_to_file(dev, gen4_cmd, fd, log_def_file,
+				    info);
+
+		/* somehow hardware returns ERR_LOGC_PORT_ARDY_BIND
+		 * instead of ERR_SUBCMD_INVALID if this subcommand
+		 * is not supported, so we fall back to legacy
+		 * subcommand on ERR_LOGC_PORT_ARDY_BIND error as well
+		 */
+		if (ret > 0 &&
+		    (ERRNO_MRPC(errno) == ERR_LOGC_PORT_ARDY_BIND ||
+		     ERRNO_MRPC(errno) == ERR_SUBCMD_INVALID))
+			ret = log_a_to_file(dev, gen4_cmd_lgcy, fd,
+					    log_def_file, info);
+
+		return ret;
+	}
+}
+
 /**
  * @brief Dump the Switchtec log data to a file
  * @param[in]  dev          - Switchtec device handle
  * @param[in]  type         - Type of log data to dump
  * @param[in]  fd           - File descriptor to dump the data to
  * @param[in]  log_def_file - Log definition file
+ * @param[out] info         - Log file information
  * @return 0 on success, error code on failure
  */
 int switchtec_log_to_file(struct switchtec_dev *dev,
-			  enum switchtec_log_type type,
-			  int fd,
-			  FILE *log_def_file)
+		enum switchtec_log_type type, int fd, FILE *log_def_file,
+		struct switchtec_log_file_info *info)
 {
-	int subcmd;
+	if (info)
+		memset(info, 0, sizeof(*info));
 
 	switch (type) {
 	case SWITCHTEC_LOG_RAM:
-		if (switchtec_is_gen5(dev))
-			subcmd = MRPC_FWLOGRD_RAM_GEN5;
-		else
-			subcmd = MRPC_FWLOGRD_RAM;
-
-		return log_a_to_file(dev, subcmd, fd, log_def_file);
+		return log_ram_flash_to_file(dev,
+					     MRPC_FWLOGRD_RAM_GEN5,
+					     MRPC_FWLOGRD_RAM_WITH_FLAG,
+					     MRPC_FWLOGRD_RAM,
+					     fd, log_def_file, info);
 	case SWITCHTEC_LOG_FLASH:
-		if (switchtec_is_gen5(dev))
-			subcmd = MRPC_FWLOGRD_FLASH_GEN5;
-		else
-			subcmd = MRPC_FWLOGRD_FLASH;
-
-		return log_a_to_file(dev, subcmd, fd, log_def_file);
+		return log_ram_flash_to_file(dev,
+					     MRPC_FWLOGRD_FLASH_GEN5,
+					     MRPC_FWLOGRD_FLASH_WITH_FLAG,
+					     MRPC_FWLOGRD_FLASH,
+					     fd, log_def_file, info);
 	case SWITCHTEC_LOG_MEMLOG:
 		return log_b_to_file(dev, MRPC_FWLOGRD_MEMLOG, fd);
 	case SWITCHTEC_LOG_REGS:
@@ -1417,13 +1485,13 @@ static int parse_log_header(FILE *bin_log_file, uint32_t *fw_version,
  * @param[in] log_def_file    - Log definition file
  * @param[in] parsed_log_file - Parsed output file
  * @param[in] log_type        - log type
- * @param[out] info           - log file version info
+ * @param[out] info           - log file information
  * @return 0 on success, error code on failure
  */
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
 			enum switchtec_log_parse_type log_type,
-			struct switchtec_log_file_ver_info *info)
+			struct switchtec_log_file_info *info)
 {
 	int ret;
 	struct log_a_data log_data;
@@ -1435,6 +1503,9 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	uint32_t sdk_version_log;
 	uint32_t fw_version_def;
 	uint32_t sdk_version_def;
+
+	if (info)
+		memset(info, 0, sizeof(*info));
 
 	if ((log_type != SWITCHTEC_LOG_PARSE_TYPE_APP) &&
 	    (log_type != SWITCHTEC_LOG_PARSE_TYPE_MAILBOX)) {
@@ -1593,7 +1664,12 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 	} reply;
 
 	ping_dw = time(NULL);
-	ret = switchtec_cmd(dev, MRPC_GET_DEV_INFO, &ping_dw,
+
+	/*
+	 * The I2C TWI Ping command also dumps information about the
+	 * revision and image phase.
+	 */
+	ret = switchtec_cmd(dev, MRPC_I2C_TWI_PING, &ping_dw,
 			    sizeof(ping_dw),
 			    &reply, sizeof(reply));
 	if (ret == 0) {

@@ -47,7 +47,7 @@ extern "C" {
 struct switchtec_dev;
 
 #define SWITCHTEC_MAX_PARTS  48
-#define SWITCHTEC_MAX_PORTS  48
+#define SWITCHTEC_MAX_PORTS  60
 #define SWITCHTEC_MAX_STACKS 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
@@ -165,6 +165,7 @@ struct switchtec_status {
 	unsigned char lane_reversal;	//!< Lane reversal
 	const char *lane_reversal_str;	//!< Lane reversal as a string
 	unsigned char first_act_lane;	//!< First active lane
+	char lanes[17];
 
 	char *pci_bdf;			//!< PCI BDF of the port
 	char *pci_bdf_path;		//!< PCI BDF path of the port
@@ -210,11 +211,13 @@ enum switchtec_log_parse_type {
 /**
  * @brief Information about log file and log definition file
  */
-struct switchtec_log_file_ver_info {
+struct switchtec_log_file_info {
 	unsigned int log_fw_version;
 	unsigned int log_sdk_version;
 	unsigned int def_fw_version;
 	unsigned int def_sdk_version;
+	bool version_mismatch;
+	bool overflow;
 };
 
 /**
@@ -389,13 +392,12 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 const char *switchtec_strerror(void);
 void switchtec_perror(const char *str);
 int switchtec_log_to_file(struct switchtec_dev *dev,
-			  enum switchtec_log_type type,
-			  int fd,
-			  FILE *log_def_file);
+		enum switchtec_log_type type, int fd, FILE *log_def_file,
+		struct switchtec_log_file_info *info);
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
 			enum switchtec_log_parse_type log_type,
-			struct switchtec_log_file_ver_info *info);
+			struct switchtec_log_file_info *info);
 int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,
 			      FILE* file);
@@ -1037,6 +1039,35 @@ struct switchtec_rcvr_ext {
 	int dtclk_9;
 };
 
+struct switchtec_mrpc {
+	const char *tag;
+	const char *desc;
+	bool reserved;
+};
+
+enum switchtec_diag_loopback_enable {
+	SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX = 1 << 0,
+	SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX = 1 << 1,
+	SWITCHTEC_DIAG_LOOPBACK_LTSSM = 1 << 2,
+};
+
+enum switchtec_diag_pattern {
+	SWITCHTEC_DIAG_PATTERN_PRBS_7,
+	SWITCHTEC_DIAG_PATTERN_PRBS_11,
+	SWITCHTEC_DIAG_PATTERN_PRBS_23,
+	SWITCHTEC_DIAG_PATTERN_PRBS_31,
+	SWITCHTEC_DIAG_PATTERN_PRBS_9,
+	SWITCHTEC_DIAG_PATTERN_PRBS_15,
+	SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED,
+};
+
+enum switchtec_diag_ltssm_speed {
+	SWITCHTEC_DIAG_LTSSM_GEN1 = 0,
+	SWITCHTEC_DIAG_LTSSM_GEN2 = 1,
+	SWITCHTEC_DIAG_LTSSM_GEN3 = 2,
+	SWITCHTEC_DIAG_LTSSM_GEN4 = 3,
+};
+
 enum switchtec_diag_end {
 	SWITCHTEC_DIAG_LOCAL,
 	SWITCHTEC_DIAG_FAR_END,
@@ -1046,6 +1077,22 @@ enum switchtec_diag_link {
 	SWITCHTEC_DIAG_LINK_CURRENT,
 	SWITCHTEC_DIAG_LINK_PREVIOUS,
 };
+
+int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
+		int enable, enum switchtec_diag_ltssm_speed ltssm_speed);
+int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
+		int *enabled, enum switchtec_diag_ltssm_speed *ltssm_speed);
+int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_pattern type);
+int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_pattern *type);
+int switchtec_diag_pattern_mon_set(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_pattern type);
+int switchtec_diag_pattern_mon_get(struct switchtec_dev *dev, int port_id,
+		int lane_id, enum switchtec_diag_pattern *type,
+		unsigned long long *err_cnt);
+int switchtec_diag_pattern_inject(struct switchtec_dev *dev, int port_id,
+				  unsigned int err_cnt);
 
 int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
 		int lane_id, enum switchtec_diag_link link,
@@ -1064,6 +1111,10 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 				 int lane_id, enum switchtec_diag_end end,
 				 enum switchtec_diag_link link,
 				 struct switchtec_port_eq_tx_fslf *res);
+
+int switchtec_diag_perm_table(struct switchtec_dev *dev,
+			      struct switchtec_mrpc table[MRPC_MAX_ID]);
+int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en);
 
 #ifdef __cplusplus
 }

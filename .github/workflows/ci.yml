@@ -1,0 +1,61 @@
+name: switchtec-user CI
+
+on: [push, pull_request]
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: configure
+        run: ./configure
+      - name: make
+        run: make -k W=1
+  linux-clang:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: configure
+        run: ./configure
+      - name: make
+        run: make -k W=1
+    env:
+      CC: clang
+  linux-32bit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install packages
+        run: sudo apt-get install gcc-multilib
+      - uses: actions/checkout@v2
+      - name: configure
+        run: ./configure
+      - name: make
+        run: make -k W=1
+    env:
+      CFLAGS: -m32
+      LDFLAGS: -m32
+  windows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install packages
+        run: sudo apt-get install gcc-mingw-w64-x86-64 mingw-w64-x86-64-dev
+      - uses: actions/checkout@v2
+      - name: configure
+        run: ./configure --host x86_64-w64-mingw32
+      - name: make
+        run: make -k W=1
+    env:
+      CC: x86_64-w64-mingw32-gcc
+  sparse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install packages
+        run: sudo apt-get install sparse
+      - uses: actions/checkout@v2
+      - name: configure
+        run: ./configure
+      - name: make
+        run: make -k W=1 CFLAGS=-Wsparse-error CFLAGS+=-Wno-vla CFLAGS+=-Wno-old-initializer
+    env:
+      CC: cgcc
+      CFLAGS:

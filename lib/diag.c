@@ -1,3 +1,4 @@
+
 /*
  * Microsemi Switchtec(tm) PCIe Management Library
  * Copyright (c) 2021, Microsemi Corporation
@@ -29,11 +30,257 @@
 
 #define SWITCHTEC_LIB_CORE
 
+#include "switchtec_priv.h"
 #include "switchtec/diag.h"
+#include "switchtec/endian.h"
 #include "switchtec/switchtec.h"
 #include "switchtec/utils.h"
 
 #include <errno.h>
+
+/**
+ * @brief Setup Loopback Mode
+ * @param[in]  dev	    Switchtec device handle
+ * @param[in]  port_id	    Physical port ID
+ * @param[in]  enable       Any enum switchtec_diag_loopback_enable flags
+ *			    or'd together to enable specific loopback modes
+ * @param[in]  ltssm_speed  LTSSM loopback max speed
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
+		int enable, enum switchtec_diag_ltssm_speed ltssm_speed)
+{
+	struct switchtec_diag_loopback_in int_in = {
+		.sub_cmd = MRPC_LOOPBACK_SET_INT_LOOPBACK,
+		.port_id = port_id,
+		.enable = enable,
+	};
+	struct switchtec_diag_loopback_ltssm_in ltssm_in = {
+		.sub_cmd = MRPC_LOOPBACK_SET_LTSSM_LOOPBACK,
+		.port_id = port_id,
+		.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM),
+		.speed = ltssm_speed,
+	};
+	int ret;
+
+	int_in.type = DIAG_LOOPBACK_RX_TO_TX;
+	int_in.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX);
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+			    sizeof(int_in), NULL, 0);
+	if (ret)
+		return ret;
+
+	int_in.type = DIAG_LOOPBACK_TX_TO_RX;
+	int_in.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX);
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+			    sizeof(int_in), NULL, 0);
+	if (ret)
+		return ret;
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
+			    sizeof(ltssm_in), NULL, 0);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+/**
+ * @brief Setup Loopback Mode
+ * @param[in]  dev	     Switchtec device handle
+ * @param[in]  port_id	     Physical port ID
+ * @param[out] enabled       Set of enum switchtec_diag_loopback_enable
+ *			     indicating which loopback modes are enabled
+ * @param[out] ltssm_speed   LTSSM loopback max speed
+ *
+ * @return 0 on succes, error code on failure
+ */
+int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
+		int *enabled, enum switchtec_diag_ltssm_speed *ltssm_speed)
+{
+	struct switchtec_diag_loopback_in int_in = {
+		.sub_cmd = MRPC_LOOPBACK_GET_INT_LOOPBACK,
+		.port_id = port_id,
+		.type = DIAG_LOOPBACK_RX_TO_TX,
+	};
+	struct switchtec_diag_loopback_ltssm_in lt_in = {
+		.sub_cmd = MRPC_LOOPBACK_GET_LTSSM_LOOPBACK,
+		.port_id = port_id,
+	};
+	struct switchtec_diag_loopback_out int_out;
+	struct switchtec_diag_loopback_ltssm_out lt_out;
+	int ret, en = 0;
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in, sizeof(int_in),
+			    &int_out, sizeof(int_out));
+	if (ret)
+		return ret;
+
+	if (int_out.enabled)
+		en |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
+
+	int_in.type = DIAG_LOOPBACK_TX_TO_RX;
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in, sizeof(int_in),
+			    &int_out, sizeof(int_out));
+	if (ret)
+		return ret;
+
+	if (int_out.enabled)
+		en |= SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX;
+
+	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &lt_in, sizeof(lt_in),
+			    &lt_out, sizeof(lt_out));
+	if (ret)
+		return ret;
+
+	if (lt_out.enabled)
+		en |= SWITCHTEC_DIAG_LOOPBACK_LTSSM;
+
+	if (enabled)
+		*enabled = en;
+
+	if (ltssm_speed)
+		*ltssm_speed = lt_out.speed;
+
+	return 0;
+}
+
+/**
+ * @brief Setup Pattern Generator
+ * @param[in]  dev	 Switchtec device handle
+ * @param[in]  port_id	 Physical port ID
+ * @param[in]  type      Pattern type to enable
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_pattern type)
+{
+	struct switchtec_diag_pat_gen_in in = {
+		.sub_cmd = MRPC_PAT_GEN_SET_GEN,
+		.port_id = port_id,
+		.pattern_type = type,
+	};
+
+	return switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), NULL, 0);
+}
+
+/**
+ * @brief Get Pattern Generator set on port
+ * @param[in]  dev	 Switchtec device handle
+ * @param[in]  port_id	 Physical port ID
+ * @param[out] type      Pattern type to enable
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
+		enum switchtec_diag_pattern *type)
+{
+	struct switchtec_diag_pat_gen_in in = {
+		.sub_cmd = MRPC_PAT_GEN_GET_GEN,
+		.port_id = port_id,
+	};
+	struct switchtec_diag_pat_gen_out out;
+	int ret;
+
+	ret = switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), &out,
+			    sizeof(out));
+	if (ret)
+		return ret;
+
+	if (type)
+		*type = out.pattern_type;
+
+	return 0;
+}
+
+/**
+ * @brief Setup Pattern Monitor
+ * @param[in]  dev	 Switchtec device handle
+ * @param[in]  port_id	 Physical port ID
+ * @param[in]  type      Pattern type to enable
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_pattern_mon_set(struct switchtec_dev *dev, int port_id,
+				   enum switchtec_diag_pattern type)
+{
+	struct switchtec_diag_pat_gen_in in = {
+		.sub_cmd = MRPC_PAT_GEN_SET_MON,
+		.port_id = port_id,
+		.pattern_type = type,
+	};
+
+	return switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), NULL, 0);
+}
+
+/**
+ * @brief Get Pattern Monitor
+ * @param[in]  dev	 Switchtec device handle
+ * @param[in]  port_id	 Physical port ID
+ * @param[out] type      Pattern type to enable
+ * @param[out] err_cnt   Number of errors seen
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_pattern_mon_get(struct switchtec_dev *dev, int port_id,
+		int lane_id, enum switchtec_diag_pattern *type,
+		unsigned long long *err_cnt)
+{
+	struct switchtec_diag_pat_gen_in in = {
+		.sub_cmd = MRPC_PAT_GEN_GET_MON,
+		.port_id = port_id,
+		.lane_id = lane_id,
+	};
+	struct switchtec_diag_pat_gen_out out;
+	int ret;
+
+	ret = switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), &out,
+			    sizeof(out));
+	if (ret)
+		return ret;
+
+	if (type)
+		*type = out.pattern_type;
+
+	if (err_cnt)
+		*err_cnt = (htole32(out.err_cnt_lo) |
+			    ((uint64_t)htole32(out.err_cnt_hi) << 32));
+
+	return 0;
+}
+
+/**
+ * @brief Inject error into pattern generator
+ * @param[in]  dev	 Switchtec device handle
+ * @param[in]  port_id	 Physical port ID
+ * @param[in] err_cnt   Number of errors seen
+ *
+ * Injects up to err_cnt errors into each lane of the TX port. It's
+ * recommended that the err_cnt be less than 1000, otherwise the
+ * firmware runs the risk of consuming too many resources and crashing.
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_pattern_inject(struct switchtec_dev *dev, int port_id,
+				  unsigned int err_cnt)
+{
+	struct switchtec_diag_pat_gen_inject in = {
+		.sub_cmd = MRPC_PAT_GEN_INJ_ERR,
+		.port_id = port_id,
+		.err_cnt = err_cnt,
+	};
+	int ret;
+
+	ret = switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), NULL, 0);
+	if (ret)
+		return ret;
+
+	return 0;
+}
 
 /**
  * @brief Get the receiver object
@@ -320,6 +567,60 @@ int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
 	res->dtclk_5 = out.dtclk_5;
 
 	return 0;
+}
+
+/**
+ * @brief Get the permission table
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] table    Resulting MRPC permission table
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_perm_table(struct switchtec_dev *dev,
+			      struct switchtec_mrpc table[MRPC_MAX_ID])
+{
+	uint32_t perms[MRPC_MAX_ID / 32];
+	int i, ret;
+
+	ret = switchtec_cmd(dev, MRPC_MRPC_PERM_TABLE_GET, NULL, 0,
+			    perms, sizeof(perms));
+	if (ret)
+		return -1;
+
+	for (i = 0; i < MRPC_MAX_ID; i++) {
+		if (perms[i >> 5] & (1 << (i & 0x1f))) {
+			if (switchtec_mrpc_table[i].tag) {
+				table[i] = switchtec_mrpc_table[i];
+			} else {
+				table[i].tag = "UNKNOWN";
+				table[i].desc = "Unknown MRPC Command";
+				table[i].reserved = true;
+			}
+		} else {
+			table[i].tag = NULL;
+			table[i].desc = NULL;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Control the refclk output for a stack
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  stack_id	Stack ID to control the refclk of
+ * @param[in]  en	Set to true to enable, false to disable
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
+{
+	struct switchtec_diag_refclk_ctl_in cmd = {
+		.sub_cmd = en ? MRPC_REFCLK_S_ENABLE : MRPC_REFCLK_S_DISABLE,
+		.stack_id = stack_id,
+	};
+
+	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
 }
 
 /**@}*/
