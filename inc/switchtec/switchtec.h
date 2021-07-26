@@ -210,11 +210,13 @@ enum switchtec_log_parse_type {
 /**
  * @brief Information about log file and log definition file
  */
-struct switchtec_log_file_ver_info {
+struct switchtec_log_file_info {
 	unsigned int log_fw_version;
 	unsigned int log_sdk_version;
 	unsigned int def_fw_version;
 	unsigned int def_sdk_version;
+	bool version_mismatch;
+	bool overflow;
 };
 
 /**
@@ -389,13 +391,12 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 const char *switchtec_strerror(void);
 void switchtec_perror(const char *str);
 int switchtec_log_to_file(struct switchtec_dev *dev,
-			  enum switchtec_log_type type,
-			  int fd,
-			  FILE *log_def_file);
+		enum switchtec_log_type type, int fd, FILE *log_def_file,
+		struct switchtec_log_file_info *info);
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
 			enum switchtec_log_parse_type log_type,
-			struct switchtec_log_file_ver_info *info);
+			struct switchtec_log_file_info *info);
 int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,
 			      FILE* file);
