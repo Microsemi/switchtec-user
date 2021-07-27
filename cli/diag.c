@@ -32,8 +32,11 @@
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
 
+#include <limits.h>
+#include <locale.h>
 #include <math.h>
 #include <stdio.h>
+#include <unistd.h>
 
 struct diag_common_cfg {
 	struct switchtec_dev *dev;
@@ -345,6 +348,759 @@ static void eye_graph_data(struct range *X, struct range *Y, double *pixels,
 			shades[i] = GRAPH_SHADE_MAX - val - 3;
 		}
 	}
+}
+
+struct crosshair_chars {
+	int hline, vline, plus;
+};
+
+static const int ch_left = 28, ch_right = 36;
+
+static void crosshair_plot(struct range *X, struct range *Y, int *data,
+			   int *shades, struct switchtec_diag_cross_hair *ch,
+			   const struct crosshair_chars *chars)
+{
+	size_t stride = RANGE_CNT(X);
+	int i, j, start, end;
+
+	if (ch->eye_right_lim != INT_MAX) {
+		if (ch->eye_left_lim != INT_MAX)
+			start = RANGE_TO_IDX(X, ch->eye_left_lim);
+		else
+			start = RANGE_TO_IDX(X, 31);
+		end =  RANGE_TO_IDX(X, ch->eye_right_lim);
+		j = RANGE_TO_IDX(Y, 0) * stride;
+
+		for (i = start; i < end; i++) {
+			data[j + i] = chars->hline;
+			shades[j + i] |= GRAPH_SHADE_HIGHLIGHT;
+		}
+	}
+
+	if (ch->eye_top_left_lim != INT_MAX) {
+		j = RANGE_TO_IDX(X, ch_left);
+		if (ch->eye_bot_left_lim != INT_MAX)
+			start = RANGE_TO_IDX(Y, ch->eye_bot_left_lim);
+		else
+			start = RANGE_TO_IDX(Y, 0);
+		end = RANGE_TO_IDX(Y, ch->eye_top_left_lim);
+
+		for (i = start; i < end; i++) {
+			data[i * stride + j] = chars->vline;
+			shades[i * stride + j] |= GRAPH_SHADE_HIGHLIGHT;
+		}
+
+		data[RANGE_TO_IDX(Y, 0) * stride + ch_left] = chars->plus;
+	}
+
+	if (ch->eye_top_right_lim != INT_MAX) {
+		j = RANGE_TO_IDX(X, ch_right);
+		if (ch->eye_bot_right_lim != INT_MAX)
+			start = RANGE_TO_IDX(Y, ch->eye_bot_right_lim);
+		else
+			start = RANGE_TO_IDX(Y, 0);
+		end = RANGE_TO_IDX(Y, ch->eye_top_right_lim);
+
+		for (i = start; i < end; i++) {
+			data[i * stride + j] = chars->vline;
+			shades[i * stride + j] |= GRAPH_SHADE_HIGHLIGHT;
+		}
+
+		data[RANGE_TO_IDX(Y, 0) * stride + ch_right] = chars->plus;
+	}
+}
+
+static int crosshair_w2h(struct switchtec_diag_cross_hair *ch)
+{
+	return (ch->eye_right_lim - ch->eye_left_lim) *
+		(ch->eye_top_right_lim - ch->eye_bot_right_lim +
+		 ch->eye_top_left_lim - ch->eye_bot_right_lim);
+}
+
+struct crosshair_anim_data {
+	struct switchtec_dev *dev;
+	struct switchtec_diag_cross_hair ch_int;
+	const struct crosshair_chars *chars;
+	int last_data, last_shade;
+	int last_x_pos, last_y_pos;
+	int lane;
+
+	double *pixels;
+	int eye_interval;
+};
+
+static void crosshair_set_status(struct crosshair_anim_data *cad,
+				 struct switchtec_diag_cross_hair *ch,
+				 char *status)
+{
+	switch (ch->state) {
+	case SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_RIGHT:
+		sprintf(status, "First Error Right           (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_RIGHT:
+		sprintf(status, "Error Free Right            (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_RIGHT:
+		sprintf(status, "Final Right                 (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_LEFT:
+		sprintf(status, "First Error Left            (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_LEFT:
+		sprintf(status, "Error Free Left             (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_LEFT:
+		sprintf(status, "Final Left                  (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_TOP_RIGHT:
+		sprintf(status, "First Error Top Right       (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_TOP_RIGHT:
+		sprintf(status, "Error Free Top Right        (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_TOP_RIGHT:
+		sprintf(status, "Final Top Right             (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_BOT_RIGHT:
+		sprintf(status, "First Error Bottom Right    (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_BOT_RIGHT:
+		sprintf(status, "Error Free Bottom Right     (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_BOT_RIGHT:
+		sprintf(status, "Final Bottom Right          (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_TOP_LEFT:
+		sprintf(status, "First Error Top Left        (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_TOP_LEFT:
+		sprintf(status, "Error Free Top Left         (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_TOP_LEFT:
+		sprintf(status, "Final Top Left              (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_BOT_LEFT:
+		sprintf(status, "First Error Bottom Left     (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_BOT_LEFT:
+		sprintf(status, "Error Free Bottom Left      (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_BOT_LEFT:
+		sprintf(status, "Final Bottom Left           (%d, %d)",
+			ch->x_pos, ch->y_pos);
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_DONE:
+		if (cad && cad->pixels) {
+			sprintf(status,
+				"Done    W2H=%d   Dwell Time: crosshair=200ms, eye=%dms",
+				crosshair_w2h(ch), cad->eye_interval);
+		} else {
+			sprintf(status,
+				"Done    W2H=%d   Dwell Time: crosshair=200ms",
+				crosshair_w2h(ch));
+		}
+		break;
+	case SWITCHTEC_DIAG_CROSS_HAIR_ERROR:
+		sprintf(status, "Error Occurred");
+		break;
+	default:
+		strcpy(status, "");
+		break;
+	}
+}
+
+static int crosshair_anim_step(struct range *X, struct range *Y, int *data,
+		int *shades, char *status, bool *redraw, void *opaque)
+{
+	struct switchtec_diag_cross_hair ch = {};
+	struct crosshair_anim_data *cad = opaque;
+	size_t stride = RANGE_CNT(X);
+	int x, y, i;
+	int ret;
+
+	usleep(100000);
+
+	ret = switchtec_diag_cross_hair_get(cad->dev, cad->lane, 1, &ch);
+	if (ret) {
+		switchtec_perror("Unable to get cross hair");
+		return -1;
+	}
+
+	if (ch.state == SWITCHTEC_DIAG_CROSS_HAIR_ERROR) {
+		fprintf(stderr, "Error in cross hair: previous state: %d\n",
+			ch.prev_state);
+		return -1;
+	}
+
+	if (ch.state <= SWITCHTEC_DIAG_CROSS_HAIR_WAITING)
+		return 0;
+
+	if (cad->last_x_pos >= 0 && cad->last_y_pos >= 0) {
+		i = cad->last_y_pos * stride + cad->last_x_pos;
+		data[i] = cad->last_data;
+		shades[i] = cad->last_shade;
+
+		cad->last_x_pos = -1;
+		cad->last_y_pos = -1;
+	}
+
+	if (ch.state < SWITCHTEC_DIAG_CROSS_HAIR_DONE) {
+		x = RANGE_TO_IDX(X, ch.x_pos);
+		y = RANGE_TO_IDX(Y, ch.y_pos);
+
+		cad->last_data = data[y * stride + x];
+		cad->last_shade = shades[y * stride + x];
+
+		data[y * stride + x] = 'X';
+		shades[y * stride + x] |= GRAPH_SHADE_HIGHLIGHT;
+
+		cad->last_x_pos = x;
+		cad->last_y_pos = y;
+		*redraw = true;
+
+		if (cad->ch_int.state != ch.state)
+			crosshair_plot(X, Y, data, shades, &cad->ch_int,
+				       cad->chars);
+		cad->ch_int.state = ch.state;
+
+		switch (ch.state) {
+		case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_RIGHT:
+			cad->ch_int.eye_right_lim = ch.x_pos;
+			break;
+		case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_LEFT:
+			cad->ch_int.eye_left_lim = ch.x_pos;
+			break;
+		case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_TOP_RIGHT:
+			cad->ch_int.eye_top_right_lim = ch.y_pos;
+			break;
+		case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_BOT_RIGHT:
+			cad->ch_int.eye_bot_right_lim = ch.y_pos;
+			break;
+		case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_TOP_LEFT:
+			cad->ch_int.eye_top_left_lim = ch.y_pos;
+			break;
+		case SWITCHTEC_DIAG_CROSS_HAIR_FINAL_BOT_LEFT:
+			cad->ch_int.eye_bot_left_lim = ch.y_pos;
+			break;
+		default:
+			break;
+		}
+	} else if (ch.state == SWITCHTEC_DIAG_CROSS_HAIR_DONE) {
+		crosshair_plot(X, Y, data, shades, &ch, cad->chars);
+		*redraw = true;
+	}
+
+	crosshair_set_status(cad, &ch, status);
+	return ch.state >= SWITCHTEC_DIAG_CROSS_HAIR_DONE;
+}
+
+static void crosshair_init_pixels(struct range *X, struct range *Y, int *data,
+				  int *shades, double *pixels)
+{
+	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
+	int i;
+
+	if (!pixels) {
+		for (i = 0; i < pixel_cnt; i++) {
+			data[i] = '.';
+			shades[i] = 0;
+		}
+	} else {
+		eye_graph_data(X, Y, pixels, data, shades);
+	}
+}
+
+static int crosshair_graph(struct switchtec_dev *dev,
+		struct switchtec_diag_cross_hair *ch, struct range *X,
+		struct range *Y, int lane, double *pixels, const char *title,
+		int eye_interval)
+{
+	struct crosshair_chars chars_curses;
+	struct crosshair_anim_data cad = {
+		.dev = dev,
+		.lane = lane,
+		.chars = &chars_curses,
+		.last_x_pos = -1,
+		.last_y_pos = -1,
+		.pixels = pixels,
+		.eye_interval = eye_interval,
+		.ch_int = {
+			.eye_left_lim = INT_MAX,
+			.eye_right_lim = INT_MAX,
+			.eye_bot_left_lim = INT_MAX,
+			.eye_bot_right_lim = INT_MAX,
+			.eye_top_left_lim = INT_MAX,
+			.eye_top_right_lim = INT_MAX,
+		},
+	};
+	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
+	int data[pixel_cnt], shades[pixel_cnt];
+	char status[100] = "";
+
+	graph_init();
+	chars_curses.hline = GRAPH_HLINE;
+	chars_curses.vline = GRAPH_VLINE;
+	chars_curses.plus = GRAPH_PLUS;
+
+	crosshair_init_pixels(X, Y, data, shades, pixels);
+
+	if (ch) {
+		crosshair_plot(X, Y, data, shades, ch, &chars_curses);
+		if (pixels)
+			sprintf(status,
+				" W2H=%d   Dwell Time: crosshair=200ms, eye=%dms",
+				crosshair_w2h(ch), eye_interval);
+		else
+			sprintf(status,
+				" W2H=%d   Dwell Time: crosshair=200ms",
+				crosshair_w2h(ch));
+
+		return graph_draw_win(X, Y, data, shades, title, 'T', 'V',
+				      status, NULL, NULL);
+	} else {
+		return graph_draw_win(X, Y, data, shades, title, 'T', 'V',
+				      status, crosshair_anim_step, &cad);
+	}
+}
+
+static int crosshair_capture(struct switchtec_dev *dev, int lane,
+		struct switchtec_diag_cross_hair *ch, const char *title)
+{
+	int ret, i, num_lanes, l, n;
+	char status[100];
+
+	fprintf(stderr, "Capturing %s\n", title);
+
+	if (lane == SWITCHTEC_DIAG_CROSS_HAIR_ALL_LANES) {
+		lane = 0;
+		num_lanes = SWITCHTEC_MAX_LANES;
+	} else {
+		num_lanes = 1;
+	}
+
+	while (true) {
+		usleep(100000);
+
+		for (l = 0; l < num_lanes;
+		     l += SWITCHTEC_DIAG_CROSS_HAIR_MAX_LANES) {
+			n = num_lanes - l;
+			if (n > SWITCHTEC_DIAG_CROSS_HAIR_MAX_LANES)
+				n = SWITCHTEC_DIAG_CROSS_HAIR_MAX_LANES;
+
+			ret = switchtec_diag_cross_hair_get(dev, lane + l, n,
+							    ch + l);
+			if (ret) {
+				switchtec_perror("Unable to get cross hair");
+				return -1;
+			}
+		}
+
+		for (i = 0; i < num_lanes; i++) {
+			if (ch[i].state == SWITCHTEC_DIAG_CROSS_HAIR_DISABLED ||
+			    ch[i].state == SWITCHTEC_DIAG_CROSS_HAIR_DONE)
+				continue;
+			crosshair_set_status(NULL, &ch[i], status);
+			fprintf(stderr, "\rLane %-2d  %-60s\r",
+				ch[i].lane_id, status);
+		}
+
+		for (i = 0; i < num_lanes; i++) {
+			if (ch[i].state == SWITCHTEC_DIAG_CROSS_HAIR_ERROR) {
+				crosshair_set_status(NULL, &ch[i], status);
+				fprintf(stderr, "\rLane %-2d  %-60s\n",
+					ch[i].lane_id, status);
+				return -1;
+			}
+		}
+
+		for (i = 0; i < num_lanes; i++) {
+			if (ch[i].state != SWITCHTEC_DIAG_CROSS_HAIR_DISABLED &&
+			    ch[i].state != SWITCHTEC_DIAG_CROSS_HAIR_DONE)
+				break;
+		}
+
+		if (i == num_lanes)
+			break;
+	}
+
+	fprintf(stderr, "\r%-60s\r", "");
+	return 0;
+}
+
+static const struct crosshair_chars *crosshair_text_chars(void)
+{
+	static const struct crosshair_chars crosshair_chars_utf8 = {
+		.hline = GRAPH_TEXT_HLINE,
+		.vline = GRAPH_TEXT_VLINE,
+		.plus = GRAPH_TEXT_PLUS,
+	};
+	static const struct crosshair_chars crosshair_chars_text = {
+		.hline = '-',
+		.vline = '|',
+		.plus = '+',
+	};
+	const char *locale;
+
+	locale = setlocale(LC_ALL, "");
+	if (locale && strstr(locale, "UTF-8"))
+		return &crosshair_chars_utf8;
+	else
+		return &crosshair_chars_text;
+}
+
+static int crosshair_text(struct switchtec_diag_cross_hair *ch,
+			  struct range *X, struct range *Y, double *pixels,
+			  const char *title, int eye_interval)
+{
+	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
+	int data[pixel_cnt], shades[pixel_cnt];
+
+	crosshair_init_pixels(X, Y, data, shades, pixels);
+	crosshair_plot(X, Y, data, shades, ch, crosshair_text_chars());
+	graph_draw_text(X, Y, data, title, 'T', 'V');
+	if (pixels)
+		printf("\n       W2H=%d   Dwell Time: crosshair=200ms, eye=%dms\n",
+		       crosshair_w2h(ch), eye_interval);
+	else
+		printf("\n       W2H=%d   Dwell Time: crosshair=200ms\n",
+		       crosshair_w2h(ch));
+
+	return 0;
+}
+
+static void crosshair_csv(FILE *f, struct switchtec_diag_cross_hair *ch,
+			  const char *title)
+{
+	fprintf(f, "%s\n", title);
+	fprintf(f, ", T, V\n");
+	fprintf(f, "left_limit, %d, %d\n", ch->eye_left_lim, 0);
+	fprintf(f, "right_limit, %d, %d\n", ch->eye_right_lim, 0);
+	fprintf(f, "top_left_limit, %d, %d\n", ch_left, ch->eye_top_left_lim);
+	fprintf(f, "bottom_left_limit, %d, %d\n", ch_left,
+		ch->eye_bot_left_lim);
+	fprintf(f, "top_left_limit, %d, %d\n", ch_right,
+		ch->eye_top_right_lim);
+	fprintf(f, "bottom_left_limit, %d, %d\n", ch_right,
+		ch->eye_bot_right_lim);
+	fprintf(f, "interval_ms, 200\n");
+	fprintf(f, "w2h, %d\n", crosshair_w2h(ch));
+}
+
+static void crosshair_set_title(char *title, int port, int lane, int gen)
+{
+	sprintf(title, "Crosshair - Port %d, Lane %d, Gen %d",
+		port, lane, gen);
+}
+
+static void crosshair_write_all_csv(struct switchtec_dev *dev,
+				    struct switchtec_diag_cross_hair *ch)
+{
+	struct switchtec_status status;
+	char fname[100], title[100];
+	int i, port, lane, rc;
+	FILE *f;
+
+	for (i = 0; i < SWITCHTEC_MAX_LANES; i++) {
+		if (ch[i].state != SWITCHTEC_DIAG_CROSS_HAIR_DONE)
+			continue;
+
+		rc = switchtec_calc_port_lane(dev, ch[i].lane_id, &port, &lane,
+					      &status);
+		if (rc) {
+			fprintf(stderr,
+				"Unable to get port information for lane: %d\n",
+				ch[i].lane_id);
+			continue;
+		}
+
+		snprintf(fname, sizeof(fname), "crosshair_port%d_lane%d.csv",
+			 port, lane);
+
+		f = fopen(fname, "w");
+		if (!f) {
+			fprintf(stderr, "Unable to write '%s': %m\n", fname);
+			continue;
+		}
+
+		crosshair_set_title(title, port, lane, status.link_rate);
+		crosshair_csv(f, &ch[i], title);
+		fclose(f);
+		fprintf(stderr, "Wrote %s\n", fname);
+	}
+}
+
+static int crosshair_write_csv(const char *title,
+			       struct switchtec_diag_cross_hair *ch)
+{
+	int port, lane, gen;
+	char fname[100];
+	FILE *f;
+
+	sscanf(title, "Crosshair - Port %d, Lane %d, Gen %d",
+	       &port, &lane, &gen);
+
+	snprintf(fname, sizeof(fname), "crosshair_port%d_lane%d.csv",
+		 port, lane);
+
+	f = fopen(fname, "w");
+	if (!f) {
+		fprintf(stderr, "Unable to write '%s': %m\n", fname);
+		return -1;
+	}
+
+	crosshair_csv(f, ch, title);
+	fclose(f);
+	fprintf(stderr, "Wrote %s\n", fname);
+
+	return 0;
+}
+
+static int load_crosshair_csv(FILE *f, struct switchtec_diag_cross_hair *ch,
+			      char *title, size_t title_sz)
+{
+	char *line;
+	int x, ret;
+
+	line = fgets(title, title_sz, f);
+	if (!line)
+		return 1;
+	if (title[strlen(title) - 1] == '\n')
+		title[strlen(title) - 1] = 0;
+
+	ret = fscanf(f, ", %lc, %lc\n", &x, &x);
+	if (ret != 2 || x != 'V')
+		return 1;
+
+	ret = fscanf(f, "left_limit, %d, 0\n", &ch->eye_left_lim);
+	if (ret != 1)
+		return 1;
+
+	ret = fscanf(f, "right_limit, %d, 0\n", &ch->eye_right_lim);
+	if (ret != 1)
+		return 1;
+
+	ret = fscanf(f, "top_left_limit, %d, %d\n", &x, &ch->eye_top_left_lim);
+	if (ret != 2 || x != ch_left)
+		return 1;
+
+	ret = fscanf(f, "bottom_left_limit, %d, %d\n", &x,
+		     &ch->eye_bot_left_lim);
+	if (ret != 2 || x != ch_left)
+		return 1;
+
+	ret = fscanf(f, "top_left_limit, %d, %d\n", &x,
+		     &ch->eye_top_right_lim);
+	if (ret != 2 || x != ch_right)
+		return 1;
+
+	ret = fscanf(f, "bottom_left_limit, %d, %d\n", &x,
+		     &ch->eye_bot_right_lim);
+	if (ret != 2 || x != ch_right)
+		return 1;
+
+	return 0;
+}
+
+#define CMD_DESC_CROSS_HAIR "Measure Eye Cross Hair"
+
+static int crosshair(int argc, char **argv)
+{
+	struct switchtec_diag_cross_hair ch[SWITCHTEC_MAX_LANES] = {};
+	struct switchtec_diag_cross_hair *ch_ptr = NULL;
+	struct switchtec_status status;
+	double *pixels = NULL;
+	char title[128], subtitle[50];
+	int eye_interval = 1;
+	int ret, lane = -1;
+
+	static struct {
+		int all;
+		int fmt;
+		struct switchtec_dev *dev;
+		int port_id;
+		int lane_id;
+		struct range x_range;
+		struct range y_range;
+		FILE *plot_file;
+		const char *plot_filename;
+		FILE *crosshair_file;
+		const char *crosshair_filename;
+	} cfg = {
+		.fmt = FMT_DEFAULT,
+		.port_id = -1,
+		.lane_id = 0,
+		.x_range.start = 0,
+		.x_range.end = 63,
+		.x_range.step = 1,
+		.y_range.start = -255,
+		.y_range.end = 255,
+		.y_range.step = 5,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_OPTIONAL,
+		{"all", 'a', "", CFG_NONE, &cfg.all, no_argument,
+		 "capture all lanes, format must be csv"},
+		{"crosshair", 'C', "FILE", CFG_FILE_R, &cfg.crosshair_file,
+		 required_argument,
+		 "load crosshair data from a previously saved file"},
+		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
+		 "output format (default: " FMT_DEFAULT_STR ")",
+		 .choices=output_fmt_choices},
+		{"lane", 'l', "LANE_ID", CFG_NONNEGATIVE, &cfg.lane_id,
+		 required_argument, "lane id within the port to observe"},
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
+		 required_argument, "physical port ID to observe"},
+		{"plot", 'P', "FILE", CFG_FILE_R, &cfg.plot_file,
+		 required_argument,
+		 "optionally, plot a CSV file from an eye capture as the background"},
+		{"t-start", 't', "NUM", CFG_NONNEGATIVE, &cfg.x_range.start,
+		 required_argument, "start time (0 to 63)"},
+		{"t-end", 'T', "NUM", CFG_NONNEGATIVE, &cfg.x_range.end,
+		 required_argument, "end time (t-start to 63)"},
+		{"t-step", 's', "NUM", CFG_NONNEGATIVE, &cfg.x_range.step,
+		 required_argument, "time step (default 1)"},
+		{"v-start", 'v', "NUM", CFG_INT, &cfg.y_range.start,
+		 required_argument, "start voltage (-255 to 255)"},
+		{"v-end", 'V', "NUM", CFG_INT, &cfg.y_range.end,
+		 required_argument, "end voltage (v-start to 255)"},
+		{"v-step", 'S', "NUM", CFG_NONNEGATIVE, &cfg.y_range.step,
+		 required_argument, "voltage step (default: 5)"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_CROSS_HAIR, opts, &cfg,
+			sizeof(cfg));
+
+	if (cfg.plot_file) {
+		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
+				&cfg.y_range, subtitle, sizeof(subtitle),
+				&eye_interval);
+		if (!pixels) {
+			fprintf(stderr, "Unable to parse CSV file: %s\n",
+				cfg.plot_filename);
+			return -1;
+		}
+	}
+
+	if (cfg.crosshair_file) {
+		ret = load_crosshair_csv(cfg.crosshair_file, ch, subtitle,
+					 sizeof(subtitle));
+		if (ret) {
+			fprintf(stderr, "Unable to parse crosshair CSV file: %s\n",
+				cfg.crosshair_filename);
+			return -1;
+		}
+
+		ch_ptr = ch;
+
+		if (pixels)
+			snprintf(title, sizeof(title) - 1, "%s (%s / %s)",
+				 subtitle, cfg.crosshair_filename,
+				 cfg.plot_filename);
+		else
+			snprintf(title, sizeof(title) - 1, "%s (%s)",
+				 subtitle, cfg.crosshair_filename);
+
+	} else {
+		if (!cfg.dev) {
+			fprintf(stderr,
+				"Must specify a switchtec device if not using -C\n");
+			return -1;
+		}
+
+		if (cfg.all) {
+			if (cfg.lane_id) {
+				fprintf(stderr,
+					"Must not specify both --all/-a and --lane/-l\n");
+				return -1;
+			}
+
+			if (cfg.fmt != FMT_CSV) {
+				fprintf(stderr,
+					"Must use --format=CSV with --all/-a\n");
+				return -1;
+			}
+		} else if (cfg.port_id < 0) {
+			fprintf(stderr, "Must specify a port ID with --port/-p\n");
+			return -1;
+		}
+
+		if (!cfg.all) {
+			lane = switchtec_calc_lane_id(cfg.dev, cfg.port_id,
+						      cfg.lane_id, &status);
+			if (lane < 0) {
+				switchtec_perror("Invalid lane");
+				return -1;
+			}
+
+			crosshair_set_title(subtitle, cfg.port_id, cfg.lane_id,
+					    status.link_rate);
+
+		} else {
+			lane = SWITCHTEC_DIAG_CROSS_HAIR_ALL_LANES;
+			snprintf(subtitle, sizeof(subtitle) - 1,
+				 "Crosshair - All Lanes");
+		}
+
+		if (pixels)
+			snprintf(title, sizeof(title) - 1, "%s (%s)",
+				 subtitle, cfg.plot_filename);
+		else
+			snprintf(title, sizeof(title) - 1, "%s", subtitle);
+
+		switchtec_diag_cross_hair_disable(cfg.dev);
+
+		ret = switchtec_diag_cross_hair_enable(cfg.dev, lane);
+		if (ret) {
+			switchtec_perror("Unable to enable cross hair");
+			goto out;
+		}
+
+		if (cfg.fmt != FMT_CURSES) {
+			ret = crosshair_capture(cfg.dev, lane, ch, title);
+			if (ret)
+				return ret;
+		}
+	}
+
+	switch (cfg.fmt) {
+	case FMT_CURSES:
+		ret = crosshair_graph(cfg.dev, ch_ptr, &cfg.x_range,
+				      &cfg.y_range, lane, pixels, title,
+				      eye_interval);
+		break;
+	case FMT_TEXT:
+		ret = crosshair_text(ch, &cfg.x_range, &cfg.y_range,
+				     pixels, title,
+				     eye_interval);
+		break;
+	case FMT_CSV:
+		if (cfg.all)
+			crosshair_write_all_csv(cfg.dev, ch);
+		else
+			crosshair_write_csv(subtitle, ch);
+		break;
+	}
+
+out:
+	free(pixels);
+	return ret;
 }
 
 static double *eye_observe_dev(struct switchtec_dev *dev, int port_id,
@@ -1171,6 +1927,7 @@ static int refclk(int argc, char **argv)
 }
 
 static const struct cmd commands[] = {
+	CMD(crosshair,		CMD_DESC_CROSS_HAIR),
 	CMD(eye,		CMD_DESC_EYE),
 	CMD(list_mrpc,		CMD_DESC_LIST_MRPC),
 	CMD(loopback,		CMD_DESC_LOOPBACK),
