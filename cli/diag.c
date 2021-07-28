@@ -1201,26 +1201,50 @@ out_err:
 }
 
 static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
-		     double *pixels, const char *title)
+		     double *pixels, const char *title,
+		     struct switchtec_diag_cross_hair *ch)
 {
 	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
 	int data[pixel_cnt], shades[pixel_cnt];
+	const struct crosshair_chars *chars;
+	struct crosshair_chars chars_curses;
+	char status[50], *status_ptr = NULL;
 
 	eye_graph_data(X, Y, pixels, data, shades);
 
+	if (ch) {
+		if (fmt == FMT_CURSES) {
+			graph_init();
+			chars_curses.hline = GRAPH_HLINE;
+			chars_curses.vline = GRAPH_VLINE;
+			chars_curses.plus = GRAPH_PLUS;
+			chars = &chars_curses;
+		} else {
+			chars = crosshair_text_chars();
+		}
+
+		crosshair_plot(X, Y, data, shades, ch, chars);
+
+		sprintf(status, " W2H=%d", crosshair_w2h(ch));
+		status_ptr = status;
+	}
+
 	if (fmt == FMT_TEXT) {
 		graph_draw_text(X, Y, data, title, 'T', 'V');
+		if (status_ptr)
+			printf("\n      %s\n", status_ptr);
 		return 0;
 	}
 
 	return graph_draw_win(X, Y, data, shades, title, 'T', 'V',
-			      NULL, NULL, NULL);
+			      status_ptr, NULL, NULL);
 }
 
 #define CMD_DESC_EYE "Capture PCIe Eye Errors"
 
 static int eye(int argc, char **argv)
 {
+	struct switchtec_diag_cross_hair ch = {}, *ch_ptr = NULL;
 	char title[128], subtitle[50];
 	double *pixels = NULL;
 	int ret, gen;
@@ -1236,6 +1260,8 @@ static int eye(int argc, char **argv)
 		int step_interval;
 		FILE *plot_file;
 		const char *plot_filename;
+		FILE *crosshair_file;
+		const char *crosshair_filename;
 	} cfg = {
 		.fmt = FMT_DEFAULT,
 		.port_id = -1,
@@ -1252,6 +1278,9 @@ static int eye(int argc, char **argv)
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_OPTIONAL,
+		{"crosshair", 'C', "FILE", CFG_FILE_R, &cfg.crosshair_file,
+		 required_argument,
+		 "optionally, superimpose a crosshair CSV onto the result"},
 		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
 		 "output format (default: " FMT_DEFAULT_STR ")",
 		 .choices=output_fmt_choices},
@@ -1286,6 +1315,18 @@ static int eye(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_EYE, opts, &cfg,
 			sizeof(cfg));
 
+	if (cfg.crosshair_file) {
+		ret = load_crosshair_csv(cfg.crosshair_file, &ch, subtitle,
+					 sizeof(subtitle));
+		if (ret) {
+			fprintf(stderr, "Unable to parse crosshair CSV file: %s\n",
+				cfg.crosshair_filename);
+			return -1;
+		}
+
+		ch_ptr = &ch;
+	}
+
 	if (cfg.plot_file) {
 		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
 				&cfg.y_range, subtitle, sizeof(subtitle),
@@ -1296,13 +1337,17 @@ static int eye(int argc, char **argv)
 			return -1;
 		}
 
-		cfg.num_lanes = 1;
 		gen = 0;
 		sscanf(subtitle, "Eye Observation, Port %d, Lane %d, Gen %d",
 		       &cfg.port_id, &cfg.lane_id, &gen);
 
-		snprintf(title, sizeof(title), "%s (%s)", subtitle,
-			 cfg.plot_filename);
+		if (cfg.crosshair_filename)
+			snprintf(title, sizeof(title) - 1, "%s (%s / %s)",
+				 subtitle, cfg.plot_filename,
+				 cfg.crosshair_filename);
+		else
+			snprintf(title, sizeof(title), "%s (%s)", subtitle,
+				 cfg.plot_filename);
 	} else {
 		if (!cfg.dev) {
 			fprintf(stderr,
@@ -1358,7 +1403,8 @@ static int eye(int argc, char **argv)
 		return 0;
 	}
 
-	ret = eye_graph(cfg.fmt, &cfg.x_range, &cfg.y_range, pixels, title);
+	ret = eye_graph(cfg.fmt, &cfg.x_range, &cfg.y_range, pixels, title,
+			ch_ptr);
 
 	free(pixels);
 	return ret;
