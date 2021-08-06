@@ -49,6 +49,7 @@ struct switchtec_dev;
 
 #define SWITCHTEC_MAX_PARTS  48
 #define SWITCHTEC_MAX_PORTS  60
+#define SWITCHTEC_MAX_LANES  100
 #define SWITCHTEC_MAX_STACKS 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
@@ -403,6 +404,11 @@ int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,
 			      FILE* file);
 float switchtec_die_temp(struct switchtec_dev *dev);
+int switchtec_calc_lane_id(struct switchtec_dev *dev, int phys_port_id,
+			   int lane_id, struct switchtec_status *port);
+int switchtec_calc_port_lane(struct switchtec_dev *dev, int lane_id,
+			     int *phys_port_id, int *port_lane_id,
+			     struct switchtec_status *port);
 int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
 		int lane_id, int num_lanes, int *lane_mask,
 		struct switchtec_status *port);
