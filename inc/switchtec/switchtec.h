@@ -51,6 +51,7 @@ struct switchtec_dev;
 #define SWITCHTEC_MAX_PORTS  60
 #define SWITCHTEC_MAX_LANES  100
 #define SWITCHTEC_MAX_STACKS 8
+#define SWITCHTEC_PORTS_PER_STACK 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
 #define SWITCHTEC_PFF_PORT_VEP 100
@@ -851,6 +852,15 @@ int switchtec_bind_info(struct switchtec_dev *dev,
 int switchtec_bind(struct switchtec_dev *dev, int par_id,
 		   int log_port, int phy_port);
 int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port);
+bool switchtec_stack_bif_port_valid(struct switchtec_dev *dev, int stack_id,
+				    int port_id);
+int switchtec_stack_bif_width(struct switchtec_dev *dev, int stack_id,
+			      int port_bif);
+int switchtec_get_stack_bif(struct switchtec_dev *dev, int stack_id,
+			    int port_bif[SWITCHTEC_PORTS_PER_STACK]);
+int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
+			    int port_bif[SWITCHTEC_PORTS_PER_STACK]);
+
 /********** EVENT COUNTER *********/
 
 /**
