@@ -1,6 +1,6 @@
 /*
  * Microsemi Switchtec(tm) PCIe Management Command Line Interface
- * Copyright (c) 2017, Microsemi Corporation
+ * Copyright (c) 2021, Microsemi Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,12 +22,16 @@
  *
  */
 
-#ifndef PROGRESS_H
-#define PROGRESS_H
+#ifndef GRAPH_H
+#define GRAPH_H
 
-void progress_start(void);
-void progress_update(int cur, int total);
-void progress_update_norate(int cur, int total);
-void progress_finish(int no_progress_bar);
+#define GRAPH_SHADE_MAX 16
+
+struct range;
+
+void graph_draw_text(struct range *X, struct range *Y, int *data,
+		     const char *title, char x_title, char y_title);
+int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
+		   const char *title, char x_title, char y_title);
 
 #endif

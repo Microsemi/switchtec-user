@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 static struct timeval start_time;
 
@@ -37,7 +38,7 @@ static int get_columns(void)
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 
-	GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	GetConsoleScreenBufferInfo(GetStdHandle(STD_ERROR_HANDLE), &csbi);
 	return csbi.srWindow.Right - csbi.srWindow.Left + 1;
 }
 #else
@@ -46,7 +47,7 @@ static int get_columns(void)
 {
 	struct winsize w;
 
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+	ioctl(STDERR_FILENO, TIOCGWINSZ, &w);
 
 	return w.ws_col;
 }
@@ -84,16 +85,16 @@ static void print_bar(int cur, int total)
 	bar_width = get_columns() - 33;
 	pos = bar_width * cur / total;
 
-	printf(" %3.0f%% [", progress);
+	fprintf(stderr, " %3.0f%% [", progress);
 	for (i = 0; i < bar_width; i++) {
 		if (i < pos)
-			putchar('=');
+			fputc('=', stderr);
 		else if (i == pos)
-			putchar('>');
+			fputc('>', stderr);
 		else
-			putchar(' ');
+			fputc(' ', stderr);
 	}
-	printf("] ");
+	fprintf(stderr, "] ");
 }
 
 static void print_time(struct timeval *interval)
@@ -103,7 +104,7 @@ static void print_time(struct timeval *interval)
 	minsec = div(interval->tv_sec, 60);
 	hrmin = div(minsec.quot, 60);
 
-	printf("%d:%02d:%02d", hrmin.quot, hrmin.rem, minsec.rem);
+	fprintf(stderr, "%d:%02d:%02d", hrmin.quot, hrmin.rem, minsec.rem);
 }
 
 static int calc_eta(int cur, int total, struct timeval *eta, double *rate)
@@ -135,23 +136,34 @@ void progress_start(void)
 	gettimeofday(&start_time, NULL);
 }
 
-void progress_update(int cur, int total)
+static void __progress_update(int cur, int total, bool no_rate)
 {
 	struct timeval eta;
 	double rate = 0.0;
 
 	print_bar(cur, total);
 
-	printf("ETA:  ");
+	fprintf(stderr, "ETA:  ");
 	if (calc_eta(cur, total, &eta, &rate))
-		printf("-:--:--");
+		fprintf(stderr, "-:--:--");
 	else
 		print_time(&eta);
 
-	printf("  %3.0fkB/s ", rate / 1024);
+	if (!no_rate)
+		fprintf(stderr, "  %3.0fkB/s ", rate / 1024);
 
-	printf("\r");
-	fflush(stdout);
+	fprintf(stderr, "\r");
+	fflush(stderr);
+}
+
+void progress_update(int cur, int total)
+{
+	__progress_update(cur, total, false);
+}
+
+void progress_update_norate(int cur, int total)
+{
+	__progress_update(cur, total, true);
 }
 
 void progress_finish(int no_progress_bar)
@@ -165,7 +177,7 @@ void progress_finish(int no_progress_bar)
 	if (!no_progress_bar)
 		print_bar(100, 100);
 
-	printf("Time: ");
+	fprintf(stderr, "Time: ");
 	print_time(&elapsed);
-	printf("\n");
+	fprintf(stderr, "\n");
 }

@@ -34,6 +34,7 @@
 #include "bind.h"
 #include "portable.h"
 #include "registers.h"
+#include "utils.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -402,6 +403,9 @@ int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,
 			      FILE* file);
 float switchtec_die_temp(struct switchtec_dev *dev);
+int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
+		int lane_id, int num_lanes, int *lane_mask,
+		struct switchtec_status *port);
 
 /**
  * @brief Return whether a Switchtec device is a Gen 3 device.
@@ -1045,6 +1049,11 @@ struct switchtec_mrpc {
 	bool reserved;
 };
 
+enum switchtec_diag_eye_data_mode {
+	SWITCHTEC_DIAG_EYE_RAW,
+	SWITCHTEC_DIAG_EYE_RATIO,
+};
+
 enum switchtec_diag_loopback_enable {
 	SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX = 1 << 0,
 	SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX = 1 << 1,
@@ -1077,6 +1086,15 @@ enum switchtec_diag_link {
 	SWITCHTEC_DIAG_LINK_CURRENT,
 	SWITCHTEC_DIAG_LINK_PREVIOUS,
 };
+
+int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
+				enum switchtec_diag_eye_data_mode mode);
+int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
+			     struct range *x_range, struct range *y_range,
+			     int step_interval);
+int switchtec_diag_eye_fetch(struct switchtec_dev *dev, double *pixels,
+			     size_t pixel_cnt, int *lane_id);
+int switchtec_diag_eye_cancel(struct switchtec_dev *dev);
 
 int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 		int enable, enum switchtec_diag_ltssm_speed ltssm_speed);

@@ -43,7 +43,7 @@ override CPPFLAGS+=@CPPFLAGS@
 override CPPFLAGS+=-I. -Iinc -I$(OBJDIR) -DCOMPLETE_ENV=\"SWITCHTEC_COMPLETE\"
 override CFLAGS+=-g -Wall -Wno-initializer-overrides @CFLAGS@
 DEPFLAGS= -MT $@ -MMD -MP -MF $(OBJDIR)/$*.d
-LDLIBS=@LIBS@
+LDLIBS=@LIBS@ -lm
 override LDFLAGS+=@LDFLAGS@
 
 LIB_SRCS=$(wildcard lib/*.c) $(wildcard lib/platform/*.c)
