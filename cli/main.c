@@ -1807,7 +1807,10 @@ static int fw_toggle(int argc, char **argv)
 	printf("\n");
 
 	errno = err;
-	switchtec_perror("firmware toggle");
+	if (errno)
+		switchtec_perror("firmware toggle");
+	else
+		printf("firmware toggle: Success\n");
 
 	return ret;
 }
