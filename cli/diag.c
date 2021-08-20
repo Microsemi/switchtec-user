@@ -143,13 +143,14 @@ static const struct argconfig_choice output_fmt_choices[] = {
 };
 
 static double *load_eye_csv(FILE *f, struct range *X, struct range *Y,
-			    char *title, size_t title_sz)
+			    char *title, size_t title_sz, int *interval)
 {
 	size_t pixel_cnt;
 	char line[2000];
 	double *pixels;
 	int i = 0, y;
 	char *tok;
+	int rc;
 
 	tok = fgets(title, title_sz, f);
 	if (!tok)
@@ -162,6 +163,13 @@ static double *load_eye_csv(FILE *f, struct range *X, struct range *Y,
 	tok = fgets(line, sizeof(line), f);
 	if (!tok)
 		return NULL;
+
+	rc = sscanf(line, "interval_ms, %d\n", interval);
+	if (rc == 1) {
+		tok = fgets(line, sizeof(line), f);
+		if (!tok)
+			return NULL;
+	}
 
 	tok = strtok(line, ",");
 	if (!tok)
@@ -222,6 +230,13 @@ static double *load_eye_csv(FILE *f, struct range *X, struct range *Y,
 	if (!tok)
 		goto out_err;
 
+	if (rc == 1) {
+		/* Read the Interval line */
+		tok = fgets(line, sizeof(line), f);
+		if (!tok)
+			goto out_err;
+	}
+
 	/* Read the Header line */
 	tok = fgets(line, sizeof(line), f);
 	if (!tok)
@@ -254,12 +269,13 @@ out_err:
 }
 
 static void print_eye_csv(FILE *f, struct range *X, struct range *Y,
-			  double *pixels, const char *title)
+			  double *pixels, const char *title, int interval)
 {
 	size_t stride = RANGE_CNT(X);
 	int x, y, i, j = 0;
 
 	fprintf(f, "%s\n", title);
+	fprintf(f, "interval_ms, %d\n", interval);
 
 	for_range(x, X)
 		fprintf(f, ", %d", x);
@@ -284,7 +300,8 @@ static void eye_set_title(char *title, int port, int lane, int gen)
 }
 
 static void write_eye_csv_files(int port_id, int lane_id, int num_lanes,
-		int gen, struct range *X, struct range *Y, double *pixels)
+				int interval_ms, int gen, struct range *X,
+				struct range *Y, double *pixels)
 {
 	int stride = RANGE_CNT(X) * RANGE_CNT(Y);
 	char title[128], fname[128];
@@ -303,7 +320,7 @@ static void write_eye_csv_files(int port_id, int lane_id, int num_lanes,
 			continue;
 		}
 
-		print_eye_csv(f, X, Y, &pixels[l * stride], title);
+		print_eye_csv(f, X, Y, &pixels[l * stride], title, interval_ms);
 		fclose(f);
 
 		fprintf(stderr, "Wrote %s\n", fname);
@@ -506,7 +523,8 @@ static int eye(int argc, char **argv)
 
 	if (cfg.plot_file) {
 		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
-				&cfg.y_range, subtitle, sizeof(subtitle));
+				&cfg.y_range, subtitle, sizeof(subtitle),
+				&cfg.step_interval);
 		if (!pixels) {
 			fprintf(stderr, "Unable to parse CSV file: %s\n",
 				cfg.plot_filename);
@@ -569,7 +587,8 @@ static int eye(int argc, char **argv)
 
 	if (cfg.fmt == FMT_CSV) {
 		write_eye_csv_files(cfg.port_id, cfg.lane_id, cfg.num_lanes,
-				    gen, &cfg.x_range, &cfg.y_range, pixels);
+				    cfg.step_interval, gen, &cfg.x_range,
+				    &cfg.y_range, pixels);
 		free(pixels);
 		return 0;
 	}
