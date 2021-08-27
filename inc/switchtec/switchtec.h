@@ -49,6 +49,7 @@ struct switchtec_dev;
 
 #define SWITCHTEC_MAX_PARTS  48
 #define SWITCHTEC_MAX_PORTS  60
+#define SWITCHTEC_MAX_LANES  100
 #define SWITCHTEC_MAX_STACKS 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
@@ -403,6 +404,11 @@ int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,
 			      FILE* file);
 float switchtec_die_temp(struct switchtec_dev *dev);
+int switchtec_calc_lane_id(struct switchtec_dev *dev, int phys_port_id,
+			   int lane_id, struct switchtec_status *port);
+int switchtec_calc_port_lane(struct switchtec_dev *dev, int lane_id,
+			     int *phys_port_id, int *port_lane_id,
+			     struct switchtec_status *port);
 int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
 		int lane_id, int num_lanes, int *lane_mask,
 		struct switchtec_status *port);
@@ -998,6 +1004,58 @@ void switchtec_gas_unmap(struct switchtec_dev *dev, gasptr_t map);
 
 /********** DIAGNOSTIC FUNCTIONS *********/
 
+#define SWITCHTEC_DIAG_CROSS_HAIR_ALL_LANES -1
+#define SWITCHTEC_DIAG_CROSS_HAIR_MAX_LANES 64
+
+enum switchtec_diag_cross_hair_state {
+	SWITCHTEC_DIAG_CROSS_HAIR_DISABLED = 0,
+	SWITCHTEC_DIAG_CROSS_HAIR_RESVD,
+	SWITCHTEC_DIAG_CROSS_HAIR_WAITING,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_TOP_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_TOP_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_TOP_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_BOT_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_BOT_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_BOT_RIGHT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_TOP_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_TOP_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_TOP_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FIRST_ERROR_BOT_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR_FREE_BOT_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_FINAL_BOT_LEFT,
+	SWITCHTEC_DIAG_CROSS_HAIR_DONE,
+	SWITCHTEC_DIAG_CROSS_HAIR_ERROR,
+};
+
+struct switchtec_diag_cross_hair {
+	enum switchtec_diag_cross_hair_state state;
+	int lane_id;
+
+	union {
+		struct {
+			/* Valid when state is Error */
+			int prev_state;
+			int x_pos;
+			int y_pos;
+		};
+		/* Valid when state is DONE */
+		struct {
+			int eye_left_lim;
+			int eye_right_lim;
+			int eye_bot_left_lim;
+			int eye_bot_right_lim;
+			int eye_top_left_lim;
+			int eye_top_right_lim;
+		};
+	};
+};
+
 struct switchtec_rcvr_obj {
 	int port_id;
 	int lane_id;
@@ -1086,6 +1144,11 @@ enum switchtec_diag_link {
 	SWITCHTEC_DIAG_LINK_CURRENT,
 	SWITCHTEC_DIAG_LINK_PREVIOUS,
 };
+
+int switchtec_diag_cross_hair_enable(struct switchtec_dev *dev, int lane_id);
+int switchtec_diag_cross_hair_disable(struct switchtec_dev *dev);
+int switchtec_diag_cross_hair_get(struct switchtec_dev *dev, int start_lane_id,
+		int num_lanes, struct switchtec_diag_cross_hair *res);
 
 int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
 				enum switchtec_diag_eye_data_mode mode);

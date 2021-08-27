@@ -1812,6 +1812,107 @@ static int __switchtec_calc_lane_id(struct switchtec_status *port, int lane_id)
 }
 
 /**
+ * @brief Calculate the global lane ID for a lane within a physical port
+ * @param[in] dev               Switchtec device handle
+ * @param[in] phys_port_id      Physical port id
+ * @param[in] lane_id           Lane number within the port
+ * @param[out] status           Optionally return the status of the port
+ * @return The lane id or -1 on error (with errno set appropriately)
+ */
+int switchtec_calc_lane_id(struct switchtec_dev *dev, int phys_port_id,
+			   int lane_id, struct switchtec_status *port)
+{
+	struct switchtec_status *status;
+	int ports, i;
+	int rc = 0;
+
+	ports = switchtec_status(dev, &status);
+	if (ports < 0)
+		return ports;
+
+	for (i = 0; i < ports; i++)
+		if (status[i].port.phys_id == phys_port_id)
+			break;
+
+	if (i == ports) {
+		errno = SWITCHTEC_ERR_INVALID_PORT;
+		rc = -1;
+		goto out;
+	}
+
+	if (port)
+		*port = status[i];
+
+	rc = __switchtec_calc_lane_id(&status[i], lane_id);
+
+out:
+	switchtec_status_free(status, ports);
+	return rc;
+}
+
+/**
+ * @brief Calculate the port and lane within the port from a global lane ID
+ * @param[in] dev               Switchtec device handle
+ * @param[in] lane_id           Global Lane Number
+ * @param[out] phys_port_id     Physical port id
+ * @param[out] port_lane        Lane number within the port
+ * @param[out] status           Optionally return the status of the port
+ * @return The 0 on success or -1 on error (with errno set appropriately)
+ */
+int switchtec_calc_port_lane(struct switchtec_dev *dev, int lane_id,
+			     int *phys_port_id, int *port_lane_id,
+			     struct switchtec_status *port)
+{
+	struct switchtec_status *status;
+	int ports, i, p, lane;
+	int rc = 0;
+
+	ports = switchtec_status(dev, &status);
+	if (ports < 0)
+		return ports;
+
+	if (lane_id >= 96) {
+		if (dev->gen < SWITCHTEC_GEN5)
+			p = lane_id - 96 + 48;
+		else
+			p = lane_id - 96 + 56;
+
+		for (i = 0; i < ports; i++)
+			if (status[i].port.phys_id == p)
+				break;
+	} else {
+		for (i = 0; i < ports; i++) {
+			p = status[i].port.phys_id * 2;
+			if (lane_id >= p && lane_id < p + status[i].cfg_lnk_width)
+				break;
+		}
+	}
+
+	if (i == ports) {
+		errno = SWITCHTEC_ERR_INVALID_PORT;
+		rc = -1;
+		goto out;
+	}
+
+	if (port)
+		*port = status[i];
+
+	if (phys_port_id)
+		*phys_port_id = status[i].port.phys_id;
+
+	lane = lane_id - status[i].port.phys_id * 2;
+	if (port->lane_reversal)
+		lane = status[i].cfg_lnk_width - 1 - lane;
+
+	if (port_lane_id)
+		*port_lane_id = lane;
+
+out:
+	switchtec_status_free(status, ports);
+	return rc;
+}
+
+/**
  * @brief Calculate the lane mask for lanes within a physical port
  * @param[in] dev		Switchtec device handle
  * @param[in] phys_port_id	Physical port id

@@ -37,6 +37,7 @@ struct range {
 
 #define _RANGE_CNT(start, end, step) DIV_ROUND_UP((end) - (start) + 1, (step))
 #define RANGE_CNT(rng) _RANGE_CNT((rng)->start, (rng)->end, (rng)->step)
+#define RANGE_TO_IDX(rng, x) DIV_ROUND_UP((x) - (rng)->start, (rng)->step)
 
 #define for_range(i, rng) \
 	for((i) = (rng)->start; (i) <= (rng)->end; (i) += (rng)->step)
