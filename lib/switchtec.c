@@ -492,11 +492,17 @@ int switchtec_status(struct switchtec_dev *dev,
 	int i, p;
 	int nr_ports = 0;
 	struct switchtec_status *s;
+	int max_ports;
 
 	if (!status) {
 		errno = EINVAL;
 		return -errno;
 	}
+
+	if (switchtec_is_gen5(dev))
+		max_ports = 60;
+	else
+		max_ports = 52;
 
 	struct {
 		uint8_t phys_port_id;
@@ -510,7 +516,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		uint16_t LTSSM;
 		uint8_t lane_reversal;
 		uint8_t first_act_lane;
-	} ports[SWITCHTEC_MAX_PORTS];
+	} ports[max_ports];
 
 	ret = switchtec_cmd(dev, MRPC_LNKSTAT, &port_bitmap, sizeof(port_bitmap),
 			    ports, sizeof(ports));
@@ -518,7 +524,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		return ret;
 
 
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+	for (i = 0; i < max_ports; i++) {
 		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
 			continue;
 		nr_ports++;
@@ -528,7 +534,7 @@ int switchtec_status(struct switchtec_dev *dev,
 	if (!s)
 		return -ENOMEM;
 
-	for (i = 0, p = 0; i < SWITCHTEC_MAX_PORTS && p < nr_ports; i++) {
+	for (i = 0, p = 0; i < max_ports && p < nr_ports; i++) {
 		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
 			continue;
 
