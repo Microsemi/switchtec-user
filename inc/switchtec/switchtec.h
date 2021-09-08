@@ -220,6 +220,8 @@ struct switchtec_log_file_info {
 	unsigned int def_sdk_version;
 	bool version_mismatch;
 	bool overflow;
+	bool gen_unknown;
+	bool gen_ignored;
 };
 
 /**
@@ -399,6 +401,7 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
 			enum switchtec_log_parse_type log_type,
+			enum switchtec_gen gen,
 			struct switchtec_log_file_info *info);
 int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,

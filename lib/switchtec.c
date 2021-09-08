@@ -1027,15 +1027,17 @@ err_free_log_defs:
  * @param[in] defs           - log definitions
  * @param[in] log_type       - log type
  * @param[in] log_file	     - log output file
+ * @param[in] ts_factor	     - timestamp conversion factor
  * @return 0 on success, negative value on failure
  */
 static int write_parsed_log(struct log_a_data log_data[],
 			    size_t count, int init_entry_idx,
 			    struct log_defs *defs,
 			    enum switchtec_log_parse_type log_type,
-			    FILE *log_file)
+			    FILE *log_file, int ts_factor)
 {
 	int i;
+	int ret;
 	int entry_idx = init_entry_idx;
 	unsigned long long time;
 	unsigned int nanos, micros, millis, secs, mins, hours, days;
@@ -1059,7 +1061,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 	for (i = 0; i < count; i ++) {
 		/* timestamp is in the first 2 DWords */
 		time = (((unsigned long long)log_data[i].data[0] << 32) |
-			log_data[i].data[1]) * 10ULL;
+			log_data[i].data[1]) * ts_factor/100;
 		nanos = time % 1000;
 		time /= 1000;
 		micros = time % 1000;
@@ -1121,10 +1123,17 @@ static int write_parsed_log(struct log_a_data log_data[],
 		}
 
 		/* print the entry index and timestamp */
-		if (fprintf(log_file,
-			    "%04d|%03dd %02d:%02d:%02d.%03d,%03d,%03d|",
-			    entry_idx, days, hours, mins, secs, millis,
-			    micros, nanos) < 0)
+		if (ts_factor == 0)
+			ret = fprintf(log_file,
+				      "%04d|xxxd xx:xx:xx.xxx,xxx,xxx|",
+				      entry_idx);
+		else
+			ret = fprintf(log_file,
+				      "%04d|%03dd %02d:%02d:%02d.%03d,%03d,%03d|",
+				      entry_idx, days, hours, mins, secs,
+				      millis, micros, nanos);
+
+		if (ret < 0)
 			goto ret_print_error;
 
 		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP) {
@@ -1221,6 +1230,16 @@ static int append_log_header(int fd, uint32_t sdk_version,
 	return ret;
 }
 
+static int get_ts_factor(enum switchtec_gen gen)
+{
+	if (gen == SWITCHTEC_GEN_UNKNOWN)
+		return 0;
+	else if (gen == SWITCHTEC_GEN3)
+		return 1000;
+	else
+		return 833;
+}
+
 static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 			 int fd, FILE *log_def_file,
 			 struct switchtec_log_file_info *info)
@@ -1300,7 +1319,8 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 			ret = write_parsed_log(res.data, res.hdr.count,
 					       entry_idx, &defs,
 					       SWITCHTEC_LOG_PARSE_TYPE_APP,
-					       log_file);
+					       log_file,
+					       get_ts_factor(dev->gen));
 			if (ret < 0)
 				goto ret_free_log_defs;
 
@@ -1495,12 +1515,14 @@ static int parse_log_header(FILE *bin_log_file, uint32_t *fw_version,
  * @param[in] log_def_file    - Log definition file
  * @param[in] parsed_log_file - Parsed output file
  * @param[in] log_type        - log type
+ * @param[in] gen             - device generation
  * @param[out] info           - log file information
  * @return 0 on success, error code on failure
  */
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
 			enum switchtec_log_parse_type log_type,
+			enum switchtec_gen gen,
 			struct switchtec_log_file_info *info)
 {
 	int ret;
@@ -1513,6 +1535,7 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	uint32_t sdk_version_log;
 	uint32_t fw_version_def;
 	uint32_t sdk_version_def;
+	enum switchtec_gen gen_file;
 
 	if (info)
 		memset(info, 0, sizeof(*info));
@@ -1553,8 +1576,26 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	/* parse each log entry */
 	while (fread(&log_data, sizeof(struct log_a_data), 1,
 		     bin_log_file) == 1) {
+		if(fw_version_log)
+			gen_file = switchtec_fw_version_to_gen(fw_version_log);
+		else
+			gen_file = switchtec_fw_version_to_gen(fw_version_def);
+
+		if (gen_file != SWITCHTEC_GEN_UNKNOWN &&
+		    gen != SWITCHTEC_GEN_UNKNOWN) {
+			if (info)
+				info->gen_ignored = true;
+		} else if (gen_file == SWITCHTEC_GEN_UNKNOWN &&
+			   gen == SWITCHTEC_GEN_UNKNOWN) {
+			if (info)
+				info->gen_unknown = true;
+		} else if (gen != SWITCHTEC_GEN_UNKNOWN) {
+			gen_file = gen;
+		}
+
 		ret = write_parsed_log(&log_data, 1, entry_idx, &defs,
-				       log_type, parsed_log_file);
+				       log_type, parsed_log_file,
+				       get_ts_factor(gen_file));
 		if (ret < 0)
 			goto ret_free_log_defs;
 
