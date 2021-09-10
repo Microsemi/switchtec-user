@@ -1612,8 +1612,11 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	}
 
 	if (fw_version_def != fw_version_log ||
-	    sdk_version_def != sdk_version_log)
+	    sdk_version_def != sdk_version_log) {
+		if (info)
+			info->version_mismatch = true;
 		ret = ENOEXEC;
+	}
 
 ret_free_log_defs:
 	free_log_defs(&defs);
