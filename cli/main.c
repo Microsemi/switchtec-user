@@ -1093,7 +1093,8 @@ static int log_dump(int argc, char **argv)
 		fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
 
 	if (info.version_mismatch) {
-		fprintf(stderr, "\nWARNING: The two input files have different version numbers.\n");
+		fprintf(stderr, "\nWARNING: The binary log file have different version numbers\n"
+				"         from those of the log definition file:\n");
 		fprintf(stderr, "\t\tFW Version\tSDK Version\n");
 		fprintf(stderr, "Log file:\t0x%08x\t0x%08x\n",
 			info.log_fw_version, info.log_sdk_version);
