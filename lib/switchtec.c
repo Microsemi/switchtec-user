@@ -990,6 +990,10 @@ static int read_mailbox_log_defs(FILE *log_def_file, struct log_defs *defs)
 		goto err_free_log_defs;
 
 	while (fgets(line, sizeof(line), log_def_file)) {
+		/* ignore comments */
+		if (line[0] == '#')
+			continue;
+
 		if (mod_defs->num_entries >= num_entries_alloc) {
 			/* allocate more entries */
 			num_entries_alloc *= 2;
