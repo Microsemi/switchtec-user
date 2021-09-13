@@ -884,7 +884,7 @@ static int load_crosshair_csv(FILE *f, struct switchtec_diag_cross_hair *ch,
 	if (title[strlen(title) - 1] == '\n')
 		title[strlen(title) - 1] = 0;
 
-	ret = fscanf(f, ", %lc, %lc\n", &x, &x);
+	ret = fscanf(f, ", %lc, %lc\n", (wchar_t *)&x, (wchar_t *)&x);
 	if (ret != 2 || x != 'V')
 		return 1;
 
