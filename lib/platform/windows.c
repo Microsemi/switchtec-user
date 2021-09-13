@@ -364,6 +364,8 @@ static int windows_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		memcpy(resp, mres->data, resp_len);
 
 	ret = mres->status;
+	if (ret)
+		errno = ret;
 
 free_and_exit:
 	free(mres);
