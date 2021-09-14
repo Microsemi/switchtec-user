@@ -42,7 +42,11 @@
 #endif
 
 #if defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES)
-#include <ncurses.h>
+#if defined(HAVE_CURSES_H)
+#include <curses.h>
+#elif defined(HAVE_NCURSES_CURSES_H)
+#include <ncurses/curses.h>
+#endif
 /* graph_init() or graph_draw_win() must be called before using GRAPH_* */
 #define GRAPH_HLINE	ACS_HLINE
 #define GRAPH_VLINE	ACS_VLINE
