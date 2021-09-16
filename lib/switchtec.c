@@ -492,11 +492,17 @@ int switchtec_status(struct switchtec_dev *dev,
 	int i, p;
 	int nr_ports = 0;
 	struct switchtec_status *s;
+	int max_ports;
 
 	if (!status) {
 		errno = EINVAL;
 		return -errno;
 	}
+
+	if (switchtec_is_gen5(dev))
+		max_ports = 60;
+	else
+		max_ports = 52;
 
 	struct {
 		uint8_t phys_port_id;
@@ -510,7 +516,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		uint16_t LTSSM;
 		uint8_t lane_reversal;
 		uint8_t first_act_lane;
-	} ports[SWITCHTEC_MAX_PORTS];
+	} ports[max_ports];
 
 	ret = switchtec_cmd(dev, MRPC_LNKSTAT, &port_bitmap, sizeof(port_bitmap),
 			    ports, sizeof(ports));
@@ -518,7 +524,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		return ret;
 
 
-	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+	for (i = 0; i < max_ports; i++) {
 		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
 			continue;
 		nr_ports++;
@@ -528,7 +534,7 @@ int switchtec_status(struct switchtec_dev *dev,
 	if (!s)
 		return -ENOMEM;
 
-	for (i = 0, p = 0; i < SWITCHTEC_MAX_PORTS && p < nr_ports; i++) {
+	for (i = 0, p = 0; i < max_ports && p < nr_ports; i++) {
 		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
 			continue;
 
@@ -628,6 +634,10 @@ const char *switchtec_strerror(void)
 			msg = "Error writing parsed log file"; break;
 		case SWITCHTEC_ERR_LOG_DEF_DATA_INVAL:
 			msg = "Invalid log definition data"; break;
+		case SWITCHTEC_ERR_INVALID_PORT:
+			msg = "Invalid port specified"; break;
+		case SWITCHTEC_ERR_INVALID_LANE:
+			msg = "Invalid lane specified"; break;
 		default:
 			msg = "Unknown Switchtec error"; break;
 		}
@@ -980,6 +990,10 @@ static int read_mailbox_log_defs(FILE *log_def_file, struct log_defs *defs)
 		goto err_free_log_defs;
 
 	while (fgets(line, sizeof(line), log_def_file)) {
+		/* ignore comments */
+		if (line[0] == '#')
+			continue;
+
 		if (mod_defs->num_entries >= num_entries_alloc) {
 			/* allocate more entries */
 			num_entries_alloc *= 2;
@@ -1017,15 +1031,17 @@ err_free_log_defs:
  * @param[in] defs           - log definitions
  * @param[in] log_type       - log type
  * @param[in] log_file	     - log output file
+ * @param[in] ts_factor	     - timestamp conversion factor
  * @return 0 on success, negative value on failure
  */
 static int write_parsed_log(struct log_a_data log_data[],
 			    size_t count, int init_entry_idx,
 			    struct log_defs *defs,
 			    enum switchtec_log_parse_type log_type,
-			    FILE *log_file)
+			    FILE *log_file, int ts_factor)
 {
 	int i;
+	int ret;
 	int entry_idx = init_entry_idx;
 	unsigned long long time;
 	unsigned int nanos, micros, millis, secs, mins, hours, days;
@@ -1049,7 +1065,7 @@ static int write_parsed_log(struct log_a_data log_data[],
 	for (i = 0; i < count; i ++) {
 		/* timestamp is in the first 2 DWords */
 		time = (((unsigned long long)log_data[i].data[0] << 32) |
-			log_data[i].data[1]) * 10ULL;
+			log_data[i].data[1]) * ts_factor/100;
 		nanos = time % 1000;
 		time /= 1000;
 		micros = time % 1000;
@@ -1111,10 +1127,17 @@ static int write_parsed_log(struct log_a_data log_data[],
 		}
 
 		/* print the entry index and timestamp */
-		if (fprintf(log_file,
-			    "%04d|%03dd %02d:%02d:%02d.%03d,%03d,%03d|",
-			    entry_idx, days, hours, mins, secs, millis,
-			    micros, nanos) < 0)
+		if (ts_factor == 0)
+			ret = fprintf(log_file,
+				      "%04d|xxxd xx:xx:xx.xxx,xxx,xxx|",
+				      entry_idx);
+		else
+			ret = fprintf(log_file,
+				      "%04d|%03dd %02d:%02d:%02d.%03d,%03d,%03d|",
+				      entry_idx, days, hours, mins, secs,
+				      millis, micros, nanos);
+
+		if (ret < 0)
 			goto ret_print_error;
 
 		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP) {
@@ -1211,6 +1234,16 @@ static int append_log_header(int fd, uint32_t sdk_version,
 	return ret;
 }
 
+static int get_ts_factor(enum switchtec_gen gen)
+{
+	if (gen == SWITCHTEC_GEN_UNKNOWN)
+		return 0;
+	else if (gen == SWITCHTEC_GEN3)
+		return 1000;
+	else
+		return 833;
+}
+
 static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 			 int fd, FILE *log_def_file,
 			 struct switchtec_log_file_info *info)
@@ -1290,7 +1323,8 @@ static int log_a_to_file(struct switchtec_dev *dev, int sub_cmd_id,
 			ret = write_parsed_log(res.data, res.hdr.count,
 					       entry_idx, &defs,
 					       SWITCHTEC_LOG_PARSE_TYPE_APP,
-					       log_file);
+					       log_file,
+					       get_ts_factor(dev->gen));
 			if (ret < 0)
 				goto ret_free_log_defs;
 
@@ -1485,12 +1519,14 @@ static int parse_log_header(FILE *bin_log_file, uint32_t *fw_version,
  * @param[in] log_def_file    - Log definition file
  * @param[in] parsed_log_file - Parsed output file
  * @param[in] log_type        - log type
+ * @param[in] gen             - device generation
  * @param[out] info           - log file information
  * @return 0 on success, error code on failure
  */
 int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			FILE *parsed_log_file,
 			enum switchtec_log_parse_type log_type,
+			enum switchtec_gen gen,
 			struct switchtec_log_file_info *info)
 {
 	int ret;
@@ -1503,6 +1539,7 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	uint32_t sdk_version_log;
 	uint32_t fw_version_def;
 	uint32_t sdk_version_def;
+	enum switchtec_gen gen_file;
 
 	if (info)
 		memset(info, 0, sizeof(*info));
@@ -1543,8 +1580,26 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	/* parse each log entry */
 	while (fread(&log_data, sizeof(struct log_a_data), 1,
 		     bin_log_file) == 1) {
+		if(fw_version_log)
+			gen_file = switchtec_fw_version_to_gen(fw_version_log);
+		else
+			gen_file = switchtec_fw_version_to_gen(fw_version_def);
+
+		if (gen_file != SWITCHTEC_GEN_UNKNOWN &&
+		    gen != SWITCHTEC_GEN_UNKNOWN) {
+			if (info)
+				info->gen_ignored = true;
+		} else if (gen_file == SWITCHTEC_GEN_UNKNOWN &&
+			   gen == SWITCHTEC_GEN_UNKNOWN) {
+			if (info)
+				info->gen_unknown = true;
+		} else if (gen != SWITCHTEC_GEN_UNKNOWN) {
+			gen_file = gen;
+		}
+
 		ret = write_parsed_log(&log_data, 1, entry_idx, &defs,
-				       log_type, parsed_log_file);
+				       log_type, parsed_log_file,
+				       get_ts_factor(gen_file));
 		if (ret < 0)
 			goto ret_free_log_defs;
 
@@ -1557,8 +1612,11 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	}
 
 	if (fw_version_def != fw_version_log ||
-	    sdk_version_def != sdk_version_log)
+	    sdk_version_def != sdk_version_log) {
+		if (info)
+			info->version_mismatch = true;
 		ret = ENOEXEC;
+	}
 
 ret_free_log_defs:
 	free_log_defs(&defs);
@@ -1776,4 +1834,187 @@ int switchtec_unbind(struct switchtec_dev *dev, int par_id, int log_port)
 	return switchtec_cmd(dev, MRPC_PORTPARTP2P, &sub_cmd_id,
 			    sizeof(sub_cmd_id), &output, sizeof(output));
 }
+
+static int __switchtec_calc_lane_id(struct switchtec_status *port, int lane_id)
+{
+	int lane;
+
+	if (lane_id >= port->neg_lnk_width) {
+		errno = SWITCHTEC_ERR_INVALID_LANE;
+		return -1;
+	}
+
+	lane = port->port.phys_id * 2;
+	if (!port->lane_reversal)
+		lane += lane_id;
+	else
+		lane += port->cfg_lnk_width - 1 - lane_id;
+
+	switch (port->port.phys_id) {
+	/* Trident (Gen4) - Ports 48 to 51 maps to 96 to 99 */
+	case 48: return 96;
+	case 49: return 97;
+	case 50: return 98;
+	case 51: return 99;
+	/* Hrapoon (Gen5) - Ports 56 to 59 maps to 96 to 99 */
+	case 56: return 96;
+	case 57: return 97;
+	case 58: return 98;
+	case 59: return 99;
+	default: return lane;
+	}
+}
+
+/**
+ * @brief Calculate the global lane ID for a lane within a physical port
+ * @param[in] dev               Switchtec device handle
+ * @param[in] phys_port_id      Physical port id
+ * @param[in] lane_id           Lane number within the port
+ * @param[out] status           Optionally return the status of the port
+ * @return The lane id or -1 on error (with errno set appropriately)
+ */
+int switchtec_calc_lane_id(struct switchtec_dev *dev, int phys_port_id,
+			   int lane_id, struct switchtec_status *port)
+{
+	struct switchtec_status *status;
+	int ports, i;
+	int rc = 0;
+
+	ports = switchtec_status(dev, &status);
+	if (ports < 0)
+		return ports;
+
+	for (i = 0; i < ports; i++)
+		if (status[i].port.phys_id == phys_port_id)
+			break;
+
+	if (i == ports) {
+		errno = SWITCHTEC_ERR_INVALID_PORT;
+		rc = -1;
+		goto out;
+	}
+
+	if (port)
+		*port = status[i];
+
+	rc = __switchtec_calc_lane_id(&status[i], lane_id);
+
+out:
+	switchtec_status_free(status, ports);
+	return rc;
+}
+
+/**
+ * @brief Calculate the port and lane within the port from a global lane ID
+ * @param[in] dev               Switchtec device handle
+ * @param[in] lane_id           Global Lane Number
+ * @param[out] phys_port_id     Physical port id
+ * @param[out] port_lane        Lane number within the port
+ * @param[out] status           Optionally return the status of the port
+ * @return The 0 on success or -1 on error (with errno set appropriately)
+ */
+int switchtec_calc_port_lane(struct switchtec_dev *dev, int lane_id,
+			     int *phys_port_id, int *port_lane_id,
+			     struct switchtec_status *port)
+{
+	struct switchtec_status *status;
+	int ports, i, p, lane;
+	int rc = 0;
+
+	ports = switchtec_status(dev, &status);
+	if (ports < 0)
+		return ports;
+
+	if (lane_id >= 96) {
+		if (dev->gen < SWITCHTEC_GEN5)
+			p = lane_id - 96 + 48;
+		else
+			p = lane_id - 96 + 56;
+
+		for (i = 0; i < ports; i++)
+			if (status[i].port.phys_id == p)
+				break;
+	} else {
+		for (i = 0; i < ports; i++) {
+			p = status[i].port.phys_id * 2;
+			if (lane_id >= p && lane_id < p + status[i].cfg_lnk_width)
+				break;
+		}
+	}
+
+	if (i == ports) {
+		errno = SWITCHTEC_ERR_INVALID_PORT;
+		rc = -1;
+		goto out;
+	}
+
+	if (port)
+		*port = status[i];
+
+	if (phys_port_id)
+		*phys_port_id = status[i].port.phys_id;
+
+	lane = lane_id - status[i].port.phys_id * 2;
+	if (port->lane_reversal)
+		lane = status[i].cfg_lnk_width - 1 - lane;
+
+	if (port_lane_id)
+		*port_lane_id = lane;
+
+out:
+	switchtec_status_free(status, ports);
+	return rc;
+}
+
+/**
+ * @brief Calculate the lane mask for lanes within a physical port
+ * @param[in] dev		Switchtec device handle
+ * @param[in] phys_port_id	Physical port id
+ * @param[in] lane_id		Lane number within the port
+ * @param[in] num_lanes		Number of consecutive lanes to set
+ * @param[out] lane_mask	Pointer to array of 4 integers to set the
+ *				bits of the lanes to
+ * @param[out] status		Optionally, return the status of the port
+ * @return The 0 or -1 on error (with errno set appropriately)
+ */
+int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
+		int lane_id, int num_lanes, int *lane_mask,
+		struct switchtec_status *port)
+{
+	struct switchtec_status *status;
+	int ports, i, l, lane;
+	int rc = 0;
+
+	ports = switchtec_status(dev, &status);
+	if (ports < 0)
+		return ports;
+
+	for (i = 0; i < ports; i++)
+		if (status[i].port.phys_id == phys_port_id)
+			break;
+
+	if (i == ports) {
+		errno = SWITCHTEC_ERR_INVALID_PORT;
+		rc = -1;
+		goto out;
+	}
+
+	if (port)
+		*port = status[i];
+
+	for (l = lane_id; l < lane_id + num_lanes; l++) {
+		lane = __switchtec_calc_lane_id(&status[i], l);
+		if (lane < 0) {
+			rc = -1;
+			goto out;
+		}
+
+		lane_mask[lane >> 5] |= 1 << (lane & 0x1F);
+	}
+
+out:
+	switchtec_status_free(status, ports);
+	return rc;
+}
+
 /**@}*/

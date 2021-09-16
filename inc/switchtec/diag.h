@@ -187,5 +187,90 @@ struct switchtec_diag_pat_gen_out {
 	uint32_t err_cnt_hi;
 };
 
+struct switchtec_diag_port_eye_start {
+	uint8_t sub_cmd;
+	uint8_t resvd1[3];
+	uint32_t resvd2;
+	uint32_t lane_mask[4];
+	int16_t x_start;
+	int16_t y_start;
+	int16_t x_end;
+	int16_t y_end;
+	uint16_t x_step;
+	uint16_t y_step;
+	uint32_t step_interval;
+};
+
+struct switchtec_diag_port_eye_cmd {
+	uint8_t sub_cmd;
+	uint8_t data_mode;
+	uint8_t resvd;
+	uint8_t status;
+};
+
+struct switchtec_diag_port_eye_fetch {
+	uint8_t sub_cmd;
+	uint8_t data_mode;
+	uint8_t resvd1;
+	uint8_t status;
+	uint32_t time_remaining;
+	uint32_t lane_mask[4];
+	uint8_t x_start;
+	uint8_t resvd2;
+	int16_t y_start;
+	uint8_t data_count_lo;
+	uint8_t frame_status;
+	uint8_t resvd3;
+	uint8_t data_count_hi;
+	union {
+		struct {
+			uint32_t error_cnt_lo;
+			uint32_t error_cnt_hi;
+			uint32_t sample_cnt_lo;
+			uint32_t sample_cnt_hi;
+		} raw[62];
+		struct {
+			uint16_t ratio;
+		} ratio[496];
+	};
+};
+
+struct switchtec_diag_cross_hair_in {
+	uint8_t sub_cmd;
+	uint8_t lane_id;
+	uint8_t all_lanes;
+	uint8_t num_lanes;
+};
+
+struct switchtec_diag_cross_hair_get {
+	uint8_t lane_id;
+	uint8_t state;
+
+	union {
+		struct {
+			int8_t byte0;
+			int8_t byte1;
+			int16_t word0;
+			int16_t word1;
+			int16_t word2;
+			int16_t word3;
+		};
+		struct {
+			uint8_t prev_state;
+			uint8_t _byte1;
+			int16_t x_pos;
+			int16_t y_pos;
+		};
+		struct {
+			int8_t eye_left_lim;
+			int8_t eye_right_lim;
+			int16_t eye_bot_left_lim;
+			int16_t eye_bot_right_lim;
+			int16_t eye_top_left_lim;
+			int16_t eye_top_right_lim;
+		};
+	};
+};
+
 #endif
 /**@}*/

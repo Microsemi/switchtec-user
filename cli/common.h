@@ -54,10 +54,10 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 
 #define UART_HELP_TEXT " * a UART path (/dev/ttyUSB0)\n"
 
-#define DEVICE_OPTION_BASIC(extra_text, handler) \
+#define DEVICE_OPTION_BASIC(extra_text, handler, type) \
 	{ \
 			"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
-			.argument_type=required_positional, \
+			.argument_type=(type), \
 			.custom_handler=handler, \
 			.complete="/dev/switchtec*", \
 			.env="SWITCHTEC_DEV", \
@@ -69,9 +69,11 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 			extra_text \
 	}
 
-#define DEVICE_OPTION_MFG DEVICE_OPTION_BASIC(, mfg_handler)
+#define DEVICE_OPTION_MFG DEVICE_OPTION_BASIC(, mfg_handler, \
+					      required_positional)
 
-#define DEVICE_OPTION DEVICE_OPTION_BASIC(UART_HELP_TEXT, switchtec_handler), \
+#define __DEVICE_OPTION(type) \
+	DEVICE_OPTION_BASIC(UART_HELP_TEXT, switchtec_handler, (type)), \
 	{ \
 			"pax", 'x', .cfg_type=CFG_CUSTOM, \
 			.value_addr=&cfg.dev, \
@@ -81,5 +83,8 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 			.help="PAX ID within a PAX fabric. Only valid on " \
 			"Switchtec PAX devices" \
 	}
+
+#define DEVICE_OPTION		__DEVICE_OPTION(required_positional)
+#define DEVICE_OPTION_OPTIONAL	__DEVICE_OPTION(optional_positional)
 
 #endif

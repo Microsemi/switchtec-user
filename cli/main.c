@@ -1093,7 +1093,8 @@ static int log_dump(int argc, char **argv)
 		fprintf(stderr, "\nLog saved to %s.\n", cfg.out_filename);
 
 	if (info.version_mismatch) {
-		fprintf(stderr, "\nWARNING: The two input files have different version numbers.\n");
+		fprintf(stderr, "\nWARNING: The binary log file have different version numbers\n"
+				"         from those of the log definition file:\n");
 		fprintf(stderr, "\t\tFW Version\tSDK Version\n");
 		fprintf(stderr, "Log file:\t0x%08x\t0x%08x\n",
 			info.log_fw_version, info.log_sdk_version);
@@ -1125,6 +1126,13 @@ static int log_parse(int argc, char **argv)
 		{"MAILBOX", SWITCHTEC_LOG_PARSE_TYPE_MAILBOX, "mailbox log"},
 		{}
 	};
+	const struct argconfig_choice device_gen[] = {
+		{"GEN3", SWITCHTEC_GEN3, "GEN3"},
+		{"GEN4", SWITCHTEC_GEN4, "GEN4"},
+		{"GEN5", SWITCHTEC_GEN5, "GEN5"},
+		{"UNKNOWN", SWITCHTEC_GEN_UNKNOWN, "UNKNOWN"},
+		{}
+	};
 
 	static struct {
 		enum switchtec_log_parse_type log_type;
@@ -1134,11 +1142,13 @@ static int log_parse(int argc, char **argv)
 		const char *log_def_filename;
 		FILE *parsed_log_file;
 		const char *parsed_log_filename;
+		enum switchtec_gen gen;
 	} cfg = {
 		.log_type = SWITCHTEC_LOG_PARSE_TYPE_APP,
 		.bin_log_file = NULL,
 		.log_def_file = NULL,
 		.parsed_log_file = NULL,
+		.gen = SWITCHTEC_GEN_UNKNOWN
 	};
 	const struct argconfig_options opts[] = {
 		{"type", 't',
@@ -1147,6 +1157,14 @@ static int log_parse(int argc, char **argv)
 		 .argument_type = required_argument,
 		 .help = "log type to parse (default: APP)",
 		 .choices = log_types},
+		{"device_gen", 'g',
+		 .meta = "GEN", .cfg_type = CFG_CHOICES,
+		 .value_addr = &cfg.gen,
+		 .argument_type = required_argument,
+		 .help = "device generation (Only needed when parsing "
+			 "earlier log files which do not contain device "
+			 "generation information. Default: UNKNOWN)",
+		 .choices = device_gen},
 		{"log_input", .cfg_type = CFG_FILE_R,
 		 .value_addr = &cfg.bin_log_file,
 		 .argument_type = required_positional,
@@ -1167,7 +1185,7 @@ static int log_parse(int argc, char **argv)
 
 	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
 				  cfg.parsed_log_file, cfg.log_type,
-				  &info);
+				  cfg.gen, &info);
 	if (ret < 0)
 		switchtec_perror("log_parse");
 	else
@@ -1182,6 +1200,17 @@ static int log_parse(int argc, char **argv)
 		fprintf(stderr, "Log def file:\t0x%08x\t0x%08x\n\n",
 			info.def_fw_version, info.def_sdk_version);
 		fprintf(stderr,	"The log file is parsed but the output file might contain errors.\n");
+	}
+
+	if (info.gen_unknown) {
+		fprintf(stderr, "\nWARNING: There is no device Generation information in the log file.\n");
+		fprintf(stderr, "           The log file is parsed but the output file contains errors.\n");
+		fprintf(stderr, "Hint: Use '-g' option to specify device generation.\n");
+	}
+
+	if (info.gen_ignored) {
+		fprintf(stderr, "\nNOTE: The input log file contains device generation information,\n");
+		fprintf(stderr, "        therefore the generation option in the command line is ignored.\n");
 	}
 
 	if (cfg.bin_log_file != NULL)
@@ -1807,7 +1836,10 @@ static int fw_toggle(int argc, char **argv)
 	printf("\n");
 
 	errno = err;
-	switchtec_perror("firmware toggle");
+	if (errno)
+		switchtec_perror("firmware toggle");
+	else
+		printf("firmware toggle: Success\n");
 
 	return ret;
 }

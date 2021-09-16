@@ -1102,7 +1102,7 @@ void argconfig_register_help_func(argconfig_help_func * f)
 
 int argconfig_parse_comma_range(const char *str, int *res, int max_nums)
 {
-	char buf[strlen(str)];
+	char buf[strlen(str) + 1];
 	char *tok;
 	const char *delims = " ,";
 	int start, end;
