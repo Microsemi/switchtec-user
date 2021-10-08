@@ -52,6 +52,7 @@ enum output_format {
 static const struct argconfig_choice output_fmt_choices[] = {
 	{"normal", FMT_NORMAL, "Human Readable Output"},
 	{"table",  FMT_TABLE,  "Tabular Output"},
+	{}
 };
 
 static const struct argconfig_choice bandwidth_types[] = {
