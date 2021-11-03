@@ -1559,6 +1559,11 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	if (ret)
 		return ret;
 
+	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_MAILBOX) {
+		fw_version_log = fw_version_def;
+		sdk_version_log = sdk_version_def;
+	}
+
 	if (info) {
 		info->def_fw_version = fw_version_def;
 		info->def_sdk_version = sdk_version_def;
