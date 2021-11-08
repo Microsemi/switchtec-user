@@ -1055,10 +1055,10 @@ static int write_parsed_log(struct log_a_data log_data[],
 
 	if (entry_idx == 0) {
 		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP)
-			fputs("   #|Timestamp                |Module       |Severity |Event\n",
+			fputs("   #|Timestamp                |Module       |Severity |Event ID |Event\n",
 		      	      log_file);
 		else
-			fputs("   #|Timestamp                |Source |Event\n",
+			fputs("   #|Timestamp                |Source |Event ID |Event\n",
 		      	      log_file);
 	}
 
@@ -1142,13 +1142,14 @@ static int write_parsed_log(struct log_a_data log_data[],
 
 		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP) {
 			/* print the module name and log severity */
-			if (fprintf(log_file, "%-12s |%-8s |",
-			    mod_defs->mod_name, log_sev_strs[log_sev]) < 0)
+			if (fprintf(log_file, "%-12s |%-8s |0x%04x   |",
+			    mod_defs->mod_name, log_sev_strs[log_sev],
+			    entry_num) < 0)
 				goto ret_print_error;
 		} else {
 			/* print the log source (BL1/BL2) */
-			if (fprintf(log_file, "%-6s |",
-			    (is_bl1 ? "BL1" : "BL2")) < 0)
+			if (fprintf(log_file, "%-6s |0x%04x   |",
+			    (is_bl1 ? "BL1" : "BL2"), entry_num) < 0)
 				goto ret_print_error;
 		}
 
@@ -1558,6 +1559,11 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			       &sdk_version_def);
 	if (ret)
 		return ret;
+
+	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_MAILBOX) {
+		fw_version_log = fw_version_def;
+		sdk_version_log = sdk_version_def;
+	}
 
 	if (info) {
 		info->def_fw_version = fw_version_def;
