@@ -72,6 +72,13 @@ struct switchtec_unbind_in {
 	uint8_t opt;
 };
 
+struct switchtec_stackbif {
+	uint8_t sub_cmd;
+	uint8_t stack_id;
+	uint8_t resvd[2];
+	uint32_t code;
+};
+
 #pragma pack(pop)
 
 #endif
