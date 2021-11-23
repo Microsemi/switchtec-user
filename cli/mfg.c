@@ -116,8 +116,99 @@ static const char* program_status_to_string(enum switchtec_otp_program_status s)
 	}
 }
 
+static const char* program_mask_to_string(enum switchtec_otp_program_mask m)
+{
+	switch(m) {
+	case SWITCHTEC_OTP_UNMASKED:
+		return "Accessible";
+	case SWITCHTEC_OTP_MASKED:
+		return "Inaccessible)";
+	default:
+		return "Unknown";
+	}
+}
+
+static void print_otp_info(struct switchtec_security_cfg_otp_region *otp)
+{
+	int i;
+
+	printf("\nOTP Region Program Status\n");
+	printf("\tBasic Secure Settings %s%s\n",
+	       otp->basic_valid? "(Valid):  ": "(Invalid):",
+	program_status_to_string(otp->basic));
+	printf("\tMixed Version %s\t%s\n",
+	       otp->mixed_ver_valid? "(Valid):  ": "(Invalid):",
+	program_status_to_string(otp->mixed_ver));
+	printf("\tMain FW Version %s\t%s\n",
+	       otp->main_fw_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->main_fw_ver));
+	printf("\tSecure Unlock Version %s%s\n",
+	       otp->sec_unlock_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->sec_unlock_ver));
+	for (i = 0; i < 4; i++) {
+		printf("\tKMSK%d %s\t\t%s\n", i + 1,
+		       otp->kmsk_valid[i]? "(Valid):  ": "(Invalid):",
+		       program_status_to_string(otp->kmsk[i]));
+	}
+}
+
+static void print_otp_ext_info(
+	struct switchtec_security_cfg_otp_region_ext *otp)
+{
+	int i;
+
+	printf("\nOTP Region Program Status\n");
+	printf("\tBasic Secure Settings %s%s\n",
+	       otp->basic_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->basic));
+
+	printf("\tDebug Mode %s\t\t%s\n",
+	       otp->debug_mode_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->debug_mode));
+	printf("\tKey Version %s\t\t%s\n",
+	       otp->key_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->key_ver));
+	printf("\tRIOT Core Version %s\t%s\n",
+	       otp->rc_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->rc_ver));
+	printf("\tBL2 Version %s\t\t%s\n",
+	       otp->bl2_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->bl2_ver));
+	printf("\tMain FW Version %s\t%s\n",
+	       otp->main_fw_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->main_fw_ver));
+	printf("\tSecure Unlock Version %s%s\n",
+	       otp->sec_unlock_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->sec_unlock_ver));
+	for (i = 0; i < 10; i++) {
+		printf("\tKMSK%d %s\t\t%s\n", i + 1,
+		       otp->kmsk_valid[i]? "(Valid):  ": "(Invalid):",
+		       program_status_to_string(otp->kmsk[i]));
+	}
+	printf("\tCDI eFuse Include Mask %s%s\n",
+	       otp->cdi_efuse_inc_mask_valid? "(Valid): ": "(Invalid):",
+	       program_status_to_string(otp->cdi_efuse_inc_mask));
+	printf("\tUDS %s\t\t\t%s - %s\n",
+	       otp->uds_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->uds),
+	       program_mask_to_string(otp->uds_mask));
+
+	printf("\tMCHP UDS %s\t\t%s - %s\n",
+	       otp->mchp_uds_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->mchp_uds),
+	       program_mask_to_string(otp->mchp_uds_mask));
+
+	printf("\tDID CERT0 %s\t\t%s\n",
+	       otp->did_cert0_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->did_cert0));
+
+	printf("\tDID CERT1 %s\t\t%s\n",
+	       otp->did_cert1_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->did_cert1));
+}
+
 static void print_security_config(struct switchtec_security_cfg_state *state,
-				  struct switchtec_security_cfg_otp_region *otp)
+				  bool print_otp)
 {
 	int key_idx;
 	int i;
@@ -237,25 +328,11 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 		}
 	}
 
-	if (otp) {
-		printf("\nOTP Region Program Status\n");
-		printf("\tBasic Secure Settings %s%s\n",
-		       otp->basic_valid? "(Valid):  ": "(Invalid):",
-		       program_status_to_string(otp->basic));
-		printf("\tMixed Version %s\t%s\n",
-		       otp->mixed_ver_valid? "(Valid):  ": "(Invalid):",
-		       program_status_to_string(otp->mixed_ver));
-		printf("\tMain FW Version %s\t%s\n",
-		       otp->main_fw_ver_valid? "(Valid):  ": "(Invalid):",
-		       program_status_to_string(otp->main_fw_ver));
-		printf("\tSecure Unlock Version %s%s\n",
-		       otp->sec_unlock_ver_valid? "(Valid):  ": "(Invalid):",
-		       program_status_to_string(otp->sec_unlock_ver));
-		for (i = 0; i < 4; i++) {
-			printf("\tKMSK%d %s\t\t%s\n", i,
-			       otp->kmsk_valid[i]? "(Valid):  ": "(Invalid):",
-			       program_status_to_string(otp->kmsk[i]));
-		}
+	if (print_otp) {
+		if (state->use_otp_ext)
+			print_otp_ext_info(&state->otp_ext);
+		else
+			print_otp_info(&state->otp);
 	}
 }
 
@@ -338,22 +415,22 @@ static int info(int argc, char **argv)
 
 	if (cfg.verbose)  {
 		if (!state.otp_valid) {
-			print_security_config(&state, NULL);
+			print_security_config(&state, false);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is not available on this chip!\n\n");
 		} else if (switchtec_gen(cfg.dev) == SWITCHTEC_GEN4 &&
 			   phase_id != SWITCHTEC_BOOT_PHASE_FW) {
-			print_security_config(&state, NULL);
+			print_security_config(&state, false);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is only available in the Main Firmware phase!\n\n");
 		} else {
-			print_security_config(&state, &state.otp);
+			print_security_config(&state, true);
 		}
 
 		return 0;
 	}
 
-	print_security_config(&state, NULL);
+	print_security_config(&state, false);
 
 	return 0;
 }
@@ -795,7 +872,7 @@ static int state_set(int argc, char **argv)
 		return -3;
 	}
 
-	print_security_config(&state, NULL);
+	print_security_config(&state, false);
 
 	if (!cfg.assume_yes) {
 		fprintf(stderr,

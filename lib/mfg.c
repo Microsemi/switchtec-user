@@ -194,20 +194,14 @@ static int get_configs(struct switchtec_dev *dev,
 }
 
 static int get_configs_gen5(struct switchtec_dev *dev,
-			    struct get_cfgs_reply_gen5 *cfgs,
-			    int *otp_valid)
+			    struct get_cfgs_reply_gen5 *cfgs)
 {
 	uint32_t subcmd = 0;
-	int ret;
 
-	ret = switchtec_mfg_cmd(dev,
-				MRPC_SECURITY_CONFIG_GET_GEN5,
-				&subcmd, sizeof(subcmd),
-				cfgs, sizeof(struct get_cfgs_reply_gen5));
-	if (!ret)
-		*otp_valid = true;
-
-	return ret;
+	return switchtec_mfg_cmd(dev,
+				 MRPC_SECURITY_CONFIG_GET_GEN5,
+				 &subcmd, sizeof(subcmd),
+				 cfgs, sizeof(struct get_cfgs_reply_gen5));
 }
 
 int switchtec_security_spi_avail_rate_get(struct switchtec_dev *dev,
@@ -253,6 +247,60 @@ static void parse_otp_settings(struct switchtec_security_cfg_otp_region *otp,
 	otp->kmsk[3] = !!(flags & BIT(20));
 }
 
+static void parse_otp_settings_gen5(
+	struct switchtec_security_cfg_otp_region_ext *otp,
+	uint32_t flags0, uint32_t flags1)
+{
+	otp->basic_valid = !!(flags0 & BIT(8));
+	otp->basic = !!(flags0 & BIT(9));
+	otp->debug_mode_valid = !!(flags0 & BIT(10));
+	otp->debug_mode = !!(flags0 & BIT(11));
+	otp->key_ver_valid = !!(flags0 & BIT(12));
+	otp->key_ver = !!(flags0 & BIT(13));
+	otp->rc_ver_valid = !!(flags0 & BIT(14));
+	otp->rc_ver = !!(flags0 & BIT(15));
+	otp->bl2_ver_valid = !!(flags0 & BIT(16));
+	otp->bl2_ver = !!(flags0 & BIT(17));
+	otp->main_fw_ver_valid = !!(flags0 & BIT(18));
+	otp->main_fw_ver = !!(flags0 & BIT(19));
+	otp->sec_unlock_ver_valid = !!(flags0 & BIT(20));
+	otp->sec_unlock_ver = !!(flags0 & BIT(21));
+	otp->kmsk_valid[0] = !!(flags0 & BIT(22));
+	otp->kmsk[0] = !!(flags0 & BIT(23));
+	otp->kmsk_valid[1] = !!(flags0 & BIT(24));
+	otp->kmsk[1] = !!(flags0 & BIT(25));
+	otp->kmsk_valid[2] = !!(flags0 & BIT(26));
+	otp->kmsk[2] = !!(flags0 & BIT(27));
+	otp->kmsk_valid[3] = !!(flags0 & BIT(28));
+	otp->kmsk[3] = !!(flags0 & BIT(29));
+	otp->kmsk_valid[4] = !!(flags0 & BIT(30));
+	otp->kmsk[4] = !!(flags0 & BIT(31));
+	otp->kmsk_valid[5] = !!(flags1 & BIT(0));
+	otp->kmsk[5] = !!(flags1 & BIT(1));
+	otp->kmsk_valid[6] = !!(flags1 & BIT(2));
+	otp->kmsk[6] = !!(flags1 & BIT(3));
+	otp->kmsk_valid[7] = !!(flags1 & BIT(4));
+	otp->kmsk[7] = !!(flags1 & BIT(5));
+	otp->kmsk_valid[8] = !!(flags1 & BIT(6));
+	otp->kmsk[8] = !!(flags1 & BIT(7));
+	otp->kmsk_valid[9] = !!(flags1 & BIT(8));
+	otp->kmsk[9] = !!(flags1 & BIT(9));
+	otp->cdi_efuse_inc_mask_valid =  !!(flags1 & BIT(10));
+	otp->cdi_efuse_inc_mask =  !!(flags1 & BIT(11));
+	otp->uds_valid = !!(flags1 & BIT(12));
+	otp->uds = !!(flags1 & BIT(13));
+	otp->uds_mask_valid = !!(flags1 & BIT(14));
+	otp->uds_mask = !!(flags1 & BIT(15));
+	otp->mchp_uds_valid = !!(flags1 & BIT(16));
+	otp->mchp_uds = !!(flags1 & BIT(17));
+	otp->mchp_uds_mask_valid = !!(flags1 & BIT(18));
+	otp->mchp_uds_mask = !!(flags1 & BIT(19));
+	otp->did_cert0_valid = !!(flags1 & BIT(20));
+	otp->did_cert0 = !!(flags1 & BIT(21));
+	otp->did_cert1_valid = !!(flags1 & BIT(22));
+	otp->did_cert1 = !!(flags1 & BIT(23));
+}
+
 static int security_config_get(struct switchtec_dev *dev,
 			       struct switchtec_security_cfg_state *state)
 {
@@ -283,6 +331,8 @@ static int security_config_get(struct switchtec_dev *dev,
 	state->otp_valid = otp_valid;
 	if (otp_valid)
 		parse_otp_settings(&state->otp, reply.valid);
+
+	state->use_otp_ext = false;
 
 	state->debug_mode = reply.cfg & 0x03;
 	state->secure_state = (reply.cfg>>2) & 0x03;
@@ -338,10 +388,9 @@ static int security_config_get_gen5(struct switchtec_dev *dev,
 	uint32_t map_mask;
 	int spi_clk;
 	struct get_cfgs_reply_gen5 reply;
-	int otp_valid;
 	int attn_mode;
 
-	ret = get_configs_gen5(dev, &reply, &otp_valid);
+	ret = get_configs_gen5(dev, &reply);
 	if (ret)
 		return ret;
 
@@ -360,9 +409,11 @@ static int security_config_get_gen5(struct switchtec_dev *dev,
 	state->debug_mode_valid = !!(reply.valid0 & 0x02);
 	state->attn_state.cdi_efuse_inc_mask_valid = !!(reply.valid0 & 0x40);
 
-	state->otp_valid = otp_valid;
-	if (otp_valid)
-		parse_otp_settings(&state->otp, reply.valid0);
+	state->otp_valid = true;
+	parse_otp_settings_gen5(&state->otp_ext, reply.valid0,
+				reply.valid1);
+
+	state->use_otp_ext = true;
 
 	state->debug_mode = reply.cfg & 0x03;
 	state->secure_state = (reply.cfg>>2) & 0x03;
