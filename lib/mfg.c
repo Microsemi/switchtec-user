@@ -74,6 +74,8 @@
 #define SWITCHTEC_ACTV_IDX_MAX_ENTRIES		32
 #define SWITCHTEC_ACTV_IDX_SET_ENTRIES		4
 
+#define SWITCHTEC_ATTEST_BITSHIFT		4
+#define SWITCHTEC_ATTEST_BITMASK		0x03
 #define SWITCHTEC_CLK_RATE_BITSHIFT		10
 #define SWITCHTEC_CLK_RATE_BITMASK		0x0f
 #define SWITCHTEC_RC_TMO_BITSHIFT		14
@@ -87,6 +89,8 @@
 #define SWITCHTEC_CMD_MAP_BITSHIFT_GEN5		30
 #define SWITCHTEC_CMD_MAP_BITMASK		0xfff
 #define SWITCHTEC_CMD_MAP_BITMASK_GEN5		0x3fff
+#define SWITCHTEC_UDS_SELFGEN_BITSHIFT		44
+#define SWITCHTEC_UDS_SELFGEN_BITMASK		0x01
 
 #define SWITCHTEC_JTAG_LOCK_AFT_RST_BITMASK	0x40
 #define SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK	0x80
@@ -319,6 +323,9 @@ static int security_config_get(struct switchtec_dev *dev,
 		memcpy(state->public_key, reply.public_key,
 		       state->public_key_num * SWITCHTEC_KMSK_LEN);
 
+	state->attn_state.attestation_mode =
+		SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED;
+
 	return 0;
 }
 
@@ -332,6 +339,7 @@ static int security_config_get_gen5(struct switchtec_dev *dev,
 	int spi_clk;
 	struct get_cfgs_reply_gen5 reply;
 	int otp_valid;
+	int attn_mode;
 
 	ret = get_configs_gen5(dev, &reply, &otp_valid);
 	if (ret)
@@ -350,6 +358,7 @@ static int security_config_get_gen5(struct switchtec_dev *dev,
 	state->public_key_valid = !!(reply.valid0 & 0x20);
 
 	state->debug_mode_valid = !!(reply.valid0 & 0x02);
+	state->attn_state.cdi_efuse_inc_mask_valid = !!(reply.valid0 & 0x40);
 
 	state->otp_valid = otp_valid;
 	if (otp_valid)
@@ -391,6 +400,32 @@ static int security_config_get_gen5(struct switchtec_dev *dev,
 	state->public_key_ver = reply.public_key_ver;
 	memcpy(state->public_key, reply.public_key,
 	       state->public_key_num * SWITCHTEC_KMSK_LEN);
+
+	attn_mode = (reply.cfg >> SWITCHTEC_ATTEST_BITSHIFT) &
+		SWITCHTEC_ATTEST_BITMASK;
+	if (attn_mode == 1)
+		state->attn_state.attestation_mode =
+			SWITCHTEC_ATTESTATION_MODE_DICE;
+	else
+		state->attn_state.attestation_mode =
+			SWITCHTEC_ATTESTATION_MODE_NONE;
+
+	state->attn_state.uds_selfgen =
+		(reply.cfg >> SWITCHTEC_UDS_SELFGEN_BITSHIFT) &
+		SWITCHTEC_UDS_SELFGEN_BITMASK;
+	state->attn_state.cdi_efuse_inc_mask =
+		le32toh(reply.cdi_efuse_inc_mask);
+
+	if (state->secure_state == SWITCHTEC_UNINITIALIZED_UNSECURED &&
+	    state->attn_state.attestation_mode ==
+		SWITCHTEC_ATTESTATION_MODE_DICE &&
+	    !state->attn_state.uds_selfgen)
+		state->attn_state.uds_visible = true;
+	else
+		state->attn_state.uds_visible = false;
+
+	if (state->attn_state.uds_visible)
+		memcpy(state->attn_state.uds_data, reply.uds_data, 32);
 
 	return 0;
 }

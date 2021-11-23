@@ -55,6 +55,12 @@ enum switchtec_secure_state {
 	SWITCHTEC_SECURE_STATE_UNKNOWN = 0xff,
 };
 
+enum switchtec_attestation_mode {
+	SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED,
+	SWITCHTEC_ATTESTATION_MODE_NONE,
+	SWITCHTEC_ATTESTATION_MODE_DICE
+};
+
 /**
  * @brief Flag which indicates if an OTP region is programmable or not
  */
@@ -74,6 +80,15 @@ struct switchtec_security_cfg_otp_region {
 	enum switchtec_otp_program_status main_fw_ver;
 	enum switchtec_otp_program_status sec_unlock_ver;
 	enum switchtec_otp_program_status kmsk[4];
+};
+
+struct switchtec_attestation_state {
+	enum switchtec_attestation_mode attestation_mode;
+	bool cdi_efuse_inc_mask_valid;
+	unsigned int cdi_efuse_inc_mask;
+	bool uds_selfgen;
+	bool uds_visible;
+	unsigned char uds_data[32];
 };
 
 struct switchtec_security_cfg_state {
@@ -105,6 +120,8 @@ struct switchtec_security_cfg_state {
 
 	bool otp_valid;
 	struct switchtec_security_cfg_otp_region otp;
+
+	struct switchtec_attestation_state attn_state;
 };
 
 struct switchtec_security_cfg_set {
