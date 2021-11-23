@@ -1197,9 +1197,16 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info)
 {
 	int ret;
+	uint32_t subcmd = 0;
 
-	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
-				sizeof(struct switchtec_sn_ver_info));
+	if (switchtec_is_gen5(dev))
+		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET_GEN5,
+					&subcmd, 4, info,
+					sizeof(struct switchtec_sn_ver_info));
+	else
+		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
+					sizeof(struct switchtec_sn_ver_info));
+
 	if (ret)
 		return ret;
 
