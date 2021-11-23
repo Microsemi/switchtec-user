@@ -145,7 +145,7 @@ struct get_cfgs_reply {
 	uint8_t public_key_num;
 	uint8_t public_key_ver;
 	uint8_t spi_core_clk_high;
-	uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
+	uint8_t public_key[4][SWITCHTEC_KMSK_LEN];
 	uint8_t rsvd4[32];
 };
 
@@ -314,8 +314,10 @@ static int security_config_get(struct switchtec_dev *dev,
 	state->public_key_exponent = reply.public_key_exponent;
 	state->public_key_num = reply.public_key_num;
 	state->public_key_ver = reply.public_key_ver;
-	memcpy(state->public_key, reply.public_key,
-	       SWITCHTEC_KMSK_NUM * SWITCHTEC_KMSK_LEN);
+
+	if (state->public_key_num)
+		memcpy(state->public_key, reply.public_key,
+		       state->public_key_num * SWITCHTEC_KMSK_LEN);
 
 	return 0;
 }

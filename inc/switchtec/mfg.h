@@ -30,7 +30,7 @@
 #define SWITCHTEC_PUB_KEY_LEN	512
 #define SWITCHTEC_SIG_LEN	512
 #define SWITCHTEC_KMSK_LEN	64
-#define SWITCHTEC_KMSK_NUM	4
+#define SWITCHTEC_KMSK_NUM_MAX	10
 
 #define SWITCHTEC_SECURITY_SPI_RATE_MAX_NUM	16
 
@@ -101,7 +101,7 @@ struct switchtec_security_cfg_state {
 	uint32_t public_key_num;
 	uint32_t public_key_ver;
 
-	uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
+	uint8_t public_key[SWITCHTEC_KMSK_NUM_MAX][SWITCHTEC_KMSK_LEN];
 
 	bool otp_valid;
 	struct switchtec_security_cfg_otp_region otp;
