@@ -77,6 +77,7 @@ struct switchtec_security_cfg_otp_region {
 };
 
 struct switchtec_security_cfg_state {
+	bool debug_mode_valid;
 	uint8_t basic_setting_valid;
 	uint8_t public_key_exp_valid;
 	uint8_t public_key_num_valid;

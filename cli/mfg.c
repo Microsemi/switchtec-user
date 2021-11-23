@@ -122,6 +122,26 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 	int key_idx;
 	int i;
 
+	printf("\nDebug Mode Settings %s\n",
+	       state->debug_mode_valid? "(Valid)":"(Invalid)");
+
+	printf("\tJTAG/EJTAG Debug State: \t");
+	switch(state->debug_mode) {
+	case SWITCHTEC_DEBUG_MODE_ENABLED:
+		printf("Always Enabled\n");
+		break;
+	case SWITCHTEC_DEBUG_MODE_DISABLED_BUT_ENABLE_ALLOWED:
+		printf("Disabled by Default But Can Be Enabled\n");
+		break;
+	case SWITCHTEC_DEBUG_MODE_DISABLED:
+	case SWITCHTEC_DEBUG_MODE_DISABLED_EXT:
+		printf("Always Disabled\n");
+		break;
+	default:
+		printf("Unsupported State\n");
+		break;
+	}
+
 	printf("\nBasic Secure Settings %s\n",
 		state->basic_setting_valid? "(Valid)":"(Invalid)");
 
@@ -135,23 +155,6 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 		break;
 	case SWITCHTEC_INITIALIZED_SECURED:
 		printf("INITIALIZED_SECURED\n");
-		break;
-	default:
-		printf("Unsupported State\n");
-		break;
-	}
-
-	printf("\tJTAG/EJTAG Debug State: \t");
-	switch(state->debug_mode) {
-	case SWITCHTEC_DEBUG_MODE_ENABLED:
-		printf("Always Enabled\n");
-		break;
-	case SWITCHTEC_DEBUG_MODE_DISABLED_BUT_ENABLE_ALLOWED:
-		printf("Disabled by Default But Can Be Enabled\n");
-		break;
-	case SWITCHTEC_DEBUG_MODE_DISABLED:
-	case SWITCHTEC_DEBUG_MODE_DISABLED_EXT:
-		printf("Always Disabled\n");
 		break;
 	default:
 		printf("Unsupported State\n");

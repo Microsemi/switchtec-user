@@ -274,6 +274,8 @@ static int security_config_get(struct switchtec_dev *dev,
 	state->public_key_ver_valid = !!(reply.valid & 0x08);
 	state->public_key_valid = !!(reply.valid & 0x10);
 
+	state->debug_mode_valid = state->basic_setting_valid;
+
 	state->otp_valid = otp_valid;
 	if (otp_valid)
 		parse_otp_settings(&state->otp, reply.valid);
@@ -344,6 +346,8 @@ static int security_config_get_gen5(struct switchtec_dev *dev,
 	state->public_key_num_valid = !!(reply.valid0 & 0x08);
 	state->public_key_ver_valid = !!(reply.valid0 & 0x10);
 	state->public_key_valid = !!(reply.valid0 & 0x20);
+
+	state->debug_mode_valid = !!(reply.valid0 & 0x02);
 
 	state->otp_valid = otp_valid;
 	if (otp_valid)
