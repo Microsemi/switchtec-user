@@ -149,6 +149,20 @@ struct get_cfgs_reply {
 	uint8_t rsvd4[32];
 };
 
+struct get_cfgs_reply_gen5 {
+	uint32_t valid0;
+	uint32_t valid1;
+	uint64_t cfg;
+	uint32_t public_key_exponent;
+	uint8_t rsvd2;
+	uint8_t public_key_num;
+	uint8_t public_key_ver;
+	uint8_t spi_core_clk_high;
+	uint8_t public_key[10][SWITCHTEC_KMSK_LEN];
+	uint32_t cdi_efuse_inc_mask;
+	uint8_t uds_data[32];
+};
+
 static int get_configs(struct switchtec_dev *dev,
 		       struct get_cfgs_reply *cfgs,
 		       int *otp_valid)
@@ -156,31 +170,38 @@ static int get_configs(struct switchtec_dev *dev,
 	uint8_t subcmd = 0;
 	int ret;
 
-	if (switchtec_gen(dev) == SWITCHTEC_GEN5) {
-		subcmd = 1;
-		ret = switchtec_mfg_cmd(dev,
-					MRPC_SECURITY_CONFIG_GET_GEN5,
-					&subcmd, sizeof(subcmd),
-					cfgs, sizeof(struct get_cfgs_reply));
-		if (!ret)
-			*otp_valid = true;
-	} else {
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET_EXT,
-					&subcmd, sizeof(subcmd),
-					cfgs, sizeof(struct get_cfgs_reply));
-		if (ret && ERRNO_MRPC(errno) != ERR_CMD_INVALID)
-			return ret;
+	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET_EXT,
+				&subcmd, sizeof(subcmd),
+				cfgs, sizeof(struct get_cfgs_reply));
+	if (ret && ERRNO_MRPC(errno) != ERR_CMD_INVALID)
+		return ret;
 
-		if (!ret) {
-			*otp_valid = true;
-			return ret;
-		}
-
-		*otp_valid = false;
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET,
-					NULL, 0, cfgs,
-					sizeof(struct get_cfgs_reply));
+	if (!ret) {
+		*otp_valid = true;
+		return ret;
 	}
+
+	*otp_valid = false;
+	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET,
+				NULL, 0, cfgs,
+				sizeof(struct get_cfgs_reply));
+
+	return ret;
+}
+
+static int get_configs_gen5(struct switchtec_dev *dev,
+			    struct get_cfgs_reply_gen5 *cfgs,
+			    int *otp_valid)
+{
+	uint32_t subcmd = 0;
+	int ret;
+
+	ret = switchtec_mfg_cmd(dev,
+				MRPC_SECURITY_CONFIG_GET_GEN5,
+				&subcmd, sizeof(subcmd),
+				cfgs, sizeof(struct get_cfgs_reply_gen5));
+	if (!ret)
+		*otp_valid = true;
 
 	return ret;
 }
@@ -228,14 +249,8 @@ static void parse_otp_settings(struct switchtec_security_cfg_otp_region *otp,
 	otp->kmsk[3] = !!(flags & BIT(20));
 }
 
-/**
- * @brief Get secure boot configurations
- * @param[in]  dev	Switchtec device handle
- * @param[out] state	Current secure boot settings
- * @return 0 on success, error code on failure
- */
-int switchtec_security_config_get(struct switchtec_dev *dev,
-				  struct switchtec_security_cfg_state *state)
+static int security_config_get(struct switchtec_dev *dev,
+			       struct switchtec_security_cfg_state *state)
 {
 	int ret;
 	uint32_t addr_shift;
@@ -301,6 +316,92 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 	       SWITCHTEC_KMSK_NUM * SWITCHTEC_KMSK_LEN);
 
 	return 0;
+}
+
+static int security_config_get_gen5(struct switchtec_dev *dev,
+				    struct switchtec_security_cfg_state *state)
+{
+	int ret;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
+	int spi_clk;
+	struct get_cfgs_reply_gen5 reply;
+	int otp_valid;
+
+	ret = get_configs_gen5(dev, &reply, &otp_valid);
+	if (ret)
+		return ret;
+
+	reply.valid0 = le32toh(reply.valid0);
+	reply.valid1 = le32toh(reply.valid1);
+
+	reply.cfg = le64toh(reply.cfg);
+	reply.public_key_exponent = le32toh(reply.public_key_exponent);
+
+	state->basic_setting_valid = !!(reply.valid0 & 0x01);
+	state->public_key_exp_valid = !!(reply.valid0 & 0x04);
+	state->public_key_num_valid = !!(reply.valid0 & 0x08);
+	state->public_key_ver_valid = !!(reply.valid0 & 0x10);
+	state->public_key_valid = !!(reply.valid0 & 0x20);
+
+	state->otp_valid = otp_valid;
+	if (otp_valid)
+		parse_otp_settings(&state->otp, reply.valid0);
+
+	state->debug_mode = reply.cfg & 0x03;
+	state->secure_state = (reply.cfg>>2) & 0x03;
+
+	state->jtag_lock_after_reset = !!(reply.cfg & 0x40);
+	state->jtag_lock_after_bl1 = !!(reply.cfg & 0x80);
+	state->jtag_bl1_unlock_allowed = !!(reply.cfg & 0x0100);
+	state->jtag_post_bl1_unlock_allowed = !!(reply.cfg & 0x0200);
+
+	spi_clk = (reply.cfg >> SWITCHTEC_CLK_RATE_BITSHIFT) & 0x0f;
+	if (spi_clk == 0) {
+		if (switchtec_gen(dev) == SWITCHTEC_GEN5)
+			spi_clk = 9;
+		else
+			spi_clk = 7;
+	}
+
+	if (reply.spi_core_clk_high)
+		state->spi_clk_rate = spi_clk_hi_rate_float[spi_clk - 1];
+	else
+		state->spi_clk_rate = spi_clk_rate_float[spi_clk - 1];
+
+	state->i2c_recovery_tmo =
+		(reply.cfg >> SWITCHTEC_RC_TMO_BITSHIFT) & 0x0f;
+	state->i2c_port = (reply.cfg >> SWITCHTEC_I2C_PORT_BITSHIFT) & 0xf;
+
+	get_i2c_operands(switchtec_gen(dev), &addr_shift, &map_shift,
+			 &map_mask);
+	state->i2c_addr =
+		(reply.cfg >> addr_shift) & SWITCHTEC_I2C_ADDR_BITMASK;
+	state->i2c_cmd_map = (reply.cfg >> map_shift) & map_mask;
+
+	state->public_key_exponent = reply.public_key_exponent;
+	state->public_key_num = reply.public_key_num;
+	state->public_key_ver = reply.public_key_ver;
+	memcpy(state->public_key, reply.public_key,
+	       state->public_key_num * SWITCHTEC_KMSK_LEN);
+
+	return 0;
+}
+
+/**
+ * @brief Get secure boot configurations
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] state	Current secure boot settings
+ * @return 0 on success, error code on failure
+ */
+int switchtec_security_config_get(struct switchtec_dev *dev,
+				  struct switchtec_security_cfg_state *state)
+{
+	if (switchtec_is_gen5(dev))
+		return security_config_get_gen5(dev, state);
+	else
+		return security_config_get(dev, state);
 }
 
 /**
