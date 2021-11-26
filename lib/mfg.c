@@ -74,6 +74,8 @@
 #define SWITCHTEC_ACTV_IDX_MAX_ENTRIES		32
 #define SWITCHTEC_ACTV_IDX_SET_ENTRIES		4
 
+#define SWITCHTEC_ATTEST_BITSHIFT		4
+#define SWITCHTEC_ATTEST_BITMASK		0x03
 #define SWITCHTEC_CLK_RATE_BITSHIFT		10
 #define SWITCHTEC_CLK_RATE_BITMASK		0x0f
 #define SWITCHTEC_RC_TMO_BITSHIFT		14
@@ -87,6 +89,8 @@
 #define SWITCHTEC_CMD_MAP_BITSHIFT_GEN5		30
 #define SWITCHTEC_CMD_MAP_BITMASK		0xfff
 #define SWITCHTEC_CMD_MAP_BITMASK_GEN5		0x3fff
+#define SWITCHTEC_UDS_SELFGEN_BITSHIFT		44
+#define SWITCHTEC_UDS_SELFGEN_BITMASK		0x01
 
 #define SWITCHTEC_JTAG_LOCK_AFT_RST_BITMASK	0x40
 #define SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK	0x80
@@ -145,8 +149,22 @@ struct get_cfgs_reply {
 	uint8_t public_key_num;
 	uint8_t public_key_ver;
 	uint8_t spi_core_clk_high;
-	uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
+	uint8_t public_key[4][SWITCHTEC_KMSK_LEN];
 	uint8_t rsvd4[32];
+};
+
+struct get_cfgs_reply_gen5 {
+	uint32_t valid0;
+	uint32_t valid1;
+	uint64_t cfg;
+	uint32_t public_key_exponent;
+	uint8_t rsvd2;
+	uint8_t public_key_num;
+	uint8_t public_key_ver;
+	uint8_t spi_core_clk_high;
+	uint8_t public_key[10][SWITCHTEC_KMSK_LEN];
+	uint32_t cdi_efuse_inc_mask;
+	uint8_t uds_data[32];
 };
 
 static int get_configs(struct switchtec_dev *dev,
@@ -156,33 +174,34 @@ static int get_configs(struct switchtec_dev *dev,
 	uint8_t subcmd = 0;
 	int ret;
 
-	if (switchtec_gen(dev) == SWITCHTEC_GEN5) {
-		subcmd = 1;
-		ret = switchtec_mfg_cmd(dev,
-					MRPC_SECURITY_CONFIG_GET_GEN5,
-					&subcmd, sizeof(subcmd),
-					cfgs, sizeof(struct get_cfgs_reply));
-		if (!ret)
-			*otp_valid = true;
-	} else {
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET_EXT,
-					&subcmd, sizeof(subcmd),
-					cfgs, sizeof(struct get_cfgs_reply));
-		if (ret && ERRNO_MRPC(errno) != ERR_CMD_INVALID)
-			return ret;
+	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET_EXT,
+				&subcmd, sizeof(subcmd),
+				cfgs, sizeof(struct get_cfgs_reply));
+	if (ret && ERRNO_MRPC(errno) != ERR_CMD_INVALID)
+		return ret;
 
-		if (!ret) {
-			*otp_valid = true;
-			return ret;
-		}
-
-		*otp_valid = false;
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET,
-					NULL, 0, cfgs,
-					sizeof(struct get_cfgs_reply));
+	if (!ret) {
+		*otp_valid = true;
+		return ret;
 	}
 
+	*otp_valid = false;
+	ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_GET,
+				NULL, 0, cfgs,
+				sizeof(struct get_cfgs_reply));
+
 	return ret;
+}
+
+static int get_configs_gen5(struct switchtec_dev *dev,
+			    struct get_cfgs_reply_gen5 *cfgs)
+{
+	uint32_t subcmd = 0;
+
+	return switchtec_mfg_cmd(dev,
+				 MRPC_SECURITY_CONFIG_GET_GEN5,
+				 &subcmd, sizeof(subcmd),
+				 cfgs, sizeof(struct get_cfgs_reply_gen5));
 }
 
 int switchtec_security_spi_avail_rate_get(struct switchtec_dev *dev,
@@ -228,14 +247,62 @@ static void parse_otp_settings(struct switchtec_security_cfg_otp_region *otp,
 	otp->kmsk[3] = !!(flags & BIT(20));
 }
 
-/**
- * @brief Get secure boot configurations
- * @param[in]  dev	Switchtec device handle
- * @param[out] state	Current secure boot settings
- * @return 0 on success, error code on failure
- */
-int switchtec_security_config_get(struct switchtec_dev *dev,
-				  struct switchtec_security_cfg_state *state)
+static void parse_otp_settings_gen5(
+	struct switchtec_security_cfg_otp_region_ext *otp,
+	uint32_t flags0, uint32_t flags1)
+{
+	otp->basic_valid = !!(flags0 & BIT(8));
+	otp->basic = !!(flags0 & BIT(9));
+	otp->debug_mode_valid = !!(flags0 & BIT(10));
+	otp->debug_mode = !!(flags0 & BIT(11));
+	otp->key_ver_valid = !!(flags0 & BIT(12));
+	otp->key_ver = !!(flags0 & BIT(13));
+	otp->rc_ver_valid = !!(flags0 & BIT(14));
+	otp->rc_ver = !!(flags0 & BIT(15));
+	otp->bl2_ver_valid = !!(flags0 & BIT(16));
+	otp->bl2_ver = !!(flags0 & BIT(17));
+	otp->main_fw_ver_valid = !!(flags0 & BIT(18));
+	otp->main_fw_ver = !!(flags0 & BIT(19));
+	otp->sec_unlock_ver_valid = !!(flags0 & BIT(20));
+	otp->sec_unlock_ver = !!(flags0 & BIT(21));
+	otp->kmsk_valid[0] = !!(flags0 & BIT(22));
+	otp->kmsk[0] = !!(flags0 & BIT(23));
+	otp->kmsk_valid[1] = !!(flags0 & BIT(24));
+	otp->kmsk[1] = !!(flags0 & BIT(25));
+	otp->kmsk_valid[2] = !!(flags0 & BIT(26));
+	otp->kmsk[2] = !!(flags0 & BIT(27));
+	otp->kmsk_valid[3] = !!(flags0 & BIT(28));
+	otp->kmsk[3] = !!(flags0 & BIT(29));
+	otp->kmsk_valid[4] = !!(flags0 & BIT(30));
+	otp->kmsk[4] = !!(flags0 & BIT(31));
+	otp->kmsk_valid[5] = !!(flags1 & BIT(0));
+	otp->kmsk[5] = !!(flags1 & BIT(1));
+	otp->kmsk_valid[6] = !!(flags1 & BIT(2));
+	otp->kmsk[6] = !!(flags1 & BIT(3));
+	otp->kmsk_valid[7] = !!(flags1 & BIT(4));
+	otp->kmsk[7] = !!(flags1 & BIT(5));
+	otp->kmsk_valid[8] = !!(flags1 & BIT(6));
+	otp->kmsk[8] = !!(flags1 & BIT(7));
+	otp->kmsk_valid[9] = !!(flags1 & BIT(8));
+	otp->kmsk[9] = !!(flags1 & BIT(9));
+	otp->cdi_efuse_inc_mask_valid =  !!(flags1 & BIT(10));
+	otp->cdi_efuse_inc_mask =  !!(flags1 & BIT(11));
+	otp->uds_valid = !!(flags1 & BIT(12));
+	otp->uds = !!(flags1 & BIT(13));
+	otp->uds_mask_valid = !!(flags1 & BIT(14));
+	otp->uds_mask = !!(flags1 & BIT(15));
+	otp->mchp_uds_valid = !!(flags1 & BIT(16));
+	otp->mchp_uds = !!(flags1 & BIT(17));
+	otp->mchp_uds_mask_valid = !!(flags1 & BIT(18));
+	otp->mchp_uds_mask = !!(flags1 & BIT(19));
+	otp->did_cert0_valid = !!(flags1 & BIT(20));
+	otp->did_cert0 = !!(flags1 & BIT(21));
+	otp->did_cert1_valid = !!(flags1 & BIT(22));
+	otp->did_cert1 = !!(flags1 & BIT(23));
+}
+
+static int security_config_get(struct switchtec_dev *dev,
+			       struct switchtec_security_cfg_state *state)
 {
 	int ret;
 	uint32_t addr_shift;
@@ -259,9 +326,94 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 	state->public_key_ver_valid = !!(reply.valid & 0x08);
 	state->public_key_valid = !!(reply.valid & 0x10);
 
+	state->debug_mode_valid = state->basic_setting_valid;
+
 	state->otp_valid = otp_valid;
 	if (otp_valid)
 		parse_otp_settings(&state->otp, reply.valid);
+
+	state->use_otp_ext = false;
+
+	state->debug_mode = reply.cfg & 0x03;
+	state->secure_state = (reply.cfg>>2) & 0x03;
+
+	state->jtag_lock_after_reset = !!(reply.cfg & 0x40);
+	state->jtag_lock_after_bl1 = !!(reply.cfg & 0x80);
+	state->jtag_bl1_unlock_allowed = !!(reply.cfg & 0x0100);
+	state->jtag_post_bl1_unlock_allowed = !!(reply.cfg & 0x0200);
+
+	spi_clk = (reply.cfg >> SWITCHTEC_CLK_RATE_BITSHIFT) & 0x0f;
+	if (spi_clk == 0) {
+		if (switchtec_gen(dev) == SWITCHTEC_GEN5)
+			spi_clk = 9;
+		else
+			spi_clk = 7;
+	}
+
+	if (reply.spi_core_clk_high)
+		state->spi_clk_rate = spi_clk_hi_rate_float[spi_clk - 1];
+	else
+		state->spi_clk_rate = spi_clk_rate_float[spi_clk - 1];
+
+	state->i2c_recovery_tmo =
+		(reply.cfg >> SWITCHTEC_RC_TMO_BITSHIFT) & 0x0f;
+	state->i2c_port = (reply.cfg >> SWITCHTEC_I2C_PORT_BITSHIFT) & 0xf;
+
+	get_i2c_operands(switchtec_gen(dev), &addr_shift, &map_shift,
+			 &map_mask);
+	state->i2c_addr =
+		(reply.cfg >> addr_shift) & SWITCHTEC_I2C_ADDR_BITMASK;
+	state->i2c_cmd_map = (reply.cfg >> map_shift) & map_mask;
+
+	state->public_key_exponent = reply.public_key_exponent;
+	state->public_key_num = reply.public_key_num;
+	state->public_key_ver = reply.public_key_ver;
+
+	if (state->public_key_num)
+		memcpy(state->public_key, reply.public_key,
+		       state->public_key_num * SWITCHTEC_KMSK_LEN);
+
+	state->attn_state.attestation_mode =
+		SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED;
+
+	return 0;
+}
+
+static int security_config_get_gen5(struct switchtec_dev *dev,
+				    struct switchtec_security_cfg_state *state)
+{
+	int ret;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
+	int spi_clk;
+	struct get_cfgs_reply_gen5 reply;
+	int attn_mode;
+
+	ret = get_configs_gen5(dev, &reply);
+	if (ret)
+		return ret;
+
+	reply.valid0 = le32toh(reply.valid0);
+	reply.valid1 = le32toh(reply.valid1);
+
+	reply.cfg = le64toh(reply.cfg);
+	reply.public_key_exponent = le32toh(reply.public_key_exponent);
+
+	state->basic_setting_valid = !!(reply.valid0 & 0x01);
+	state->public_key_exp_valid = !!(reply.valid0 & 0x04);
+	state->public_key_num_valid = !!(reply.valid0 & 0x08);
+	state->public_key_ver_valid = !!(reply.valid0 & 0x10);
+	state->public_key_valid = !!(reply.valid0 & 0x20);
+
+	state->debug_mode_valid = !!(reply.valid0 & 0x02);
+	state->attn_state.cdi_efuse_inc_mask_valid = !!(reply.valid0 & 0x40);
+
+	state->otp_valid = true;
+	parse_otp_settings_gen5(&state->otp_ext, reply.valid0,
+				reply.valid1);
+
+	state->use_otp_ext = true;
 
 	state->debug_mode = reply.cfg & 0x03;
 	state->secure_state = (reply.cfg>>2) & 0x03;
@@ -298,9 +450,50 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 	state->public_key_num = reply.public_key_num;
 	state->public_key_ver = reply.public_key_ver;
 	memcpy(state->public_key, reply.public_key,
-	       SWITCHTEC_KMSK_NUM * SWITCHTEC_KMSK_LEN);
+	       state->public_key_num * SWITCHTEC_KMSK_LEN);
+
+	attn_mode = (reply.cfg >> SWITCHTEC_ATTEST_BITSHIFT) &
+		SWITCHTEC_ATTEST_BITMASK;
+	if (attn_mode == 1)
+		state->attn_state.attestation_mode =
+			SWITCHTEC_ATTESTATION_MODE_DICE;
+	else
+		state->attn_state.attestation_mode =
+			SWITCHTEC_ATTESTATION_MODE_NONE;
+
+	state->attn_state.uds_selfgen =
+		(reply.cfg >> SWITCHTEC_UDS_SELFGEN_BITSHIFT) &
+		SWITCHTEC_UDS_SELFGEN_BITMASK;
+	state->attn_state.cdi_efuse_inc_mask =
+		le32toh(reply.cdi_efuse_inc_mask);
+
+	if (state->secure_state == SWITCHTEC_UNINITIALIZED_UNSECURED &&
+	    state->attn_state.attestation_mode ==
+		SWITCHTEC_ATTESTATION_MODE_DICE &&
+	    !state->attn_state.uds_selfgen)
+		state->attn_state.uds_visible = true;
+	else
+		state->attn_state.uds_visible = false;
+
+	if (state->attn_state.uds_visible)
+		memcpy(state->attn_state.uds_data, reply.uds_data, 32);
 
 	return 0;
+}
+
+/**
+ * @brief Get secure boot configurations
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] state	Current secure boot settings
+ * @return 0 on success, error code on failure
+ */
+int switchtec_security_config_get(struct switchtec_dev *dev,
+				  struct switchtec_security_cfg_state *state)
+{
+	if (switchtec_is_gen5(dev))
+		return security_config_get_gen5(dev, state);
+	else
+		return security_config_get(dev, state);
 }
 
 /**
@@ -1004,9 +1197,16 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info)
 {
 	int ret;
+	uint32_t subcmd = 0;
 
-	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
-				sizeof(struct switchtec_sn_ver_info));
+	if (switchtec_is_gen5(dev))
+		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET_GEN5,
+					&subcmd, 4, info,
+					sizeof(struct switchtec_sn_ver_info));
+	else
+		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
+					sizeof(struct switchtec_sn_ver_info));
+
 	if (ret)
 		return ret;
 
