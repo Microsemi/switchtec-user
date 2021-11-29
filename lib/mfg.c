@@ -549,14 +549,8 @@ static int convert_spi_clk_rate(float clk_float, int hi_rate)
 	return -1;
 }
 
-/**
- * @brief Set secure settings
- * @param[in]  dev	Switchtec device handle
- * @param[out] setting	Secure boot settings
- * @return 0 on success, error code on failure
- */
-int switchtec_security_config_set(struct switchtec_dev *dev,
-				  struct switchtec_security_cfg_set *setting)
+static int security_config_set_gen4(struct switchtec_dev *dev,
+				    struct switchtec_security_cfg_set *setting)
 {
 	int ret;
 	struct setting_data {
@@ -570,8 +564,12 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 	uint32_t map_shift;
 	uint32_t map_mask;
 	int spi_clk;
-	uint8_t cmd_buf[20] = {};
 	int otp_valid;
+
+	/* Gen4 device does not support attestation feature */
+	if (setting->attn_set.attestation_mode !=
+	    SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED)
+		return -EINVAL;
 
 	ret = get_configs(dev, &reply, &otp_valid);
 	if (ret)
@@ -616,16 +614,105 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 
 	sd.pub_key_exponent = htole32(setting->public_key_exponent);
 
-	if (switchtec_gen(dev) == SWITCHTEC_GEN4) {
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET,
-					&sd, sizeof(sd), NULL, 0);
-	} else {
-		cmd_buf[0] = 1;
-		memcpy(cmd_buf + 4, &sd, sizeof(sd));
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET_GEN5,
-					cmd_buf, sizeof(cmd_buf), NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET,
+				 &sd, sizeof(sd), NULL, 0);
+}
+
+static int security_config_set_gen5(struct switchtec_dev *dev,
+				    struct switchtec_security_cfg_set *setting)
+{
+	int ret;
+	struct setting_data {
+		uint64_t cfg;
+		uint32_t pub_key_exponent;
+		uint8_t uds_valid;
+		uint8_t rsvd[3];
+		uint32_t cdi_efuse_inc_mask;
+		uint8_t uds[32];
+	} sd;
+	struct get_cfgs_reply_gen5 reply;
+	uint64_t ldata = 0;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
+	int spi_clk;
+	uint8_t cmd_buf[64];
+
+	ret = get_configs_gen5(dev, &reply);
+	if (ret)
+		return ret;
+
+	memset(&sd, 0, sizeof(sd));
+
+	sd.cfg = setting->jtag_lock_after_reset?
+			SWITCHTEC_JTAG_LOCK_AFT_RST_BITMASK : 0;
+	sd.cfg |= setting->jtag_lock_after_bl1?
+			SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK : 0;
+	sd.cfg |= setting->jtag_bl1_unlock_allowed?
+			SWITCHTEC_JTAG_UNLOCK_BL1_BITMASK : 0;
+	sd.cfg |= setting->jtag_post_bl1_unlock_allowed?
+			SWITCHTEC_JTAG_UNLOCK_AFT_BL1_BITMASK : 0;
+
+	spi_clk = convert_spi_clk_rate(setting->spi_clk_rate,
+				       reply.spi_core_clk_high);
+	if (spi_clk < 0) {
+		errno = EINVAL;
+		return -1;
 	}
-	return ret;
+
+	sd.cfg |= (spi_clk & SWITCHTEC_CLK_RATE_BITMASK) <<
+			SWITCHTEC_CLK_RATE_BITSHIFT;
+
+	sd.cfg |= (setting->i2c_recovery_tmo & SWITCHTEC_RC_TMO_BITMASK) <<
+			SWITCHTEC_RC_TMO_BITSHIFT;
+	sd.cfg |= (setting->i2c_port & SWITCHTEC_I2C_PORT_BITMASK) <<
+			SWITCHTEC_I2C_PORT_BITSHIFT;
+
+	get_i2c_operands(switchtec_gen(dev), &addr_shift, &map_shift,
+			 &map_mask);
+	sd.cfg |= (setting->i2c_addr & SWITCHTEC_I2C_ADDR_BITMASK) <<
+			addr_shift;
+
+	ldata = setting->i2c_cmd_map & map_mask;
+	ldata <<= map_shift;
+	sd.cfg |= ldata;
+
+	sd.cfg = htole64(sd.cfg);
+
+	sd.pub_key_exponent = htole32(setting->public_key_exponent);
+
+	if (setting->attn_set.attestation_mode ==
+	    SWITCHTEC_ATTESTATION_MODE_DICE) {
+		sd.cfg |= 0x10;
+		sd.cdi_efuse_inc_mask = setting->attn_set.cdi_efuse_inc_mask;
+
+		ldata = setting->attn_set.uds_selfgen? 1 : 0;
+		ldata <<= 44;
+		sd.cfg |= ldata;
+
+		sd.uds_valid = setting->attn_set.uds_valid;
+		if (sd.uds_valid)
+			memcpy(sd.uds, setting->attn_set.uds_data, 32);
+	}
+
+	memcpy(cmd_buf + 4, &sd, sizeof(sd));
+	return switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET_GEN5,
+				 cmd_buf, sizeof(cmd_buf), NULL, 0);
+}
+
+/**
+ * @brief Set secure settings
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] setting	Secure boot settings
+ * @return 0 on success, error code on failure
+ */
+int switchtec_security_config_set(struct switchtec_dev *dev,
+				  struct switchtec_security_cfg_set *setting)
+{
+	if (switchtec_is_gen5(dev))
+		return security_config_set_gen5(dev, setting);
+	else
+		return security_config_set_gen4(dev, setting);
 }
 
 /**

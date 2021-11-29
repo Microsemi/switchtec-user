@@ -164,6 +164,14 @@ struct switchtec_security_cfg_state {
 	struct switchtec_attestation_state attn_state;
 };
 
+struct switchtec_attestation_set {
+	enum switchtec_attestation_mode attestation_mode;
+	unsigned int cdi_efuse_inc_mask;
+	bool uds_selfgen;
+	bool uds_valid;
+	unsigned char uds_data[32];
+};
+
 struct switchtec_security_cfg_set {
 	uint8_t jtag_lock_after_reset;
 	uint8_t jtag_lock_after_bl1;
@@ -176,6 +184,8 @@ struct switchtec_security_cfg_set {
 	uint32_t i2c_addr;
 	uint32_t i2c_cmd_map;
 	uint32_t public_key_exponent;
+
+	struct switchtec_attestation_set attn_set;
 };
 
 enum switchtec_active_index_id {
