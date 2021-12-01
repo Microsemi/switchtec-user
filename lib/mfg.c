@@ -496,13 +496,7 @@ int switchtec_security_config_get(struct switchtec_dev *dev,
 		return security_config_get(dev, state);
 }
 
-/**
- * @brief Retrieve mailbox entries
- * @param[in]  dev	Switchtec device handle
- * @param[in]  fd	File handle to write the log data
- * @return 0 on success, error code on failure
- */
-int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd)
+static int mailbox_to_file(struct switchtec_dev *dev, int fd)
 {
 	int ret;
 	int num_to_read = htole32(SWITCHTEC_MB_MAX_ENTRIES);
@@ -530,6 +524,57 @@ int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd)
 	} while (reply.num_remaining > 0);
 
 	return 0;
+}
+
+static int mailbox_to_file_gen5(struct switchtec_dev *dev, int fd)
+{
+	int ret;
+	struct mb_read {
+		uint32_t subcmd;
+		uint32_t num_to_read;
+	} read;
+	struct mb_reply {
+		uint8_t num_returned;
+		uint8_t num_remaining;
+		uint8_t rsvd[2];
+		uint8_t data[SWITCHTEC_MB_MAX_ENTRIES *
+			     SWITCHTEC_MB_LOG_LEN];
+	} reply;
+
+	read.subcmd = 0;
+	read.num_to_read = htole32(SWITCHTEC_MB_MAX_ENTRIES);
+
+	do {
+		ret = switchtec_mfg_cmd(dev, MRPC_MAILBOX_GET_GEN5,
+					&read, sizeof(read),
+					&reply,  sizeof(reply));
+		if (ret)
+			return ret;
+
+		reply.num_remaining = le32toh(reply.num_remaining);
+		reply.num_returned = le32toh(reply.num_returned);
+
+		ret = write(fd, reply.data,
+			    (reply.num_returned) * SWITCHTEC_MB_LOG_LEN);
+		if (ret < 0)
+			return ret;
+	} while (reply.num_remaining > 0);
+
+	return 0;
+}
+
+/**
+ * @brief Retrieve mailbox entries
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  fd	File handle to write the log data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_mailbox_to_file(struct switchtec_dev *dev, int fd)
+{
+	if (switchtec_is_gen5(dev))
+		return mailbox_to_file_gen5(dev, fd);
+	else
+		return mailbox_to_file(dev, fd);
 }
 
 static int convert_spi_clk_rate(float clk_float, int hi_rate)
