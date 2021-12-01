@@ -750,6 +750,32 @@ int switchtec_boot_resume(struct switchtec_dev *dev)
 				 NULL, 0);
 }
 
+static int secure_state_set(struct switchtec_dev *dev,
+			    enum switchtec_secure_state state)
+{
+	uint32_t data;
+
+	data = htole32(state);
+
+	return switchtec_mfg_cmd(dev, MRPC_SECURE_STATE_SET,
+				 &data, sizeof(data), NULL, 0);
+}
+
+static int secure_state_set_gen5(struct switchtec_dev *dev,
+				 enum switchtec_secure_state state)
+{
+	struct state_set {
+		uint32_t subcmd;
+		uint32_t state;
+	} data;
+
+	data.subcmd = 0;
+	data.state = htole32(state);
+
+	return switchtec_mfg_cmd(dev, MRPC_SECURE_STATE_SET_GEN5,
+				 &data, sizeof(data), NULL, 0);
+}
+
 /**
  * @brief Set device secure state
  * @param[in]  dev	Switchtec device handle
@@ -759,16 +785,15 @@ int switchtec_boot_resume(struct switchtec_dev *dev)
 int switchtec_secure_state_set(struct switchtec_dev *dev,
 			       enum switchtec_secure_state state)
 {
-	uint32_t data;
-
 	if ((state != SWITCHTEC_INITIALIZED_UNSECURED)
 	   && (state != SWITCHTEC_INITIALIZED_SECURED)) {
 		return ERR_PARAM_INVALID;
 	}
-	data = htole32(state);
 
-	return switchtec_mfg_cmd(dev, MRPC_SECURE_STATE_SET, &data,
-				 sizeof(data), NULL, 0);
+	if (switchtec_is_gen5(dev))
+		return secure_state_set_gen5(dev, state);
+	else
+		return secure_state_set(dev, state);
 }
 
 static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
