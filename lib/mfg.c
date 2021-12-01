@@ -970,7 +970,8 @@ int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
 }
 
 static int kmsk_set_send_pubkey(struct switchtec_dev *dev,
-				struct switchtec_pubkey *public_key)
+				struct switchtec_pubkey *public_key,
+				uint32_t cmd_id)
 {
 	struct kmsk_pubk_cmd {
 		uint8_t subcmd;
@@ -984,12 +985,13 @@ static int kmsk_set_send_pubkey(struct switchtec_dev *dev,
 	       SWITCHTEC_PUB_KEY_LEN);
 	cmd.pub_key_exponent = htole32(public_key->pubkey_exp);
 
-	return switchtec_mfg_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd,
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd,
 				 sizeof(cmd), NULL, 0);
 }
 
 static int kmsk_set_send_signature(struct switchtec_dev *dev,
-				   struct switchtec_signature *signature)
+				   struct switchtec_signature *signature,
+				   uint32_t cmd_id)
 {
 	struct kmsk_signature_cmd {
 		uint8_t subcmd;
@@ -1001,12 +1003,13 @@ static int kmsk_set_send_signature(struct switchtec_dev *dev,
 	memcpy(cmd.signature, signature->signature,
 	       SWITCHTEC_SIG_LEN);
 
-	return switchtec_mfg_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd,
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd,
 				 sizeof(cmd), NULL, 0);
 }
 
 static int kmsk_set_send_kmsk(struct switchtec_dev *dev,
-			      struct switchtec_kmsk *kmsk)
+			      struct switchtec_kmsk *kmsk,
+			      uint32_t cmd_id)
 {
 	struct kmsk_kmsk_cmd {
 		uint8_t subcmd;
@@ -1019,7 +1022,7 @@ static int kmsk_set_send_kmsk(struct switchtec_dev *dev,
 	cmd.num_entries = 1;
 	memcpy(cmd.kmsk, kmsk->kmsk, SWITCHTEC_KMSK_LEN);
 
-	return switchtec_mfg_cmd(dev, MRPC_KMSK_ENTRY_SET, &cmd, sizeof(cmd),
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd),
 				 NULL, 0);
 }
 
@@ -1041,20 +1044,26 @@ int switchtec_kmsk_set(struct switchtec_dev *dev,
 		       struct switchtec_kmsk *kmsk)
 {
 	int ret;
+	uint32_t cmd_id;
+
+	if (switchtec_is_gen5(dev))
+		cmd_id = MRPC_KMSK_ENTRY_SET_GEN5;
+	else
+		cmd_id = MRPC_KMSK_ENTRY_SET;
 
 	if (public_key) {
-		ret = kmsk_set_send_pubkey(dev, public_key);
+		ret = kmsk_set_send_pubkey(dev, public_key, cmd_id);
 		if (ret)
 			return ret;
 	}
 
 	if (signature) {
-		ret = kmsk_set_send_signature(dev, signature);
+		ret = kmsk_set_send_signature(dev, signature, cmd_id);
 		if (ret)
 			return ret;
 	}
 
-	return kmsk_set_send_kmsk(dev, kmsk);
+	return kmsk_set_send_kmsk(dev, kmsk, cmd_id);
 }
 
 #if HAVE_LIBCRYPTO
