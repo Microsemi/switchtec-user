@@ -849,7 +849,8 @@ int switchtec_secure_state_set(struct switchtec_dev *dev,
 }
 
 static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
-				  struct switchtec_pubkey *public_key)
+				  struct switchtec_pubkey *public_key,
+				  uint32_t cmd_id)
 {
 	struct public_key_cmd {
 		uint8_t subcmd;
@@ -862,8 +863,7 @@ static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
 	memcpy(cmd.pub_key, public_key->pubkey, SWITCHTEC_PUB_KEY_LEN);
 	cmd.pub_key_exp = htole32(public_key->pubkey_exp);
 
-	return switchtec_mfg_cmd(dev, MRPC_DBG_UNLOCK, &cmd,
-				 sizeof(cmd), NULL, 0);
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
 /**
@@ -888,8 +888,14 @@ int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 		uint32_t unlock_ver;
 		uint8_t signature[SWITCHTEC_SIG_LEN];
 	} cmd = {};
+	uint32_t cmd_id;
 
-	ret = dbg_unlock_send_pubkey(dev, public_key);
+	if (switchtec_is_gen5(dev))
+		cmd_id = MRPC_DBG_UNLOCK_GEN5;
+	else
+		cmd_id = MRPC_DBG_UNLOCK;
+
+	ret = dbg_unlock_send_pubkey(dev, public_key, cmd_id);
 	if (ret)
 		return ret;
 
@@ -898,8 +904,7 @@ int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 	cmd.unlock_ver = htole32(ver_sec_unlock);
 	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
 
-	return switchtec_mfg_cmd(dev, MRPC_DBG_UNLOCK, &cmd,
-				 sizeof(cmd), NULL, 0);
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
 /**
@@ -925,8 +930,14 @@ int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 		uint32_t unlock_ver;
 		uint8_t signature[SWITCHTEC_SIG_LEN];
 	} cmd = {};
+	uint32_t cmd_id;
 
-	ret = dbg_unlock_send_pubkey(dev, public_key);
+	if (switchtec_is_gen5(dev))
+		cmd_id = MRPC_DBG_UNLOCK_GEN5;
+	else
+		cmd_id = MRPC_DBG_UNLOCK;
+
+	ret = dbg_unlock_send_pubkey(dev, public_key, cmd_id);
 	if (ret)
 		return ret;
 
@@ -935,8 +946,7 @@ int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 	cmd.unlock_ver = htole32(ver_sec_unlock);
 	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
 
-	return switchtec_mfg_cmd(dev, MRPC_DBG_UNLOCK, &cmd, sizeof(cmd),
-				 NULL, 0);
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
 /**
