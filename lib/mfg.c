@@ -791,8 +791,15 @@ int switchtec_fw_exec(struct switchtec_dev *dev,
  */
 int switchtec_boot_resume(struct switchtec_dev *dev)
 {
-	return switchtec_mfg_cmd(dev, MRPC_BOOTUP_RESUME, NULL, 0,
-				 NULL, 0);
+	uint32_t subcmd = 0;
+
+	if (switchtec_is_gen5(dev))
+		return switchtec_mfg_cmd(dev, MRPC_BOOTUP_RESUME_GEN5,
+					 &subcmd, sizeof(subcmd),
+					 NULL, 0);
+	else
+		return switchtec_mfg_cmd(dev, MRPC_BOOTUP_RESUME,
+					 NULL, 0, NULL, 0);
 }
 
 static int secure_state_set(struct switchtec_dev *dev,
