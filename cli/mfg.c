@@ -931,11 +931,14 @@ static int config_set(int argc, char **argv)
 	int ret;
 	struct switchtec_security_cfg_state state = {};
 	struct switchtec_security_cfg_set settings = {};
+	struct switchtec_uds uds_data = {};
 
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *setting_fimg;
 		char *setting_file;
+		FILE *uds_fimg;
+		char *uds_file;
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
@@ -944,6 +947,10 @@ static int config_set(int argc, char **argv)
 			.value_addr=&cfg.setting_fimg,
 			.argument_type=required_positional,
 			.help="security setting file"},
+		{"uds_file", 'u', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.uds_fimg,
+			.argument_type=required_argument,
+			.help="UDS file"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{NULL}
@@ -980,6 +987,32 @@ static int config_set(int argc, char **argv)
 		return -5;
 	} else if (ret) {
 		switchtec_perror("mfg config-set");
+	}
+
+	if (cfg.uds_fimg) {
+		if (settings.attn_set.attestation_mode !=
+		    SWITCHTEC_ATTESTATION_MODE_DICE) {
+			fprintf(stderr, "INFO: Attestation is not supported or not enabled. The given UDS file is ignored.\n");
+		} else if (settings.attn_set.uds_selfgen) {
+			fprintf(stderr, "INFO: Device uses self-generated UDS. The given UDS file is ignored.\n");
+		} else {
+			ret = switchtec_read_uds_file(cfg.uds_fimg, &uds_data);
+			if (ret) {
+				fprintf(stderr, "Error reading UDS file %s\n",
+					cfg.uds_file);
+				return -6;
+			}
+			memcpy(settings.attn_set.uds_data, uds_data.uds,
+			       SWITCHTEC_UDS_LEN);
+			settings.attn_set.uds_valid = true;
+		}
+	} else {
+		if ((settings.attn_set.attestation_mode ==
+		     SWITCHTEC_ATTESTATION_MODE_DICE) &&
+		    !settings.attn_set.uds_selfgen) {
+			fprintf(stderr, "ERROR: UDS file is required for the current configuration!\n");
+			return -7;
+		}
 	}
 
 	printf("Writing the below settings to device: \n");
