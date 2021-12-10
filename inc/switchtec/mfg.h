@@ -29,6 +29,7 @@
 
 #define SWITCHTEC_PUB_KEY_LEN	512
 #define SWITCHTEC_SIG_LEN	512
+#define SWITCHTEC_UDS_LEN	32
 #define SWITCHTEC_KMSK_LEN	64
 #define SWITCHTEC_KMSK_NUM_MAX	10
 
@@ -220,6 +221,10 @@ struct switchtec_signature{
 	uint8_t signature[SWITCHTEC_SIG_LEN];
 };
 
+struct switchtec_uds {
+	unsigned char uds[SWITCHTEC_UDS_LEN];
+};
+
 struct switchtec_security_spi_avail_rate {
 	int num_rates;
 	float rates[SWITCHTEC_SECURITY_SPI_RATE_MAX_NUM];
@@ -263,6 +268,7 @@ int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk);
 int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk);
 int switchtec_read_signature_file(FILE *sig_file,
 				  struct switchtec_signature *sigature);
+int switchtec_read_uds_file(FILE *uds_file, struct switchtec_uds *uds);
 int
 switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 				  struct switchtec_kmsk *kmsk);

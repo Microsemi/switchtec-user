@@ -1352,6 +1352,24 @@ int switchtec_read_signature_file(FILE *sig_file,
 }
 
 /**
+ * @brief Read UDS data from UDS file
+ * @param[in]  uds_file  UDS file
+ * @param[out] uds       UDS data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_read_uds_file(FILE *uds_file, struct switchtec_uds *uds)
+{
+	ssize_t rlen;
+
+	rlen = fread(uds->uds, 1, SWITCHTEC_UDS_LEN, uds_file);
+
+	if (rlen < SWITCHTEC_UDS_LEN)
+		return -EBADF;
+
+	return 0;
+}
+
+/**
  * @brief Check if secure config already has a KMSK entry
  * 	  KMSK stands for Key Manifest Secure Key.
  * 	  It is a key used to verify Key Manifest
