@@ -594,14 +594,8 @@ static int convert_spi_clk_rate(float clk_float, int hi_rate)
 	return -1;
 }
 
-/**
- * @brief Set secure settings
- * @param[in]  dev	Switchtec device handle
- * @param[out] setting	Secure boot settings
- * @return 0 on success, error code on failure
- */
-int switchtec_security_config_set(struct switchtec_dev *dev,
-				  struct switchtec_security_cfg_set *setting)
+static int security_config_set_gen4(struct switchtec_dev *dev,
+				    struct switchtec_security_cfg_set *setting)
 {
 	int ret;
 	struct setting_data {
@@ -615,8 +609,12 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 	uint32_t map_shift;
 	uint32_t map_mask;
 	int spi_clk;
-	uint8_t cmd_buf[20] = {};
 	int otp_valid;
+
+	/* Gen4 device does not support attestation feature */
+	if (setting->attn_set.attestation_mode !=
+	    SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED)
+		return -EINVAL;
 
 	ret = get_configs(dev, &reply, &otp_valid);
 	if (ret)
@@ -661,16 +659,105 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 
 	sd.pub_key_exponent = htole32(setting->public_key_exponent);
 
-	if (switchtec_gen(dev) == SWITCHTEC_GEN4) {
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET,
-					&sd, sizeof(sd), NULL, 0);
-	} else {
-		cmd_buf[0] = 1;
-		memcpy(cmd_buf + 4, &sd, sizeof(sd));
-		ret = switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET_GEN5,
-					cmd_buf, sizeof(cmd_buf), NULL, 0);
+	return switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET,
+				 &sd, sizeof(sd), NULL, 0);
+}
+
+static int security_config_set_gen5(struct switchtec_dev *dev,
+				    struct switchtec_security_cfg_set *setting)
+{
+	int ret;
+	struct setting_data {
+		uint64_t cfg;
+		uint32_t pub_key_exponent;
+		uint8_t uds_valid;
+		uint8_t rsvd[3];
+		uint32_t cdi_efuse_inc_mask;
+		uint8_t uds[32];
+	} sd;
+	struct get_cfgs_reply_gen5 reply;
+	uint64_t ldata = 0;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
+	int spi_clk;
+	uint8_t cmd_buf[64];
+
+	ret = get_configs_gen5(dev, &reply);
+	if (ret)
+		return ret;
+
+	memset(&sd, 0, sizeof(sd));
+
+	sd.cfg = setting->jtag_lock_after_reset?
+			SWITCHTEC_JTAG_LOCK_AFT_RST_BITMASK : 0;
+	sd.cfg |= setting->jtag_lock_after_bl1?
+			SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK : 0;
+	sd.cfg |= setting->jtag_bl1_unlock_allowed?
+			SWITCHTEC_JTAG_UNLOCK_BL1_BITMASK : 0;
+	sd.cfg |= setting->jtag_post_bl1_unlock_allowed?
+			SWITCHTEC_JTAG_UNLOCK_AFT_BL1_BITMASK : 0;
+
+	spi_clk = convert_spi_clk_rate(setting->spi_clk_rate,
+				       reply.spi_core_clk_high);
+	if (spi_clk < 0) {
+		errno = EINVAL;
+		return -1;
 	}
-	return ret;
+
+	sd.cfg |= (spi_clk & SWITCHTEC_CLK_RATE_BITMASK) <<
+			SWITCHTEC_CLK_RATE_BITSHIFT;
+
+	sd.cfg |= (setting->i2c_recovery_tmo & SWITCHTEC_RC_TMO_BITMASK) <<
+			SWITCHTEC_RC_TMO_BITSHIFT;
+	sd.cfg |= (setting->i2c_port & SWITCHTEC_I2C_PORT_BITMASK) <<
+			SWITCHTEC_I2C_PORT_BITSHIFT;
+
+	get_i2c_operands(switchtec_gen(dev), &addr_shift, &map_shift,
+			 &map_mask);
+	sd.cfg |= (setting->i2c_addr & SWITCHTEC_I2C_ADDR_BITMASK) <<
+			addr_shift;
+
+	ldata = setting->i2c_cmd_map & map_mask;
+	ldata <<= map_shift;
+	sd.cfg |= ldata;
+
+	sd.cfg = htole64(sd.cfg);
+
+	sd.pub_key_exponent = htole32(setting->public_key_exponent);
+
+	if (setting->attn_set.attestation_mode ==
+	    SWITCHTEC_ATTESTATION_MODE_DICE) {
+		sd.cfg |= 0x10;
+		sd.cdi_efuse_inc_mask = setting->attn_set.cdi_efuse_inc_mask;
+
+		ldata = setting->attn_set.uds_selfgen? 1 : 0;
+		ldata <<= 44;
+		sd.cfg |= ldata;
+
+		sd.uds_valid = setting->attn_set.uds_valid;
+		if (sd.uds_valid)
+			memcpy(sd.uds, setting->attn_set.uds_data, 32);
+	}
+
+	memcpy(cmd_buf + 4, &sd, sizeof(sd));
+	return switchtec_mfg_cmd(dev, MRPC_SECURITY_CONFIG_SET_GEN5,
+				 cmd_buf, sizeof(cmd_buf), NULL, 0);
+}
+
+/**
+ * @brief Set secure settings
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] setting	Secure boot settings
+ * @return 0 on success, error code on failure
+ */
+int switchtec_security_config_set(struct switchtec_dev *dev,
+				  struct switchtec_security_cfg_set *setting)
+{
+	if (switchtec_is_gen5(dev))
+		return security_config_set_gen5(dev, setting);
+	else
+		return security_config_set_gen4(dev, setting);
 }
 
 /**
@@ -949,18 +1036,11 @@ int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
-/**
- * @brief Read security settings from config file
- * @param[in]  dev		Switchtec device handle
- * @param[in]  setting_file	Security setting file
- * @param[out] set		Security settings
- * @return 0 on success, error code on failure
- */
-int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
-				FILE *setting_file,
-				struct switchtec_security_cfg_set *set)
+static int check_sec_cfg_header(struct switchtec_dev *dev,
+				FILE *setting_file)
 {
 	ssize_t rlen;
+	enum switchtec_gen gen;
 	char magic[4] = {'S', 'S', 'F', 'F'};
 	uint32_t crc;
 	struct setting_file_header {
@@ -969,42 +1049,19 @@ int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
 		uint8_t hw_gen;
 		uint8_t rsvd[3];
 		uint32_t crc;
-	};
-	struct setting_file_data {
-		uint64_t cfg;
-		uint32_t pub_key_exponent;
-		uint8_t rsvd[36];
-	};
-	struct setting_file {
-		struct setting_file_header header;
-		struct setting_file_data data;
-	} file_data;
-	struct get_cfgs_reply reply;
-	uint32_t addr_shift;
-	uint32_t map_shift;
-	uint32_t map_mask;
-	enum switchtec_gen gen;
-	int spi_clk;
-	int ret;
-	int otp_valid;
+	} hdr;
+	int data_len;
+	uint8_t data[64];
 
-	ret = get_configs(dev, &reply, &otp_valid);
-	if (ret)
-		return ret;
+	rlen = fread(&hdr, sizeof(hdr), 1, setting_file);
 
-	rlen = fread(&file_data, 1, sizeof(file_data), setting_file);
-
-	if (rlen < sizeof(file_data))
+	if (rlen != 1)
 		return -EBADF;
 
-	if (memcmp(file_data.header.magic, magic, sizeof(magic)))
+	if (memcmp(hdr.magic, magic, sizeof(magic)))
 		return -EBADF;
 
-	crc = crc32((uint8_t*)&file_data.data,
-			sizeof(file_data.data), 0, 1, 1);
-	if (crc != le32toh(file_data.header.crc))
-		return -EBADF;
-	switch (file_data.header.hw_gen) {
+	switch (hdr.hw_gen) {
 	case 0:
 		gen = SWITCHTEC_GEN4;
 		break;
@@ -1018,20 +1075,62 @@ int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
 	if (gen != switchtec_gen(dev))
 		return -ENODEV;
 
+	fseek(setting_file, 0, SEEK_END);
+	data_len = ftell(setting_file) - sizeof(hdr);
+	fseek(setting_file, sizeof(hdr), SEEK_SET);
+
+	rlen = fread(data, 1, data_len, setting_file);
+	if (rlen < data_len)
+		return -EBADF;
+
+	crc = crc32(data, data_len, 0, 1, 1);
+	if (crc != le32toh(hdr.crc))
+		return -EBADF;
+
+	fseek(setting_file, sizeof(hdr), SEEK_SET);
+	return 0;
+}
+
+static int read_sec_cfg_file(struct switchtec_dev *dev,
+			     FILE *setting_file,
+			     struct switchtec_security_cfg_set *set)
+{
+	struct setting_file_data {
+		uint64_t cfg;
+		uint32_t pub_key_exponent;
+		uint8_t rsvd[36];
+	} data;
+	struct get_cfgs_reply reply;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
+	int spi_clk;
+	int ret;
+	int otp_valid;
+
+	ret = get_configs(dev, &reply, &otp_valid);
+	if (ret)
+		return ret;
+
 	memset(set, 0, sizeof(struct switchtec_security_cfg_set));
 
-	file_data.data.cfg = le64toh(file_data.data.cfg);
+	ret = fread(&data, sizeof(data), 1, setting_file);
+
+	if (ret != 1)
+		return -EBADF;
+
+	data.cfg = le64toh(data.cfg);
 
 	set->jtag_lock_after_reset =
-		!!(file_data.data.cfg & SWITCHTEC_JTAG_LOCK_AFT_RST_BITMASK);
+		!!(data.cfg & SWITCHTEC_JTAG_LOCK_AFT_RST_BITMASK);
 	set->jtag_lock_after_bl1 =
-		!!(file_data.data.cfg & SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK);
+		!!(data.cfg & SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK);
 	set->jtag_bl1_unlock_allowed =
-		!!(file_data.data.cfg & SWITCHTEC_JTAG_UNLOCK_BL1_BITMASK);
+		!!(data.cfg & SWITCHTEC_JTAG_UNLOCK_BL1_BITMASK);
 	set->jtag_post_bl1_unlock_allowed =
-		!!(file_data.data.cfg & SWITCHTEC_JTAG_UNLOCK_AFT_BL1_BITMASK);
+		!!(data.cfg & SWITCHTEC_JTAG_UNLOCK_AFT_BL1_BITMASK);
 
-	spi_clk = (file_data.data.cfg >> SWITCHTEC_CLK_RATE_BITSHIFT) &
+	spi_clk = (data.cfg >> SWITCHTEC_CLK_RATE_BITSHIFT) &
 		SWITCHTEC_CLK_RATE_BITMASK;
 	if (reply.spi_core_clk_high)
 		set->spi_clk_rate = spi_clk_hi_rate_float[spi_clk - 1];
@@ -1039,21 +1138,126 @@ int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
 		set->spi_clk_rate = spi_clk_rate_float[spi_clk - 1];
 
 	set->i2c_recovery_tmo =
-		(file_data.data.cfg >> SWITCHTEC_RC_TMO_BITSHIFT) &
+		(data.cfg >> SWITCHTEC_RC_TMO_BITSHIFT) &
 		SWITCHTEC_RC_TMO_BITMASK;
 	set->i2c_port =
-		(file_data.data.cfg >> SWITCHTEC_I2C_PORT_BITSHIFT) &
+		(data.cfg >> SWITCHTEC_I2C_PORT_BITSHIFT) &
 		SWITCHTEC_I2C_PORT_BITMASK;
 
-	get_i2c_operands(gen, &addr_shift, &map_shift, &map_mask);
+	get_i2c_operands(switchtec_gen(dev), &addr_shift, &map_shift,
+			 &map_mask);
 	set->i2c_addr =
-		(file_data.data.cfg >> addr_shift) &
+		(data.cfg >> addr_shift) &
 		SWITCHTEC_I2C_ADDR_BITMASK;
-	set->i2c_cmd_map = (file_data.data.cfg >> map_shift) & map_mask;
+	set->i2c_cmd_map = (data.cfg >> map_shift) & map_mask;
 
-	set->public_key_exponent = le32toh(file_data.data.pub_key_exponent);
+	set->public_key_exponent = le32toh(data.pub_key_exponent);
+
+	set->attn_set.attestation_mode =
+		SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED;
 
 	return 0;
+}
+
+static int read_sec_cfg_file_gen5(struct switchtec_dev *dev,
+				  FILE *setting_file,
+				  struct switchtec_security_cfg_set *set)
+{
+	struct setting_data {
+		uint64_t cfg;
+		uint32_t pub_key_exponent;
+		uint8_t rsvd[4];
+		uint32_t cdi_efuse_inc_mask;
+	} data;
+	struct get_cfgs_reply_gen5 reply;
+	uint32_t addr_shift;
+	uint32_t map_shift;
+	uint32_t map_mask;
+	int spi_clk;
+	int ret;
+	int attest_mode;
+
+	ret = get_configs_gen5(dev, &reply);
+	if (ret)
+		return ret;
+
+	memset(set, 0, sizeof(struct switchtec_security_cfg_set));
+
+	ret = fread(&data, sizeof(data), 1, setting_file);
+
+	if (ret != 1)
+		return -EBADF;
+
+	data.cfg = le64toh(data.cfg);
+
+	set->jtag_lock_after_reset =
+		!!(data.cfg & SWITCHTEC_JTAG_LOCK_AFT_RST_BITMASK);
+	set->jtag_lock_after_bl1 =
+		!!(data.cfg & SWITCHTEC_JTAG_LOCK_AFT_BL1_BITMASK);
+	set->jtag_bl1_unlock_allowed =
+		!!(data.cfg & SWITCHTEC_JTAG_UNLOCK_BL1_BITMASK);
+	set->jtag_post_bl1_unlock_allowed =
+		!!(data.cfg & SWITCHTEC_JTAG_UNLOCK_AFT_BL1_BITMASK);
+
+	spi_clk = (data.cfg >> SWITCHTEC_CLK_RATE_BITSHIFT) &
+		SWITCHTEC_CLK_RATE_BITMASK;
+	if (reply.spi_core_clk_high)
+		set->spi_clk_rate = spi_clk_hi_rate_float[spi_clk - 1];
+	else
+		set->spi_clk_rate = spi_clk_rate_float[spi_clk - 1];
+
+	set->i2c_recovery_tmo =
+		(data.cfg >> SWITCHTEC_RC_TMO_BITSHIFT) &
+		SWITCHTEC_RC_TMO_BITMASK;
+	set->i2c_port =
+		(data.cfg >> SWITCHTEC_I2C_PORT_BITSHIFT) &
+		SWITCHTEC_I2C_PORT_BITMASK;
+
+	get_i2c_operands(switchtec_gen(dev), &addr_shift, &map_shift,
+			 &map_mask);
+	set->i2c_addr =
+		(data.cfg >> addr_shift) &
+		SWITCHTEC_I2C_ADDR_BITMASK;
+	set->i2c_cmd_map = (data.cfg >> map_shift) & map_mask;
+
+	set->public_key_exponent = le32toh(data.pub_key_exponent);
+
+	attest_mode = (data.cfg >> SWITCHTEC_ATTEST_BITSHIFT) &
+		SWITCHTEC_ATTEST_BITMASK;
+	if (attest_mode == 1) {
+		set->attn_set.attestation_mode =
+			SWITCHTEC_ATTESTATION_MODE_DICE;
+		set->attn_set.cdi_efuse_inc_mask = data.cdi_efuse_inc_mask;
+		set->attn_set.uds_selfgen = (data.cfg >> 44) & 0x1;
+	} else {
+		set->attn_set.attestation_mode =
+			SWITCHTEC_ATTESTATION_MODE_NONE;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Read security settings from config file
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  setting_file	Security setting file
+ * @param[out] set		Security settings
+ * @return 0 on success, error code on failure
+ */
+int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
+				FILE *setting_file,
+				struct switchtec_security_cfg_set *set)
+{
+	int ret;
+
+	ret = check_sec_cfg_header(dev, setting_file);
+	if (ret)
+		return ret;
+
+	if (switchtec_is_gen4(dev))
+		return read_sec_cfg_file(dev, setting_file, set);
+	else
+		return read_sec_cfg_file_gen5(dev, setting_file, set);
 }
 
 static int kmsk_set_send_pubkey(struct switchtec_dev *dev,
@@ -1238,6 +1442,24 @@ int switchtec_read_signature_file(FILE *sig_file,
 	rlen = fread(signature->signature, 1, SWITCHTEC_SIG_LEN, sig_file);
 
 	if (rlen < SWITCHTEC_SIG_LEN)
+		return -EBADF;
+
+	return 0;
+}
+
+/**
+ * @brief Read UDS data from UDS file
+ * @param[in]  uds_file  UDS file
+ * @param[out] uds       UDS data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_read_uds_file(FILE *uds_file, struct switchtec_uds *uds)
+{
+	ssize_t rlen;
+
+	rlen = fread(uds->uds, 1, SWITCHTEC_UDS_LEN, uds_file);
+
+	if (rlen < SWITCHTEC_UDS_LEN)
 		return -EBADF;
 
 	return 0;
