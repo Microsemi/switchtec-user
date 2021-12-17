@@ -507,6 +507,8 @@ static void print_image_list(struct switchtec_active_index *idx)
 {
 	printf("IMAGE\t\tINDEX\n");
 	printf("Key Manifest\t%d\n", idx->keyman);
+	if (idx->riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET)
+		printf("RIOT\t\t%d\n", idx->riot);
 	printf("BL2\t\t%d\n", idx->bl2);
 	printf("Config\t\t%d\n", idx->config);
 	printf("Firmware\t%d\n", idx->firmware);
