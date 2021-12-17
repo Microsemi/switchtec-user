@@ -959,6 +959,7 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 int switchtec_fw_exec(struct switchtec_dev *dev,
 		      enum switchtec_bl2_recovery_mode recovery_mode)
 {
+	uint32_t cmd_id = MRPC_FW_TX;
 	struct fw_exec_struct {
 		uint8_t subcmd;
 		uint8_t recovery_mode;
@@ -969,7 +970,10 @@ int switchtec_fw_exec(struct switchtec_dev *dev,
 	cmd.subcmd = MRPC_FW_TX_EXEC;
 	cmd.recovery_mode = recovery_mode;
 
-	return switchtec_mfg_cmd(dev, MRPC_FW_TX, &cmd, sizeof(cmd), NULL, 0);
+	if (switchtec_is_gen5(dev))
+		cmd_id = MRPC_FW_TX_GEN5;
+
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
 /**

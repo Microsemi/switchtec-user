@@ -117,6 +117,14 @@ struct switchtec_fw_image_header_gen3 {
 	uint32_t image_crc;
 };
 
+static uint32_t get_fw_tx_id(struct switchtec_dev *dev)
+{
+	if (switchtec_is_gen5(dev))
+		return MRPC_FW_TX_GEN5;
+	else
+		return MRPC_FW_TX;
+}
+
 static int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 				 enum switchtec_fw_dlstatus *status,
 				 enum mrpc_bg_status *bgstatus)
@@ -131,7 +139,7 @@ static int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 	int ret;
 
 	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
-		cmd = MRPC_FW_TX;
+		cmd = get_fw_tx_id(dev);
 
 	ret = switchtec_cmd(dev, cmd, &subcmd, sizeof(subcmd),
 			    &result, sizeof(result));
@@ -204,7 +212,7 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 	} cmd;
 
 	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2) {
-		cmd_id = MRPC_FW_TX;
+		cmd_id = get_fw_tx_id(dev);
 		cmd.subcmd = MRPC_FW_TX_TOGGLE;
 	} else {
 		cmd_id = MRPC_FWDNLD;
@@ -314,7 +322,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 	uint32_t cmd_id = MRPC_FWDNLD;
 
 	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
-		cmd_id = MRPC_FW_TX;
+		cmd_id = get_fw_tx_id(dev);
 
 	image_size = lseek(img_fd, 0, SEEK_END);
 	if (image_size < 0)
@@ -434,7 +442,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 	uint32_t cmd_id = MRPC_FWDNLD;
 
 	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
-		cmd_id = MRPC_FW_TX;
+		cmd_id = get_fw_tx_id(dev);
 
 	ret = fseek(fimg, 0, SEEK_END);
 	if (ret)
