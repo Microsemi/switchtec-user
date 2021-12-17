@@ -70,6 +70,12 @@
 #define SWITCHTEC_ACTV_IMG_ID_CFG		3
 #define SWITCHTEC_ACTV_IMG_ID_FW		4
 
+#define SWITCHTEC_ACTV_IMG_ID_KMAN_GEN5		1
+#define SWITCHTEC_ACTV_IMG_ID_RC_GEN5		2
+#define SWITCHTEC_ACTV_IMG_ID_BL2_GEN5		3
+#define SWITCHTEC_ACTV_IMG_ID_CFG_GEN5		4
+#define SWITCHTEC_ACTV_IMG_ID_FW_GEN5		5
+
 #define SWITCHTEC_MB_MAX_ENTRIES		16
 #define SWITCHTEC_ACTV_IDX_MAX_ENTRIES		32
 #define SWITCHTEC_ACTV_IDX_SET_ENTRIES		4
@@ -760,14 +766,8 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 		return security_config_set_gen4(dev, setting);
 }
 
-/**
- * @brief Get active image index
- * @param[in]  dev	Switchtec device handle
- * @param[out] index	Active images indices
- * @return 0 on success, error code on failure
- */
-int switchtec_active_image_index_get(struct switchtec_dev *dev,
-				     struct switchtec_active_index *index)
+static int active_image_index_get(struct switchtec_dev *dev,
+				  struct switchtec_active_index *index)
 {
 	int ret;
 	struct active_indices {
@@ -783,8 +783,47 @@ int switchtec_active_image_index_get(struct switchtec_dev *dev,
 	index->bl2 = reply.index[SWITCHTEC_ACTV_IMG_ID_BL2];
 	index->config = reply.index[SWITCHTEC_ACTV_IMG_ID_CFG];
 	index->firmware = reply.index[SWITCHTEC_ACTV_IMG_ID_FW];
+	index->riot = SWITCHTEC_ACTIVE_INDEX_NOT_SET;
 
 	return 0;
+}
+
+static int active_image_index_get_gen5(struct switchtec_dev *dev,
+				       struct switchtec_active_index *index)
+{
+	int ret;
+	uint32_t subcmd = 0;
+	struct active_indices {
+		uint8_t index[SWITCHTEC_ACTV_IDX_MAX_ENTRIES];
+	} reply;
+
+	ret = switchtec_mfg_cmd(dev, MRPC_ACT_IMG_IDX_GET_GEN5, &subcmd,
+				sizeof(subcmd), &reply, sizeof(reply));
+	if (ret)
+		return ret;
+
+	index->keyman = reply.index[SWITCHTEC_ACTV_IMG_ID_KMAN_GEN5];
+	index->bl2 = reply.index[SWITCHTEC_ACTV_IMG_ID_BL2_GEN5];
+	index->config = reply.index[SWITCHTEC_ACTV_IMG_ID_CFG_GEN5];
+	index->firmware = reply.index[SWITCHTEC_ACTV_IMG_ID_FW_GEN5];
+	index->riot = reply.index[SWITCHTEC_ACTV_IMG_ID_RC_GEN5];
+
+	return 0;
+}
+
+/**
+ * @brief Get active image index
+ * @param[in]  dev	Switchtec device handle
+ * @param[out] index	Active images indices
+ * @return 0 on success, error code on failure
+ */
+int switchtec_active_image_index_get(struct switchtec_dev *dev,
+				     struct switchtec_active_index *index)
+{
+	if (switchtec_is_gen5(dev))
+		return active_image_index_get_gen5(dev, index);
+	else
+		return active_image_index_get(dev, index);
 }
 
 /**

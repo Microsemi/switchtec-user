@@ -200,6 +200,7 @@ struct switchtec_active_index {
 	enum switchtec_active_index_id firmware;
 	enum switchtec_active_index_id config;
 	enum switchtec_active_index_id keyman;
+	enum switchtec_active_index_id riot;
 };
 
 enum switchtec_bl2_recovery_mode {
