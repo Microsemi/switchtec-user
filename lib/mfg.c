@@ -78,7 +78,7 @@
 
 #define SWITCHTEC_MB_MAX_ENTRIES		16
 #define SWITCHTEC_ACTV_IDX_MAX_ENTRIES		32
-#define SWITCHTEC_ACTV_IDX_SET_ENTRIES		4
+#define SWITCHTEC_ACTV_IDX_SET_ENTRIES		5
 
 #define SWITCHTEC_ATTEST_BITSHIFT		4
 #define SWITCHTEC_ATTEST_BITMASK		0x03
@@ -826,14 +826,8 @@ int switchtec_active_image_index_get(struct switchtec_dev *dev,
 		return active_image_index_get(dev, index);
 }
 
-/**
- * @brief Set active image index
- * @param[in]  dev	Switchtec device handle
- * @param[in] index	Active image indices
- * @return 0 on success, error code on failure
- */
-int switchtec_active_image_index_set(struct switchtec_dev *dev,
-				     struct switchtec_active_index *index)
+static int active_image_index_set(struct switchtec_dev *dev,
+				  struct switchtec_active_index *index)
 {
 	int ret;
 	int i = 0;
@@ -844,6 +838,12 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 			uint8_t index;
 		} idx[SWITCHTEC_ACTV_IDX_SET_ENTRIES];
 	} set;
+
+	/* RIOT image is not available on Gen4 device */
+	if (index->riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		errno = EINVAL;
+		return -EINVAL;
+	}
 
 	memset(&set, 0, sizeof(set));
 
@@ -879,6 +879,75 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 	ret = switchtec_mfg_cmd(dev, MRPC_ACT_IMG_IDX_SET, &set,
 				sizeof(set), NULL, 0);
 	return ret;
+}
+
+static int active_image_index_set_gen5(struct switchtec_dev *dev,
+				       struct switchtec_active_index *index)
+{
+	int ret;
+	int i = 0;
+	struct active_idx {
+		uint32_t subcmd;
+		uint32_t count;
+		struct entry {
+			uint8_t image_id;
+			uint8_t index;
+		} idx[SWITCHTEC_ACTV_IDX_SET_ENTRIES];
+	} set = {};
+
+	if (index->keyman != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_KMAN_GEN5;
+		set.idx[i].index = index->keyman;
+		i++;
+	}
+
+	if (index->riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_RC_GEN5;
+		set.idx[i].index = index->riot;
+		i++;
+	}
+
+	if (index->bl2 != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_BL2_GEN5;
+		set.idx[i].index = index->bl2;
+		i++;
+	}
+
+	if (index->config != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id =  SWITCHTEC_ACTV_IMG_ID_CFG_GEN5;
+		set.idx[i].index = index->config;
+		i++;
+	}
+
+	if (index->firmware != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_FW_GEN5;
+		set.idx[i].index = index->firmware;
+		i++;
+	}
+
+	if (i == 0)
+		return 0;
+
+	set.count = htole32(i);
+
+	ret = switchtec_mfg_cmd(dev, MRPC_ACT_IMG_IDX_SET_GEN5, &set,
+				sizeof(set), NULL, 0);
+	return ret;
+}
+
+/**
+ * @brief Set active image index
+ * @param[in]  dev	Switchtec device handle
+ * @param[in] index	Active image indices
+ * @return 0 on success, error code on failure
+ */
+int switchtec_active_image_index_set(struct switchtec_dev *dev,
+				     struct switchtec_active_index *index)
+{
+	if (switchtec_is_gen5(dev))
+		return active_image_index_set_gen5(dev, index);
+	else
+		return active_image_index_set(dev, index);
 }
 
 /**
