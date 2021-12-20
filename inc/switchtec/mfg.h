@@ -41,6 +41,8 @@ struct switchtec_sn_ver_info {
 	uint32_t ver_bl2;
 	uint32_t ver_main;
 	uint32_t ver_sec_unlock;
+	bool riot_ver_valid;
+	uint32_t ver_riot;
 };
 enum switchtec_debug_mode {
 	SWITCHTEC_DEBUG_MODE_ENABLED,

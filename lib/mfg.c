@@ -1617,6 +1617,63 @@ static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
 			     resp, resp_len);
 }
 
+static int sn_ver_get_gen4(struct switchtec_dev *dev,
+			   struct switchtec_sn_ver_info *info)
+{
+	int ret;
+	struct reply_t {
+		uint32_t chip_serial;
+		uint32_t ver_km;
+		uint32_t ver_bl2;
+		uint32_t ver_main;
+		uint32_t ver_sec_unlock;
+	} reply;
+
+	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0,
+				&reply, sizeof(reply));
+	if (ret)
+		return ret;
+
+	info->chip_serial = reply.chip_serial;
+	info->ver_bl2 = reply.ver_bl2;
+	info->ver_km = reply.ver_km;
+	info->riot_ver_valid = false;
+	info->ver_sec_unlock = reply.ver_sec_unlock;
+	info->ver_main = reply.ver_main;
+
+	return 0;
+}
+
+static int sn_ver_get_gen5(struct switchtec_dev *dev,
+			   struct switchtec_sn_ver_info *info)
+{
+	int ret;
+	uint32_t subcmd = 0;
+	struct reply_t {
+		uint32_t chip_serial;
+		uint32_t ver_km;
+		uint16_t ver_riot;
+		uint16_t ver_bl2;
+		uint32_t ver_main;
+		uint32_t ver_sec_unlock;
+	} reply;
+
+	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET_GEN5, &subcmd, 4,
+				&reply, sizeof(reply));
+	if (ret)
+		return ret;
+
+	info->chip_serial = reply.chip_serial;
+	info->ver_bl2 = reply.ver_bl2;
+	info->ver_km = reply.ver_km;
+	info->riot_ver_valid = true;
+	info->ver_riot = reply.ver_riot;
+	info->ver_sec_unlock = reply.ver_sec_unlock;
+	info->ver_main = reply.ver_main;
+
+	return 0;
+}
+
 /**
  * @brief Get serial number and security version
  * @param[in]  dev	Switchtec device handle
@@ -1626,27 +1683,10 @@ static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info)
 {
-	int ret;
-	uint32_t subcmd = 0;
-
 	if (switchtec_is_gen5(dev))
-		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET_GEN5,
-					&subcmd, 4, info,
-					sizeof(struct switchtec_sn_ver_info));
+		return sn_ver_get_gen5(dev, info);
 	else
-		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
-					sizeof(struct switchtec_sn_ver_info));
-
-	if (ret)
-		return ret;
-
-	info->chip_serial = le32toh(info->chip_serial);
-	info->ver_bl2 = le32toh(info->ver_bl2);
-	info->ver_km = le32toh(info->ver_km);
-	info->ver_main = le32toh(info->ver_main);
-	info->ver_sec_unlock = le32toh(info->ver_sec_unlock);
-
-	return 0;
+		return sn_ver_get_gen4(dev, info);
 }
 
 /**@}*/
