@@ -639,12 +639,34 @@ switchtec_fw_id_to_type_gen4(const struct switchtec_fw_image_info *info)
 }
 
 static enum switchtec_fw_type
+switchtec_fw_id_to_type_gen5(const struct switchtec_fw_image_info *info)
+{
+	switch (info->part_id) {
+	case SWITCHTEC_FW_PART_ID_G5_MAP0: return SWITCHTEC_FW_TYPE_MAP;
+	case SWITCHTEC_FW_PART_ID_G5_MAP1: return SWITCHTEC_FW_TYPE_MAP;
+	case SWITCHTEC_FW_PART_ID_G5_KEY0: return SWITCHTEC_FW_TYPE_KEY;
+	case SWITCHTEC_FW_PART_ID_G5_KEY1: return SWITCHTEC_FW_TYPE_KEY;
+	case SWITCHTEC_FW_PART_ID_G5_RIOT0: return SWITCHTEC_FW_TYPE_RIOT;
+	case SWITCHTEC_FW_PART_ID_G5_RIOT1: return SWITCHTEC_FW_TYPE_RIOT;
+	case SWITCHTEC_FW_PART_ID_G5_BL20: return SWITCHTEC_FW_TYPE_BL2;
+	case SWITCHTEC_FW_PART_ID_G5_BL21: return SWITCHTEC_FW_TYPE_BL2;
+	case SWITCHTEC_FW_PART_ID_G5_CFG0: return SWITCHTEC_FW_TYPE_CFG;
+	case SWITCHTEC_FW_PART_ID_G5_CFG1: return SWITCHTEC_FW_TYPE_CFG;
+	case SWITCHTEC_FW_PART_ID_G5_IMG0: return SWITCHTEC_FW_TYPE_IMG;
+	case SWITCHTEC_FW_PART_ID_G5_IMG1: return SWITCHTEC_FW_TYPE_IMG;
+	case SWITCHTEC_FW_PART_ID_G5_NVLOG: return SWITCHTEC_FW_TYPE_NVLOG;
+	case SWITCHTEC_FW_PART_ID_G5_SEEPROM: return SWITCHTEC_FW_TYPE_SEEPROM;
+	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
+	}
+}
+
+static enum switchtec_fw_type
 switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
 {
 	switch (info->gen) {
 	case SWITCHTEC_GEN3: return switchtec_fw_id_to_type_gen3(info);
-	case SWITCHTEC_GEN4:
-	case SWITCHTEC_GEN5: return switchtec_fw_id_to_type_gen4(info);
+	case SWITCHTEC_GEN4: return switchtec_fw_id_to_type_gen4(info);
+	case SWITCHTEC_GEN5: return switchtec_fw_id_to_type_gen5(info);
 	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
 	}
 }
@@ -898,6 +920,7 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	case SWITCHTEC_FW_TYPE_IMG:	return "IMG";
 	case SWITCHTEC_FW_TYPE_CFG:	return "CFG";
 	case SWITCHTEC_FW_TYPE_KEY:	return "KEY";
+	case SWITCHTEC_FW_TYPE_RIOT:	return "RIOT";
 	case SWITCHTEC_FW_TYPE_BL2:	return "BL2";
 	case SWITCHTEC_FW_TYPE_NVLOG:	return "NVLOG";
 	case SWITCHTEC_FW_TYPE_SEEPROM:	return "SEEPROM";
