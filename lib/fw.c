@@ -74,6 +74,18 @@ enum switchtec_fw_part_type_gen4 {
 	SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN4,
 };
 
+enum switchtec_fw_part_type_gen5 {
+	SWITCHTEC_FW_IMG_TYPE_MAP_GEN5 = 0x0,
+	SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN5 = 0x1,
+	SWITCHTEC_FW_IMG_TYPE_RIOT_GEN5 = 0x2,
+	SWITCHTEC_FW_IMG_TYPE_BL2_GEN5 = 0x3,
+	SWITCHTEC_FW_IMG_TYPE_CFG_GEN5 = 0x4,
+	SWITCHTEC_FW_IMG_TYPE_IMG_GEN5 = 0x5,
+	SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN5 = 0x6,
+	SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN5 = 0xFE,
+	SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN5,
+};
+
 struct switchtec_fw_metadata_gen4 {
 	char magic[4];
 	char sub_magic[4];
@@ -83,7 +95,8 @@ struct switchtec_fw_metadata_gen4 {
 	uint32_t metadata_len;
 	uint32_t image_len;
 	uint32_t type;
-	uint32_t rsvd;
+	uint8_t fw_id;
+	uint8_t rsvd[3];
 	uint32_t version;
 	uint32_t sequence;
 	uint32_t reserved1;
@@ -672,13 +685,75 @@ invalid_file:
 	return -errno;
 }
 
-static int switchtec_fw_file_info_gen4(int fd,
-				       struct switchtec_fw_image_info *info)
+static enum switchtec_fw_image_part_id_gen4 hdr_type2_id_gen4(uint32_t type)
+{
+	switch (type) {
+	case SWITCHTEC_FW_IMG_TYPE_MAP_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_MAP0;
+
+	case SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_KEY0;
+
+	case SWITCHTEC_FW_IMG_TYPE_BL2_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_BL20;
+
+	case SWITCHTEC_FW_IMG_TYPE_CFG_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_CFG0;
+
+	case SWITCHTEC_FW_IMG_TYPE_IMG_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_IMG0;
+
+	case SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_NVLOG;
+
+	case SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_SEEPROM;
+
+	default:
+		return -1;
+	}
+}
+
+static enum switchtec_fw_image_part_id_gen5 hdr_type2_id_gen5(uint32_t type)
+{
+	switch (type) {
+	case SWITCHTEC_FW_IMG_TYPE_MAP_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_MAP0;
+
+	case SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_KEY0;
+
+	case SWITCHTEC_FW_IMG_TYPE_RIOT_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_RIOT0;
+
+	case SWITCHTEC_FW_IMG_TYPE_BL2_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_BL20;
+
+	case SWITCHTEC_FW_IMG_TYPE_CFG_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_CFG0;
+
+	case SWITCHTEC_FW_IMG_TYPE_IMG_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_IMG0;
+
+	case SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_NVLOG;
+
+	case SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_SEEPROM;
+
+	default:
+		return -1;
+	}
+}
+
+static int switchtec_fw_file_info_gen45(int fd,
+					struct switchtec_fw_image_info *info)
 {
 	int ret;
 	struct switchtec_fw_metadata_gen4 hdr = {};
 	uint8_t exp_zero[4] = {};
 	uint32_t version;
+	int part_id;
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
@@ -695,31 +770,16 @@ static int switchtec_fw_file_info_gen4(int fd,
 	if (!info)
 		return 0;
 
-	switch (le32toh(hdr.type)) {
-	case SWITCHTEC_FW_IMG_TYPE_MAP_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_MAP0;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_KEY0;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_BL2_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_BL20;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_CFG_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_CFG0;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_IMG_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_IMG0;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_NVLOG;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_SEEPROM;
-		break;
-	default:
+	/* Non-zero 'fw-id' field means the image is for Gen5 or later */
+	if (hdr.fw_id)
+		part_id = hdr_type2_id_gen5(le32toh(hdr.type));
+	else
+		part_id = hdr_type2_id_gen4(le32toh(hdr.type));
+
+	if (part_id < 0)
 		goto invalid_file;
-	};
+
+	info->part_id = part_id;
 
 	info->image_crc = le32toh(hdr.image_crc);
 	version = le32toh(hdr.version);
@@ -761,7 +821,7 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	if (!strncmp(magic, "PMC", sizeof(magic))) {
 		return switchtec_fw_file_info_gen3(fd, info);
 	} else if (!strncmp(magic, "MSCC", sizeof(magic))) {
-		return switchtec_fw_file_info_gen4(fd, info);
+		return switchtec_fw_file_info_gen45(fd, info);
 	} else {
 		errno = ENOEXEC;
 		return -1;
