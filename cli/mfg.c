@@ -436,6 +436,9 @@ static int info(int argc, char **argv)
 	}
 	printf("Chip Serial: \t\t\t\t0x%08x\n", sn_info.chip_serial);
 	printf("Key Manifest Secure Version: \t\t0x%08x\n", sn_info.ver_km);
+	if (sn_info.riot_ver_valid)
+		printf("RIOT Secure Version: \t\t\t0x%08x\n",
+		       sn_info.ver_riot);
 	printf("BL2 Secure Version: \t\t\t0x%08x\n", sn_info.ver_bl2);
 	printf("Main Secure Version: \t\t\t0x%08x\n", sn_info.ver_main);
 	printf("Secure Unlock Version: \t\t\t0x%08x\n", sn_info.ver_sec_unlock);
