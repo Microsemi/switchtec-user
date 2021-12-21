@@ -70,9 +70,15 @@
 #define SWITCHTEC_ACTV_IMG_ID_CFG		3
 #define SWITCHTEC_ACTV_IMG_ID_FW		4
 
+#define SWITCHTEC_ACTV_IMG_ID_KMAN_GEN5		1
+#define SWITCHTEC_ACTV_IMG_ID_RC_GEN5		2
+#define SWITCHTEC_ACTV_IMG_ID_BL2_GEN5		3
+#define SWITCHTEC_ACTV_IMG_ID_CFG_GEN5		4
+#define SWITCHTEC_ACTV_IMG_ID_FW_GEN5		5
+
 #define SWITCHTEC_MB_MAX_ENTRIES		16
 #define SWITCHTEC_ACTV_IDX_MAX_ENTRIES		32
-#define SWITCHTEC_ACTV_IDX_SET_ENTRIES		4
+#define SWITCHTEC_ACTV_IDX_SET_ENTRIES		5
 
 #define SWITCHTEC_ATTEST_BITSHIFT		4
 #define SWITCHTEC_ATTEST_BITMASK		0x03
@@ -760,14 +766,8 @@ int switchtec_security_config_set(struct switchtec_dev *dev,
 		return security_config_set_gen4(dev, setting);
 }
 
-/**
- * @brief Get active image index
- * @param[in]  dev	Switchtec device handle
- * @param[out] index	Active images indices
- * @return 0 on success, error code on failure
- */
-int switchtec_active_image_index_get(struct switchtec_dev *dev,
-				     struct switchtec_active_index *index)
+static int active_image_index_get(struct switchtec_dev *dev,
+				  struct switchtec_active_index *index)
 {
 	int ret;
 	struct active_indices {
@@ -783,18 +783,51 @@ int switchtec_active_image_index_get(struct switchtec_dev *dev,
 	index->bl2 = reply.index[SWITCHTEC_ACTV_IMG_ID_BL2];
 	index->config = reply.index[SWITCHTEC_ACTV_IMG_ID_CFG];
 	index->firmware = reply.index[SWITCHTEC_ACTV_IMG_ID_FW];
+	index->riot = SWITCHTEC_ACTIVE_INDEX_NOT_SET;
+
+	return 0;
+}
+
+static int active_image_index_get_gen5(struct switchtec_dev *dev,
+				       struct switchtec_active_index *index)
+{
+	int ret;
+	uint32_t subcmd = 0;
+	struct active_indices {
+		uint8_t index[SWITCHTEC_ACTV_IDX_MAX_ENTRIES];
+	} reply;
+
+	ret = switchtec_mfg_cmd(dev, MRPC_ACT_IMG_IDX_GET_GEN5, &subcmd,
+				sizeof(subcmd), &reply, sizeof(reply));
+	if (ret)
+		return ret;
+
+	index->keyman = reply.index[SWITCHTEC_ACTV_IMG_ID_KMAN_GEN5];
+	index->bl2 = reply.index[SWITCHTEC_ACTV_IMG_ID_BL2_GEN5];
+	index->config = reply.index[SWITCHTEC_ACTV_IMG_ID_CFG_GEN5];
+	index->firmware = reply.index[SWITCHTEC_ACTV_IMG_ID_FW_GEN5];
+	index->riot = reply.index[SWITCHTEC_ACTV_IMG_ID_RC_GEN5];
 
 	return 0;
 }
 
 /**
- * @brief Set active image index
+ * @brief Get active image index
  * @param[in]  dev	Switchtec device handle
- * @param[in] index	Active image indices
+ * @param[out] index	Active images indices
  * @return 0 on success, error code on failure
  */
-int switchtec_active_image_index_set(struct switchtec_dev *dev,
+int switchtec_active_image_index_get(struct switchtec_dev *dev,
 				     struct switchtec_active_index *index)
+{
+	if (switchtec_is_gen5(dev))
+		return active_image_index_get_gen5(dev, index);
+	else
+		return active_image_index_get(dev, index);
+}
+
+static int active_image_index_set(struct switchtec_dev *dev,
+				  struct switchtec_active_index *index)
 {
 	int ret;
 	int i = 0;
@@ -805,6 +838,12 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 			uint8_t index;
 		} idx[SWITCHTEC_ACTV_IDX_SET_ENTRIES];
 	} set;
+
+	/* RIOT image is not available on Gen4 device */
+	if (index->riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		errno = EINVAL;
+		return -EINVAL;
+	}
 
 	memset(&set, 0, sizeof(set));
 
@@ -842,6 +881,75 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 	return ret;
 }
 
+static int active_image_index_set_gen5(struct switchtec_dev *dev,
+				       struct switchtec_active_index *index)
+{
+	int ret;
+	int i = 0;
+	struct active_idx {
+		uint32_t subcmd;
+		uint32_t count;
+		struct entry {
+			uint8_t image_id;
+			uint8_t index;
+		} idx[SWITCHTEC_ACTV_IDX_SET_ENTRIES];
+	} set = {};
+
+	if (index->keyman != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_KMAN_GEN5;
+		set.idx[i].index = index->keyman;
+		i++;
+	}
+
+	if (index->riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_RC_GEN5;
+		set.idx[i].index = index->riot;
+		i++;
+	}
+
+	if (index->bl2 != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_BL2_GEN5;
+		set.idx[i].index = index->bl2;
+		i++;
+	}
+
+	if (index->config != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id =  SWITCHTEC_ACTV_IMG_ID_CFG_GEN5;
+		set.idx[i].index = index->config;
+		i++;
+	}
+
+	if (index->firmware != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		set.idx[i].image_id = SWITCHTEC_ACTV_IMG_ID_FW_GEN5;
+		set.idx[i].index = index->firmware;
+		i++;
+	}
+
+	if (i == 0)
+		return 0;
+
+	set.count = htole32(i);
+
+	ret = switchtec_mfg_cmd(dev, MRPC_ACT_IMG_IDX_SET_GEN5, &set,
+				sizeof(set), NULL, 0);
+	return ret;
+}
+
+/**
+ * @brief Set active image index
+ * @param[in]  dev	Switchtec device handle
+ * @param[in] index	Active image indices
+ * @return 0 on success, error code on failure
+ */
+int switchtec_active_image_index_set(struct switchtec_dev *dev,
+				     struct switchtec_active_index *index)
+{
+	if (switchtec_is_gen5(dev))
+		return active_image_index_set_gen5(dev, index);
+	else
+		return active_image_index_set(dev, index);
+}
+
 /**
  * @brief Execute the transferred firmware
  * @param[in]  dev		Switchtec device handle
@@ -851,6 +959,7 @@ int switchtec_active_image_index_set(struct switchtec_dev *dev,
 int switchtec_fw_exec(struct switchtec_dev *dev,
 		      enum switchtec_bl2_recovery_mode recovery_mode)
 {
+	uint32_t cmd_id = MRPC_FW_TX;
 	struct fw_exec_struct {
 		uint8_t subcmd;
 		uint8_t recovery_mode;
@@ -861,7 +970,10 @@ int switchtec_fw_exec(struct switchtec_dev *dev,
 	cmd.subcmd = MRPC_FW_TX_EXEC;
 	cmd.recovery_mode = recovery_mode;
 
-	return switchtec_mfg_cmd(dev, MRPC_FW_TX, &cmd, sizeof(cmd), NULL, 0);
+	if (switchtec_is_gen5(dev))
+		cmd_id = MRPC_FW_TX_GEN5;
+
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
 /**
@@ -1505,6 +1617,63 @@ static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
 			     resp, resp_len);
 }
 
+static int sn_ver_get_gen4(struct switchtec_dev *dev,
+			   struct switchtec_sn_ver_info *info)
+{
+	int ret;
+	struct reply_t {
+		uint32_t chip_serial;
+		uint32_t ver_km;
+		uint32_t ver_bl2;
+		uint32_t ver_main;
+		uint32_t ver_sec_unlock;
+	} reply;
+
+	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0,
+				&reply, sizeof(reply));
+	if (ret)
+		return ret;
+
+	info->chip_serial = reply.chip_serial;
+	info->ver_bl2 = reply.ver_bl2;
+	info->ver_km = reply.ver_km;
+	info->riot_ver_valid = false;
+	info->ver_sec_unlock = reply.ver_sec_unlock;
+	info->ver_main = reply.ver_main;
+
+	return 0;
+}
+
+static int sn_ver_get_gen5(struct switchtec_dev *dev,
+			   struct switchtec_sn_ver_info *info)
+{
+	int ret;
+	uint32_t subcmd = 0;
+	struct reply_t {
+		uint32_t chip_serial;
+		uint32_t ver_km;
+		uint16_t ver_riot;
+		uint16_t ver_bl2;
+		uint32_t ver_main;
+		uint32_t ver_sec_unlock;
+	} reply;
+
+	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET_GEN5, &subcmd, 4,
+				&reply, sizeof(reply));
+	if (ret)
+		return ret;
+
+	info->chip_serial = reply.chip_serial;
+	info->ver_bl2 = reply.ver_bl2;
+	info->ver_km = reply.ver_km;
+	info->riot_ver_valid = true;
+	info->ver_riot = reply.ver_riot;
+	info->ver_sec_unlock = reply.ver_sec_unlock;
+	info->ver_main = reply.ver_main;
+
+	return 0;
+}
+
 /**
  * @brief Get serial number and security version
  * @param[in]  dev	Switchtec device handle
@@ -1514,27 +1683,10 @@ static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info)
 {
-	int ret;
-	uint32_t subcmd = 0;
-
 	if (switchtec_is_gen5(dev))
-		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET_GEN5,
-					&subcmd, 4, info,
-					sizeof(struct switchtec_sn_ver_info));
+		return sn_ver_get_gen5(dev, info);
 	else
-		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET, NULL, 0, info,
-					sizeof(struct switchtec_sn_ver_info));
-
-	if (ret)
-		return ret;
-
-	info->chip_serial = le32toh(info->chip_serial);
-	info->ver_bl2 = le32toh(info->ver_bl2);
-	info->ver_km = le32toh(info->ver_km);
-	info->ver_main = le32toh(info->ver_main);
-	info->ver_sec_unlock = le32toh(info->ver_sec_unlock);
-
-	return 0;
+		return sn_ver_get_gen4(dev, info);
 }
 
 /**@}*/

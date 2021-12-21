@@ -436,6 +436,9 @@ static int info(int argc, char **argv)
 	}
 	printf("Chip Serial: \t\t\t\t0x%08x\n", sn_info.chip_serial);
 	printf("Key Manifest Secure Version: \t\t0x%08x\n", sn_info.ver_km);
+	if (sn_info.riot_ver_valid)
+		printf("RIOT Secure Version: \t\t\t0x%08x\n",
+		       sn_info.ver_riot);
 	printf("BL2 Secure Version: \t\t\t0x%08x\n", sn_info.ver_bl2);
 	printf("Main Secure Version: \t\t\t0x%08x\n", sn_info.ver_main);
 	printf("Secure Unlock Version: \t\t\t0x%08x\n", sn_info.ver_sec_unlock);
@@ -507,6 +510,8 @@ static void print_image_list(struct switchtec_active_index *idx)
 {
 	printf("IMAGE\t\tINDEX\n");
 	printf("Key Manifest\t%d\n", idx->keyman);
+	if (idx->riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET)
+		printf("RIOT\t\t%d\n", idx->riot);
 	printf("BL2\t\t%d\n", idx->bl2);
 	printf("Config\t\t%d\n", idx->config);
 	printf("Firmware\t%d\n", idx->firmware);
@@ -559,11 +564,13 @@ static int image_select(int argc, char **argv)
 		unsigned char firmware;
 		unsigned char config;
 		unsigned char keyman;
+		unsigned char riot;
 	} cfg = {
 		.bl2 = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
 		.firmware = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
 		.config = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
-		.keyman = SWITCHTEC_ACTIVE_INDEX_NOT_SET
+		.keyman = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
+		.riot = SWITCHTEC_ACTIVE_INDEX_NOT_SET
 	};
 
 	const struct argconfig_options opts[] = {
@@ -576,6 +583,8 @@ static int image_select(int argc, char **argv)
 			required_argument, "active image index for CONFIG"},
 		{"keyman", 'k', "", CFG_BYTE, &cfg.keyman, required_argument,
 			"active image index for KEY MANIFEST"},
+		{"riot", 'r', "", CFG_BYTE, &cfg.riot, required_argument,
+			"active image index for RIOT (Gen5 device only)"},
 		{NULL}
 	};
 
@@ -584,9 +593,10 @@ static int image_select(int argc, char **argv)
 	if (cfg.bl2 == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
 	    cfg.firmware == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
 	    cfg.config == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
-	    cfg.keyman == SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+	    cfg.keyman == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
+	    cfg.riot == SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
 		fprintf(stderr,
-			"One of BL2, Config, Key Manifest or Firmware indices must be set in this command!\n");
+			"One of BL2, Config, Key Manifest, RIOT or Firmware indices must be set in this command!\n");
 		return -1;
 	}
 
@@ -623,6 +633,24 @@ static int image_select(int argc, char **argv)
 		return -6;
 	}
 	index.keyman = cfg.keyman;
+
+	if (switchtec_is_gen4(cfg.dev) &&
+	    cfg.riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		fprintf(stderr,
+			"RIOT image is not available on Gen4 devices!\n");
+		return -7;
+	}
+
+	if (switchtec_is_gen5(cfg.dev)) {
+		if (cfg.riot > 1 &&
+		    cfg.riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+			fprintf(stderr,
+				"Active index of RIOT must be within 0-1!\n");
+			return -8;
+		}
+
+		index.riot = cfg.riot;
+	}
 
 	ret = switchtec_active_image_index_set(cfg.dev, &index);
 	if (ret) {
