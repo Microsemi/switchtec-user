@@ -1185,6 +1185,16 @@ static int log_parse(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_LOG_PARSE, opts,
 			&cfg, sizeof(cfg));
 
+	fseek(cfg.bin_log_file, 0, SEEK_END);
+	if (ftell(cfg.bin_log_file) == 0) {
+		fprintf(stderr, "\nLog file %s is empty!\n",
+			cfg.bin_log_filename);
+
+		ret = -1;
+		goto done;
+	}
+	fseek(cfg.bin_log_file, 0, SEEK_SET);
+
 	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
 				  cfg.parsed_log_file, cfg.log_type,
 				  cfg.gen, &info);
@@ -1215,6 +1225,7 @@ static int log_parse(int argc, char **argv)
 		fprintf(stderr, "        therefore the generation option in the command line is ignored.\n");
 	}
 
+done:
 	if (cfg.bin_log_file != NULL)
 		fclose(cfg.bin_log_file);
 
