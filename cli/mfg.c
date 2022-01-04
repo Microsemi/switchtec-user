@@ -420,12 +420,6 @@ static int info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_security_config_get(cfg.dev, &state);
-	if (ret) {
-		switchtec_perror("mfg info");
-		return ret;
-	}
-
 	phase_id = switchtec_boot_phase(cfg.dev);
 	printf("Current Boot Phase: \t\t\t%s\n", phase_id_to_string(phase_id));
 
@@ -446,6 +440,12 @@ static int info(int argc, char **argv)
 	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
 		printf("\nOther secure settings are only shown in the BL1 or Main Firmware phase.\n\n");
 		return 0;
+	}
+
+	ret = switchtec_security_config_get(cfg.dev, &state);
+	if (ret) {
+		switchtec_perror("mfg info");
+		return ret;
 	}
 
 	if (cfg.verbose)  {
