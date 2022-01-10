@@ -656,6 +656,7 @@ const char *switchtec_strerror(void)
 		msg = "No background thread run for the command"; break;
 
 	case ERR_REFCLK_SUBCMD_INVALID:
+	case ERR_STACKBIF_SUBCMD_INVALID:
 	case ERR_SUBCMD_INVALID: 	msg = "Invalid subcommand"; break;
 	case ERR_CMD_INVALID: 		msg = "Invalid command"; break;
 	case ERR_PARAM_INVALID:		msg = "Invalid parameter"; break;
@@ -665,6 +666,7 @@ const char *switchtec_strerror(void)
 		msg = "No previous adaptation object data";
 		break;
 	case ERR_REFCLK_STACK_ID_INVALID:
+	case ERR_STACKBIF_STACK_ID_INVALID:
 	case ERR_STACK_INVALID: 	msg = "Invalid Stack"; break;
 	case ERR_LOOPBACK_PORT_INVALID:
 	case ERR_PORT_INVALID: 		msg = "Invalid Port"; break;
@@ -676,6 +678,13 @@ const char *switchtec_strerror(void)
 		msg = "XML version mismatch between MAIN and CFG partition";
 		break;
 	case ERR_ACCESS_REFUSED: 	msg = "Access Refused"; break;
+
+	case ERR_STACKBIF_CODE_INVALID:
+		msg = "Stack bifurcation code invalid"; break;
+		break;
+	case ERR_STACKBIF_PORT_BOUND:
+		msg = "Port already bound"; break;
+		break;
 
 	default: break;
 	}
@@ -1055,10 +1064,10 @@ static int write_parsed_log(struct log_a_data log_data[],
 
 	if (entry_idx == 0) {
 		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP)
-			fputs("   #|Timestamp                |Module       |Severity |Event\n",
+			fputs("   #|Timestamp                |Module       |Severity |Event ID |Event\n",
 		      	      log_file);
 		else
-			fputs("   #|Timestamp                |Source |Event\n",
+			fputs("   #|Timestamp                |Source |Event ID |Event\n",
 		      	      log_file);
 	}
 
@@ -1142,13 +1151,14 @@ static int write_parsed_log(struct log_a_data log_data[],
 
 		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP) {
 			/* print the module name and log severity */
-			if (fprintf(log_file, "%-12s |%-8s |",
-			    mod_defs->mod_name, log_sev_strs[log_sev]) < 0)
+			if (fprintf(log_file, "%-12s |%-8s |0x%04x   |",
+			    mod_defs->mod_name, log_sev_strs[log_sev],
+			    entry_num) < 0)
 				goto ret_print_error;
 		} else {
 			/* print the log source (BL1/BL2) */
-			if (fprintf(log_file, "%-6s |",
-			    (is_bl1 ? "BL1" : "BL2")) < 0)
+			if (fprintf(log_file, "%-6s |0x%04x   |",
+			    (is_bl1 ? "BL1" : "BL2"), entry_num) < 0)
 				goto ret_print_error;
 		}
 
@@ -1558,6 +1568,11 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 			       &sdk_version_def);
 	if (ret)
 		return ret;
+
+	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_MAILBOX) {
+		fw_version_log = fw_version_def;
+		sdk_version_log = sdk_version_def;
+	}
 
 	if (info) {
 		info->def_fw_version = fw_version_def;
@@ -2015,6 +2030,125 @@ int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
 out:
 	switchtec_status_free(status, ports);
 	return rc;
+}
+
+/**
+ * @brief Return true if a port within a stack is valid
+ * @param[in] dev	Switchtec device handle
+ * @param[in] stack_id	Stack ID
+ * @param[out] port_id	Port ID within the stack
+ * @return true if the port is valid, false otherwise
+ */
+bool switchtec_stack_bif_port_valid(struct switchtec_dev *dev, int stack_id,
+				    int port_id)
+{
+	if (dev->gen == SWITCHTEC_GEN4)
+		return stack_id * 8 + port_id < 52;
+
+	return true;
+}
+
+/**
+ * @brief Return the number of stack ports used for a given bifurcation
+ * @param[in] dev	Switchtec device handle
+ * @param[in] stack_id	Stack ID
+ * @param[in] port_bif	Port bifurcation
+ * @return width on success, or a negative value on failure
+ */
+int switchtec_stack_bif_width(struct switchtec_dev *dev, int stack_id,
+			      int port_bif)
+{
+	if (!port_bif)
+		return 1;
+
+	if (port_bif != 1 && port_bif != 2 && port_bif != 4 && port_bif != 8 &&
+	    port_bif != 16) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	if (dev->gen == SWITCHTEC_GEN4 && stack_id == 6)
+		return port_bif;
+	else
+		return  (port_bif + 1) / 2;
+}
+
+/**
+ * @brief Get the bifurcation of ports in a stack
+ * @param[in] dev	Switchtec device handle
+ * @param[in] stack_id	Stack ID to get the bifurcation of
+ * @param[out] port_bif	Port bifurcation returned
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_get_stack_bif(struct switchtec_dev *dev, int stack_id,
+			    int port_bif[SWITCHTEC_PORTS_PER_STACK])
+{
+	struct switchtec_stackbif out, in = {
+		.sub_cmd = MRPC_STACKBIF_GET,
+		.stack_id = stack_id,
+	};
+	int ret, i;
+
+	ret = switchtec_cmd(dev, MRPC_STACKBIF, &in, sizeof(in), &out,
+			    sizeof(out));
+	if (ret)
+		return ret;
+
+	for (i = 0; i < SWITCHTEC_PORTS_PER_STACK; i++) {
+		if (!switchtec_stack_bif_port_valid(dev, stack_id, i)) {
+			port_bif[i] = -1;
+			continue;
+		}
+
+		switch (out.code & 0xF) {
+		case 0x0:	port_bif[i] = 0;	break;
+		case 0x1:	port_bif[i] = 2;	break;
+		case 0x2:	port_bif[i] = 4;	break;
+		case 0x4:	port_bif[i] = 8;	break;
+		case 0x8:	port_bif[i] = 16;	break;
+		case 0xf:	port_bif[i] = 1;	break;
+		default:
+			errno = -EPROTO;
+			return -1;
+		}
+		out.code >>= 4;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Set the bifurcation of ports in a stack
+ * @param[in] dev	Switchtec device handle
+ * @param[in] stack_id	Stack ID to get the bifurcation of
+ * @param[in] port_bif	Port bifurcation returned
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
+			    int port_bif[SWITCHTEC_PORTS_PER_STACK])
+{
+	struct switchtec_stackbif out, in = {
+		.sub_cmd = MRPC_STACKBIF_SET,
+		.stack_id = stack_id,
+	};
+	int i;
+
+	for (i = 0; i < SWITCHTEC_PORTS_PER_STACK; i++) {
+		switch (port_bif[i]) {
+		case 0:  in.code |= 0x0 << (i * 4);	break;
+		case 1:  in.code |= 0xf << (i * 4);	break;
+		case 2:  in.code |= 0x1 << (i * 4);	break;
+		case 4:  in.code |= 0x2 << (i * 4);	break;
+		case 8:  in.code |= 0x4 << (i * 4);	break;
+		case 16: in.code |= 0x8 << (i * 4);	break;
+		default:
+			errno = -EINVAL;
+			return -1;
+		}
+	}
+
+	return switchtec_cmd(dev, MRPC_STACKBIF, &in, sizeof(in), &out,
+			    sizeof(out));
 }
 
 /**@}*/

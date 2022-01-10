@@ -657,7 +657,7 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 	if (ret)
 		return -1;
 
-	res->lane_cnt = out.lane_id;
+	res->lane_cnt = out.lane_id + 1;
 	for (i = 0; i < res->lane_cnt; i++) {
 		res->cursors[i].pre = out.cursors[i].pre;
 		res->cursors[i].post = out.cursors[i].post;

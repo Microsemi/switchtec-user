@@ -30,6 +30,7 @@
 #include "common.h"
 
 #include <switchtec/switchtec.h>
+#include <switchtec/errors.h>
 #include <switchtec/utils.h>
 #include <switchtec/pci.h>
 
@@ -52,6 +53,7 @@ enum output_format {
 static const struct argconfig_choice output_fmt_choices[] = {
 	{"normal", FMT_NORMAL, "Human Readable Output"},
 	{"table",  FMT_TABLE,  "Tabular Output"},
+	{}
 };
 
 static const struct argconfig_choice bandwidth_types[] = {
@@ -1183,6 +1185,16 @@ static int log_parse(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_LOG_PARSE, opts,
 			&cfg, sizeof(cfg));
 
+	fseek(cfg.bin_log_file, 0, SEEK_END);
+	if (ftell(cfg.bin_log_file) == 0) {
+		fprintf(stderr, "\nLog file %s is empty!\n",
+			cfg.bin_log_filename);
+
+		ret = -1;
+		goto done;
+	}
+	fseek(cfg.bin_log_file, 0, SEEK_SET);
+
 	ret = switchtec_parse_log(cfg.bin_log_file, cfg.log_def_file,
 				  cfg.parsed_log_file, cfg.log_type,
 				  cfg.gen, &info);
@@ -1213,6 +1225,7 @@ static int log_parse(int argc, char **argv)
 		fprintf(stderr, "        therefore the generation option in the command line is ignored.\n");
 	}
 
+done:
 	if (cfg.bin_log_file != NULL)
 		fclose(cfg.bin_log_file);
 
@@ -1443,6 +1456,188 @@ abort:
 	fprintf(stderr, "Abort.\n");
 	errno = EINTR;
 	return -errno;
+}
+
+static void stack_bif_print(struct switchtec_dev *dev, int stack_id,
+			    int ports[SWITCHTEC_PORTS_PER_STACK])
+{
+	int i, p;
+
+	for (i = 0; i < SWITCHTEC_PORTS_PER_STACK;
+	     i += switchtec_stack_bif_width(dev, stack_id, ports[i])) {
+		p = stack_id * SWITCHTEC_PORTS_PER_STACK + i;
+
+		if (ports[i] < 0)
+			break;
+		else if (!switchtec_stack_bif_port_valid(dev, stack_id, i))
+			break;
+		else if (!ports[i])
+			printf("  Port %2d:  disabled\n", p);
+		else
+			printf("  Port %2d:  x%d\n", p, ports[i]);
+	}
+}
+
+static int stack_bif_get_print(struct switchtec_dev *dev, int stack_id,
+			       bool skip_bad_stack)
+{
+	int ports[SWITCHTEC_PORTS_PER_STACK];
+	int ret;
+
+	ret = switchtec_get_stack_bif(dev, stack_id, ports);
+	if (ret) {
+		if (skip_bad_stack &&
+		    errno == (SWITCHTEC_ERRNO_MRPC_FLAG_BIT |
+			      ERR_STACKBIF_STACK_ID_INVALID)) {
+			return 0;
+		}
+
+		switchtec_perror("get_stack_bifurcation");
+		return 1;
+	}
+
+	printf("Stack %d:\n", stack_id);
+	stack_bif_print(dev, stack_id, ports);
+
+	return 0;
+}
+
+static int stack_bif_set(struct switchtec_dev *dev, int stack_id,
+			 int ports[SWITCHTEC_PORTS_PER_STACK], int assume_yes)
+{
+	int p[SWITCHTEC_PORTS_PER_STACK] = {};
+	int i, w, nports = 0;
+	int ret;
+
+	if (stack_id < 0) {
+		fprintf(stderr,
+			"Must specify --stack_id/-s when setting bifurcation\n");
+		return 1;
+	}
+
+	for (i = 0; i < SWITCHTEC_PORTS_PER_STACK; i++) {
+		if (ports[i] == -1)
+			break;
+
+		w = switchtec_stack_bif_width(dev, stack_id, ports[i]);
+		if (w < 0) {
+			fprintf(stderr, "Invalid bifurcation value: %d\n",
+				ports[i]);
+			return 1;
+		}
+
+		if (nports & (w - 1))
+			nports += w - (nports & (w - 1));
+
+		if (!switchtec_stack_bif_port_valid(dev, stack_id, nports))
+			goto invalid_lanes;
+
+		p[nports] = ports[i];
+
+		nports += w;
+
+		if (nports > SWITCHTEC_PORTS_PER_STACK) {
+invalid_lanes:
+			fprintf(stderr,
+				"Too many lanes specified in the bifurcation\n");
+			return 1;
+		}
+	}
+
+	printf("Set Stack %d to:\n", stack_id);
+	stack_bif_print(dev, stack_id, p);
+	if (ask_if_sure(assume_yes))
+		return 1;
+
+	ret = switchtec_set_stack_bif(dev, stack_id, p);
+	if (ret) {
+		switchtec_perror("set_stack_bifurcation");
+		return 1;
+	}
+
+	return 0;
+}
+
+#define CMD_DESC_STACK_BIF "dynamically get and set the bifurcation in a stack"
+#define CMD_DESC_STACK_BIF_LONG "dynamically get and set the bifurcation in a stack\n\
+\n\
+To set the bifurcation of a stack specify the stack_id with -s and specify\n\
+a series of bifurcation numbers (1, 2, 4, 8, 16) for each consecutive\n\
+port. Specify 0 to disable a port. For example:\n\
+\n\
+  switchtec stack-bif <device> -s <stack_id> 16\n\
+\n\
+will bifurcate the entire stack into a x16 port.\n\
+\n\
+  switchtec stack-bif <device> -s <stack_id> 4 0 8\n\
+\n\
+will bifurcate the first port in the stack into a x4, disable the next\n\
+4 lanes and the last port will be a x8."
+
+static int stack_bif(int argc, char **argv)
+{
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		int assume_yes;
+		int ports[SWITCHTEC_PORTS_PER_STACK];
+	} cfg = {
+		.stack_id = -1,
+		.ports[0 ... SWITCHTEC_PORTS_PER_STACK - 1] = -1,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack_id", 's', "", CFG_NONNEGATIVE, &cfg.stack_id,
+		 required_argument, "stack ID"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
+		{"port0", .cfg_type=CFG_NONNEGATIVE, .value_addr=&cfg.ports[0],
+		  .argument_type=optional_positional,
+		  .help="set first port bifurcation width"},
+		{"port1", .cfg_type=CFG_NONNEGATIVE, .value_addr=&cfg.ports[1],
+		  .argument_type=optional_positional,
+		  .help="set second port bifurcation width"},
+		{"port2", .cfg_type=CFG_NONNEGATIVE, .value_addr=&cfg.ports[2],
+		  .argument_type=optional_positional,
+		  .help="set third port bifurcation width"},
+		{"port3", .cfg_type=CFG_NONNEGATIVE, .value_addr=&cfg.ports[3],
+		  .argument_type=optional_positional,
+		  .help="set forth port bifurcation width"},
+		{"port4", .cfg_type=CFG_NONNEGATIVE, .value_addr=&cfg.ports[4],
+		  .argument_type=optional_positional,
+		  .help="set fifth port bifurcation width"},
+		{"port5", .cfg_type=CFG_NONNEGATIVE, .value_addr=&cfg.ports[5],
+		  .argument_type=optional_positional,
+		  .help="set sixth port bifurcation width"},
+		{"port6", .cfg_type=CFG_NONNEGATIVE, .value_addr=&cfg.ports[6],
+		  .argument_type=optional_positional,
+		  .help="set seventh port bifurcation width"},
+		{"port7", .cfg_type=CFG_NONNEGATIVE, .value_addr=&cfg.ports[7],
+		  .argument_type=optional_positional,
+		  .help="set last port bifurcation width"},
+		{NULL}};
+	int ret, i;
+
+	argconfig_parse(argc, argv, CMD_DESC_STACK_BIF_LONG, opts, &cfg,
+			sizeof(cfg));
+
+	if (cfg.ports[0] >= 0)
+		return stack_bif_set(cfg.dev, cfg.stack_id, cfg.ports,
+				     cfg.assume_yes);
+
+	if (cfg.stack_id < 0) {
+		for (i = 0; i < SWITCHTEC_MAX_STACKS; i++) {
+			ret = stack_bif_get_print(cfg.dev, i, true);
+			if (ret)
+				return 1;
+		}
+	} else {
+		ret = stack_bif_get_print(cfg.dev, cfg.stack_id, false);
+		if (ret)
+			return 1;
+	}
+
+	return 0;
 }
 
 #define CMD_DESC_HARD_RESET "perform a hard reset of the switch"
@@ -2475,6 +2670,7 @@ static const struct cmd commands[] = {
 	CMD(port_bind_info, CMD_DESC_PORT_BIND_INFO),
 	CMD(port_bind, CMD_DESC_PORT_BIND),
 	CMD(port_unbind, CMD_DESC_PORT_UNBIND),
+	CMD(stack_bif, CMD_DESC_STACK_BIF),
 	CMD(hard_reset, CMD_DESC_HARD_RESET),
 	CMD(fw_update, CMD_DESC_FW_UPDATE),
 	CMD(fw_info, CMD_DESC_FW_INFO),
