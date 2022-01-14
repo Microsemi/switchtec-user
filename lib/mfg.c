@@ -687,7 +687,7 @@ static int security_config_set_gen5(struct switchtec_dev *dev,
 	uint32_t map_shift;
 	uint32_t map_mask;
 	int spi_clk;
-	uint8_t cmd_buf[64];
+	uint8_t cmd_buf[64]={};
 
 	ret = get_configs_gen5(dev, &reply);
 	if (ret)
