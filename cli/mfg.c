@@ -296,18 +296,21 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 		state->public_key_num);
 
 	if (state->public_key_ver)
-		printf("Current KMSK index %s: \t\t%d\n",
+		printf("Current KMSK Index %s: \t\t%d\n",
 			state->public_key_ver_valid? "(Valid)":"(Invalid)",
 			state->public_key_ver);
 	else
-		printf("Current KMSK index %s: \t\tNot Set\n",
+		printf("Current KMSK Index %s: \t\tNot Set\n",
 			state->public_key_ver_valid? "(Valid)":"(Invalid)");
 
 	for(key_idx = 0; key_idx < state->public_key_num; key_idx++) {
-		printf("KMSK Entry %d:  ", key_idx + 1);
-		for(i = 0; i < SWITCHTEC_KMSK_LEN; i++)
-				printf("%02x", state->public_key[key_idx][i]);
-		printf("\n");
+		printf("KMSK Entry %d:  \t\t\t\t", key_idx + 1);
+		for(i = 0; i < SWITCHTEC_KMSK_LEN; i++) {
+			if (i && (i % 16) == 0)
+				printf("\n\t\t\t\t\t");
+			printf("%02x", state->public_key[key_idx][i]);
+		}
+		printf("\n\n");
 	}
 
 	if (state->attn_state.attestation_mode !=
@@ -317,10 +320,13 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 			"(Valid)":"(Invalid)",
 			state->attn_state.cdi_efuse_inc_mask);
 
-		printf("UDS Data: ");
+		printf("UDS Data: \t\t\t\t");
 		if (state->attn_state.uds_visible) {
-			for (i = 0; i < 32; i++)
+			for (i = 0; i < 32; i++) {
 				printf("%02x", state->attn_state.uds_data[i]);
+				if (i==15)
+					printf("\n\t\t\t\t\t");
+			}
 
 			printf("\n");
 		} else {
@@ -383,11 +389,14 @@ static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
 		printf("CDI eFuse Include Mask: \t\t0x%08x\n",
 			set->attn_set.cdi_efuse_inc_mask);
 
-		printf("UDS Data: ");
+		printf("UDS Data: \t\t\t\t");
 		if (set->attn_set.uds_valid) {
-			for (i = 0; i < 32; i++)
+			for (i = 0; i < 32; i++) {
 				printf("%02x",
 				       set->attn_set.uds_data[i]);
+				if (i == 15)
+					printf("\n\t\t\t\t\t");
+			}
 
 			printf("\n");
 		} else {
