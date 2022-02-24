@@ -121,24 +121,85 @@ enum switchtec_fab_topo_info_dump_status {
 	SWITCHTEC_FAB_TOPO_INFO_DUMP_WRONG_SUB_CMD = 5,
 };
 
-/**
- * @brief Get the topology of the specified switch
- * @param[in]  dev		Switchtec device handle
- * @param[out] topo_info	The topology info
- * @return 0 on success, error code on failure
- */
-int switchtec_topo_info_dump(struct switchtec_dev *dev,
-			     struct switchtec_fab_topo_info *topo_info)
+static int topo_info_dump_gen4(struct switchtec_dev *dev,
+			       struct switchtec_fab_topo_info *topo_info)
 {
 	int ret;
 	int status;
 	uint16_t total_info_len, offset, buf_len;
-	char *buf = (char *)topo_info;
+	struct topo_info_reply_gen4 {
+		uint8_t sw_idx;
+		uint8_t rsvd[3];
+		uint32_t stack_bif[7];
+		uint8_t route_port[16];
+		uint64_t port_bitmap;
 
-	if (!switchtec_is_pax_all(dev)) {
-		errno = ENOTSUP;
+		struct switchtec_fab_port_info list[SWITCHTEC_MAX_PORTS];
+	} reply = {};
+
+	char *buf = (char *)&reply;
+
+	ret = topo_info_dump_start(dev);
+	if (ret)
+		return ret;
+
+	do {
+		ret = topo_info_dump_status_get(dev, &status, &total_info_len);
+		if (ret)
+			return ret;
+	} while (status == SWITCHTEC_FAB_TOPO_INFO_DUMP_WAIT);
+
+	if (status != SWITCHTEC_FAB_TOPO_INFO_DUMP_READY)
 		return -1;
+
+	if (total_info_len > sizeof(reply))
+		return -1;
+
+	offset = 0;
+	buf_len = sizeof(reply);
+
+	while (offset < total_info_len) {
+		ret = topo_info_dump_data_get(dev, offset,
+					      buf + offset, &buf_len);
+		if (ret)
+			return ret;
+
+		offset += buf_len;
+		buf_len = sizeof(reply) - offset;
 	}
+
+	ret = topo_info_dump_finish(dev);
+	if (ret)
+		return ret;
+
+	topo_info->sw_idx = reply.sw_idx;
+	topo_info->num_stack_bif = 7;
+	memcpy(topo_info->stack_bif, reply.stack_bif, 7 * sizeof(uint32_t));
+	memcpy(topo_info->route_port, reply.route_port, 16 * sizeof(uint8_t));
+	topo_info->port_bitmap = reply.port_bitmap;
+	memcpy(topo_info->port_info_list, reply.list,
+	       total_info_len - (sizeof(reply) - sizeof(reply.list)));
+
+	return 0;
+}
+
+static int topo_info_dump_gen5(struct switchtec_dev *dev,
+			       struct switchtec_fab_topo_info *topo_info)
+{
+	int ret;
+	int status;
+	uint16_t total_info_len, offset, buf_len;
+	struct topo_info_reply_gen5 {
+		uint8_t sw_idx;
+		uint8_t rsvd[3];
+		uint32_t stack_bif[8];
+		uint8_t route_port[16];
+		uint64_t port_bitmap;
+
+		struct switchtec_fab_port_info list[SWITCHTEC_MAX_PORTS];
+	} reply = {};
+
+	char *buf = (char *)&reply;
 
 	ret = topo_info_dump_start(dev);
 	if(ret)
@@ -153,11 +214,11 @@ int switchtec_topo_info_dump(struct switchtec_dev *dev,
 	if (status != SWITCHTEC_FAB_TOPO_INFO_DUMP_READY)
 		return -1;
 
-	if (total_info_len > sizeof(struct switchtec_fab_topo_info))
+	if (total_info_len > sizeof(reply))
 		return -1;
 
 	offset = 0;
-	buf_len = sizeof(struct switchtec_fab_topo_info);
+	buf_len = sizeof(reply);
 
 	while (offset < total_info_len) {
 		ret = topo_info_dump_data_get(dev, offset,
@@ -166,10 +227,42 @@ int switchtec_topo_info_dump(struct switchtec_dev *dev,
 			return ret;
 
 		offset += buf_len;
-		buf_len = sizeof(struct switchtec_fab_topo_info) - offset;
+		buf_len = sizeof(reply) - offset;
 	}
 
-	return topo_info_dump_finish(dev);
+	ret = topo_info_dump_finish(dev);
+	if (ret)
+		return ret;
+
+	topo_info->sw_idx = reply.sw_idx;
+	topo_info->num_stack_bif = 8;
+	memcpy(topo_info->stack_bif, reply.stack_bif, 8 * sizeof(uint32_t));
+	memcpy(topo_info->route_port, reply.route_port, 16 * sizeof(uint8_t));
+	topo_info->port_bitmap = reply.port_bitmap;
+	memcpy(topo_info->port_info_list, reply.list,
+	       total_info_len - (sizeof(reply) - sizeof(reply.list)));
+
+	return 0;
+}
+
+/**
+ * @brief Get the topology of the specified switch
+ * @param[in]  dev		Switchtec device handle
+ * @param[out] topo_info	The topology info
+ * @return 0 on success, error code on failure
+ */
+int switchtec_topo_info_dump(struct switchtec_dev *dev,
+			     struct switchtec_fab_topo_info *topo_info)
+{
+	if (!switchtec_is_pax_all(dev)) {
+		errno = ENOTSUP;
+		return -1;
+	}
+
+	if (switchtec_is_gen4(dev))
+		return topo_info_dump_gen4(dev, topo_info);
+	else
+		return topo_info_dump_gen5(dev, topo_info);
 }
 
 int switchtec_gfms_bind(struct switchtec_dev *dev,
