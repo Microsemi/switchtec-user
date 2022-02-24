@@ -85,6 +85,8 @@ static int topo_info_dump_data_get(struct switchtec_dev *dev, uint16_t offset,
 		uint8_t data[SWITCHTEC_TOPO_INFO_DUMP_DATA_LENGTH_MAX];
 	} result;
 
+	if (switchtec_is_gen5(dev))
+		cmd.subcmd = MRPC_TOPO_INFO_DUMP_DATA_GET_GEN5;
 
 	buf_len = sizeof(result);
 
