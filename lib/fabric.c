@@ -135,7 +135,7 @@ int switchtec_topo_info_dump(struct switchtec_dev *dev,
 	uint16_t total_info_len, offset, buf_len;
 	char *buf = (char *)topo_info;
 
-	if (!switchtec_is_gen4(dev) || !switchtec_is_pax_all(dev)) {
+	if (!switchtec_is_pax_all(dev)) {
 		errno = ENOTSUP;
 		return -1;
 	}

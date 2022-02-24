@@ -400,8 +400,7 @@ _PURE int switchtec_partition(struct switchtec_dev *dev)
 
 int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id)
 {
-	if (!(switchtec_is_gen4(dev) && switchtec_is_pax_all(dev)) &&
-	    (pax_id != SWITCHTEC_PAX_ID_LOCAL))
+	if (!switchtec_is_pax_all(dev) && (pax_id != SWITCHTEC_PAX_ID_LOCAL))
 		return -1;
 
 	if (pax_id == SWITCHTEC_PAX_ID_LOCAL)
