@@ -204,14 +204,14 @@ static int topo_info_dump_gen5(struct switchtec_dev *dev,
 	char *buf = (char *)&reply;
 
 	ret = topo_info_dump_start(dev);
-	if(ret)
+	if (ret)
 		return ret;
 
 	do {
 		ret = topo_info_dump_status_get(dev, &status, &total_info_len);
-		if(ret)
+		if (ret)
 			return ret;
-	} while(status == SWITCHTEC_FAB_TOPO_INFO_DUMP_WAIT);
+	} while (status == SWITCHTEC_FAB_TOPO_INFO_DUMP_WAIT);
 
 	if (status != SWITCHTEC_FAB_TOPO_INFO_DUMP_READY)
 		return -1;
@@ -224,8 +224,8 @@ static int topo_info_dump_gen5(struct switchtec_dev *dev,
 
 	while (offset < total_info_len) {
 		ret = topo_info_dump_data_get(dev, offset,
-					      buf+offset, &buf_len);
-		if(ret)
+					      buf + offset, &buf_len);
+		if (ret)
 			return ret;
 
 		offset += buf_len;
