@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: install packages
-        run: sudo apt-get install gcc-multilib
+        run: sudo apt-get update; sudo apt-get install gcc-multilib
       - uses: actions/checkout@v2
       - name: configure
         run: ./configure
