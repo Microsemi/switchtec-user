@@ -969,8 +969,7 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 				    8 * log_dump.no_of_logs);
 		if (ret)
 			return ret;
-	}
-	else {
+	} else {
 		log_dump.no_of_logs = 126;
 		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
 				    sizeof(log_dump), log_dump_out,
