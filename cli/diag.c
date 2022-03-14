@@ -123,7 +123,7 @@ static int ltssm_log(int argc, char **argv) {
 	struct diag_common_cfg cfg = DEFAULT_DIAG_COMMON_CFG;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, PORT_OPTION, PREV_OPTION, {}
+		DEVICE_OPTION, PORT_OPTION, {}
 	};
 
 	struct switchtec_diag_ltssm_log output[128];
