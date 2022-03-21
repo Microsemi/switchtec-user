@@ -1979,7 +1979,9 @@ static int refclk(int argc, char **argv)
 		int stack_id;
 		int enable;
 		int disable;
-	} cfg = {};
+	} cfg = {
+		.stack_id = -1
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
@@ -2000,6 +2002,11 @@ static int refclk(int argc, char **argv)
 
 	if (cfg.enable && cfg.disable) {
 		fprintf(stderr, "Must not set both --enable and --disable\n");
+		return -1;
+	}
+
+	if (cfg.stack_id == -1) {
+		fprintf(stderr, "Must specify stack ID using --stack or -s\n");
 		return -1;
 	}
 
