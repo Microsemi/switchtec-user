@@ -1994,12 +1994,12 @@ static int refclk(int argc, char **argv)
 			sizeof(cfg));
 
 	if (!cfg.enable && !cfg.disable) {
-		fprintf(stderr, "Must set either --enable or --disable");
+		fprintf(stderr, "Must set either --enable or --disable\n");
 		return -1;
 	}
 
 	if (cfg.enable && cfg.disable) {
-		fprintf(stderr, "Must not set both --enable and --disable");
+		fprintf(stderr, "Must not set both --enable and --disable\n");
 		return -1;
 	}
 
