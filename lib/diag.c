@@ -192,6 +192,8 @@ int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 			     struct range *x_range, struct range *y_range,
 			     int step_interval)
 {
+	int err;
+	int ret;
 	struct switchtec_diag_port_eye_start in = {
 		.sub_cmd = MRPC_EYE_OBSERVE_START,
 		.lane_mask[0] = lane_mask[0],
@@ -207,7 +209,14 @@ int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 		.step_interval = step_interval,
 	};
 
-	return switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+	ret = switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+
+	/* Add delay so hardware has enough time to start */
+	err = errno;
+	usleep(200000);
+	errno = err;
+
+	return ret;
 }
 
 static uint64_t hi_lo_to_uint64(uint32_t lo, uint32_t hi)
@@ -296,11 +305,20 @@ retry:
  */
 int switchtec_diag_eye_cancel(struct switchtec_dev *dev)
 {
+	int ret;
+	int err;
 	struct switchtec_diag_port_eye_cmd in = {
 		.sub_cmd = MRPC_EYE_OBSERVE_CANCEL,
 	};
 
-	return switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+	ret = switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+
+	/* Add delay so hardware can stop completely */
+	err = errno;
+	usleep(200000);
+	errno = err;
+
+	return ret;
 }
 
 /**
