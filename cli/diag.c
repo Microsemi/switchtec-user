@@ -1988,7 +1988,7 @@ static int refclk(int argc, char **argv)
 		 "disable the rfclk output"},
 		{"enable", 'e', "", CFG_NONE, &cfg.enable, no_argument,
 		 "enable the rfclk output"},
-		{"stack", 's', "NUM", CFG_POSITIVE, &cfg.stack_id,
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack_id,
 		required_argument, "stack to operate on"},
 		{NULL}};
 
