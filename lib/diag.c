@@ -862,7 +862,7 @@ int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
 int switchtec_diag_perm_table(struct switchtec_dev *dev,
 			      struct switchtec_mrpc table[MRPC_MAX_ID])
 {
-	uint32_t perms[MRPC_MAX_ID / 32];
+	uint32_t perms[(MRPC_MAX_ID + 31) / 32];
 	int i, ret;
 
 	ret = switchtec_cmd(dev, MRPC_MRPC_PERM_TABLE_GET, NULL, 0,

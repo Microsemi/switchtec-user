@@ -116,7 +116,7 @@ enum mrpc_cmd {
 	MRPC_SECURITY_CONFIG_GET_GEN5 = 0x10C,
 	MRPC_SECURITY_CONFIG_SET_GEN5 = 0x10D,
 
-	MRPC_MAX_ID = 0x140,
+	MRPC_MAX_ID = 0x10E,
 };
 
 enum mrpc_bg_status {
