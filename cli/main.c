@@ -2123,19 +2123,20 @@ static int fw_read(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		int out_fd;
-		const char *out_filename;
+		char *out_filename;
 		int assume_yes;
 		int inactive;
 		int data;
 		int bl2;
 		int key;
 		int no_progress_bar;
-	} cfg = {};
+	} cfg = {
+		.out_fd = -1
+	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
-		  .force_default="image.pmc",
 		  .help="image file to display information for"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
@@ -2154,6 +2155,15 @@ static int fw_read(int argc, char **argv)
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_FW_READ, opts, &cfg, sizeof(cfg));
+
+	if(cfg.out_fd == -1) {
+		if (switchtec_is_gen3(cfg.dev))
+			cfg.out_filename = "image.pmc";
+		else
+			cfg.out_filename = "image.fwimg";
+
+		cfg.out_fd = fileno(fopen(cfg.out_filename, "w"));
+	}
 
 	sum = switchtec_fw_part_summary(cfg.dev);
 	if (!sum) {
