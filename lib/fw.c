@@ -71,7 +71,6 @@ enum switchtec_fw_part_type_gen4 {
 	SWITCHTEC_FW_IMG_TYPE_IMG_GEN4 = 0x4,
 	SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4 = 0x5,
 	SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4 = 0xFE,
-	SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN4,
 };
 
 struct switchtec_fw_metadata_gen4 {
