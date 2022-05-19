@@ -71,7 +71,6 @@ enum switchtec_fw_part_type_gen4 {
 	SWITCHTEC_FW_IMG_TYPE_IMG_GEN4 = 0x4,
 	SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4 = 0x5,
 	SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4 = 0xFE,
-	SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN4,
 };
 
 struct switchtec_fw_metadata_gen4 {
@@ -218,65 +217,6 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 
 	return switchtec_cmd(dev, cmd_id, &cmd, sizeof(cmd),
 			     NULL, 0);
-}
-
-static enum switchtec_fw_part_type_gen4
-switchtec_fw_type_gen4(enum switchtec_fw_type type)
-{
-	switch (type) {
-	case SWITCHTEC_FW_TYPE_MAP:
-		return SWITCHTEC_FW_IMG_TYPE_MAP_GEN4;
-	case SWITCHTEC_FW_TYPE_IMG:
-		return SWITCHTEC_FW_IMG_TYPE_IMG_GEN4;
-	case SWITCHTEC_FW_TYPE_CFG:
-		return SWITCHTEC_FW_IMG_TYPE_CFG_GEN4;
-	case SWITCHTEC_FW_TYPE_NVLOG:
-		return SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4;
-	case SWITCHTEC_FW_TYPE_SEEPROM:
-		return SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4;
-	case SWITCHTEC_FW_TYPE_KEY:
-		return SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN4;
-	case SWITCHTEC_FW_TYPE_BL2:
-		return SWITCHTEC_FW_IMG_TYPE_BL2_GEN4;
-	default:
-		return SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN4;
-	};
-}
-
-/**
- * @brief Set or clear the redundancy flag of a partition type
- * @param[in] dev		Switchtec device handle
- * @param[in] redund		Whether to set or clear the redundancy flag
- * @param[in] type		Switchtec fw partition type
- * @return 0 on success, error code on failure
- *
- * This function does not support Gen3 switch.
- */
-int switchtec_fw_setup_redundancy(struct switchtec_dev *dev,
-				  enum switchtec_fw_redundancy redund,
-				  enum switchtec_fw_type type)
-{
-	int ret;
-
-	struct set_fw_redundancy{
-		uint8_t sub_cmd;
-		uint8_t part_type;
-		uint8_t flag;
-		uint8_t rsvd;
-	} cmd = {
-		.sub_cmd = MRPC_FWDNLD_SET_REDUNDANCY,
-		.part_type = switchtec_fw_type_gen4(type),
-		.flag = redund,
-	};
-
-	if (switchtec_is_gen3(dev)) {
-		errno = ENOTSUP;
-		return -1;
-	}
-
-	ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd), NULL, 0);
-
-	return ret;
 }
 
 struct cmd_fwdl {
@@ -999,11 +939,7 @@ struct switchtec_flash_info_gen4 {
 	uint8_t running_cfg_flag;
 	uint8_t running_img_flag;
 	uint8_t running_key_flag;
-	uint8_t redundancy_key_flag;
-	uint8_t redundancy_bl2_flag;
-	uint8_t redundancy_cfg_flag;
-	uint8_t redundancy_img_flag;
-	uint32_t rsvd2[11];
+	uint32_t rsvd2[12];
 	struct switchtec_flash_part_info_gen4  {
 		uint32_t image_crc;
 		uint32_t image_len;
@@ -1037,35 +973,27 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_KEY0:
 		part_info = &all->keyman0;
-		inf->redundant = all->redundancy_key_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_KEY1:
 		part_info = &all->keyman1;
-		inf->redundant = all->redundancy_key_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_BL20:
 		part_info = &all->bl20;
-		inf->redundant = all->redundancy_bl2_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_BL21:
 		part_info = &all->bl21;
-		inf->redundant = all->redundancy_bl2_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_IMG0:
 		part_info = &all->img0;
-		inf->redundant = all->redundancy_img_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_IMG1:
 		part_info = &all->img1;
-		inf->redundant = all->redundancy_img_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_CFG0:
 		part_info = &all->cfg0;
-		inf->redundant = all->redundancy_cfg_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_CFG1:
 		part_info = &all->cfg1;
-		inf->redundant = all->redundancy_cfg_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_NVLOG:
 		part_info = &all->nvlog;
