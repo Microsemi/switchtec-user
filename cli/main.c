@@ -2039,79 +2039,6 @@ static int fw_toggle(int argc, char **argv)
 	return ret;
 }
 
-#define CMD_DESC_FW_REDUND_SETUP "configure the redundancy for a partition type"
-
-static int fw_redund_setup(int argc, char **argv)
-{
-	int ret = 0;
-
-	const struct argconfig_choice types[] = {
-		{"KEY", SWITCHTEC_FW_TYPE_KEY,
-		 "set the redundancy flag for the key manifest partitions"},
-		{"BL2", SWITCHTEC_FW_TYPE_BL2,
-		 "set the redundancy flag for the BL2 partitions"},
-		{"CFG", SWITCHTEC_FW_TYPE_CFG,
-		 "set the redundancy flag for the config partitions"},
-		{"IMG", SWITCHTEC_FW_TYPE_IMG,
-		 "set the redundancy flag for the main firmware partitions"},
-		{}
-	};
-
-	static struct {
-		struct switchtec_dev *dev;
-		enum switchtec_fw_type type;
-		int set;
-		int clear;
-	} cfg = {
-		.set = 0,
-		.clear = 0,
-		.type = SWITCHTEC_FW_TYPE_UNKNOWN,
-	};
-
-	const struct argconfig_options opts[] = {
-		DEVICE_OPTION,
-		{"set", 's', "", CFG_NONE, &cfg.set, no_argument,
-		 "set the redundancy flag"},
-		{"clear", 'c', "", CFG_NONE, &cfg.clear, no_argument,
-		 "clear the redundancy flag"},
-		{"type", 't', "FW PARTITION TYPE", CFG_CHOICES, &cfg.type,
-		  required_argument,
-		 "firmware partition type to set", .choices=types},
-		{NULL}};
-
-	argconfig_parse(argc, argv, CMD_DESC_FW_REDUND_SETUP, opts, &cfg, sizeof(cfg));
-
-	if (switchtec_is_gen3(cfg.dev)) {
-		fprintf(stderr, "This command is not supported on Gen3 switches.\n");
-		return 1;
-	}
-
-	if (!cfg.set && !cfg.clear) {
-		argconfig_print_usage(opts);
-		fprintf(stderr, "Must specify the redundancy operation!\n");
-		return 2;
-	}
-
-	if (cfg.set && cfg.clear) {
-		argconfig_print_usage(opts);
-		fprintf(stderr,
-			"Use either the --set or the --clear argument!\n");
-		return 3;
-	}
-
-	if (cfg.type == SWITCHTEC_FW_TYPE_UNKNOWN) {
-		argconfig_print_usage(opts);
-		fprintf(stderr, "The --type argument is required!\n");
-		return 4;
-	}
-
-	ret = switchtec_fw_setup_redundancy(cfg.dev, cfg.set, cfg.type);
-	if (ret)
-		switchtec_perror("setup fw redundancy");
-
-	return ret;
-}
-
 #define CMD_DESC_FW_READ "read a firmware image from flash"
 
 static int fw_read(int argc, char **argv)
@@ -2685,7 +2612,6 @@ static const struct cmd commands[] = {
 	CMD(fw_update, CMD_DESC_FW_UPDATE),
 	CMD(fw_info, CMD_DESC_FW_INFO),
 	CMD(fw_toggle, CMD_DESC_FW_TOGGLE),
-	CMD(fw_redund_setup, CMD_DESC_FW_REDUND_SETUP),
 	CMD(fw_read, CMD_DESC_FW_READ),
 	CMD(fw_img_info, CMD_DESC_FW_IMG_INFO),
 	CMD(evcntr, CMD_DESC_EVCNTR),
