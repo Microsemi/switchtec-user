@@ -263,7 +263,6 @@ struct switchtec_fw_image_info {
 	bool active;
 	bool running;
 	bool read_only;
-	bool redundant;
 
 	struct switchtec_fw_image_info *next;
 	void *metadata;
@@ -603,9 +602,9 @@ static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
 }
 
 /** @brief Number of GT/s capable for each PCI generation or \p link_rate */
-static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16};
+static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16, 32};
 /** @brief Number of GB/s capable for each PCI generation or \p link_rate */
-static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969};
+static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969, 3938};
 
 static inline const char *switchtec_ltssm_str(int ltssm, int show_minor)
 {
@@ -808,17 +807,9 @@ enum switchtec_fw_ro {
 	SWITCHTEC_FW_RO = 1,
 };
 
-enum switchtec_fw_redundancy {
-	SWITCHTEC_FW_REDUNDANCY_SET = 1,
-	SWITCHTEC_FW_REDUNDANCY_CLEAR = 0,
-};
-
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg);
-int switchtec_fw_setup_redundancy(struct switchtec_dev *dev,
-				  enum switchtec_fw_redundancy redund,
-				  enum switchtec_fw_type type);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
 			  void (*progress_callback)(int cur, int tot));
