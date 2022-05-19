@@ -263,7 +263,6 @@ struct switchtec_fw_image_info {
 	bool active;
 	bool running;
 	bool read_only;
-	bool redundant;
 
 	struct switchtec_fw_image_info *next;
 	void *metadata;

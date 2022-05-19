@@ -1750,11 +1750,10 @@ static void print_fw_part_line(const char *tag,
 	if (!inf)
 		return;
 
-	printf("  %-4s\tVersion: %-8s\tCRC: %08lx\t%4s%11s%13s%s\n",
+	printf("  %-4s\tVersion: %-8s\tCRC: %08lx\t%4s%11s%s\n",
 	       tag, inf->version, inf->image_crc,
 	       inf->read_only ? "(RO)" : "",
 	       inf->running ? "  (Running)" : "",
-	       inf->redundant ? "  (Redundant)" : "",
 	       inf->valid ? "" : "  (Invalid)");
 }
 

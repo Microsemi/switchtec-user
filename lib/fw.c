@@ -939,11 +939,7 @@ struct switchtec_flash_info_gen4 {
 	uint8_t running_cfg_flag;
 	uint8_t running_img_flag;
 	uint8_t running_key_flag;
-	uint8_t redundancy_key_flag;
-	uint8_t redundancy_bl2_flag;
-	uint8_t redundancy_cfg_flag;
-	uint8_t redundancy_img_flag;
-	uint32_t rsvd2[11];
+	uint32_t rsvd2[12];
 	struct switchtec_flash_part_info_gen4  {
 		uint32_t image_crc;
 		uint32_t image_len;
@@ -977,35 +973,27 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_KEY0:
 		part_info = &all->keyman0;
-		inf->redundant = all->redundancy_key_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_KEY1:
 		part_info = &all->keyman1;
-		inf->redundant = all->redundancy_key_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_BL20:
 		part_info = &all->bl20;
-		inf->redundant = all->redundancy_bl2_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_BL21:
 		part_info = &all->bl21;
-		inf->redundant = all->redundancy_bl2_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_IMG0:
 		part_info = &all->img0;
-		inf->redundant = all->redundancy_img_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_IMG1:
 		part_info = &all->img1;
-		inf->redundant = all->redundancy_img_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_CFG0:
 		part_info = &all->cfg0;
-		inf->redundant = all->redundancy_cfg_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_CFG1:
 		part_info = &all->cfg1;
-		inf->redundant = all->redundancy_cfg_flag;
 		break;
 	case SWITCHTEC_FW_PART_ID_G4_NVLOG:
 		part_info = &all->nvlog;
