@@ -47,24 +47,44 @@
 #define gas_reg_write64(dev, val, reg) __gas_write64(dev, val, \
 						     &dev->gas_map->reg)
 
-static const char gasop_noretry_cmds[] = {
-	[MRPC_SECURITY_CONFIG_SET] = 1,
-	[MRPC_KMSK_ENTRY_SET] = 1,
-	[MRPC_SECURE_STATE_SET] = 1,
-	[MRPC_BOOTUP_RESUME] = 1,
-	[MRPC_DBG_UNLOCK] = 1,
-	[MRPC_SECURITY_CONFIG_SET_GEN5] = 1,
+struct no_retry_struct {
+	int no_retry;
+	int num_subcmd;
+	int *subcmds;
+};
+static int fw_toggle_noretry_subcmds[] = {
+	MRPC_FW_TX_TOGGLE,
+};
+static const struct no_retry_struct gasop_noretry_cmds[] = {
+	[MRPC_SECURITY_CONFIG_SET] = {1, 0, NULL},
+	[MRPC_KMSK_ENTRY_SET] = {1, 0, NULL},
+	[MRPC_SECURE_STATE_SET] = {1, 0, NULL},
+	[MRPC_BOOTUP_RESUME] = {1, 0, NULL},
+	[MRPC_DBG_UNLOCK] = {1, 0, NULL},
+	[MRPC_SECURITY_CONFIG_SET_GEN5] = {1, 0, NULL},
+	[MRPC_FW_TX] = {1, 1, fw_toggle_noretry_subcmds},
 };
 static const int gasop_noretry_cmds_count = sizeof(gasop_noretry_cmds) /
 					    sizeof(char);
 
-static inline bool gasop_is_no_retry_cmd(uint32_t cmd)
+static inline bool gasop_is_no_retry_cmd(uint32_t cmd, int subcmd)
 {
+	int i;
+
 	cmd &= SWITCHTEC_CMD_MASK;
 
 	if (cmd >= gasop_noretry_cmds_count)
 		return 0;
-	return gasop_noretry_cmds[cmd];
+	if (gasop_noretry_cmds[cmd].no_retry == 0)
+		return 0;
+	if (gasop_noretry_cmds[cmd].num_subcmd == 0)
+		return 1;
+	for (i = 0; i < gasop_noretry_cmds[cmd].num_subcmd; i++) {
+		if (subcmd == gasop_noretry_cmds[cmd].subcmds[i])
+			return 1;
+	}
+
+	return 0;
 }
 
 int gasop_access_check(struct switchtec_dev *dev)
@@ -90,6 +110,7 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	struct mrpc_regs __gas *mrpc = &dev->gas_map->mrpc;
 	int status;
 	int ret;
+	uint8_t subcmd = 0xff;
 
 	__memcpy_to_gas(dev, &mrpc->input_data, payload, payload_len);
 
@@ -106,7 +127,9 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
         * Here we filter out the specific commands and use 'no retry'
         * version of gas_write32 for these commands.
         */
-	if (gasop_is_no_retry_cmd(cmd))
+	if (payload)
+		subcmd = *(uint8_t*)payload;
+	if (gasop_is_no_retry_cmd(cmd, subcmd))
 		__gas_write32_no_retry(dev, cmd, &mrpc->cmd);
 	else
 		__gas_write32(dev, cmd, &mrpc->cmd);
