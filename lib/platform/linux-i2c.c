@@ -398,12 +398,19 @@ static void i2c_gas_write_no_retry(struct switchtec_dev *dev, void __gas *dest,
 	struct switchtec_i2c *idev = to_switchtec_i2c(dev);
 	uint8_t tag;
 	uint8_t status;
+	uint8_t retry_count = 0;
 
 	tag = get_tag(idev);
 	i2c_gas_data_write(dev, dest, src, n, tag);
-	status = i2c_gas_write_status_get(dev, tag);
-	if (status == 0 || status == GAS_TWI_MRPC_ERR)
-		return;
+	do {
+		status = i2c_gas_write_status_get(dev, tag);
+		if (status == 0 || status == GAS_TWI_MRPC_ERR)
+			return;
+
+		/* Extra delay is typically only needed for BL1/2 phase */
+		usleep(1000);
+		retry_count++;
+	} while (retry_count < MAX_RETRY_COUNT);
 
 	raise(SIGBUS);
 }
