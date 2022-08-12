@@ -498,10 +498,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		return -errno;
 	}
 
-	if (switchtec_is_gen5(dev))
-		max_ports = 60;
-	else
-		max_ports = 52;
+	max_ports = switchtec_max_supported_ports(dev);
 
 	struct {
 		uint8_t phys_port_id;
