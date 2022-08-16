@@ -149,7 +149,7 @@ install-bin: compile
 	$(Q)install -d $(BINDIR) $(LIBDIR)
 
 	@$(NQ) echo "  INSTALL  $(BINDIR)/$(INSTEXENAME)"
-	$(Q)install -s $(EXENAME) $(BINDIR)/$(INSTEXENAME)
+	$(Q)install $(EXENAME) $(BINDIR)/$(INSTEXENAME)
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(STLIBNAME)"
 	$(Q)install -m 0664 $(STLIBNAME) $(LIBDIR)
 	@$(NQ) echo "  INSTALL  $(LIBDIR)/$(IMPLIBNAME).$(VERSION)"
