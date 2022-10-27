@@ -419,7 +419,7 @@ static void get_port_bdf(const char *searchpath, int port,
 	glob_t paths;
 	int ret;
 
-	ret = snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.*",
+	ret = snprintf(syspath, sizeof(syspath), "%s/*:*:%02x.?",
 		       searchpath, port);
 	if (ret >= sizeof(syspath))
 		return;
