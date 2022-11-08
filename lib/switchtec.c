@@ -192,7 +192,7 @@ static int set_gen_variant(struct switchtec_dev * dev)
 			dev->gen = id->gen;
 			dev->var = id->var;
 
-			return 0;
+			break;
 		}
 
 		id++;
