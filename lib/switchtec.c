@@ -186,6 +186,9 @@ static int set_gen_variant(struct switchtec_dev * dev)
 	dev->gen = SWITCHTEC_GEN_UNKNOWN;
 	dev->var = SWITCHTEC_VAR_UNKNOWN;
 	dev->device_id = dev->ops->get_device_id(dev);
+	if (!dev->device_id)
+		switchtec_get_device_id_bl2(dev,
+					    (unsigned short *)&dev->device_id);
 
 	while (id->device_id) {
 		if (id->device_id == dev->device_id) {
