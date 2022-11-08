@@ -835,6 +835,8 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
+int switchtec_get_device_id_bl2(struct switchtec_dev *dev,
+				unsigned short *device_id);
 int switchtec_fw_file_secure_version_newer(struct switchtec_dev *dev,
 					   int img_fd);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
