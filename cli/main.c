@@ -194,10 +194,8 @@ static int print_dev_info(struct switchtec_dev *dev)
 	device_id = switchtec_device_id(dev);
 
 	ret = switchtec_get_fw_version(dev, version, sizeof(version));
-	if (ret < 0) {
-		switchtec_perror("dev info");
-		return ret;
-	}
+	if (ret < 0)
+		strcpy(version, "N/A");
 
 	ret = switchtec_get_device_info(dev, NULL, NULL, &hw_rev);
 	if (ret) {
