@@ -610,6 +610,24 @@ static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
 	return str;
 }
 
+/**
+ * @brief Return the phase string for a phase id.
+ */
+static inline const char* switchtec_phase_id_str(
+		enum switchtec_boot_phase phase_id)
+{
+	switch(phase_id) {
+	case SWITCHTEC_BOOT_PHASE_BL1:
+		return "BL1";
+	case SWITCHTEC_BOOT_PHASE_BL2:
+		return "BL2";
+	case SWITCHTEC_BOOT_PHASE_FW:
+		return "Main Firmware";
+	default:
+		return "Unknown Phase";
+	}
+}
+
 /** @brief Number of GT/s capable for each PCI generation or \p link_rate */
 static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16, 32};
 /** @brief Number of GB/s capable for each PCI generation or \p link_rate */
