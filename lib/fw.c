@@ -1097,6 +1097,27 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 	return nr_info;
 }
 
+int switchtec_get_device_id_bl2(struct switchtec_dev *dev,
+			        unsigned short *device_id)
+{
+	int ret;
+	uint8_t subcmd = MRPC_PART_INFO_GET_ALL_INFO;
+	struct switchtec_flash_info_gen4 all_info;
+
+	if (dev->gen != SWITCHTEC_GEN_UNKNOWN)
+		return -EINVAL;
+
+	ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd,
+			    sizeof(subcmd), &all_info,
+			    sizeof(all_info));
+	if (ret)
+		return ret;
+
+	*device_id = le16toh(all_info.device_id);
+
+	return 0;
+}
+
 static long multicfg_subcmd(struct switchtec_dev *dev, uint32_t subcmd,
 			    uint8_t index)
 {

@@ -64,20 +64,6 @@ static const struct argconfig_choice secure_state_choices[] = {
 	{}
 };
 
-static const char* phase_id_to_string(enum switchtec_boot_phase phase_id)
-{
-	switch(phase_id) {
-	case SWITCHTEC_BOOT_PHASE_BL1:
-		return "BL1";
-	case SWITCHTEC_BOOT_PHASE_BL2:
-		return "BL2";
-	case SWITCHTEC_BOOT_PHASE_FW:
-		return "Main Firmware";
-	default:
-		return "Unknown Phase";
-	}
-}
-
 #define CMD_DESC_PING "ping device and get current boot phase"
 
 static int ping(int argc, char **argv)
@@ -282,7 +268,8 @@ static int info(int argc, char **argv)
 	}
 
 	phase_id = switchtec_boot_phase(cfg.dev);
-	printf("Current Boot Phase: \t\t\t%s\n", phase_id_to_string(phase_id));
+	printf("Current Boot Phase: \t\t\t%s\n",
+	       switchtec_phase_id_str(phase_id));
 
 	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
 	if (ret) {
