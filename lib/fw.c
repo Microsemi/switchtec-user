@@ -74,6 +74,18 @@ enum switchtec_fw_part_type_gen4 {
 	SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN4,
 };
 
+enum switchtec_fw_part_type_gen5 {
+	SWITCHTEC_FW_IMG_TYPE_MAP_GEN5 = 0x0,
+	SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN5 = 0x1,
+	SWITCHTEC_FW_IMG_TYPE_RIOT_GEN5 = 0x2,
+	SWITCHTEC_FW_IMG_TYPE_BL2_GEN5 = 0x3,
+	SWITCHTEC_FW_IMG_TYPE_CFG_GEN5 = 0x4,
+	SWITCHTEC_FW_IMG_TYPE_IMG_GEN5 = 0x5,
+	SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN5 = 0x6,
+	SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN5 = 0xFE,
+	SWITCHTEC_FW_IMG_TYPE_UNKNOWN_GEN5,
+};
+
 struct switchtec_fw_metadata_gen4 {
 	char magic[4];
 	char sub_magic[4];
@@ -83,7 +95,8 @@ struct switchtec_fw_metadata_gen4 {
 	uint32_t metadata_len;
 	uint32_t image_len;
 	uint32_t type;
-	uint32_t rsvd;
+	uint8_t fw_id;
+	uint8_t rsvd[3];
 	uint32_t version;
 	uint32_t sequence;
 	uint32_t reserved1;
@@ -117,6 +130,14 @@ struct switchtec_fw_image_header_gen3 {
 	uint32_t image_crc;
 };
 
+static uint32_t get_fw_tx_id(struct switchtec_dev *dev)
+{
+	if (switchtec_is_gen5(dev))
+		return MRPC_FW_TX_GEN5;
+	else
+		return MRPC_FW_TX;
+}
+
 static int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 				 enum switchtec_fw_dlstatus *status,
 				 enum mrpc_bg_status *bgstatus)
@@ -131,7 +152,7 @@ static int switchtec_fw_dlstatus(struct switchtec_dev *dev,
 	int ret;
 
 	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
-		cmd = MRPC_FW_TX;
+		cmd = get_fw_tx_id(dev);
 
 	ret = switchtec_cmd(dev, cmd, &subcmd, sizeof(subcmd),
 			    &result, sizeof(result));
@@ -204,7 +225,7 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 	} cmd;
 
 	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2) {
-		cmd_id = MRPC_FW_TX;
+		cmd_id = get_fw_tx_id(dev);
 		cmd.subcmd = MRPC_FW_TX_TOGGLE;
 	} else {
 		cmd_id = MRPC_FWDNLD;
@@ -255,7 +276,7 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 	uint32_t cmd_id = MRPC_FWDNLD;
 
 	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
-		cmd_id = MRPC_FW_TX;
+		cmd_id = get_fw_tx_id(dev);
 
 	image_size = lseek(img_fd, 0, SEEK_END);
 	if (image_size < 0)
@@ -375,7 +396,7 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 	uint32_t cmd_id = MRPC_FWDNLD;
 
 	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
-		cmd_id = MRPC_FW_TX;
+		cmd_id = get_fw_tx_id(dev);
 
 	ret = fseek(fimg, 0, SEEK_END);
 	if (ret)
@@ -559,12 +580,34 @@ switchtec_fw_id_to_type_gen4(const struct switchtec_fw_image_info *info)
 }
 
 static enum switchtec_fw_type
+switchtec_fw_id_to_type_gen5(const struct switchtec_fw_image_info *info)
+{
+	switch (info->part_id) {
+	case SWITCHTEC_FW_PART_ID_G5_MAP0: return SWITCHTEC_FW_TYPE_MAP;
+	case SWITCHTEC_FW_PART_ID_G5_MAP1: return SWITCHTEC_FW_TYPE_MAP;
+	case SWITCHTEC_FW_PART_ID_G5_KEY0: return SWITCHTEC_FW_TYPE_KEY;
+	case SWITCHTEC_FW_PART_ID_G5_KEY1: return SWITCHTEC_FW_TYPE_KEY;
+	case SWITCHTEC_FW_PART_ID_G5_RIOT0: return SWITCHTEC_FW_TYPE_RIOT;
+	case SWITCHTEC_FW_PART_ID_G5_RIOT1: return SWITCHTEC_FW_TYPE_RIOT;
+	case SWITCHTEC_FW_PART_ID_G5_BL20: return SWITCHTEC_FW_TYPE_BL2;
+	case SWITCHTEC_FW_PART_ID_G5_BL21: return SWITCHTEC_FW_TYPE_BL2;
+	case SWITCHTEC_FW_PART_ID_G5_CFG0: return SWITCHTEC_FW_TYPE_CFG;
+	case SWITCHTEC_FW_PART_ID_G5_CFG1: return SWITCHTEC_FW_TYPE_CFG;
+	case SWITCHTEC_FW_PART_ID_G5_IMG0: return SWITCHTEC_FW_TYPE_IMG;
+	case SWITCHTEC_FW_PART_ID_G5_IMG1: return SWITCHTEC_FW_TYPE_IMG;
+	case SWITCHTEC_FW_PART_ID_G5_NVLOG: return SWITCHTEC_FW_TYPE_NVLOG;
+	case SWITCHTEC_FW_PART_ID_G5_SEEPROM: return SWITCHTEC_FW_TYPE_SEEPROM;
+	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
+	}
+}
+
+static enum switchtec_fw_type
 switchtec_fw_id_to_type(const struct switchtec_fw_image_info *info)
 {
 	switch (info->gen) {
 	case SWITCHTEC_GEN3: return switchtec_fw_id_to_type_gen3(info);
-	case SWITCHTEC_GEN4:
-	case SWITCHTEC_GEN5: return switchtec_fw_id_to_type_gen4(info);
+	case SWITCHTEC_GEN4: return switchtec_fw_id_to_type_gen4(info);
+	case SWITCHTEC_GEN5: return switchtec_fw_id_to_type_gen5(info);
 	default: return SWITCHTEC_FW_TYPE_UNKNOWN;
 	}
 }
@@ -605,13 +648,75 @@ invalid_file:
 	return -errno;
 }
 
-static int switchtec_fw_file_info_gen4(int fd,
-				       struct switchtec_fw_image_info *info)
+static enum switchtec_fw_image_part_id_gen4 hdr_type2_id_gen4(uint32_t type)
+{
+	switch (type) {
+	case SWITCHTEC_FW_IMG_TYPE_MAP_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_MAP0;
+
+	case SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_KEY0;
+
+	case SWITCHTEC_FW_IMG_TYPE_BL2_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_BL20;
+
+	case SWITCHTEC_FW_IMG_TYPE_CFG_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_CFG0;
+
+	case SWITCHTEC_FW_IMG_TYPE_IMG_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_IMG0;
+
+	case SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_NVLOG;
+
+	case SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4:
+		return SWITCHTEC_FW_PART_ID_G4_SEEPROM;
+
+	default:
+		return -1;
+	}
+}
+
+static enum switchtec_fw_image_part_id_gen5 hdr_type2_id_gen5(uint32_t type)
+{
+	switch (type) {
+	case SWITCHTEC_FW_IMG_TYPE_MAP_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_MAP0;
+
+	case SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_KEY0;
+
+	case SWITCHTEC_FW_IMG_TYPE_RIOT_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_RIOT0;
+
+	case SWITCHTEC_FW_IMG_TYPE_BL2_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_BL20;
+
+	case SWITCHTEC_FW_IMG_TYPE_CFG_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_CFG0;
+
+	case SWITCHTEC_FW_IMG_TYPE_IMG_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_IMG0;
+
+	case SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_NVLOG;
+
+	case SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN5:
+		return SWITCHTEC_FW_PART_ID_G5_SEEPROM;
+
+	default:
+		return -1;
+	}
+}
+
+static int switchtec_fw_file_info_gen45(int fd,
+					struct switchtec_fw_image_info *info)
 {
 	int ret;
 	struct switchtec_fw_metadata_gen4 hdr = {};
 	uint8_t exp_zero[4] = {};
 	uint32_t version;
+	int part_id;
 
 	ret = read(fd, &hdr, sizeof(hdr));
 	lseek(fd, 0, SEEK_SET);
@@ -628,31 +733,16 @@ static int switchtec_fw_file_info_gen4(int fd,
 	if (!info)
 		return 0;
 
-	switch (le32toh(hdr.type)) {
-	case SWITCHTEC_FW_IMG_TYPE_MAP_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_MAP0;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_KEYMAN_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_KEY0;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_BL2_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_BL20;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_CFG_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_CFG0;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_IMG_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_IMG0;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_NVLOG_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_NVLOG;
-		break;
-	case SWITCHTEC_FW_IMG_TYPE_SEEPROM_GEN4:
-		info->part_id = SWITCHTEC_FW_PART_ID_G4_SEEPROM;
-		break;
-	default:
+	/* Non-zero 'fw-id' field means the image is for Gen5 or later */
+	if (hdr.fw_id)
+		part_id = hdr_type2_id_gen5(le32toh(hdr.type));
+	else
+		part_id = hdr_type2_id_gen4(le32toh(hdr.type));
+
+	if (part_id < 0)
 		goto invalid_file;
-	};
+
+	info->part_id = part_id;
 
 	info->image_crc = le32toh(hdr.image_crc);
 	version = le32toh(hdr.version);
@@ -694,7 +784,7 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	if (!strncmp(magic, "PMC", sizeof(magic))) {
 		return switchtec_fw_file_info_gen3(fd, info);
 	} else if (!strncmp(magic, "MSCC", sizeof(magic))) {
-		return switchtec_fw_file_info_gen4(fd, info);
+		return switchtec_fw_file_info_gen45(fd, info);
 	} else {
 		errno = ENOEXEC;
 		return -1;
@@ -771,6 +861,7 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info)
 	case SWITCHTEC_FW_TYPE_IMG:	return "IMG";
 	case SWITCHTEC_FW_TYPE_CFG:	return "CFG";
 	case SWITCHTEC_FW_TYPE_KEY:	return "KEY";
+	case SWITCHTEC_FW_TYPE_RIOT:	return "RIOT";
 	case SWITCHTEC_FW_TYPE_BL2:	return "BL2";
 	case SWITCHTEC_FW_TYPE_NVLOG:	return "NVLOG";
 	case SWITCHTEC_FW_TYPE_SEEPROM:	return "SEEPROM";
