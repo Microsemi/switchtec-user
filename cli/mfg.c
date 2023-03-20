@@ -102,11 +102,122 @@ static const char* program_status_to_string(enum switchtec_otp_program_status s)
 	}
 }
 
+static const char* program_mask_to_string(enum switchtec_otp_program_mask m)
+{
+	switch(m) {
+	case SWITCHTEC_OTP_UNMASKED:
+		return "Accessible";
+	case SWITCHTEC_OTP_MASKED:
+		return "Inaccessible)";
+	default:
+		return "Unknown";
+	}
+}
+
+static void print_otp_info(struct switchtec_security_cfg_otp_region *otp)
+{
+	int i;
+
+	printf("\nOTP Region Program Status\n");
+	printf("\tBasic Secure Settings %s%s\n",
+	       otp->basic_valid? "(Valid):  ": "(Invalid):",
+	program_status_to_string(otp->basic));
+	printf("\tMixed Version %s\t%s\n",
+	       otp->mixed_ver_valid? "(Valid):  ": "(Invalid):",
+	program_status_to_string(otp->mixed_ver));
+	printf("\tMain FW Version %s\t%s\n",
+	       otp->main_fw_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->main_fw_ver));
+	printf("\tSecure Unlock Version %s%s\n",
+	       otp->sec_unlock_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->sec_unlock_ver));
+	for (i = 0; i < 4; i++) {
+		printf("\tKMSK%d %s\t\t%s\n", i + 1,
+		       otp->kmsk_valid[i]? "(Valid):  ": "(Invalid):",
+		       program_status_to_string(otp->kmsk[i]));
+	}
+}
+
+static void print_otp_ext_info(
+	struct switchtec_security_cfg_otp_region_ext *otp)
+{
+	int i;
+
+	printf("\nOTP Region Program Status\n");
+	printf("\tBasic Secure Settings %s%s\n",
+	       otp->basic_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->basic));
+
+	printf("\tDebug Mode %s\t\t%s\n",
+	       otp->debug_mode_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->debug_mode));
+	printf("\tKey Version %s\t\t%s\n",
+	       otp->key_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->key_ver));
+	printf("\tRIOT Core Version %s\t%s\n",
+	       otp->rc_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->rc_ver));
+	printf("\tBL2 Version %s\t\t%s\n",
+	       otp->bl2_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->bl2_ver));
+	printf("\tMain FW Version %s\t%s\n",
+	       otp->main_fw_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->main_fw_ver));
+	printf("\tSecure Unlock Version %s%s\n",
+	       otp->sec_unlock_ver_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->sec_unlock_ver));
+	for (i = 0; i < 10; i++) {
+		printf("\tKMSK%d %s\t\t%s\n", i + 1,
+		       otp->kmsk_valid[i]? "(Valid):  ": "(Invalid):",
+		       program_status_to_string(otp->kmsk[i]));
+	}
+	printf("\tCDI eFuse Include Mask %s%s\n",
+	       otp->cdi_efuse_inc_mask_valid? "(Valid): ": "(Invalid):",
+	       program_status_to_string(otp->cdi_efuse_inc_mask));
+	printf("\tUDS %s\t\t\t%s - %s\n",
+	       otp->uds_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->uds),
+	       program_mask_to_string(otp->uds_mask));
+
+	printf("\tMCHP UDS %s\t\t%s - %s\n",
+	       otp->mchp_uds_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->mchp_uds),
+	       program_mask_to_string(otp->mchp_uds_mask));
+
+	printf("\tDID CERT0 %s\t\t%s\n",
+	       otp->did_cert0_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->did_cert0));
+
+	printf("\tDID CERT1 %s\t\t%s\n",
+	       otp->did_cert1_valid? "(Valid):  ": "(Invalid):",
+	       program_status_to_string(otp->did_cert1));
+}
+
 static void print_security_config(struct switchtec_security_cfg_state *state,
-				  struct switchtec_security_cfg_otp_region *otp)
+				  bool print_otp)
 {
 	int key_idx;
 	int i;
+
+	printf("\nDebug Mode Settings %s\n",
+	       state->debug_mode_valid? "(Valid)":"(Invalid)");
+
+	printf("\tJTAG/EJTAG Debug State: \t");
+	switch(state->debug_mode) {
+	case SWITCHTEC_DEBUG_MODE_ENABLED:
+		printf("Always Enabled\n");
+		break;
+	case SWITCHTEC_DEBUG_MODE_DISABLED_BUT_ENABLE_ALLOWED:
+		printf("Disabled by Default But Can Be Enabled\n");
+		break;
+	case SWITCHTEC_DEBUG_MODE_DISABLED:
+	case SWITCHTEC_DEBUG_MODE_DISABLED_EXT:
+		printf("Always Disabled\n");
+		break;
+	default:
+		printf("Unsupported State\n");
+		break;
+	}
 
 	printf("\nBasic Secure Settings %s\n",
 		state->basic_setting_valid? "(Valid)":"(Invalid)");
@@ -121,23 +232,6 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 		break;
 	case SWITCHTEC_INITIALIZED_SECURED:
 		printf("INITIALIZED_SECURED\n");
-		break;
-	default:
-		printf("Unsupported State\n");
-		break;
-	}
-
-	printf("\tJTAG/EJTAG Debug State: \t");
-	switch(state->debug_mode) {
-	case SWITCHTEC_DEBUG_MODE_ENABLED:
-		printf("Always Enabled\n");
-		break;
-	case SWITCHTEC_DEBUG_MODE_DISABLED_BUT_ENABLE_ALLOWED:
-		printf("Disabled by Default But Can Be Enabled\n");
-		break;
-	case SWITCHTEC_DEBUG_MODE_DISABLED:
-	case SWITCHTEC_DEBUG_MODE_DISABLED_EXT:
-		printf("Always Disabled\n");
 		break;
 	default:
 		printf("Unsupported State\n");
@@ -162,9 +256,24 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 		state->i2c_recovery_tmo);
 	printf("\tI2C Port: \t\t\t%d\n", state->i2c_port);
 	printf("\tI2C Address (7-bits): \t\t0x%02x\n", state->i2c_addr);
-	printf("\tI2C Command Map: \t\t0x%08x\n\n", state->i2c_cmd_map);
+	printf("\tI2C Command Map: \t\t0x%08x\n", state->i2c_cmd_map);
 
-	printf("Exponent Hex Data %s: \t\t0x%08x\n",
+	if (state->attn_state.attestation_mode !=
+	    SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED) {
+		if (state->attn_state.attestation_mode ==
+		    SWITCHTEC_ATTESTATION_MODE_DICE) {
+			printf("\tAttestation:\t\t\tEnabled, with UDS ");
+
+			if(state->attn_state.uds_selfgen)
+				printf("Self-Generated by Device\n");
+			else
+				printf("Provided by User\n");
+		} else {
+			printf("\tAttestation: \t\t\tDisabled\n");
+		}
+	}
+
+	printf("\nExponent Hex Data %s: \t\t0x%08x\n",
 		state->public_key_exp_valid? "(Valid)":"(Invalid)",
 		state->public_key_exponent);
 
@@ -173,44 +282,56 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 		state->public_key_num);
 
 	if (state->public_key_ver)
-		printf("Current KMSK index %s: \t\t%d\n",
+		printf("Current KMSK Index %s: \t\t%d\n",
 			state->public_key_ver_valid? "(Valid)":"(Invalid)",
 			state->public_key_ver);
 	else
-		printf("Current KMSK index %s: \t\tNot Set\n",
+		printf("Current KMSK Index %s: \t\tNot Set\n",
 			state->public_key_ver_valid? "(Valid)":"(Invalid)");
 
 	for(key_idx = 0; key_idx < state->public_key_num; key_idx++) {
-		printf("KMSK Entry %d:  ", key_idx + 1);
-		for(i = 0; i < SWITCHTEC_KMSK_LEN; i++)
-				printf("%02x", state->public_key[key_idx][i]);
-		printf("\n");
+		printf("KMSK Entry %d:  \t\t\t\t", key_idx + 1);
+		for(i = 0; i < SWITCHTEC_KMSK_LEN; i++) {
+			if (i && (i % 16) == 0)
+				printf("\n\t\t\t\t\t");
+			printf("%02x", state->public_key[key_idx][i]);
+		}
+		printf("\n\n");
 	}
 
-	if (otp) {
-		printf("\nOTP Region Program Status\n");
-		printf("\tBasic Secure Settings %s%s\n",
-		       otp->basic_valid? "(Valid):  ": "(Invalid):",
-		       program_status_to_string(otp->basic));
-		printf("\tMixed Version %s\t%s\n",
-		       otp->mixed_ver_valid? "(Valid):  ": "(Invalid):",
-		       program_status_to_string(otp->mixed_ver));
-		printf("\tMain FW Version %s\t%s\n",
-		       otp->main_fw_ver_valid? "(Valid):  ": "(Invalid):",
-		       program_status_to_string(otp->main_fw_ver));
-		printf("\tSecure Unlock Version %s%s\n",
-		       otp->sec_unlock_ver_valid? "(Valid):  ": "(Invalid):",
-		       program_status_to_string(otp->sec_unlock_ver));
-		for (i = 0; i < 4; i++) {
-			printf("\tKMSK%d %s\t\t%s\n", i,
-			       otp->kmsk_valid[i]? "(Valid):  ": "(Invalid):",
-			       program_status_to_string(otp->kmsk[i]));
+	if (state->attn_state.attestation_mode !=
+	    SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED) {
+		printf("CDI eFuse Include Mask %s: \t0x%08x\n",
+			state->attn_state.cdi_efuse_inc_mask_valid?
+			"(Valid)":"(Invalid)",
+			state->attn_state.cdi_efuse_inc_mask);
+
+		printf("UDS Data: \t\t\t\t");
+		if (state->attn_state.uds_visible) {
+			for (i = 0; i < 32; i++) {
+				printf("%02x", state->attn_state.uds_data[i]);
+				if (i==15)
+					printf("\n\t\t\t\t\t");
+			}
+
+			printf("\n");
+		} else {
+			printf("not visible with current security settings\n");
 		}
+	}
+
+	if (print_otp) {
+		if (state->use_otp_ext)
+			print_otp_ext_info(&state->otp_ext);
+		else
+			print_otp_info(&state->otp);
 	}
 }
 
 static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
 {
+	int i;
+
 	printf("\nBasic Secure Settings\n");
 
 	printf("\tJTAG/EJTAG State After Reset: \t%d\n",
@@ -233,8 +354,41 @@ static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
 	printf("\tI2C Port: \t\t\t%d\n", set->i2c_port);
 	printf("\tI2C Address (7-bits): \t\t0x%02x\n", set->i2c_addr);
 	printf("\tI2C Command Map: \t\t0x%08x\n", set->i2c_cmd_map);
+	if (set->attn_set.attestation_mode !=
+	    SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED) {
+		if (set->attn_set.attestation_mode ==
+		    SWITCHTEC_ATTESTATION_MODE_DICE) {
+			printf("\tAttestation:\t\t\tEnabled, with UDS ");
+			if(set->attn_set.uds_selfgen)
+				printf("Self-Generated by Device\n");
+			else
+				printf("Provided by User\n");
+		} else {
+			printf("\tAttestation: \t\t\tDisabled\n");
+		}
+	}
 
 	printf("Exponent Hex Data: \t\t\t0x%08x\n", set->public_key_exponent);
+
+	if (set->attn_set.attestation_mode ==
+	    SWITCHTEC_ATTESTATION_MODE_DICE) {
+		printf("CDI eFuse Include Mask: \t\t0x%08x\n",
+			set->attn_set.cdi_efuse_inc_mask);
+
+		printf("UDS Data: \t\t\t\t");
+		if (set->attn_set.uds_valid) {
+			for (i = 0; i < 32; i++) {
+				printf("%02x",
+				       set->attn_set.uds_data[i]);
+				if (i == 15)
+					printf("\n\t\t\t\t\t");
+			}
+
+			printf("\n");
+		} else {
+			printf("not set\n");
+		}
+	}
 }
 
 #define CMD_DESC_INFO "display security settings"
@@ -261,12 +415,6 @@ static int info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_security_config_get(cfg.dev, &state);
-	if (ret) {
-		switchtec_perror("mfg info");
-		return ret;
-	}
-
 	phase_id = switchtec_boot_phase(cfg.dev);
 	printf("Current Boot Phase: \t\t\t%s\n",
 	       switchtec_phase_id_str(phase_id));
@@ -278,6 +426,9 @@ static int info(int argc, char **argv)
 	}
 	printf("Chip Serial: \t\t\t\t0x%08x\n", sn_info.chip_serial);
 	printf("Key Manifest Secure Version: \t\t0x%08x\n", sn_info.ver_km);
+	if (sn_info.riot_ver_valid)
+		printf("RIOT Secure Version: \t\t\t0x%08x\n",
+		       sn_info.ver_riot);
 	printf("BL2 Secure Version: \t\t\t0x%08x\n", sn_info.ver_bl2);
 	printf("Main Secure Version: \t\t\t0x%08x\n", sn_info.ver_main);
 	printf("Secure Unlock Version: \t\t\t0x%08x\n", sn_info.ver_sec_unlock);
@@ -287,24 +438,30 @@ static int info(int argc, char **argv)
 		return 0;
 	}
 
+	ret = switchtec_security_config_get(cfg.dev, &state);
+	if (ret) {
+		switchtec_perror("mfg info");
+		return ret;
+	}
+
 	if (cfg.verbose)  {
 		if (!state.otp_valid) {
-			print_security_config(&state, NULL);
+			print_security_config(&state, false);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is not available on this chip!\n\n");
 		} else if (switchtec_gen(cfg.dev) == SWITCHTEC_GEN4 &&
 			   phase_id != SWITCHTEC_BOOT_PHASE_FW) {
-			print_security_config(&state, NULL);
+			print_security_config(&state, false);
 			fprintf(stderr,
 				"\nAdditional (verbose) chip info is only available in the Main Firmware phase!\n\n");
 		} else {
-			print_security_config(&state, &state.otp);
+			print_security_config(&state, true);
 		}
 
 		return 0;
 	}
 
-	print_security_config(&state, NULL);
+	print_security_config(&state, false);
 
 	return 0;
 }
@@ -349,6 +506,8 @@ static void print_image_list(struct switchtec_active_index *idx)
 {
 	printf("IMAGE\t\tINDEX\n");
 	printf("Key Manifest\t%d\n", idx->keyman);
+	if (idx->riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET)
+		printf("RIOT\t\t%d\n", idx->riot);
 	printf("BL2\t\t%d\n", idx->bl2);
 	printf("Config\t\t%d\n", idx->config);
 	printf("Firmware\t%d\n", idx->firmware);
@@ -401,11 +560,13 @@ static int image_select(int argc, char **argv)
 		unsigned char firmware;
 		unsigned char config;
 		unsigned char keyman;
+		unsigned char riot;
 	} cfg = {
 		.bl2 = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
 		.firmware = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
 		.config = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
-		.keyman = SWITCHTEC_ACTIVE_INDEX_NOT_SET
+		.keyman = SWITCHTEC_ACTIVE_INDEX_NOT_SET,
+		.riot = SWITCHTEC_ACTIVE_INDEX_NOT_SET
 	};
 
 	const struct argconfig_options opts[] = {
@@ -418,6 +579,8 @@ static int image_select(int argc, char **argv)
 			required_argument, "active image index for CONFIG"},
 		{"keyman", 'k', "", CFG_BYTE, &cfg.keyman, required_argument,
 			"active image index for KEY MANIFEST"},
+		{"riot", 'r', "", CFG_BYTE, &cfg.riot, required_argument,
+			"active image index for RIOT (Gen5 device only)"},
 		{NULL}
 	};
 
@@ -426,9 +589,10 @@ static int image_select(int argc, char **argv)
 	if (cfg.bl2 == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
 	    cfg.firmware == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
 	    cfg.config == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
-	    cfg.keyman == SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+	    cfg.keyman == SWITCHTEC_ACTIVE_INDEX_NOT_SET &&
+	    cfg.riot == SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
 		fprintf(stderr,
-			"One of BL2, Config, Key Manifest or Firmware indices must be set in this command!\n");
+			"One of BL2, Config, Key Manifest, RIOT or Firmware indices must be set in this command!\n");
 		return -1;
 	}
 
@@ -465,6 +629,24 @@ static int image_select(int argc, char **argv)
 		return -6;
 	}
 	index.keyman = cfg.keyman;
+
+	if (switchtec_is_gen4(cfg.dev) &&
+	    cfg.riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+		fprintf(stderr,
+			"RIOT image is not available on Gen4 devices!\n");
+		return -7;
+	}
+
+	if (switchtec_is_gen5(cfg.dev)) {
+		if (cfg.riot > 1 &&
+		    cfg.riot != SWITCHTEC_ACTIVE_INDEX_NOT_SET) {
+			fprintf(stderr,
+				"Active index of RIOT must be within 0-1!\n");
+			return -8;
+		}
+
+		index.riot = cfg.riot;
+	}
 
 	ret = switchtec_active_image_index_set(cfg.dev, &index);
 	if (ret) {
@@ -746,7 +928,7 @@ static int state_set(int argc, char **argv)
 		return -3;
 	}
 
-	print_security_config(&state, NULL);
+	print_security_config(&state, false);
 
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
@@ -773,11 +955,14 @@ static int config_set(int argc, char **argv)
 	int ret;
 	struct switchtec_security_cfg_state state = {};
 	struct switchtec_security_cfg_set settings = {};
+	struct switchtec_uds uds_data = {};
 
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *setting_fimg;
 		char *setting_file;
+		FILE *uds_fimg;
+		char *uds_file;
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
@@ -786,6 +971,10 @@ static int config_set(int argc, char **argv)
 			.value_addr=&cfg.setting_fimg,
 			.argument_type=required_positional,
 			.help="security setting file"},
+		{"uds_file", 'u', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.uds_fimg,
+			.argument_type=required_argument,
+			.help="UDS file"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{NULL}
@@ -822,6 +1011,32 @@ static int config_set(int argc, char **argv)
 		return -5;
 	} else if (ret) {
 		switchtec_perror("mfg config-set");
+	}
+
+	if (cfg.uds_fimg) {
+		if (settings.attn_set.attestation_mode !=
+		    SWITCHTEC_ATTESTATION_MODE_DICE) {
+			fprintf(stderr, "INFO: Attestation is not supported or not enabled. The given UDS file is ignored.\n");
+		} else if (settings.attn_set.uds_selfgen) {
+			fprintf(stderr, "INFO: Device uses self-generated UDS. The given UDS file is ignored.\n");
+		} else {
+			ret = switchtec_read_uds_file(cfg.uds_fimg, &uds_data);
+			if (ret) {
+				fprintf(stderr, "Error reading UDS file %s\n",
+					cfg.uds_file);
+				return -6;
+			}
+			memcpy(settings.attn_set.uds_data, uds_data.uds,
+			       SWITCHTEC_UDS_LEN);
+			settings.attn_set.uds_valid = true;
+		}
+	} else {
+		if ((settings.attn_set.attestation_mode ==
+		     SWITCHTEC_ATTESTATION_MODE_DICE) &&
+		    !settings.attn_set.uds_selfgen) {
+			fprintf(stderr, "ERROR: UDS file is required for the current configuration!\n");
+			return -7;
+		}
 	}
 
 	printf("Writing the below settings to device: \n");

@@ -29,8 +29,9 @@
 
 #define SWITCHTEC_PUB_KEY_LEN	512
 #define SWITCHTEC_SIG_LEN	512
+#define SWITCHTEC_UDS_LEN	32
 #define SWITCHTEC_KMSK_LEN	64
-#define SWITCHTEC_KMSK_NUM	4
+#define SWITCHTEC_KMSK_NUM_MAX	10
 
 #define SWITCHTEC_SECURITY_SPI_RATE_MAX_NUM	16
 
@@ -40,6 +41,8 @@ struct switchtec_sn_ver_info {
 	uint32_t ver_bl2;
 	uint32_t ver_main;
 	uint32_t ver_sec_unlock;
+	bool riot_ver_valid;
+	uint32_t ver_riot;
 };
 enum switchtec_debug_mode {
 	SWITCHTEC_DEBUG_MODE_ENABLED,
@@ -55,12 +58,23 @@ enum switchtec_secure_state {
 	SWITCHTEC_SECURE_STATE_UNKNOWN = 0xff,
 };
 
+enum switchtec_attestation_mode {
+	SWITCHTEC_ATTESTATION_MODE_NOT_SUPPORTED,
+	SWITCHTEC_ATTESTATION_MODE_NONE,
+	SWITCHTEC_ATTESTATION_MODE_DICE
+};
+
 /**
  * @brief Flag which indicates if an OTP region is programmable or not
  */
 enum switchtec_otp_program_status {
 	SWITCHTEC_OTP_PROGRAMMABLE = 0,
 	SWITCHTEC_OTP_UNPROGRAMMABLE = 1,
+};
+
+enum switchtec_otp_program_mask {
+	SWITCHTEC_OTP_UNMASKED = 0,
+	SWITCHTEC_OTP_MASKED = 1,
 };
 
 struct switchtec_security_cfg_otp_region {
@@ -76,7 +90,50 @@ struct switchtec_security_cfg_otp_region {
 	enum switchtec_otp_program_status kmsk[4];
 };
 
+struct switchtec_security_cfg_otp_region_ext {
+	bool basic_valid;
+	bool debug_mode_valid;
+	bool key_ver_valid;
+	bool rc_ver_valid;
+	bool bl2_ver_valid;
+	bool main_fw_ver_valid;
+	bool sec_unlock_ver_valid;
+	bool kmsk_valid[10];
+	bool cdi_efuse_inc_mask_valid;
+	bool uds_valid;
+	bool uds_mask_valid;
+	bool mchp_uds_valid;
+	bool mchp_uds_mask_valid;
+	bool did_cert0_valid;
+	bool did_cert1_valid;
+	enum switchtec_otp_program_status basic;
+	enum switchtec_otp_program_status debug_mode;
+	enum switchtec_otp_program_status key_ver;
+	enum switchtec_otp_program_status rc_ver;
+	enum switchtec_otp_program_status bl2_ver;
+	enum switchtec_otp_program_status main_fw_ver;
+	enum switchtec_otp_program_status sec_unlock_ver;
+	enum switchtec_otp_program_status kmsk[10];
+	enum switchtec_otp_program_status cdi_efuse_inc_mask;
+	enum switchtec_otp_program_status uds;
+	enum switchtec_otp_program_mask   uds_mask;
+	enum switchtec_otp_program_status mchp_uds;
+	enum switchtec_otp_program_mask   mchp_uds_mask;
+	enum switchtec_otp_program_status did_cert0;
+	enum switchtec_otp_program_status did_cert1;
+};
+
+struct switchtec_attestation_state {
+	enum switchtec_attestation_mode attestation_mode;
+	bool cdi_efuse_inc_mask_valid;
+	unsigned int cdi_efuse_inc_mask;
+	bool uds_selfgen;
+	bool uds_visible;
+	unsigned char uds_data[32];
+};
+
 struct switchtec_security_cfg_state {
+	bool debug_mode_valid;
 	uint8_t basic_setting_valid;
 	uint8_t public_key_exp_valid;
 	uint8_t public_key_num_valid;
@@ -100,10 +157,22 @@ struct switchtec_security_cfg_state {
 	uint32_t public_key_num;
 	uint32_t public_key_ver;
 
-	uint8_t public_key[SWITCHTEC_KMSK_NUM][SWITCHTEC_KMSK_LEN];
+	uint8_t public_key[SWITCHTEC_KMSK_NUM_MAX][SWITCHTEC_KMSK_LEN];
 
 	bool otp_valid;
+	bool use_otp_ext;
 	struct switchtec_security_cfg_otp_region otp;
+	struct switchtec_security_cfg_otp_region_ext otp_ext;
+
+	struct switchtec_attestation_state attn_state;
+};
+
+struct switchtec_attestation_set {
+	enum switchtec_attestation_mode attestation_mode;
+	unsigned int cdi_efuse_inc_mask;
+	bool uds_selfgen;
+	bool uds_valid;
+	unsigned char uds_data[32];
 };
 
 struct switchtec_security_cfg_set {
@@ -118,6 +187,8 @@ struct switchtec_security_cfg_set {
 	uint32_t i2c_addr;
 	uint32_t i2c_cmd_map;
 	uint32_t public_key_exponent;
+
+	struct switchtec_attestation_set attn_set;
 };
 
 enum switchtec_active_index_id {
@@ -131,6 +202,7 @@ struct switchtec_active_index {
 	enum switchtec_active_index_id firmware;
 	enum switchtec_active_index_id config;
 	enum switchtec_active_index_id keyman;
+	enum switchtec_active_index_id riot;
 };
 
 enum switchtec_bl2_recovery_mode {
@@ -150,6 +222,10 @@ struct switchtec_pubkey {
 
 struct switchtec_signature{
 	uint8_t signature[SWITCHTEC_SIG_LEN];
+};
+
+struct switchtec_uds {
+	unsigned char uds[SWITCHTEC_UDS_LEN];
 };
 
 struct switchtec_security_spi_avail_rate {
@@ -195,6 +271,7 @@ int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk);
 int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk);
 int switchtec_read_signature_file(FILE *sig_file,
 				  struct switchtec_signature *sigature);
+int switchtec_read_uds_file(FILE *uds_file, struct switchtec_uds *uds);
 int
 switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 				  struct switchtec_kmsk *kmsk);
