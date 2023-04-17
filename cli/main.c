@@ -2154,6 +2154,8 @@ static int fw_read(int argc, char **argv)
 
 	if (ret < 0)
 		switchtec_perror("fw_read");
+	else
+		ret = 0;
 
 	fprintf(stderr, "\nFirmware read to %s.\n", cfg.out_filename);
 
