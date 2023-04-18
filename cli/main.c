@@ -2067,7 +2067,7 @@ static int fw_read(int argc, char **argv)
 		DEVICE_OPTION,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
-		  .help="image file to display information for"},
+		  .help="image output file"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
