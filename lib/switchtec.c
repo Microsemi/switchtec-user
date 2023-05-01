@@ -1586,6 +1586,9 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	else
 		ret = read_mailbox_log_defs(log_def_file, &defs);
 
+	if (ret < 0)
+		return ret;
+
 	ret = append_log_header(fileno(parsed_log_file), sdk_version_log,
 				fw_version_log, 0);
 	if (ret < 0)
