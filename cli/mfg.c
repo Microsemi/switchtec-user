@@ -735,6 +735,7 @@ static int fw_transfer(int argc, char **argv)
 		const char *img_filename;
 		int assume_yes;
 		int force;
+		int no_progress_bar;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_MFG,
@@ -746,6 +747,8 @@ static int fw_transfer(int argc, char **argv)
 		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
 			"force interrupting an existing fw-update command "
 			"in case firmware is stuck in a busy state"},
+		{"no-progress", 'p', "", CFG_NONE, &cfg.no_progress_bar,
+			no_argument, "don't print progress to stdout"},
 		{NULL}
 	};
 
@@ -777,8 +780,12 @@ static int fw_transfer(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, 1, cfg.force,
-				      progress_update);
+	if (cfg.no_progress_bar)
+		ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, 1, cfg.force,
+					      NULL);
+	else
+		ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, 1, cfg.force,
+					      progress_update);
 	fclose(cfg.fimg);
 
 	if (ret) {
@@ -787,7 +794,7 @@ static int fw_transfer(int argc, char **argv)
 		return -3;
 	}
 
-	progress_finish(0);
+	progress_finish(cfg.no_progress_bar);
 	printf("\n");
 
 	return 0;
