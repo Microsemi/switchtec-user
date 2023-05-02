@@ -1227,10 +1227,11 @@ static int append_log_header(int fd, uint32_t sdk_version,
 		.fw_version = fw_version,
 		.sdk_version = sdk_version
 	};
-	char hdr_str_fmt[] = "#########################\n"
+	char hdr_str_fmt[] = "####################################\n"
+			     "## Parsed with definition file for\n"
 			     "## FW version %08x\n"
 			     "## SDK version %08x\n"
-			     "#########################\n\n";
+			     "####################################\n\n";
 	char hdr_str[512];
 
 	if (binary) {
