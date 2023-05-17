@@ -520,7 +520,7 @@ int switchtec_status(struct switchtec_dev *dev,
 	ret = switchtec_cmd(dev, MRPC_LNKSTAT, &port_bitmap, sizeof(port_bitmap),
 			    ports, sizeof(ports));
 	if (ret)
-		return ret;
+		return -1;
 
 
 	for (i = 0; i < max_ports; i++) {
