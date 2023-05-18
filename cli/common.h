@@ -54,7 +54,11 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 
 #define UART_HELP_TEXT " * a UART path (/dev/ttyUSB0)\n"
 
-#define DEVICE_OPTION_BASIC(extra_text, handler, type) \
+#define PCI_HELP_TEXT " * a device path (/dev/switchtec0)\n" \
+		       " * an index (0, 1, 2)\n" \
+		       " * a PCI address (3:00.1)\n" \
+
+#define DEVICE_OPTION_I2C(extra_text1, extra_text2, handler, type) \
 	{ \
 			"device", .cfg_type=CFG_CUSTOM, .value_addr=&cfg.dev, \
 			.argument_type=(type), \
@@ -62,18 +66,23 @@ enum switchtec_fw_type check_and_print_fw_image(int img_fd,
 			.complete="/dev/switchtec*", \
 			.env="SWITCHTEC_DEV", \
 			.help="Switchtec device to operate on. Can be any of:\n" \
-			" * a device path (/dev/switchtec0)\n" \
-			" * an index (0, 1, 2)\n" \
-			" * a PCI address (3:00.1)\n" \
+			extra_text1 \
 			" * an I2C path with slave address (/dev/i2c-1@0x20)\n" \
-			extra_text \
+			extra_text2 \
 	}
 
-#define DEVICE_OPTION_MFG DEVICE_OPTION_BASIC(, mfg_handler, \
+#define DEVICE_OPTION_BASIC DEVICE_OPTION_I2C(PCI_HELP_TEXT, "", mfg_handler, \
 					      required_positional)
 
+#define DEVICE_OPTION_MFG DEVICE_OPTION_I2C("", "", mfg_handler, \
+					    required_positional)
+
+#define DEVICE_OPTION_MFG_PCI DEVICE_OPTION_I2C(PCI_HELP_TEXT, "", mfg_handler, \
+						required_positional)
+
 #define __DEVICE_OPTION(type) \
-	DEVICE_OPTION_BASIC(UART_HELP_TEXT, switchtec_handler, (type)), \
+	DEVICE_OPTION_I2C(PCI_HELP_TEXT, UART_HELP_TEXT, switchtec_handler, \
+			  (type)), \
 	{ \
 			"pax", 'x', .cfg_type=CFG_CUSTOM, \
 			.value_addr=&cfg.dev, \

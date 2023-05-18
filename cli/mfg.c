@@ -73,7 +73,7 @@ static int ping(int argc, char **argv)
 		struct switchtec_dev *dev;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{NULL}
 	};
 
@@ -406,7 +406,7 @@ static int info(int argc, char **argv)
 	} cfg = {};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
 		 "print additional chip information"},
 		{NULL}};
@@ -478,7 +478,7 @@ static int mailbox(int argc, char **argv)
 		const char *out_filename;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="switchtec_mailbox.log",
@@ -900,7 +900,7 @@ static int state_set(int argc, char **argv)
 		.state = SWITCHTEC_SECURE_STATE_UNKNOWN,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"state", 't', "state",
 			CFG_CHOICES, &cfg.state,
 			required_argument, "secure state",
@@ -973,7 +973,7 @@ static int config_set(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"setting_file", .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.setting_fimg,
 			.argument_type=required_positional,
@@ -1092,7 +1092,7 @@ static int kmsk_entry_add(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"pub_key_file", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubk_fimg,
 			.argument_type=required_argument,
@@ -1240,7 +1240,7 @@ static int debug_unlock(int argc, char **argv)
 		.unlock_version = 0xffff,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubkey_fimg,
 			.argument_type=required_argument,
@@ -1335,7 +1335,7 @@ static int debug_lock_update(int argc, char **argv)
 		.unlock_version = 0xffff,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubkey_fimg,
 			.argument_type=required_argument,
@@ -1454,7 +1454,7 @@ static int debug_unlock_token(int argc, char **argv)
 		const char *out_filename;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"token_file", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="debug.tkn",
