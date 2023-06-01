@@ -1016,6 +1016,9 @@ static int config_set(int argc, char **argv)
 	} else if (ret == -ENODEV) {
 		fprintf(stderr, "The security setting file is for a different generation of Switchtec device!\n");
 		return -5;
+	} else if (ret == -EINVAL) {
+		fprintf(stderr, "Invalid SPI Clock Rate value specified in the security setting file!\n");
+		return -6;
 	} else if (ret) {
 		switchtec_perror("mfg config-set");
 	}
