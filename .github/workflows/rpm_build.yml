@@ -1,0 +1,80 @@
+name: RPM Build
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '*'
+      - '*/*'
+    tags:
+      - 'v*'
+
+jobs:
+  repo_version:
+    runs-on: ubuntu-latest
+    outputs:
+      version_output: ${{ steps.step1.outputs.version }}
+    steps:
+      - name: Verify context
+        run: |
+          echo "ref is ${{ github.ref }}"
+          echo "ref_type is ${{ github.ref_type }}"
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Get Version
+        id: step1
+        run: echo "version=$(./git-version-gen)" >> $GITHUB_OUTPUT
+
+  rpm_build:
+    runs-on: ubuntu-latest
+    needs: repo_version
+    container:
+      image: centos:8
+      env:
+        NODE_ENV: development
+      ports:
+        - 80
+      options: --cpus 1
+    steps:
+      # - name: "Build context"
+      #   env:
+      #     VERSION_OUTPUT: ${{ needs.repo_version.outputs.version_output }}
+      #   run: |
+      #     echo "ref is ${{ github.ref }}"
+      #     echo "ref_type is ${{ github.ref_type }}"
+      #     echo "head.sha is ${{ github.event.pull_request.head.sha }}"
+      #     echo "git-version-gen is $VERSION_OUTPUT"
+
+      # - name: checkout
+      #   uses: actions/checkout@v3
+      # - name: environment setup
+      #   env:
+      #     VERSION_OUTPUT: ${{ needs.repo_version.outputs.version_output }}
+      #   run: |
+      #     dnf -y --disablerepo '*' --enablerepo=extras swap centos-linux-repos centos-stream-repos
+      #     dnf -y distro-sync
+      #     dnf -y makecache --refresh
+      #     dnf install -y rpm-build rpmdevtools git make
+      #     rpmdev-setuptree
+      #     echo $VERSION_OUTPUT > .rpmversion
+      #     cat .rpmversion
+      #     tar -czf /github/home/rpmbuild/SOURCES/switchtec-@@VERSION@@-@@RELEASE@@.tar.gz --transform 's,^,switchtec-1.0/,' .
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: build rpms
+        # run: rpmbuild -ba switchtec.spec.in
+        id: rpm
+        uses: naveenrajm7/rpmbuild@master
+        with:
+          spec_file: switchtec.spec.in
+      - name: upload rpms
+        uses: actions/upload-artifact@v3
+        with:
+          name: switchtec-1.0-1.el8.x86_64.rpm
+          path: ${{ steps.rpm.outputs.rpm_dir_path }}
+      - name: upload srpms
+        uses: actions/upload-artifact@v3
+        with:
+          name: switchtec-1.0-1.el8.src.rpm
+          path: ${{ steps.rpm.outputs.source_rpm_path }}
