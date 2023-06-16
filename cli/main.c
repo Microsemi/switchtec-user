@@ -219,7 +219,7 @@ static int print_dev_info(struct switchtec_dev *dev)
 	return 0;
 }
 
-#define CMD_DESC_INFO "display switch information"
+#define CMD_DESC_INFO "display switch information (BL1, BL2, Main Firmware)"
 
 static int info(int argc, char **argv)
 {
@@ -1797,7 +1797,7 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	return 0;
 }
 
-#define CMD_DESC_FW_INFO "return information on the currently flashed firmware"
+#define CMD_DESC_FW_INFO "return information on the currently flashed firmware (BL2, Main Firmware)"
 
 static int fw_info(int argc, char **argv)
 {
@@ -1841,7 +1841,7 @@ static int fw_info(int argc, char **argv)
 	return 0;
 }
 
-#define CMD_DESC_FW_UPDATE "upload a new firmware image to flash"
+#define CMD_DESC_FW_UPDATE "upload a new firmware image to flash (BL2, Main Firmware)"
 
 static int fw_update(int argc, char **argv)
 {
@@ -1982,7 +1982,7 @@ set_boot_ro:
 	return ret;
 }
 
-#define CMD_DESC_FW_TOGGLE "toggle the active and inactive firmware partitions"
+#define CMD_DESC_FW_TOGGLE "toggle the active and inactive firmware partitions (BL2, Main Firmware)"
 
 static int fw_toggle(int argc, char **argv)
 {

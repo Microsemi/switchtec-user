@@ -284,7 +284,7 @@ static int pipe_to_hd_less(struct switchtec_dev *dev, gasptr_t map,
 
 #endif
 
-#define CMD_DESC_DUMP "dump all Global Address Space registers"
+#define CMD_DESC_DUMP "dump all Global Address Space registers (Main Firmware only)"
 
 static int gas_dump(int argc, char **argv)
 {
@@ -308,6 +308,11 @@ static int gas_dump(int argc, char **argv)
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_DUMP, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_FW) {
+		fprintf(stderr, "GAS is only available with Main Firmware!\n");
+		return -1;
+	}
 
 	map = switchtec_gas_map(cfg.dev, 0, &map_size);
 	if (map == SWITCHTEC_MAP_FAILED) {
@@ -443,7 +448,7 @@ static int (*print_funcs[])(struct switchtec_dev *dev, void __gas *addr,
 	[STR] = print_str,
 };
 
-#define CMD_DESC_READ "read a register from the Global Address Space"
+#define CMD_DESC_READ "read a register from the Global Address Space (Main Firmware only)"
 
 static int gas_read(int argc, char **argv)
 {
@@ -451,6 +456,9 @@ static int gas_read(int argc, char **argv)
 	size_t map_size;
 	int i;
 	int ret = 0;
+
+	const char *desc = CMD_DESC_READ "\n\n"
+			   "Note - GAS MRPC Region (0 ~ 0xfff) is inaccessible with the command";
 
 	struct argconfig_choice print_choices[] = {
 		{"hex", HEX, "print in hexadecimal"},
@@ -482,7 +490,18 @@ static int gas_read(int argc, char **argv)
 		 "printing style", .choices=print_choices},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_READ, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_FW) {
+		fprintf(stderr, "GAS is only available with Main Firmware!\n");
+		return -2;
+	}
+
+	if (cfg.addr < 0x1000) {
+		fprintf(stderr,
+			"GAS MRPC Region (0 ~ 0xfff) is inaccessible with the command!\n");
+		return -3;
+	}
 
 	map = switchtec_gas_map(cfg.dev, 0, &map_size);
 	if (map == SWITCHTEC_MAP_FAILED) {
@@ -508,13 +527,16 @@ static int gas_read(int argc, char **argv)
 	return ret;
 }
 
-#define CMD_DESC_WRITE "write a register in the Global Address Space"
+#define CMD_DESC_WRITE "write a register in the Global Address Space (Main Firmware only)"
 
 static int gas_write(int argc, char **argv)
 {
 	void __gas *map;
 	size_t map_size;
 	int ret = 0;
+
+	const char *desc = CMD_DESC_WRITE "\n\n"
+			   "Note - GAS MRPC Region (0 ~ 0xfff) is inaccessible with the command";
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -537,7 +559,18 @@ static int gas_write(int argc, char **argv)
 		 "assume yes when prompted"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_WRITE, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_FW) {
+		fprintf(stderr, "GAS is only available with Main Firmware!\n");
+		return -2;
+	}
+
+	if (cfg.addr < 0x1000) {
+		fprintf(stderr,
+			"GAS MRPC Region (0 ~ 0xfff) is inaccessible with the command!\n");
+		return -3;
+	}
 
 	map = switchtec_gas_map(cfg.dev, 1, &map_size);
 	if (map == SWITCHTEC_MAP_FAILED) {

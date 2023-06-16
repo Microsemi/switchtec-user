@@ -1244,6 +1244,13 @@ static int read_sec_cfg_file(struct switchtec_dev *dev,
 
 	spi_clk = (data.cfg >> SWITCHTEC_CLK_RATE_BITSHIFT) &
 		SWITCHTEC_CLK_RATE_BITMASK;
+
+	if (spi_clk == 0)
+		spi_clk = 7;
+
+	if (spi_clk > 10)
+		return -EINVAL;
+
 	if (reply.spi_core_clk_high)
 		set->spi_clk_rate = spi_clk_hi_rate_float[spi_clk - 1];
 	else
@@ -1313,6 +1320,13 @@ static int read_sec_cfg_file_gen5(struct switchtec_dev *dev,
 
 	spi_clk = (data.cfg >> SWITCHTEC_CLK_RATE_BITSHIFT) &
 		SWITCHTEC_CLK_RATE_BITMASK;
+
+	if (spi_clk == 0)
+		spi_clk = 9;
+
+	if (spi_clk > 10)
+		return -EINVAL;
+
 	if (reply.spi_core_clk_high)
 		set->spi_clk_rate = spi_clk_hi_rate_float[spi_clk - 1];
 	else
