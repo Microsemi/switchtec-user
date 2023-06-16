@@ -219,7 +219,7 @@ static int print_dev_info(struct switchtec_dev *dev)
 	return 0;
 }
 
-#define CMD_DESC_INFO "display switch information"
+#define CMD_DESC_INFO "display switch information (BL1, BL2, Main Firmware)"
 
 static int info(int argc, char **argv)
 {
@@ -1797,7 +1797,7 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	return 0;
 }
 
-#define CMD_DESC_FW_INFO "return information on the currently flashed firmware"
+#define CMD_DESC_FW_INFO "return information on the currently flashed firmware (BL2, Main Firmware)"
 
 static int fw_info(int argc, char **argv)
 {
@@ -1841,7 +1841,7 @@ static int fw_info(int argc, char **argv)
 	return 0;
 }
 
-#define CMD_DESC_FW_UPDATE "upload a new firmware image to flash"
+#define CMD_DESC_FW_UPDATE "upload a new firmware image to flash (BL2, Main Firmware)"
 
 static int fw_update(int argc, char **argv)
 {
@@ -1982,7 +1982,7 @@ set_boot_ro:
 	return ret;
 }
 
-#define CMD_DESC_FW_TOGGLE "toggle the active and inactive firmware partitions"
+#define CMD_DESC_FW_TOGGLE "toggle the active and inactive firmware partitions (BL2, Main Firmware)"
 
 static int fw_toggle(int argc, char **argv)
 {
@@ -2067,7 +2067,7 @@ static int fw_read(int argc, char **argv)
 		DEVICE_OPTION,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
-		  .help="image file to display information for"},
+		  .help="image output file"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
@@ -2154,6 +2154,8 @@ static int fw_read(int argc, char **argv)
 
 	if (ret < 0)
 		switchtec_perror("fw_read");
+	else
+		ret = 0;
 
 	fprintf(stderr, "\nFirmware read to %s.\n", cfg.out_filename);
 

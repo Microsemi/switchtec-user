@@ -520,7 +520,7 @@ int switchtec_status(struct switchtec_dev *dev,
 	ret = switchtec_cmd(dev, MRPC_LNKSTAT, &port_bitmap, sizeof(port_bitmap),
 			    ports, sizeof(ports));
 	if (ret)
-		return ret;
+		return -1;
 
 
 	for (i = 0; i < max_ports; i++) {
@@ -1227,10 +1227,11 @@ static int append_log_header(int fd, uint32_t sdk_version,
 		.fw_version = fw_version,
 		.sdk_version = sdk_version
 	};
-	char hdr_str_fmt[] = "#########################\n"
+	char hdr_str_fmt[] = "####################################\n"
+			     "## Parsed with definition file for\n"
 			     "## FW version %08x\n"
 			     "## SDK version %08x\n"
-			     "#########################\n\n";
+			     "####################################\n\n";
 	char hdr_str[512];
 
 	if (binary) {
@@ -1585,6 +1586,9 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		ret = read_app_log_defs(log_def_file, &defs);
 	else
 		ret = read_mailbox_log_defs(log_def_file, &defs);
+
+	if (ret < 0)
+		return ret;
 
 	ret = append_log_header(fileno(parsed_log_file), sdk_version_log,
 				fw_version_log, 0);

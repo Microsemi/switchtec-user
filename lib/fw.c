@@ -1394,6 +1394,7 @@ int switchtec_get_device_id_bl2(struct switchtec_dev *dev,
 	int ret;
 	uint8_t subcmd = MRPC_PART_INFO_GET_ALL_INFO;
 	struct switchtec_flash_info_gen4 all_info;
+	struct switchtec_flash_info_gen5 all_info_gen5;
 
 	if (dev->gen != SWITCHTEC_GEN_UNKNOWN)
 		return -EINVAL;
@@ -1401,12 +1402,18 @@ int switchtec_get_device_id_bl2(struct switchtec_dev *dev,
 	ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd,
 			    sizeof(subcmd), &all_info,
 			    sizeof(all_info));
-	if (ret)
-		return ret;
+	if (!ret) {
+		*device_id = le16toh(all_info.device_id);
+	} else if (ret == ERR_SUBCMD_INVALID) {
+		subcmd = MRPC_PART_INFO_GET_ALL_INFO_GEN5;
+		ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd,
+				    sizeof(subcmd), &all_info_gen5,
+				    sizeof(all_info_gen5));
+		if (!ret)
+			*device_id = le16toh(all_info_gen5.device_id);
+	}
 
-	*device_id = le16toh(all_info.device_id);
-
-	return 0;
+	return ret;
 }
 
 static long multicfg_subcmd(struct switchtec_dev *dev, uint32_t subcmd,

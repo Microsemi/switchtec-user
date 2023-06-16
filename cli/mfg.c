@@ -73,7 +73,7 @@ static int ping(int argc, char **argv)
 		struct switchtec_dev *dev;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{NULL}
 	};
 
@@ -406,7 +406,7 @@ static int info(int argc, char **argv)
 	} cfg = {};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
 		 "print additional chip information"},
 		{NULL}};
@@ -478,7 +478,7 @@ static int mailbox(int argc, char **argv)
 		const char *out_filename;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="switchtec_mailbox.log",
@@ -735,6 +735,7 @@ static int fw_transfer(int argc, char **argv)
 		const char *img_filename;
 		int assume_yes;
 		int force;
+		int no_progress_bar;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_MFG,
@@ -746,6 +747,8 @@ static int fw_transfer(int argc, char **argv)
 		{"force", 'f', "", CFG_NONE, &cfg.force, no_argument,
 			"force interrupting an existing fw-update command "
 			"in case firmware is stuck in a busy state"},
+		{"no-progress", 'p', "", CFG_NONE, &cfg.no_progress_bar,
+			no_argument, "don't print progress to stdout"},
 		{NULL}
 	};
 
@@ -777,8 +780,12 @@ static int fw_transfer(int argc, char **argv)
 	}
 
 	progress_start();
-	ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, 1, cfg.force,
-				      progress_update);
+	if (cfg.no_progress_bar)
+		ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, 1, cfg.force,
+					      NULL);
+	else
+		ret = switchtec_fw_write_file(cfg.dev, cfg.fimg, 1, cfg.force,
+					      progress_update);
 	fclose(cfg.fimg);
 
 	if (ret) {
@@ -787,7 +794,7 @@ static int fw_transfer(int argc, char **argv)
 		return -3;
 	}
 
-	progress_finish(0);
+	progress_finish(cfg.no_progress_bar);
 	printf("\n");
 
 	return 0;
@@ -893,7 +900,7 @@ static int state_set(int argc, char **argv)
 		.state = SWITCHTEC_SECURE_STATE_UNKNOWN,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"state", 't', "state",
 			CFG_CHOICES, &cfg.state,
 			required_argument, "secure state",
@@ -966,7 +973,7 @@ static int config_set(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"setting_file", .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.setting_fimg,
 			.argument_type=required_positional,
@@ -1009,6 +1016,9 @@ static int config_set(int argc, char **argv)
 	} else if (ret == -ENODEV) {
 		fprintf(stderr, "The security setting file is for a different generation of Switchtec device!\n");
 		return -5;
+	} else if (ret == -EINVAL) {
+		fprintf(stderr, "Invalid SPI Clock Rate value specified in the security setting file!\n");
+		return -6;
 	} else if (ret) {
 		switchtec_perror("mfg config-set");
 	}
@@ -1085,7 +1095,7 @@ static int kmsk_entry_add(int argc, char **argv)
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"pub_key_file", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubk_fimg,
 			.argument_type=required_argument,
@@ -1233,7 +1243,7 @@ static int debug_unlock(int argc, char **argv)
 		.unlock_version = 0xffff,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubkey_fimg,
 			.argument_type=required_argument,
@@ -1328,7 +1338,7 @@ static int debug_lock_update(int argc, char **argv)
 		.unlock_version = 0xffff,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.pubkey_fimg,
 			.argument_type=required_argument,
@@ -1447,7 +1457,7 @@ static int debug_unlock_token(int argc, char **argv)
 		const char *out_filename;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_MFG,
+		DEVICE_OPTION_MFG_PCI,
 		{"token_file", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="debug.tkn",
