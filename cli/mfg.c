@@ -964,6 +964,11 @@ static int config_set(int argc, char **argv)
 	struct switchtec_security_cfg_set settings = {};
 	struct switchtec_uds uds_data = {};
 
+	const char *desc = CMD_DESC_CONFIG_SET "\n\n"
+			   "The security settings programmed with this command "
+			   "will not take effect until the chip is set to either "
+			   "INITIALIZED_UNSECURED or INITIALIZED_SECURED state.";
+
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *setting_fimg;
@@ -987,7 +992,7 @@ static int config_set(int argc, char **argv)
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, CMD_DESC_CONFIG_SET, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
