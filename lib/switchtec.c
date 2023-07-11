@@ -207,6 +207,7 @@ static int set_gen_variant(struct switchtec_dev * dev)
 		id++;
 	}
 
+	dev->pax_id = SWITCHTEC_PAX_ID_LOCAL;
 	ret = switchtec_get_device_info(dev, &dev->boot_phase, &dev->gen, NULL);
 	if (ret)
 		return -1;
