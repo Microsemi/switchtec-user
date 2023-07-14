@@ -1505,9 +1505,9 @@ static const struct cmd commands[] = {
 	CMD(state_set, CMD_DESC_STATE_SET),
 	CMD(config_set, CMD_DESC_CONFIG_SET),
 	CMD(kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD),
+	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
 	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
 	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
-	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
 	{}
 };
 
