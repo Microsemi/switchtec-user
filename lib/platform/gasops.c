@@ -61,8 +61,13 @@ static const struct no_retry_struct gasop_noretry_cmds[] = {
 	[MRPC_SECURE_STATE_SET] = {1, 0, NULL},
 	[MRPC_BOOTUP_RESUME] = {1, 0, NULL},
 	[MRPC_DBG_UNLOCK] = {1, 0, NULL},
-	[MRPC_SECURITY_CONFIG_SET_GEN5] = {1, 0, NULL},
 	[MRPC_FW_TX] = {1, 1, fw_toggle_noretry_subcmds},
+	[MRPC_SECURITY_CONFIG_SET_GEN5] = {1, 0, NULL},
+	[MRPC_KMSK_ENTRY_SET_GEN5] = {1, 0, NULL},
+	[MRPC_SECURE_STATE_SET_GEN5] = {1, 0, NULL},
+	[MRPC_BOOTUP_RESUME_GEN5] = {1, 0, NULL},
+	[MRPC_DBG_UNLOCK_GEN5] = {1, 0, NULL},
+	[MRPC_FW_TX_GEN5] = {1, 1, fw_toggle_noretry_subcmds},
 };
 static const int gasop_noretry_cmds_count = sizeof(gasop_noretry_cmds) /
 					    sizeof(struct no_retry_struct);
