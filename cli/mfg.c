@@ -964,6 +964,11 @@ static int config_set(int argc, char **argv)
 	struct switchtec_security_cfg_set settings = {};
 	struct switchtec_uds uds_data = {};
 
+	const char *desc = CMD_DESC_CONFIG_SET "\n\n"
+			   "The security settings programmed with this command "
+			   "will not take effect until the chip is set to either "
+			   "INITIALIZED_UNSECURED or INITIALIZED_SECURED state.";
+
 	static struct {
 		struct switchtec_dev *dev;
 		FILE *setting_fimg;
@@ -987,7 +992,7 @@ static int config_set(int argc, char **argv)
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, CMD_DESC_CONFIG_SET, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
 	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2) {
 		fprintf(stderr,
@@ -1434,7 +1439,11 @@ static int no_openssl(int argc, char **argv)
 
 #endif
 
-#define CMD_DESC_DEBUG_TOKEN "generate debug unlock token file for the device"
+
+#define TOKEN_RESOURCE_UNLOCK 0
+#define TOKEN_VERSION_UPDATE 1
+
+#define CMD_DESC_DEBUG_TOKEN "generate device token file for signature"
 static int debug_unlock_token(int argc, char **argv)
 {
 	int ret;
@@ -1449,15 +1458,33 @@ static int debug_unlock_token(int argc, char **argv)
 	const char *desc = CMD_DESC_DEBUG_TOKEN "\n\n"
 			   "Use the generated token file on your security "
 			   "management system to generate the signature file "
-			   "required for command 'mfg debug-unlock'";
+			   "required for either command 'mfg debug-unlock' or "
+			   "'mfg debug-lock-update' ";
+
+	const struct argconfig_choice type[] = {
+		{"RESOURCE_UNLOCK", TOKEN_RESOURCE_UNLOCK,
+		 "Generate token for signature file required for command 'mfg debug-unlock' (default)"},
+		{"UNLOCK_VERSION_UPDATE", TOKEN_VERSION_UPDATE,
+		 "Generate token for signature file required for command 'mfg debug-lock-update'"},
+		{}
+	};
 
 	struct {
 		struct switchtec_dev *dev;
 		int out_fd;
 		const char *out_filename;
-	} cfg = {};
+		int unlock;
+		int update;
+		int type;
+	} cfg = {
+		.type = TOKEN_RESOURCE_UNLOCK,
+	};
+
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_MFG_PCI,
+		{"type", 't', "TYPE", CFG_CHOICES, &cfg.type,
+		  required_argument,
+		 "output token file type", .choices=type},
 		{"token_file", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="debug.tkn",
@@ -1472,9 +1499,15 @@ static int debug_unlock_token(int argc, char **argv)
 		return ret;
 	}
 
-	token.id = htole32(1);
 	token.serial = htole32(sn_info.chip_serial);
-	token.version = htole32(sn_info.ver_sec_unlock);
+
+	if (cfg.type == TOKEN_RESOURCE_UNLOCK) {
+		token.id = htole32(1);
+		token.version = htole32(sn_info.ver_sec_unlock);
+	} else {
+		token.id = htole32(2);
+		token.version = htole32(sn_info.ver_sec_unlock) + 1;
+	}
 
 	ret = write(cfg.out_fd, &token, sizeof(token));
 	if(ret <= 0) {
@@ -1500,9 +1533,9 @@ static const struct cmd commands[] = {
 	CMD(state_set, CMD_DESC_STATE_SET),
 	CMD(config_set, CMD_DESC_CONFIG_SET),
 	CMD(kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD),
+	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
 	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
 	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
-	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
 	{}
 };
 
