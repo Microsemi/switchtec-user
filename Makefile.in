@@ -29,11 +29,11 @@
 OBJDIR ?= build
 
 DESTDIR ?=
-PREFIX ?= /usr/local
+PREFIX ?= /usr
 RPMBUILD ?= rpmbuild
 
 BINDIR ?= $(DESTDIR)$(PREFIX)/bin
-LIBDIR ?= $(DESTDIR)$(PREFIX)/lib
+LIBDIR ?= $(DESTDIR)$(PREFIX)/lib64
 INCDIR ?= $(DESTDIR)$(PREFIX)/include
 SYSCONFDIR ?= $(DESTDIR)/etc
 
