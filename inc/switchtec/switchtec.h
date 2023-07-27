@@ -243,6 +243,7 @@ enum switchtec_fw_type {
 	SWITCHTEC_FW_TYPE_SEEPROM,
 	SWITCHTEC_FW_TYPE_KEY,
 	SWITCHTEC_FW_TYPE_BL2,
+	SWITCHTEC_FW_TYPE_RIOT,
 };
 
 /**
@@ -274,7 +275,7 @@ struct switchtec_fw_image_info {
 struct switchtec_fw_part_summary {
 	struct switchtec_fw_part_type {
 		struct switchtec_fw_image_info *active, *inactive;
-	} boot, map, img, cfg, nvlog, seeprom, key, bl2;
+	} boot, map, img, cfg, nvlog, seeprom, key, bl2, riot;
 
 	struct switchtec_fw_image_info *mult_cfg;
 
@@ -610,6 +611,24 @@ static inline const char *switchtec_variant_str(struct switchtec_dev *dev)
 	return str;
 }
 
+/**
+ * @brief Return the phase string for a phase id.
+ */
+static inline const char* switchtec_phase_id_str(
+		enum switchtec_boot_phase phase_id)
+{
+	switch(phase_id) {
+	case SWITCHTEC_BOOT_PHASE_BL1:
+		return "BL1";
+	case SWITCHTEC_BOOT_PHASE_BL2:
+		return "BL2";
+	case SWITCHTEC_BOOT_PHASE_FW:
+		return "Main Firmware";
+	default:
+		return "Unknown Phase";
+	}
+}
+
 /** @brief Number of GT/s capable for each PCI generation or \p link_rate */
 static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16, 32};
 /** @brief Number of GB/s capable for each PCI generation or \p link_rate */
@@ -835,6 +854,8 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 		      size_t len, void *buf);
 void switchtec_fw_perror(const char *s, int ret);
 int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info);
+int switchtec_get_device_id_bl2(struct switchtec_dev *dev,
+				unsigned short *device_id);
 int switchtec_fw_file_secure_version_newer(struct switchtec_dev *dev,
 					   int img_fd);
 const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);

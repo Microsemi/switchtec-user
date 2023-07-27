@@ -134,7 +134,7 @@ static void draw_status(WINDOW *win, int x_off, int x_cnt, const char *status)
 	mvwprintw(win, 0, 0, "     ");
 	for (i = 0; i < x_cnt * 2 + x_off; i++)
 		mvwaddch(win, 1, i, ' ');
-	mvwprintw(win, 1, x_off, status);
+	mvwprintw(win, 1, x_off, "%s", status);
 	wrefresh(win);
 }
 
