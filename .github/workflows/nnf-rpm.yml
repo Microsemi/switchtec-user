@@ -82,8 +82,6 @@ jobs:
           cp $HOME/rpmbuild/RPMS/x86_64/switchtec-*.rpm /tmp/artifacts
           rm /tmp/artifacts/switchtec-debug*
           /bin/ls -al /tmp/artifacts
-          mkdir /tmp/artifacts_x86_64
-          cp /tmp/artifacts/switchtec-*x86_64.rpm /tmp/artifacts_x86_64
       - name: lint the rpm files
         run: rpmlint /tmp/artifacts/*.rpm
 
@@ -95,7 +93,7 @@ jobs:
           name: switchtec-${{ env.versionDashed }}
           if-no-files-found: error
           retention-days: 5
-          path: /tmp/artifacts_x86_64/switchtec*
+          path: /tmp/artifacts/*
 
       - name: apply tag for release
         # If we don't tag it, then GitHub will report an error when we try
