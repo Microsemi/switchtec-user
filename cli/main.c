@@ -189,33 +189,37 @@ static int print_dev_info(struct switchtec_dev *dev)
 	int ret;
 	int device_id;
 	char version[64];
+	enum switchtec_boot_phase phase;
 	enum switchtec_rev hw_rev;
 
 	device_id = switchtec_device_id(dev);
 
 	ret = switchtec_get_fw_version(dev, version, sizeof(version));
-	if (ret < 0) {
-		switchtec_perror("dev info");
-		return ret;
-	}
+	if (ret < 0)
+		strcpy(version, "N/A");
 
-	ret = switchtec_get_device_info(dev, NULL, NULL, &hw_rev);
+	ret = switchtec_get_device_info(dev, &phase, NULL, &hw_rev);
 	if (ret) {
 		switchtec_perror("dev info");
 		return ret;
 	}
 
-	printf("%s:\n", switchtec_name(dev));
+	printf("%s (%s):\n", switchtec_name(dev),
+	       switchtec_phase_id_str(phase));
 	printf("    Generation:  %s\n", switchtec_gen_str(dev));
 	printf("    HW Revision: %s\n", switchtec_rev_str(hw_rev));
-	printf("    Variant:     %s\n", switchtec_variant_str(dev));
-	printf("    Device ID:   0x%04x\n", device_id);
+	printf("    Variant:     %s\n",
+	       device_id ? switchtec_variant_str(dev) : "N/A");
+	if (device_id)
+		printf("    Device ID:   0x%04x\n", device_id);
+	else
+		printf("    Device ID:   %s\n", "N/A");
 	printf("    FW Version:  %s\n", version);
 
 	return 0;
 }
 
-#define CMD_DESC_INFO "display switch information"
+#define CMD_DESC_INFO "display switch information (BL1, BL2, Main Firmware)"
 
 static int info(int argc, char **argv)
 {
@@ -1786,14 +1790,14 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	print_fw_part_line("CFG", sum->cfg.inactive);
 
 	printf("Other Partitions:\n");
-	print_fw_part_line("SEEPROM", sum->seeprom.active);
+	print_fw_part_line("SEE", sum->seeprom.active);
 
 	switchtec_fw_part_summary_free(sum);
 
 	return 0;
 }
 
-#define CMD_DESC_FW_INFO "return information on the currently flashed firmware"
+#define CMD_DESC_FW_INFO "return information on the currently flashed firmware (BL2, Main Firmware)"
 
 static int fw_info(int argc, char **argv)
 {
@@ -1837,7 +1841,7 @@ static int fw_info(int argc, char **argv)
 	return 0;
 }
 
-#define CMD_DESC_FW_UPDATE "upload a new firmware image to flash"
+#define CMD_DESC_FW_UPDATE "upload a new firmware image to flash (BL2, Main Firmware)"
 
 static int fw_update(int argc, char **argv)
 {
@@ -1978,7 +1982,7 @@ set_boot_ro:
 	return ret;
 }
 
-#define CMD_DESC_FW_TOGGLE "toggle the active and inactive firmware partitions"
+#define CMD_DESC_FW_TOGGLE "toggle the active and inactive firmware partitions (BL2, Main Firmware)"
 
 static int fw_toggle(int argc, char **argv)
 {
@@ -2063,7 +2067,7 @@ static int fw_read(int argc, char **argv)
 		DEVICE_OPTION,
 		{"filename", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
-		  .help="image file to display information for"},
+		  .help="image output file"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{"inactive", 'i', "", CFG_NONE, &cfg.inactive, no_argument,
@@ -2150,6 +2154,8 @@ static int fw_read(int argc, char **argv)
 
 	if (ret < 0)
 		switchtec_perror("fw_read");
+	else
+		ret = 0;
 
 	fprintf(stderr, "\nFirmware read to %s.\n", cfg.out_filename);
 

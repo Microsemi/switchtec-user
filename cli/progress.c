@@ -77,7 +77,7 @@ static void timeval_subtract(struct timeval *result,
 
 static void print_bar(int cur, int total)
 {
-	int bar_width;
+	long long bar_width;
 	int i;
 	float progress = cur * 100.0 / total;
 	int pos;

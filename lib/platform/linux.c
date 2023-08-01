@@ -829,6 +829,9 @@ static void event_summary_copy(struct switchtec_event_summary *dst,
 
 	for (i = 0; i < SWITCHTEC_MAX_PFF_CSR && i < size; i++)
 		dst->pff[i] = src->pff[i];
+
+	for (; i < SWITCHTEC_MAX_PFF_CSR; i++)
+		dst->pff[i] = 0;
 }
 
 #define EV(t, n)[SWITCHTEC_ ## t ## _EVT_ ## n] = \

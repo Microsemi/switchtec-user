@@ -1,11 +1,11 @@
 #define AppVersionStr GetFileProductVersion("x86_64-w64-mingw32/switchtec.exe")
-#define AppVersion GetFileVersion("x86_64-w64-mingw32/switchtec.exe")
+#define AppVersion GetVersionNumbersString("x86_64-w64-mingw32/switchtec.exe")
 
 [Setup]
 AppName=Switchtec Management CLI
 AppVersion={#AppVersionStr}
 VersionInfoVersion={#AppVersion}
-DefaultDirName={pf}\Switchtec
+DefaultDirName={commonpf}\Switchtec
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64

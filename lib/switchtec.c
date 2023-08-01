@@ -162,18 +162,24 @@ static const struct switchtec_device_id switchtec_device_id_tbl[] = {
 	{0x5252, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 52XG5
 	{0x5236, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 36XG5
 	{0x5228, SWITCHTEC_GEN5, SWITCHTEC_PAX},   //PAX 28XG5
-	{0x5300, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 100XG5
-	{0x5384, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 84XG5
-	{0x5368, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 68XG5
-	{0x5352, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 52XG5
-	{0x5336, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 36XG5
-	{0x5328, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 28XG5
-	{0x5400, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 100XG5
-	{0x5484, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 84XG5
-	{0x5468, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 68XG5
-	{0x5452, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 52XG5
-	{0x5436, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 36XG5
-	{0x5428, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 28XG5
+	{0x5300, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 100XG5
+	{0x5384, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 84XG5
+	{0x5368, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 68XG5
+	{0x5352, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 52XG5
+	{0x5336, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 36XG5
+	{0x5328, SWITCHTEC_GEN5, SWITCHTEC_PFXA},  //PFX-A 28XG5
+	{0x5400, SWITCHTEC_GEN5, SWITCHTEC_PSXA},  //PSX-A 100XG5
+	{0x5484, SWITCHTEC_GEN5, SWITCHTEC_PSXA},  //PSX-A 84XG5
+	{0x5468, SWITCHTEC_GEN5, SWITCHTEC_PSXA},  //PSX-A 68XG5
+	{0x5452, SWITCHTEC_GEN5, SWITCHTEC_PSXA},  //PSX-A 52XG5
+	{0x5436, SWITCHTEC_GEN5, SWITCHTEC_PSXA},  //PSX-A 36XG5
+	{0x5428, SWITCHTEC_GEN5, SWITCHTEC_PSXA},  //PSX-A 28XG5
+	{0x5500, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 100XG5
+	{0x5584, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 84XG5
+	{0x5568, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 68XG5
+	{0x5552, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 52XG5
+	{0x5536, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 36XG5
+	{0x5528, SWITCHTEC_GEN5, SWITCHTEC_PAXA},  //PAX-A 28XG5
 	{0},
 };
 
@@ -186,18 +192,22 @@ static int set_gen_variant(struct switchtec_dev * dev)
 	dev->gen = SWITCHTEC_GEN_UNKNOWN;
 	dev->var = SWITCHTEC_VAR_UNKNOWN;
 	dev->device_id = dev->ops->get_device_id(dev);
+	if (!dev->device_id)
+		switchtec_get_device_id_bl2(dev,
+					    (unsigned short *)&dev->device_id);
 
 	while (id->device_id) {
 		if (id->device_id == dev->device_id) {
 			dev->gen = id->gen;
 			dev->var = id->var;
 
-			return 0;
+			break;
 		}
 
 		id++;
 	}
 
+	dev->pax_id = SWITCHTEC_PAX_ID_LOCAL;
 	ret = switchtec_get_device_info(dev, &dev->boot_phase, &dev->gen, NULL);
 	if (ret)
 		return -1;
@@ -517,7 +527,7 @@ int switchtec_status(struct switchtec_dev *dev,
 	ret = switchtec_cmd(dev, MRPC_LNKSTAT, &port_bitmap, sizeof(port_bitmap),
 			    ports, sizeof(ports));
 	if (ret)
-		return ret;
+		return -1;
 
 
 	for (i = 0; i < max_ports; i++) {
@@ -1224,10 +1234,11 @@ static int append_log_header(int fd, uint32_t sdk_version,
 		.fw_version = fw_version,
 		.sdk_version = sdk_version
 	};
-	char hdr_str_fmt[] = "#########################\n"
+	char hdr_str_fmt[] = "####################################\n"
+			     "## Parsed with definition file for\n"
 			     "## FW version %08x\n"
 			     "## SDK version %08x\n"
-			     "#########################\n\n";
+			     "####################################\n\n";
 	char hdr_str[512];
 
 	if (binary) {
@@ -1582,6 +1593,9 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		ret = read_app_log_defs(log_def_file, &defs);
 	else
 		ret = read_mailbox_log_defs(log_def_file, &defs);
+
+	if (ret < 0)
+		return ret;
 
 	ret = append_log_header(fileno(parsed_log_file), sdk_version_log,
 				fw_version_log, 0);

@@ -24,12 +24,12 @@
 ##
 ########################################################################
 
-# This script creates a windows installer package. It requires innosetup to
+# This script creates a windows installer package. It requires innosetup 6 to
 # be installed
 
 set -e
 
-export PATH="$PATH:/c/Program Files (x86)/Inno Setup 5"
+export PATH="$PATH:/c/Program Files (x86)/Inno Setup 6"
 
 function build()
 {
