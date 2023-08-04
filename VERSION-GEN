@@ -53,7 +53,24 @@ fi
 VN=$(expr "$VN" : v*'\(.*\)')
 MVN=$(expr "$VN" : v*'\([0-9.]*\)')
 RVN=$(expr "$VN" : v*'[0-9.]*\-\(.*\)')
-test -n "$RVN" && RDVN=0.$(echo "$RVN" | sed -e 's/-/./g') || RDVN="1"
+
+# Add a "0." prefix to the release ID, but don't allow it to be doubled-up when
+# this script is called multiple times during a build.
+if [[ -n $RVN && $RVN =~ ^0 ]]
+then
+    RDVN=$(echo "$RVN" | sed -e 's/-/./g')
+elif [[ -n $RVN ]]
+then
+    RDVN=0.$(echo "$RVN" | sed -e 's/-/./g')
+else
+    RDVN="1"
+fi
+
+# Convert a 'git describe' version to something that makes rpm versioning
+# happy:
+#    4.2-rc1-26-ge1dc405 => 4.2-0~rc1_26HPE
+#    0.5.17.g8e16 => 0.5-0~17HPE
+HPE_RDVN=$(echo "0~$RVN" | sed -e 's/\([0-9][0-9]*\)\-g.*$/\1HPE/' -e 's/\-/_/g')
 
 VN_RE='^([0-9]+)\.([0-9]+)(.([0-9]+))?(-rc[0-9]+)?(-([0-9]+)-g([A-Za-z0-9]+))?'
 if [[ $VN =~ $VN_RE ]]; then
@@ -95,7 +112,8 @@ if test -d $OBJDIR; then
 		echo "VERSION=$MVN" >$MVF
 		echo "FULL_VERSION=$VN" >>$MVF
 		echo "MAJOR_VER=$MAJOR" >>$MVF
-		echo "RELEASE=$RDVN" >>$MVF
+		echo "RELEASE_ORIG=$RDVN" >>$MVF
+		echo "RELEASE=$HPE_RDVN" >>$MVF
 	}
 fi
 
