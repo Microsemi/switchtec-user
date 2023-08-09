@@ -63,7 +63,9 @@ HPE_VN_1=$(echo "$RVN" | sed -e 's/\([0-9][0-9]*\)\-g.*$/\1HPE/' -e 's/\-/_/g')
 if [[ -n $HPE_VN_1 && ! $HPE_VN_1 =~ ^_ ]]
 then
     HPE_TAG="$MVN-${HPE_VN_1}"
-    HPE_VN="$MVN~${HPE_VN_1}"
+    sep="_"
+    [[ $HPE_VN_1 =~ ^[A-Za-z] ]] && sep="~"
+    HPE_VN="$MVN$sep${HPE_VN_1}"
 else
     HPE_TAG="$HPE_VN_1"
     HPE_VN="$MVN${HPE_VN_1}"
