@@ -104,7 +104,7 @@ distclean: clean
 	$(Q)rm -rf config.log config.status *.lib *.exe *.so *.dll build* \
 		Makefile autom4te.cache *.tar* switchtec.spec
 
-$(OBJDIR)/version.h $(OBJDIR)/version.mk: FORCE $(OBJDIR)
+$(OBJDIR)/version.h $(OBJDIR)/version.mk: | $(OBJDIR)
 	@$(SHELL_PATH) ./VERSION-GEN
 -include $(OBJDIR)/version.mk
 
@@ -195,7 +195,7 @@ doc:
 	make -C doc
 
 .PHONY: clean compile install unintsall install-bin install-bash-completion doc
-.PHONY: FORCE dist rpm
+.PHONY: dist rpm
 
 
 -include $(patsubst %.o,%.d,$(LIB_OBJS) $(CLI_OBJS))

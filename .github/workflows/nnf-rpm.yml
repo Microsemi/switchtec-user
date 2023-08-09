@@ -48,9 +48,26 @@ jobs:
         # file when we do this.)
         run: |
           rm -f version
+          mkdir build # so VERSION-GEN writes the version.mk file
           ./VERSION-GEN
-          awk '{print $3}' doc/version | sed -e 's/"//g;' -e 's/\-dirty$//' > version
+          echo "--- version.h begin"
+          cat build/version.h
+          echo "--- version.h end"
+          echo "--- version.mk begin"
+          cat build/version.mk
+          echo "--- version.mk end"
+          echo "--- doc/version begin"
+          cat doc/version
+          echo "--- doc/version end"
+
+          grep -E '^VERSION=' build/version.mk | awk -F= '{print $2}' > version
+
+          echo "release_tag=$(grep -E '^RELEASE_TAG=' build/version.mk | awk -F= '{print $2}')" >> $GITHUB_ENV
+          rm -rf build
+
+          echo "--- version begin"
           cat version
+          echo "--- version end"
           echo "versionDotted=$(<version)" >> $GITHUB_ENV
           echo "versionDashed=$(sed 's/\./-/g' version)" >> $GITHUB_ENV
 
@@ -101,7 +118,7 @@ jobs:
         if: startsWith(github.ref, env.STARTS_WITH_RELEASES)
         uses: tvdias/github-tagger@v0.0.1
         with:
-          tag: ${{ env.versionDotted }}
+          tag: ${{ env.release_tag }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: upload the release assets
         # These can be found by going to the repo's "Releases" page.
@@ -109,7 +126,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           name: ${{ env.versionDotted }}
-          tag_name: ${{ env.versionDotted }}
+          tag_name: ${{ env.release_tag }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: /tmp/artifacts/*
