@@ -1151,13 +1151,9 @@ static int kmsk_entry_add(int argc, char **argv)
 	}
 
 	if (switchtec_security_state_has_kmsk(&state, &kmsk)) {
-		if (!cfg.assume_yes)
-			fprintf(stderr,
-				"WARNING: the specified KMSK entry already exists on the device.\n"
-				"Writing duplicate KMSK entries could make your device unbootable!\n");
-		ret = ask_if_sure(cfg.assume_yes);
-		if (ret)
-			return ret;
+		fprintf(stderr,
+			"REJECTED: the specified KMSK entry already exists on the device!\n");
+		return -8;
 	}
 
 	if (state.secure_state == SWITCHTEC_INITIALIZED_SECURED &&
