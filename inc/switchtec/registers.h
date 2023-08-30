@@ -39,6 +39,7 @@
 #define SWITCHTEC_EVENT_EN_CLI   BIT(2)
 #define SWITCHTEC_EVENT_EN_IRQ   BIT(3)
 #define SWITCHTEC_EVENT_FATAL    BIT(4)
+#define SWITCHTEC_EVENT_NOT_SUPP BIT(31)
 
 #ifdef MSVC
 #pragma warning(disable: 4201)

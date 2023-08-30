@@ -468,6 +468,11 @@ static int event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
 	}
 
 	hdr = __gas_read32(dev, reg);
+	if (hdr & SWITCHTEC_EVENT_NOT_SUPP) {
+		errno = ENOTSUP;
+		return -errno;
+	}
+
 	if (data)
 		for (i = 0; i < 5; i++)
 			data[i] = __gas_read32(dev, &reg[i + 1]);
@@ -518,7 +523,7 @@ int gasop_event_ctl(struct switchtec_dev *dev, enum switchtec_event_id e,
 
 		for (index = 0; index < nr_idxs; index++) {
 			ret = event_ctl(dev, e, index, flags, data);
-			if (ret < 0)
+			if (ret < 0 && ret != -ENOTSUP)
 				return ret;
 		}
 	} else {
