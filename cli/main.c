@@ -796,9 +796,6 @@ static int get_events(struct switchtec_dev *dev,
 			break;
 		}
 
-		if (!show_all && e->partition != local_part)
-			continue;
-
 		if (clear_all || event_id & (1 << e->eid))
 			flags = SWITCHTEC_EVT_FLAG_CLEAR;
 		else
@@ -809,6 +806,9 @@ static int get_events(struct switchtec_dev *dev,
 			perror("event_ctl");
 			return -1;
 		}
+
+		if (!show_all && e->partition != local_part)
+			continue;
 
 		e->count = ret;
 		e++;
