@@ -975,6 +975,7 @@ static int config_set(int argc, char **argv)
 		char *setting_file;
 		FILE *uds_fimg;
 		char *uds_file;
+		int show_only;
 		int assume_yes;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
@@ -987,6 +988,8 @@ static int config_set(int argc, char **argv)
 			.value_addr=&cfg.uds_fimg,
 			.argument_type=required_argument,
 			.help="UDS file"},
+		{"show-settings-only", 's', "", CFG_NONE, &cfg.show_only, no_argument,
+			"Show secure settings without programming"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{NULL}
@@ -1054,8 +1057,14 @@ static int config_set(int argc, char **argv)
 		}
 	}
 
-	printf("Writing the below settings to device: \n");
+	if (cfg.show_only)
+		printf("Secure settings for device: \n");
+	else
+		printf("Writing the below settings to device: \n");
 	print_security_cfg_set(&settings);
+
+	if (cfg.show_only)
+		return 0;
 
 	if (!cfg.assume_yes)
 		fprintf(stderr,
@@ -1151,13 +1160,9 @@ static int kmsk_entry_add(int argc, char **argv)
 	}
 
 	if (switchtec_security_state_has_kmsk(&state, &kmsk)) {
-		if (!cfg.assume_yes)
-			fprintf(stderr,
-				"WARNING: the specified KMSK entry already exists on the device.\n"
-				"Writing duplicate KMSK entries could make your device unbootable!\n");
-		ret = ask_if_sure(cfg.assume_yes);
-		if (ret)
-			return ret;
+		fprintf(stderr,
+			"REJECTED: the specified KMSK entry already exists on the device!\n");
+		return -8;
 	}
 
 	if (state.secure_state == SWITCHTEC_INITIALIZED_SECURED &&
