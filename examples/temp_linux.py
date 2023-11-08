@@ -42,12 +42,47 @@ MRPC_DIETEMP = 4
 MRPC_DIETEMP_SET_MEAS = 1
 MRPC_DIETEMP_GET = 2
 
+MRPC_PING = 256
+
+GEN3 = 3
+GEN4 = 4
+GEN5 = 5
+GEN_UNKNOWN = 0
+
 class SwitchtecError(Exception):
     pass
 
 class Switchtec(object):
     def __init__(self, devpath):
         self.fd = os.open(devpath, os.O_RDWR)
+        self.gen = self.get_dev_gen()
+
+    def map_to_gen(self, gen):
+        if gen == 0:
+            return GEN4
+        if gen == 1:
+            return GEN5
+
+        return GEN_UNKNOWN
+
+    def get_dev_gen(self):
+
+        number = int(time.time())
+        indata = struct.pack("<L", number)
+
+        try:
+            outdata = self.cmd(MRPC_PING, indata, struct.calcsize("<LL"))
+        except:
+            return GEN3
+
+        dev_info, o_number = struct.unpack("<LL", outdata)
+
+        if o_number != ~number & 0xFFFFFFFF:
+            raise CommandError("Echo data did not match: {:x} != ~{:x}".
+                                format(number, o_number))
+
+        gen = (dev_info >> 12) & 0x0f
+        return self.map_to_gen(gen)
 
     def cmd(self, cmd, indata=b"", outdata_len=0):
         indata = struct.pack("<L", cmd) + indata
@@ -83,7 +118,9 @@ def echo_cmd(dev):
                            format(sub_cmd_in, sub_cmd_out))
 
 def die_temp(dev):
-    dev.cmd(MRPC_DIETEMP, struct.pack("<L", MRPC_DIETEMP_SET_MEAS))
+    if dev.gen == GEN3:
+        dev.cmd(MRPC_DIETEMP, struct.pack("<L", MRPC_DIETEMP_SET_MEAS))
+
     temp_packed = dev.cmd(MRPC_DIETEMP, struct.pack("<L", MRPC_DIETEMP_GET), 4)
 
     temp, = struct.unpack("<L", temp_packed)
