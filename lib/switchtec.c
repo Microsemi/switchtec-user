@@ -1806,12 +1806,20 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 				    sizeof(sub_cmd_id), &temp, sizeof(temp));
 		if (ret)
 			return -100.0;
-	} else {
+	} else if (switchtec_is_gen4(dev)) {
 		sub_cmd_id = MRPC_DIETEMP_GET_GEN4;
 		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
 				    sizeof(sub_cmd_id), &temp, sizeof(temp));
 		if (ret)
 			return -100.0;
+	} else {
+		sub_cmd_id = MRPC_DIETEMP_GET_GEN5;
+		uint32_t temps[4];
+		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
+				    sizeof(sub_cmd_id), temps, sizeof(temps));
+		if (ret)
+			return -100.0;
+		temp = (temps[0] + temps[1] + temps[2] + temps[3]) / 4;
 	}
 
 	return le32toh(temp) / 100.;
