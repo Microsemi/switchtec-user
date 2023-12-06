@@ -408,6 +408,8 @@ int switchtec_log_def_to_file(struct switchtec_dev *dev,
 			      enum switchtec_log_def_type type,
 			      FILE* file);
 float switchtec_die_temp(struct switchtec_dev *dev);
+int switchtec_die_temps(struct switchtec_dev *dev, int nr_sensor,
+			float *sensor_readings);
 int switchtec_calc_lane_id(struct switchtec_dev *dev, int phys_port_id,
 			   int lane_id, struct switchtec_status *port);
 int switchtec_calc_port_lane(struct switchtec_dev *dev, int lane_id,

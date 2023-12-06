@@ -1825,6 +1825,64 @@ float switchtec_die_temp(struct switchtec_dev *dev)
 	return le32toh(temp) / 100.;
 }
 
+/**
+ * @brief Get the die temperature sensor readings of the switchtec device
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  nr_sensor	Number of temp sensors to read
+ * @param[out] sensor_readings	Array of sensor readings (in degrees celsius)
+ * @return The number of sensor readings or a negative value on failure
+ */
+int switchtec_die_temps(struct switchtec_dev *dev, int nr_sensor,
+			float *sensor_readings)
+{
+	int ret;
+	uint32_t sub_cmd_id;
+	uint32_t temp;
+
+	if (nr_sensor <= 0 || !sensor_readings)
+		return 0;
+
+	if (switchtec_is_gen3(dev)) {
+		sub_cmd_id = MRPC_DIETEMP_SET_MEAS;
+		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
+				    sizeof(sub_cmd_id), NULL, 0);
+		if (ret)
+			return -100.0;
+
+		sub_cmd_id = MRPC_DIETEMP_GET;
+		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
+				    sizeof(sub_cmd_id), &temp, sizeof(temp));
+		if (ret)
+			return -100.0;
+
+		sensor_readings[0] = le32toh(temp) / 100.;
+		return 1;
+	} else if (switchtec_is_gen4(dev)) {
+		sub_cmd_id = MRPC_DIETEMP_GET_GEN4;
+		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
+				    sizeof(sub_cmd_id), &temp, sizeof(temp));
+		if (ret)
+			return -100.0;
+
+		sensor_readings[0] = le32toh(temp) / 100.;
+		return 1;
+	} else {
+		sub_cmd_id = MRPC_DIETEMP_GET_GEN5;
+		uint32_t temps[4];
+		int i;
+
+		ret = switchtec_cmd(dev, MRPC_DIETEMP, &sub_cmd_id,
+				    sizeof(sub_cmd_id), temps, sizeof(temps));
+		if (ret)
+			return -100.0;
+
+		for (i = 0; i < nr_sensor && i < 4; i++)
+			sensor_readings[i] = le32toh(temps[i]) / 100.;
+
+		return i;
+	}
+}
+
 int switchtec_bind_info(struct switchtec_dev *dev,
 			struct switchtec_bind_status_out *status, int phy_port)
 {

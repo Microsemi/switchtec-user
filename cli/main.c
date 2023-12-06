@@ -1284,26 +1284,48 @@ static int test(int argc, char **argv)
 static int temp(int argc, char **argv)
 {
 	float ret;
+	int nr_reading;
+	float temps[4];
 
 	static struct {
 		struct switchtec_dev *dev;
+		int verbose;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
+		{"verbose", 'v', "", CFG_NONE, &cfg.verbose, no_argument,
+		 "print individual die temperature sensor reading"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_TEMP, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_die_temp(cfg.dev);
-	if (ret < 0) {
-		switchtec_perror("die_temp");
-		return 1;
+	if (!cfg.verbose) {
+		ret = switchtec_die_temp(cfg.dev);
+		if (ret < 0) {
+			switchtec_perror("die_temp");
+			return 1;
+		}
+
+		if (have_decent_term())
+			printf("%.3g °C\n", ret);
+		else
+			printf("%.3g degC\n", ret);
+	} else {
+		int i;
+		nr_reading = switchtec_die_temps(cfg.dev, 4, temps);
+		if (nr_reading < 0) {
+			switchtec_perror("die_temp");
+			return 1;
+		}
+
+		for (i = 0; i < nr_reading; i++) {
+			if (have_decent_term())
+				printf("Sensor %d: %.3g °C\n", i, temps[i]);
+			else
+				printf("Sensor %d: %.3g degC\n", i, temps[i]);
+		}
 	}
 
-	if (have_decent_term())
-		printf("%.3g °C\n", ret);
-	else
-		printf("%.3g degC\n", ret);
 	return 0;
 }
 
