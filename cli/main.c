@@ -1012,6 +1012,8 @@ static int log_dump(int argc, char **argv)
 		 "dump all thread info from flash in the last fatal error handling dump"},
 		{"NVHDR", SWITCHTEC_LOG_NVHDR,
 		 "dump NVLog header information in the last fatal error handling dump"},
+        {"INVNV", SWITCHTEC_LOG_INVNVLOG,
+          "Invalidate NVLOG partition in the flash to clear the last fatal error log"},
 		{}
 	};
 	const struct argconfig_choice format[] = {
@@ -1068,6 +1070,10 @@ static int log_dump(int argc, char **argv)
 				"a log defintion file. Please provide log definiton file with '-d',\n"
 				"or specify binary log format with '-f BIN' instead\n");
 		return -1;
+	} else if (cfg.type == SWITCHTEC_LOG_INVNVLOG) {
+
+        	ret = switchtec_log_invalidate(cfg.dev, cfg.type);
+		return ret;
 	}
 
 	if (cfg.format == LOG_FMT_TXT &&

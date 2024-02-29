@@ -1451,6 +1451,29 @@ static int log_ram_flash_to_file(struct switchtec_dev *dev,
 }
 
 /**
+ * @brief Invalidate the NVLOG
+ * @param[in]  dev          - Switchtec device handle
+ * @param[in]  type         - Type of log data to dump
+ * @return 0 on success, error code on failure
+ */
+int switchtec_log_invalidate(struct switchtec_dev *dev, enum switchtec_log_type type)
+{
+	int ret;
+	struct log_cmd {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+	} cmd = {};
+
+	cmd.subcmd = MRPC_FWLOGRD_INVAL; 
+
+	ret = switchtec_cmd(dev, MRPC_FWLOGRD, &cmd, sizeof(cmd),
+			NULL, 0);
+	if (ret < 0)
+		return ret;
+	return 0;
+}
+
+/**
  * @brief Dump the Switchtec log data to a file
  * @param[in]  dev          - Switchtec device handle
  * @param[in]  type         - Type of log data to dump
@@ -1491,6 +1514,8 @@ int switchtec_log_to_file(struct switchtec_dev *dev,
 		return log_b_to_file(dev, MRPC_FWLOGRD_THRD, fd);
 	case SWITCHTEC_LOG_NVHDR:
 		return log_c_to_file(dev, MRPC_FWLOGRD_NVHDR, fd);
+	default:
+		return 0;
 	};
 
 	errno = EINVAL;
