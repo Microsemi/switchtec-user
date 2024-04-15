@@ -1230,4 +1230,33 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 	return ret;
 }
 
+/**
+ * @brief Call the aer event gen function to generate AER events
+ * @param[in]   dev    Switchtec device handle
+ * @param[in]   port   Switchtec Port
+ * @param[in]   aer_error_id aer error bit
+ * @param[out]  trigger_event One of the trigger events
+ *
+ */
+int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
+		int aer_error_id, int trigger_event)
+{
+	uint32_t output;
+	int ret_val;
+
+	struct switchtec_aer_event_gen_in sub_cmd_id = {
+		.sub_cmd = trigger_event,
+		.phys_port_id = port_id,
+		.err_mask = (1 << aer_error_id),
+		.hdr_log[0] = 0,
+		.hdr_log[1] = 0,
+		.hdr_log[2] = 0,
+		.hdr_log[3] = 0
+	};
+
+	ret_val = switchtec_cmd(dev, MRPC_AER_GEN, &sub_cmd_id,
+					sizeof(sub_cmd_id), &output, sizeof(output));
+	return ret_val;
+}
+
 /**@}*/

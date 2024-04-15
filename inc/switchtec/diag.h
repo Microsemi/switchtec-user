@@ -284,5 +284,23 @@ struct switchtec_diag_ltssm_log_dmp_out {
 	uint32_t arc;
 };
 
+enum switchtec_aer_event_gen_result {
+	AER_EVENT_GEN_SUCCESS = 0,
+	AER_EVENT_GEN_FAIL = 1,
+};
+
+struct switchtec_aer_event_gen_in {
+	/**  sub_cmd_id */
+	uint8_t sub_cmd;
+	/** physical port id */
+	uint8_t phys_port_id;
+	/** reserved */
+	uint8_t reserved[2];
+	/** err mask */
+	uint32_t err_mask;
+	/** HDR log */
+	uint32_t hdr_log[4];
+};
+
 #endif
 /**@}*/
