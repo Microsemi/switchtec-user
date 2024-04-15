@@ -2158,6 +2158,42 @@ static int tlp_inject (int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_AER_EVENT_GEN "Generate an AER Error Event"
+
+static int aer_event_gen(int argc, char **argv)
+{
+	int ret;
+	static struct {
+		struct switchtec_dev *dev;
+		int port_id;
+		int aer_error_id;
+		int trigger_event;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port_id, 
+		 required_argument, "port ID"},
+		{"ce_event", 'e', "", CFG_NONNEGATIVE, &cfg.aer_error_id, 
+		 required_argument, "aer CE event - 0,6,7,8,12,14,15"},
+		{"trigger", 't', "", CFG_NONNEGATIVE, &cfg.trigger_event, 
+		 required_argument, "trigger event (only CE events supported-0x1)"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg, 
+			sizeof(cfg));
+
+	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, cfg.aer_error_id, 
+				      cfg.trigger_event);
+
+	if (ret != 0) {
+		switchtec_perror("aer event generation");
+		return 1;
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	CMD(crosshair,		CMD_DESC_CROSS_HAIR),
 	CMD(eye,		CMD_DESC_EYE),
@@ -2172,6 +2208,7 @@ static const struct cmd commands[] = {
 	CMD(refclk,		CMD_DESC_REF_CLK),
 	CMD(ltssm_log,		CMD_DESC_LTSSM_LOG),
 	CMD(tlp_inject,		CMD_TLP_INJECT),
+	CMD(aer_event_gen,	CMD_DESC_AER_EVENT_GEN),
 	{}
 };
 

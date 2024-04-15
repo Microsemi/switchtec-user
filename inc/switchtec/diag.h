@@ -294,5 +294,18 @@ struct switchtec_tlp_inject_in {
 	uint32_t raw_tlp_data[SWITCHTEC_DIAG_MAX_TLP_DWORDS];
 };
 
+enum switchtec_aer_event_gen_result {
+	AER_EVENT_GEN_SUCCESS = 0,
+	AER_EVENT_GEN_FAIL = 1,
+};
+
+struct switchtec_aer_event_gen_in {
+	uint8_t sub_cmd;
+	uint8_t phys_port_id;
+	uint8_t reserved[2];
+	uint32_t err_mask;
+	uint32_t hdr_log[4];
+};
+
 #endif
 /**@}*/

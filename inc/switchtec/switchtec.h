@@ -1251,6 +1251,8 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 			     struct switchtec_diag_ltssm_log *log_data);
 int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type, 
 			 int tlp_length, int ecrc, uint32_t * raw_tlp_data);
+int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
+			    int aer_error_id, int trigger_event);
 #ifdef __cplusplus
 }
 #endif
