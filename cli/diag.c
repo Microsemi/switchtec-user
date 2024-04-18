@@ -838,9 +838,9 @@ static void crosshair_csv(FILE *f, struct switchtec_diag_cross_hair *ch,
 	fprintf(f, "top_left_limit, %d, %d\n", ch_left, ch->eye_top_left_lim);
 	fprintf(f, "bottom_left_limit, %d, %d\n", ch_left,
 		ch->eye_bot_left_lim);
-	fprintf(f, "top_left_limit, %d, %d\n", ch_right,
+	fprintf(f, "top_right_limit, %d, %d\n", ch_right,
 		ch->eye_top_right_lim);
-	fprintf(f, "bottom_left_limit, %d, %d\n", ch_right,
+	fprintf(f, "bottom_right_limit, %d, %d\n", ch_right,
 		ch->eye_bot_right_lim);
 	fprintf(f, "interval_ms, 200\n");
 	fprintf(f, "w2h, %d\n", crosshair_w2h(ch));
