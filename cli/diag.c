@@ -2194,6 +2194,160 @@ static int aer_event_gen(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_LNKERR_INJECT "Inject a link error"
+
+static int linkerr_inject(int argc, char ** argv)
+{
+	int ret = 0;
+	uint32_t * dllp_data_dword = NULL;
+	int num_dwords = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int inject_dllp;
+		int inject_dllp_crc;
+		int inject_tlp_lcrc;
+		int inject_tlp_seq;
+		int inject_nack;
+		int inject_cto;
+		uint8_t enable;
+		uint8_t count;
+		uint16_t dllp_rate;
+		uint16_t tlp_rate;
+		uint16_t seq_num;
+		char * dllp_data;
+		int phy_port;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"dllp", 'd', "", CFG_NONE, &cfg.inject_dllp, 
+		 no_argument, "Inject a DLLP"},
+		{"dllp-crc", 'D', "", CFG_NONE, &cfg.inject_dllp_crc, 
+		 no_argument, "Inject a DLLP CRC error"},
+		{"tlp-lcrc", 'l', "", CFG_NONE, &cfg.inject_tlp_lcrc, 
+		 no_argument, "Inject a TLP LCRC error"},
+		{"tlp-seq", 's', "", CFG_NONE, &cfg.inject_tlp_seq, 
+		 no_argument, "Inject a TLP Sequence Number error"},
+		{"nack", 'n', "", CFG_NONE, &cfg.inject_nack, no_argument,
+		 "Inject an ACK to NACK error"},
+		{"cto", 't', "", CFG_NONE, &cfg.inject_cto, no_argument,
+		 "Inject a TLP Credit Timeout"},
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.phy_port, 
+		 required_argument, "physical port ID, default: port 0"},
+		{"enable", 'e', "", CFG_NONNEGATIVE, &cfg.enable, 
+		 required_argument, "enable DLLP CRC Error Injection or TLP LCRC Error Injection, default: 0"},
+		{"data", 'i', "", CFG_STRING, &cfg.dllp_data, required_argument,
+		 "DLLP data to inject, a single dword in hex prefixed with \"0x\""},
+		{"seq_num", 'S', "", CFG_NONNEGATIVE, &cfg.seq_num, 
+		 required_argument, "sequence number of ACK to be replaced by NACK (0-4095)"},
+		{"count", 'c', "", CFG_NONNEGATIVE, &cfg.count, 
+		 required_argument, "number of times to replace ACK with NACK (0-255)"},
+		{"dllp-crc-rate", 'r', "", CFG_NONNEGATIVE, &cfg.dllp_rate, 
+		 required_argument, "valid range (0-4096). errors are injected at intervals of rate x 256 x clk "},
+		{"tlp-lcrc-rate", 'R', "", CFG_NONNEGATIVE, &cfg.tlp_rate, 
+		 required_argument, "valid range (0-7). Ex. rate = 1 -> every other TLP has an error"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_LNKERR_INJECT, opts, &cfg, 
+			sizeof(cfg));
+
+	uint8_t *ptr = (uint8_t *)&cfg + 5;
+	int total_en = 0;
+	for (size_t i = 0; i < 6; i++) {
+		ptr += 3;
+		if (ptr[i] == 1)
+			total_en++;
+	}
+	if (total_en > 1) {
+		fprintf(stderr, "Cannot enable more than one link error injection command at a time.\n");
+		return -1;
+	}
+	if (total_en == 0) {
+		fprintf(stderr, "Must enable one link error injection command.\n");
+		return -1;
+	}
+
+	if (cfg.enable && !(cfg.inject_dllp_crc || cfg.inject_tlp_lcrc))
+		printf("Ignoring -e enable flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_nack && cfg.count)
+		printf("Ignoring -c flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_nack && cfg.seq_num)
+		printf("Ignoring -S flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_tlp_lcrc && cfg.tlp_rate)
+		printf("Ignoring -R flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_dllp_crc && cfg.dllp_rate)
+		printf("Ignoring -r flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_dllp && cfg.dllp_data) {
+		printf("Ignoring -i flag, not valid for the currently selected command.\n");
+	} else if (cfg.inject_dllp && cfg.dllp_data) {
+		ret = convert_str_to_dwords(cfg.dllp_data, &dllp_data_dword, 
+				    &num_dwords);
+		if (ret) {
+			fprintf(stderr, "Error with DLLP data provided\n");
+			return -1;
+		}
+		if (num_dwords == 0) {
+			fprintf(stderr, "Must provide a single valid DLLP data dword\n");
+			free(dllp_data_dword);
+			return -1;
+		}
+	}
+
+	if (cfg.dllp_rate && cfg.tlp_rate) {
+		fprintf(stderr, "Cannot enable both rate configurations.\n");
+		return -1;
+	}
+
+	if (cfg.inject_dllp) {
+		ret = switchtec_inject_err_dllp(cfg.dev, cfg.phy_port, 
+						cfg.dllp_data != NULL ? *dllp_data_dword : 0);
+		free(dllp_data_dword);
+	}
+	if (cfg.inject_dllp_crc) {
+		if (cfg.dllp_rate > 4096) {
+			fprintf(stderr, "DLLP CRC rate out of range. Valid range is 0-4095.\n");
+			return -1;
+		}
+		ret = switchtec_inject_err_dllp_crc(cfg.dev, cfg.phy_port, 
+						    cfg.enable, cfg.dllp_rate);
+	}
+	if (cfg.inject_tlp_lcrc) {
+		if (cfg.tlp_rate > 7) {
+			fprintf(stderr, "TLP LCRC rate out of range. Valid range is 0-7.\n");
+			return -1;
+		}
+		ret = switchtec_inject_err_tlp_lcrc(cfg.dev, cfg.phy_port, 
+						    cfg.enable, cfg.tlp_rate);
+		if (ret)
+			return -1;
+	}
+	if (cfg.inject_tlp_seq)
+		ret = switchtec_inject_err_tlp_seq_num(cfg.dev, cfg.phy_port);
+	if (cfg.inject_nack) {
+		if (cfg.seq_num > 4095) {
+			fprintf(stderr, "Sequence number out of range. Valid range is 0-4095).\n");
+			return -1;
+		}
+		if (cfg.count > 255) {
+			fprintf(stderr, "Count out of range. Valid range is 0-255\n");
+			return -1;
+		}
+		ret = switchtec_inject_err_ack_nack(cfg.dev, cfg.phy_port, 
+						    cfg.seq_num, cfg.count);
+	}
+	if (cfg.inject_cto) {
+		if (!switchtec_is_gen5(cfg.dev)) {
+			fprintf(stderr, "Credit timeout error injection is only supported on Gen5.\n");
+			return -1;
+		}
+		ret = switchtec_inject_err_cto(cfg.dev, cfg.phy_port);
+	}
+
+	switchtec_perror("linkerr-inject");
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	CMD(crosshair,		CMD_DESC_CROSS_HAIR),
 	CMD(eye,		CMD_DESC_EYE),
@@ -2209,6 +2363,7 @@ static const struct cmd commands[] = {
 	CMD(ltssm_log,		CMD_DESC_LTSSM_LOG),
 	CMD(tlp_inject,		CMD_TLP_INJECT),
 	CMD(aer_event_gen,	CMD_DESC_AER_EVENT_GEN),
+	CMD(linkerr_inject,	CMD_DESC_LNKERR_INJECT),
 	{}
 };
 
