@@ -2620,6 +2620,211 @@ static int evcntr_wait(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_ERR_INJECT_DLLP "inject a DLLP"
+
+static int lnkerr_dllp(int argc, char **argv)
+{
+	int ret = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int phy_port;
+		uint32_t dllp_data; 
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
+			"physical port ID"},
+		{"data", 'd', "", CFG_LONG_SUFFIX, &cfg.dllp_data, required_argument,
+			"DLLP data to inject"},
+		{NULL}};
+
+	
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_DLLP, opts, &cfg, sizeof(cfg));
+	ret = switchtec_inject_err_dllp(cfg.dev, cfg.phy_port, cfg.dllp_data);
+
+	switchtec_perror("errinj-dllp");
+
+	return ret;
+}
+
+#define CMD_DESC_ERR_INJECT_DLLP_CRC "inject a DLLP CRC error"
+
+static int lnkerr_dllp_crc(int argc, char **argv)
+{
+	int ret = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int phy_port;
+		uint8_t enable;
+		uint16_t rate;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
+			"physical port ID"},
+		{"enable", 'e', "", CFG_NONE, &cfg.enable, no_argument,
+			"enable DLLP CRC Error Injection"},
+		{"rate", 'r', "", CFG_NONNEGATIVE, &cfg.rate, required_argument,
+			"valid range (0-4096). errors are injected at intervals of rate x 256 x clk "},
+		{NULL}};
+
+	
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_DLLP_CRC, opts, &cfg, sizeof(cfg));
+	ret = switchtec_inject_err_dllp_crc(cfg.dev, cfg.phy_port, cfg.enable, cfg.rate);
+
+	if (cfg.rate > 4096) {
+		fprintf(stderr, "Rate out of range. Valid range is 0-4095.\n");
+		return -1;
+	}
+
+	switchtec_perror("lnkerr-dllp-crc");
+
+	return ret;
+}
+
+#define CMD_DESC_ERR_INJECT_TLP_LCRC "inject a TLP LCRC error"
+
+static int lnkerr_tlp_lcrc(int argc, char **argv)
+{
+	int ret = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int phys_port;
+		uint8_t enable;
+		uint8_t rate;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
+			"physical port ID"},
+		{"enable", 'e', "", CFG_NONE, &cfg.enable, no_argument,
+			"enable TLP LCRC Error Injection"},
+		{"rate", 'r', "", CFG_NONNEGATIVE, &cfg.rate, required_argument,
+			"valid range (0-7). Ex. rate = 1 -> every other TLP has an error"},
+		{NULL}};
+
+
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_TLP_LCRC, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_is_gen4(cfg.dev)) {
+		ret = switchtec_inject_err_tlp_lcrc_gen4(cfg.dev, cfg.phys_port, cfg.enable, cfg.rate);
+	} else if (switchtec_is_gen5(cfg.dev)) {
+		ret = switchtec_inject_err_tlp_lcrc_gen5(cfg.dev, cfg.phys_port, cfg.enable, cfg.rate);
+	} else {
+		fprintf(stderr, "This command is not supported for Gen3 switches.\n");
+		return -1;
+	}
+
+	if (cfg.rate > 7) {
+		fprintf(stderr, "Rate out of range. Valid range is 0-7.\n");
+		return -1;
+	}
+
+	switchtec_perror("lnkerr-tlp-lcrc");
+	
+	return ret;
+}
+
+#define CMD_DESC_ERR_INJECT_SEQ "inject a TLP Sequence Number error"
+
+static int lnkerr_tlp_seq(int argc, char **argv)
+{
+	int ret = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int phys_port;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
+			"physical port ID"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_SEQ, opts, &cfg, sizeof(cfg));
+	ret = switchtec_inject_err_tlp_seq_num(cfg.dev, cfg.phys_port);
+
+	switchtec_perror("lnkerr-tlp-seq");	
+
+	return ret;
+}
+
+#define CMD_DESC_ERR_INJECT_ACK_NACK "inject an ACK to NACK error"
+
+static int lnkerr_nack(int argc, char **argv)
+{
+	int ret = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int phys_port;
+		uint16_t seq_num;
+		uint8_t count;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
+			"physical port ID"},
+		{"seq_num", 's', "", CFG_NONNEGATIVE, &cfg.seq_num, required_argument,
+			"sequence number of ACK to be replaced by NACK (0-4095)"},
+		{"count", 'c', "", CFG_NONNEGATIVE, &cfg.count, required_argument,
+			"number of times to replace ACK with NACK (0-255)"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_ACK_NACK, opts, &cfg, sizeof(cfg));
+	
+	if (cfg.seq_num > 4095) {
+		fprintf(stderr, "Sequence number out of range. Valid range is 0-4095).\n");
+		return -1;
+	}
+	if (cfg.count > 255) {
+		fprintf(stderr, "Count out of range. Valid range is 0-255\n");
+		return -1;
+	}
+
+	ret = switchtec_inject_err_ack_nack(cfg.dev, cfg.phys_port, cfg.seq_num, cfg.count);
+
+	switchtec_perror("lnkerr-nack");	
+
+	return ret;
+}
+
+#define CMD_DESC_ERR_INJECT_CTO  "inject a TLP Credit Timeout"
+static int lnkerr_cto(int argc, char **argv)
+{
+	int ret = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int phys_port;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
+			"physical port ID"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_CTO, opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen5(cfg.dev)) {
+		fprintf(stderr, "Credit timeout error injection is only supported on Gen5.\n");
+		return 0;
+	}
+
+	ret = switchtec_inject_err_cto(cfg.dev, cfg.phys_port);
+
+	switchtec_perror("lnkerr-cto");	
+
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	CMD(list, CMD_DESC_LIST),
 	CMD(info, CMD_DESC_INFO),
@@ -2648,6 +2853,12 @@ static const struct cmd commands[] = {
 	CMD(evcntr_show, CMD_DESC_EVCNTR_SHOW),
 	CMD(evcntr_del, CMD_DESC_EVCNTR_DEL),
 	CMD(evcntr_wait, CMD_DESC_EVCNTR_WAIT),
+	CMD(lnkerr_dllp, CMD_DESC_ERR_INJECT_DLLP),
+	CMD(lnkerr_dllp_crc, CMD_DESC_ERR_INJECT_DLLP_CRC),
+	CMD(lnkerr_tlp_lcrc, CMD_DESC_ERR_INJECT_TLP_LCRC),
+	CMD(lnkerr_tlp_seq, CMD_DESC_ERR_INJECT_SEQ),
+	CMD(lnkerr_nack, CMD_DESC_ERR_INJECT_ACK_NACK),
+	CMD(lnkerr_cto, CMD_DESC_ERR_INJECT_CTO),
 	{},
 };
 

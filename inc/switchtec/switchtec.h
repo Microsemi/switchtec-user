@@ -422,6 +422,24 @@ int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
 		struct switchtec_status *port);
 
 /**
+ * @brief Return Link error injection command outputs for DLLP, DLLP_CRC,
+ * LCRC, SEQ_NUM, ACK_NACK, CTO.
+ */
+
+int switchtec_inject_err_dllp(struct switchtec_dev *dev, int phys_port_id,
+                int data);
+int switchtec_inject_err_dllp_crc(struct switchtec_dev *dev, int phys_port_id,
+                int enable, uint16_t rate);
+int switchtec_inject_err_tlp_lcrc_gen4(struct switchtec_dev *dev, int phys_port_id,
+                int enable, uint8_t rate);
+int switchtec_inject_err_tlp_lcrc_gen5(struct switchtec_dev *dev, int phys_port_id,
+                int enable, uint8_t rate);
+int switchtec_inject_err_tlp_seq_num(struct switchtec_dev *dev, int phys_port_id);
+int switchtec_inject_err_ack_nack(struct switchtec_dev *dev, int phys_port_id,
+                uint16_t seq_num, uint8_t count);
+int switchtec_inject_err_cto(struct switchtec_dev *dev, int phys_port_id);
+
+/**
  * @brief Return whether a Switchtec device is a Gen 3 device.
  */
 static inline int switchtec_is_gen3(struct switchtec_dev *dev)

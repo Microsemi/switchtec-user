@@ -2293,4 +2293,160 @@ int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
 			    sizeof(out));
 }
 
+
+/**
+ * @brief Inject a DLLP into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @param[in] data	DLLP data
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_dllp(struct switchtec_dev *dev, int phys_port_id, int data)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_dllp_in cmd = {
+		.subcmd = MRPC_ERR_INJ_DLLP,
+		.phys_port_id = phys_port_id,
+		.data = data,
+	};
+
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			sizeof(cmd), &output, sizeof(output));
+}
+
+
+/**
+ * @brief Inject a DLLP CRC error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @param[in] enable	Enable DLLP CRC error injection
+ * @param[in] rate 	Rate of the error injection
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_dllp_crc(struct switchtec_dev *dev, int phys_port_id, int enable, uint16_t rate)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_dllp_crc_in cmd = {
+		.subcmd = MRPC_ERR_INJ_DLLP_CRC,
+		.phys_port_id = phys_port_id,
+		.enable = enable,
+		.rate = rate,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			sizeof(cmd), &output, sizeof(output));
+}
+
+
+
+/**
+ * @brief Inject a TLP LCRC error into a physical port for Gen 4 switch
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @param[in] rate	Rate of the error injection
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_tlp_lcrc_gen4(struct switchtec_dev *dev, int phys_port_id, int enable, uint8_t rate)
+{
+	uint32_t output;
+	
+	struct switchtec_lnkerr_tlp_lcrc_gen4_in cmd = {
+		.subcmd = MRPC_ERR_INJ_TLP_LCRC,
+		.phys_port_id = phys_port_id,
+		.enable = enable,
+		.rate = rate,
+	};
+	printf("enable: %d\n", enable);
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			sizeof(cmd), &output, sizeof(output));
+}
+
+
+
+/**
+ * @brief Inject a TLP LCRC error into a physical port for Gen 5 switch
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @param[in] rate	Rate of the error injection (0-7). Ex. rate = 1 means every other TLP has an error
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_tlp_lcrc_gen5(struct switchtec_dev *dev, int phys_port_id, int enable, uint8_t rate)
+{
+	uint32_t output;
+	
+	struct switchtec_lnkerr_tlp_lcrc_gen5_in cmd = {
+		.subcmd = MRPC_ERR_INJ_TLP_LCRC,
+		.phys_port_id = phys_port_id,
+		.enable = enable,
+		.rate = rate,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			sizeof(cmd), &output, sizeof(output));
+}
+
+/**
+ * @brief Inject a TLP Sequence Number error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_tlp_seq_num(struct switchtec_dev *dev, int phys_port_id)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_tlp_seqn_in cmd = {
+		.subcmd = MRPC_ERR_INJ_TLP_SEQ,
+		.phys_port_id = phys_port_id,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			sizeof(cmd), &output, sizeof(output));
+}
+
+/**
+ * @brief Inject an ACK to NACK error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @param[in] seq_num	Sequence Number of ACK to be changed to a NACK (0-4095)
+ * @param[in] count		Number of times to replace ACK with NACK (0-255)
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_ack_nack(struct switchtec_dev *dev, int phys_port_id, uint16_t seq_num, uint8_t count)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_ack_nack_in cmd = {
+		.subcmd = MRPC_ERR_INJ_ACK_NACK,
+		.phys_port_id = phys_port_id,
+		.seq_num = seq_num,
+		.count = count,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			sizeof(cmd), &output, sizeof(output));
+}
+
+/**
+ * @brief Inject Credit Timeout error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_cto(struct switchtec_dev *dev, int phys_port_id)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_cto_in cmd = {
+		.subcmd = MRPC_ERR_INJ_CTO,
+		.phys_port_id = phys_port_id,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			sizeof(cmd), &output, sizeof(output));
+}
 /**@}*/
