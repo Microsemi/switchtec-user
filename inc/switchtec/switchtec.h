@@ -35,6 +35,7 @@
 #include "portable.h"
 #include "registers.h"
 #include "utils.h"
+#include "inject.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
