@@ -2701,8 +2701,8 @@ static int lnkerr_tlp_lcrc(int argc, char **argv)
 		DEVICE_OPTION,
 		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
 			"physical port ID"},
-		{"enable", 'e', "", CFG_NONE, &cfg.enable, no_argument,
-			"enable TLP LCRC Error Injection"},
+		{"enable", 'e', "", CFG_NONNEGATIVE, &cfg.enable, required_argument,
+			"enable TLP LCRC Error Injection, 1 -> enable, 0 -> disable"},
 		{"rate", 'r', "", CFG_NONNEGATIVE, &cfg.rate, required_argument,
 			"valid range (0-7). Ex. rate = 1 -> every other TLP has an error"},
 		{NULL}};
