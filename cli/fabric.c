@@ -1596,6 +1596,16 @@ static int ep_tunnel_cfg(int argc, char **argv)
 	switch (cfg.cmd) {
 	case MRPC_EP_TUNNEL_ENABLE:
 		ret = switchtec_ep_tunnel_enable(cfg.dev, cfg.pdfid);
+		if (ret)
+			break;
+
+		while(1) {
+			ret = switchtec_ep_tunnel_status(cfg.dev, cfg.pdfid, &status);
+			if (ret || status == SWITCHTEC_EP_TUNNEL_ENABLED)
+				break;
+
+			usleep(10000);
+		}
 		break;
 	case MRPC_EP_TUNNEL_DISABLE:
 		ret = switchtec_ep_tunnel_disable(cfg.dev, cfg.pdfid);
