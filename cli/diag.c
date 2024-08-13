@@ -1794,7 +1794,7 @@ static int port_eq_txcoeff(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {NULL}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXCOEFF,
