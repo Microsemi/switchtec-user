@@ -1823,7 +1823,7 @@ static int port_eq_txcoeff(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {NULL}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXCOEFF,
@@ -1857,7 +1857,7 @@ static int port_eq_txfslf(int argc, char **argv)
 {
 	struct diag_common_cfg cfg = DEFAULT_DIAG_COMMON_CFG;
 	struct switchtec_port_eq_tx_fslf data;
-	int i, ret;
+	int i, ret, lnk_width;
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
@@ -1873,7 +1873,12 @@ static int port_eq_txfslf(int argc, char **argv)
 	       cfg.prev ? "(Previous Link-Up)" : "");
 	printf("Lane    FS    LF\n");
 
-	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
+	if (switchtec_is_gen5(cfg.dev))
+		lnk_width = cfg.port.cfg_lnk_width;
+	else 
+		lnk_width = cfg.port.neg_lnk_width;
+
+	for (i = 0; i < lnk_width; i++) {
 		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, i,
 				cfg.end, cfg.link, &data);
 		if (ret) {

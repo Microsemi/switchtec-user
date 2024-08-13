@@ -1130,6 +1130,50 @@ struct switchtec_port_eq_coeff {
 	} cursors[16];
 };
 
+struct switchtec_rem_port_eq_coeff {
+	uint8_t lane_cnt;
+	uint8_t reserved[3];
+	struct {
+		uint8_t is_coef;
+		uint8_t pre;
+		uint8_t post;
+		uint8_t preset;
+	} cursors[16];
+};
+
+enum lane_eq_dump_type_enum {
+	LANE_EQ_DUMP_TYPE_CURR,   //!< Current settings
+	LANE_EQ_DUMP_TYPE_PREV,   //!< Previous link-up settings
+	LANE_EQ_DUMP_TYPE_NUM     //!< Total number of dump types
+};
+
+enum link_rate_enum {
+	PCIE_LINK_RATE_INV  = 0,  //!< Invalid
+	PCIE_LINK_RATE_GEN1 = 1,  //!< Gen1, supports 2.5GT/s
+	PCIE_LINK_RATE_GEN2 = 2,  //!< Gen2, supports 2.5GT/s, 5GT/s
+	PCIE_LINK_RATE_GEN3 = 3,  //!< Gen3, supports 2.5GT/s, 5GT/s, 8GT/s
+	PCIE_LINK_RATE_GEN4 = 4,  //!< Gen4, supports 2.5GT/s, 5GT/s, 8GT/s, 16GT/s
+	PCIE_LINK_RATE_GEN5 = 5,  //!< Gen5, supports 2.5GT/s, 5GT/s, 8GT/s, 16GT/s, 32GT/s
+	PCIE_LINK_RATE_NUM  = 5   //!< Total number of PCIe generations
+};
+
+struct switchtec_port_eq_coeff_in {
+	uint8_t cmd;
+	uint8_t op_type;
+	uint8_t phys_port_id;
+	uint8_t lane_id;
+	uint8_t dump_type;
+	uint8_t prev_rate;
+	uint8_t reserved[2];
+};
+
+struct switchtec_port_eq_table_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t dump_type;
+	uint8_t prev_rate;
+};
+
 struct switchtec_port_eq_table {
 	int lane_id;
 	int step_cnt;
@@ -1146,9 +1190,40 @@ struct switchtec_port_eq_table {
 	} steps[126];
 };
 
+struct switchtec_gen5_port_eq_table {
+	uint8_t lane_id;
+	uint8_t step_cnt;
+	uint8_t reserved[2];
+
+	struct {
+		uint8_t pre_cursor;
+		uint8_t post_cursor;
+		uint16_t reserved_0;
+		uint8_t reserved_1;
+		uint8_t error_status;
+		uint8_t active_status;
+		uint8_t speed;
+	} steps[25];
+};
+
 struct switchtec_port_eq_tx_fslf {
 	int fs;
 	int lf;
+};
+
+struct switchtec_port_eq_tx_fslf_out {
+	uint8_t fs;
+	uint8_t lf;
+	uint8_t reserved[2];
+};
+
+struct switchtec_port_eq_tx_fslf_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t lane_id;
+	uint8_t dump_type;
+	uint8_t prev_rate;
+	uint8_t reserved[3];
 };
 
 struct switchtec_rcvr_ext {
@@ -1250,15 +1325,16 @@ int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
 			    struct switchtec_rcvr_ext *res);
 
 int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
-		enum switchtec_diag_end end, enum switchtec_diag_link link,
-		struct switchtec_port_eq_coeff *res);
+				    enum switchtec_diag_end end, 
+				    enum switchtec_diag_link link,
+				    struct switchtec_port_eq_coeff *res);
 int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 				    enum switchtec_diag_link link,
 				    struct switchtec_port_eq_table *res);
 int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
-				 int lane_id, enum switchtec_diag_end end,
-				 enum switchtec_diag_link link,
-				 struct switchtec_port_eq_tx_fslf *res);
+				   int lane_id, enum switchtec_diag_end end,
+				   enum switchtec_diag_link link,
+				   struct switchtec_port_eq_tx_fslf *res);
 
 int switchtec_diag_perm_table(struct switchtec_dev *dev,
 			      struct switchtec_mrpc table[MRPC_MAX_ID]);
