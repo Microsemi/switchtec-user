@@ -1244,6 +1244,30 @@ enum switchtec_diag_eye_data_mode {
 	SWITCHTEC_DIAG_EYE_RATIO,
 };
 
+struct switchtec_gen5_diag_eye_status_in {
+	uint8_t sub_cmd;
+	uint8_t resvd1[3];
+};
+
+struct switchtec_gen5_diag_eye_status_out {
+	uint8_t status;
+	uint8_t resvd1[3];
+};
+
+struct switchtec_gen5_diag_eye_read_in {
+	uint8_t sub_cmd;
+	uint8_t lane_id;
+	uint8_t bin;
+	uint8_t resvd1;
+};
+
+struct switchtec_gen5_diag_eye_read_out {
+	uint8_t num_phases;
+	uint8_t resvd1[3];
+	uint32_t resvd2;
+	uint64_t ber_data[60];
+};
+
 enum switchtec_diag_loopback_enable {
 	SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX = 1 << 0,
 	SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX = 1 << 1,
@@ -1278,6 +1302,15 @@ enum switchtec_diag_link {
 	SWITCHTEC_DIAG_LINK_PREVIOUS,
 };
 
+enum switchtec_gen5_diag_eye_status {
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_IDLE = 0,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING = 1,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_IN_PROGRESS = 2,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE = 3,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT = 4,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR = 5,
+};
+
 struct switchtec_diag_ltssm_log {
 	unsigned int timestamp;
 	float link_rate;
@@ -1291,9 +1324,11 @@ int switchtec_diag_cross_hair_get(struct switchtec_dev *dev, int start_lane_id,
 
 int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
 				enum switchtec_diag_eye_data_mode mode);
+int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id, int bin, 
+		            int* num_phases, double* ber_data);
 int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 			     struct range *x_range, struct range *y_range,
-			     int step_interval);
+			     int step_interval, int capture_depth);
 int switchtec_diag_eye_fetch(struct switchtec_dev *dev, double *pixels,
 			     size_t pixel_cnt, int *lane_id);
 int switchtec_diag_eye_cancel(struct switchtec_dev *dev);

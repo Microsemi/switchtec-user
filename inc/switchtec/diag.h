@@ -242,6 +242,15 @@ struct switchtec_diag_port_eye_fetch {
 	};
 };
 
+
+struct switchtec_gen5_diag_eye_run_in {
+	uint8_t sub_cmd;
+	uint8_t capture_depth;
+	uint8_t timeout_disable;
+	uint8_t resvd1;
+	uint32_t lane_mask[4];
+};
+
 struct switchtec_diag_cross_hair_in {
 	uint8_t sub_cmd;
 	uint8_t lane_id;
