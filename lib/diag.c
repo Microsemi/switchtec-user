@@ -323,6 +323,100 @@ int switchtec_diag_eye_cancel(struct switchtec_dev *dev)
 }
 
 /**
+ * @brief Start a new Eye Capture (Harpoon)
+ * @param[in]  dev	       Switchtec device handle
+ * @param[in]  lane_mask       Bitmap of the lanes to capture
+ * @param[in]  capture_depth   A maximum of 2^(capture_depth)-1 bits
+ * 					will be analyzed.
+ * 
+ * @return 0 on success, error code on failure
+ */
+int switchtec_gen5_diag_eye_run(struct switchtec_dev *dev,
+				int lane_mask[4], int capture_depth)
+{
+	/* Need to pass an output buffer to switchtec_cmd() */
+	int ret, err, out;
+	struct switchtec_gen5_diag_eye_run_in in = {
+		.sub_cmd = MRPC_EYE_CAP_RUN_GEN5,
+		.capture_depth = capture_depth,
+		.timeout_disable = 1,
+		.lane_mask[0] = lane_mask[0],
+		.lane_mask[1] = lane_mask[1],
+		.lane_mask[2] = lane_mask[2],
+		.lane_mask[3] = lane_mask[3],
+	};
+
+	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
+				(void*)&out, sizeof(out));
+	
+	/* Add delay so hardware has enough time to start */
+	err = errno;
+	usleep(200000);
+	errno = err;
+
+	return ret;
+}
+
+/**
+ * @brief Get Eye Capture status (Harpoon)
+ * @param[in]  dev	       Switchtec device handle
+ * @param[out] status	   Eye Capture status
+ * 
+ * @return 0 on success, error code on failure
+ */
+int switchtec_gen5_diag_eye_status(struct switchtec_dev *dev,
+				int* status)
+{
+	struct switchtec_gen5_diag_eye_status_in in = {
+		.sub_cmd = MRPC_EYE_CAP_STATUS_GEN5,
+	};
+	struct switchtec_gen5_diag_eye_status_out out;
+	int ret;
+
+	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
+				&out, sizeof(out));
+
+	*status = out.status;
+
+	return ret;
+}
+
+/**
+ * @brief Read data from an Eye Capture (Harpoon)
+ * @param[in]  dev	       Switchtec device handle
+ * @param[in]  lane_id	   Lane ID for the capture data
+ * @param[in]  bin		   Bin number [0-63]
+ * @param[out] num_phases  Total number of phases (30 or 60)
+ * @param[out] ber_data	   BER for each phase for this bin
+ * 
+ * @return 0 on success, error code on failure
+ */
+int switchtec_gen5_diag_eye_read(struct switchtec_dev *dev, int lane_id,
+				int bin, int* num_phases, double* ber_data)
+{
+	struct switchtec_gen5_diag_eye_read_in in = {
+		.sub_cmd = MRPC_EYE_CAP_READ_GEN5,
+		.lane_id = lane_id,
+		.bin = bin,
+	};
+	struct switchtec_gen5_diag_eye_read_out out;
+	int i, ret;
+
+	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
+				&out, sizeof(out));
+	if (ret)
+		return ret;
+
+	*num_phases = out.num_phases;
+
+	for(i = 0; i < out.num_phases; i++) {
+		ber_data[i] = le64toh(out.ber_data[i]) / 281474976710656.;
+	}
+
+	return ret;
+}
+
+/**
  * @brief Setup Loopback Mode
  * @param[in]  dev	    Switchtec device handle
  * @param[in]  port_id	    Physical port ID

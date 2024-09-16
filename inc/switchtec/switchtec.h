@@ -1294,6 +1294,15 @@ enum switchtec_diag_link {
 	SWITCHTEC_DIAG_LINK_PREVIOUS,
 };
 
+enum switchtec_gen5_diag_eye_status {
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_IDLE = 0,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING = 1,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_IN_PROGRESS = 2,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE = 3,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT = 4,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR = 5,
+};
+
 struct switchtec_diag_ltssm_log {
 	unsigned int timestamp;
 	float link_rate;
@@ -1313,6 +1322,12 @@ int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 int switchtec_diag_eye_fetch(struct switchtec_dev *dev, double *pixels,
 			     size_t pixel_cnt, int *lane_id);
 int switchtec_diag_eye_cancel(struct switchtec_dev *dev);
+
+int switchtec_gen5_diag_eye_run(struct switchtec_dev *dev, int lane_mask[4],
+				int capture_depth);
+int switchtec_gen5_diag_eye_status(struct switchtec_dev *dev, int* status);
+int switchtec_gen5_diag_eye_read(struct switchtec_dev *dev, int lane_id,
+				int bin, int* num_phases, double* ber_data);
 
 int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 		int enable, enum switchtec_diag_ltssm_speed ltssm_speed);

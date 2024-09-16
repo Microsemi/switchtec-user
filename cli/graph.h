@@ -68,5 +68,9 @@ void graph_draw_text(struct range *X, struct range *Y, int *data,
 int graph_draw_win(struct range *X, struct range *Y, int *data, int *shades,
 		   const char *title, char x_title, char y_title, char *status,
 		   graph_anim_fn *anim, void *opaque);
-
+void graph_draw_text_no_invert(struct range *X, struct range *Y,
+			 int *data, const char *title, char x_title, char y_title);
+int graph_draw_win_no_invert(struct range *X, struct range *Y, int *data,
+		   int *shades, const char *title, char x_title, char y_title, 
+		   char *status, graph_anim_fn *anim, void *opaque);
 #endif

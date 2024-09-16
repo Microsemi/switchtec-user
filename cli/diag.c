@@ -325,7 +325,9 @@ static void print_eye_csv(FILE *f, struct range *X, struct range *Y,
 	int x, y, i, j = 0;
 
 	fprintf(f, "%s\n", title);
-	fprintf(f, "interval_ms, %d\n", interval);
+
+	if (interval > -1)
+		fprintf(f, "interval_ms, %d\n", interval);
 
 	for_range(x, X)
 		fprintf(f, ", %d", x);
@@ -1247,9 +1249,11 @@ out_err:
 	return NULL;
 }
 
+
 static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 		     double *pixels, const char *title,
-		     struct switchtec_diag_cross_hair *ch)
+		     struct switchtec_diag_cross_hair *ch,
+			 enum switchtec_gen sw_gen)
 {
 	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
 	int data[pixel_cnt], shades[pixel_cnt];
@@ -1277,17 +1281,25 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 	}
 
 	if (fmt == FMT_TEXT) {
-		graph_draw_text(X, Y, data, title, 'T', 'V');
+		if (sw_gen == SWITCHTEC_GEN5)
+			graph_draw_text_no_invert(X, Y, data, title, 'P', 'B');
+		else
+			graph_draw_text(X, Y, data, title, 'T', 'V');
 		if (status_ptr)
 			printf("\n      %s\n", status_ptr);
 		return 0;
 	}
 
-	return graph_draw_win(X, Y, data, shades, title, 'T', 'V',
-			      status_ptr, NULL, NULL);
+	if (sw_gen == SWITCHTEC_GEN5)
+		return graph_draw_win(X, Y, data, shades, title, 'P', 'B',
+			      	status_ptr, NULL, NULL);
+	else
+		return graph_draw_win(X, Y, data, shades, title, 'T', 'V',
+			      	status_ptr, NULL, NULL);
 }
 
 #define CMD_DESC_EYE "Capture PCIe Eye Errors"
+
 
 static int eye(int argc, char **argv)
 {
@@ -1451,11 +1463,178 @@ static int eye(int argc, char **argv)
 	}
 
 	ret = eye_graph(cfg.fmt, &cfg.x_range, &cfg.y_range, pixels, title,
-			ch_ptr);
+			ch_ptr, SWITCHTEC_GEN4);
 
 	free(pixels);
 	return ret;
 }
+
+
+/*Gen5 eye capture logic*/
+static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
+					int port_id, int lane_id, int num_lanes,
+					int capture_depth, int* num_phases, int* gen)
+{
+	int bin, j, ret, eye_status, first_lane, num_phases_l, stride;
+	int lane_mask[4] = {};
+	struct switchtec_status sw_status;
+	double tmp[60];
+	double* ber_data = NULL;
+
+	ret = switchtec_calc_lane_mask(dev, port_id, lane_id, num_lanes,
+				       lane_mask, &sw_status);
+	if (ret < 0) {
+		switchtec_perror("Invalid lane");
+		return NULL;
+	}
+
+	ret = switchtec_gen5_diag_eye_run(dev, lane_mask, capture_depth);
+	if (ret) {
+		switchtec_perror("eye_run");
+		return NULL;
+	}
+
+	do {
+		ret = switchtec_gen5_diag_eye_status(dev, &eye_status);
+		if (ret) {
+			switchtec_perror("eye_status");
+			return NULL;
+		}
+		usleep(200000);
+	} while (eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_IN_PROGRESS ||
+			 eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING);
+
+	switch (eye_status) {
+		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_IDLE:
+			switchtec_perror("Eye capture idle");
+		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE:
+			break;
+		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT:
+			switchtec_perror("Eye capture timeout");
+		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR:
+			switchtec_perror("Eye capture error");
+		return NULL;
+	}
+
+	first_lane = switchtec_calc_lane_id(dev, port_id, lane_id, NULL);
+	for (j = 0; j < num_lanes; j++) {
+		for (bin = 0; bin < 64; bin++) {
+			ret = switchtec_gen5_diag_eye_read(dev, first_lane + j, bin,
+						&num_phases_l, tmp);
+			if (ret) {
+				switchtec_perror("eye_read");
+				if (ber_data)
+					free(ber_data);
+				return NULL;
+			}
+
+			if (!ber_data) {
+				stride = 64 * num_phases_l;
+				ber_data = calloc(num_lanes * stride, sizeof(double));
+				if (!ber_data) {
+					perror("allocating BER data");
+					return NULL;
+				}
+			}
+
+			memcpy(&ber_data[(j * stride) + (bin * num_phases_l)], tmp,
+				   num_phases_l * sizeof(double));
+		}
+	}
+
+	*gen = sw_status.link_rate;
+	*num_phases = num_phases_l;
+	return ber_data;
+}
+
+#define CMD_DESC_EYE_GEN5 "Capture PCIe Eye Errors (Harpoon)"
+
+
+static int eye_gen5(int argc, char **argv)
+{
+	double *data = NULL;
+	int num_phases, gen, ret;
+	char title[128];
+	struct range x_range = {
+		.start = 0,
+		.step = 1,
+	};
+	struct range y_range = {
+		.start = 0,
+		.end = 63,
+		.step = 1,
+	};
+	static struct {
+		struct switchtec_dev *dev;
+		int port_id;
+		int lane_id;
+		int capture_depth;
+		int num_lanes;
+		int fmt;
+	} cfg = {
+		.port_id = -1,
+		.lane_id = 0,
+		.capture_depth = 24,
+		.num_lanes = 1,
+		.fmt = FMT_DEFAULT,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"lane", 'l', "LANE_ID", CFG_NONNEGATIVE, &cfg.lane_id,
+		 required_argument, "lane id within the port to observe (default: 0)"},
+		 {"num-lanes", 'n', "NUM", CFG_POSITIVE, &cfg.num_lanes,
+		 required_argument,
+		 "number of lanes to capture, if greater than one (default: 1)"},
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
+		 required_argument, "physical port ID to observe"},
+		{"capture-depth", 'd', "NUM", CFG_POSITIVE, &cfg.capture_depth,
+		 required_argument, "capture depth (6 to 40; default: 24)"},
+		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
+		 "output format (default: " FMT_DEFAULT_STR ")",
+		 .choices=output_fmt_choices},
+		{NULL}};
+	
+	argconfig_parse(argc, argv, CMD_DESC_EYE_GEN5, opts, &cfg,
+			sizeof(cfg));
+	
+	if (cfg.port_id < 0) {
+		fprintf(stderr, "Must specify a port ID with --port/-p\n");
+		return -1;
+	}
+
+	if (cfg.capture_depth < 6 || cfg.capture_depth > 40) {
+		fprintf(stderr, "Capture depth (--capture-depth/-d) must be between 6 and 40 (inclusive)\n");
+		return -1;
+	}
+
+	if (cfg.num_lanes > 1 && cfg.fmt != FMT_CSV) {
+		fprintf(stderr, "--format/-f must be CSV if --num-lanes/-n is greater than 1\n");
+		return -1;
+	}
+
+	data = eye_capture_dev_gen5(cfg.dev, cfg.port_id, cfg.lane_id,
+					cfg.num_lanes, cfg.capture_depth, &num_phases,
+					&gen);
+	if (!data)
+		return -1;
+	
+	x_range.end = num_phases - 1;
+	
+	if (cfg.fmt == FMT_CSV) {
+		write_eye_csv_files(cfg.port_id, cfg.lane_id, cfg.num_lanes,
+				-1, gen, &x_range, &y_range, data);
+		ret = 0;
+	} else {
+		eye_set_title(title, cfg.port_id, cfg.lane_id, gen);
+		ret = eye_graph(cfg.fmt, &x_range, &y_range, data, title, NULL,
+					SWITCHTEC_GEN5);
+	}
+
+	free(data);
+	return ret;
+}
+
+
 
 static const struct argconfig_choice loopback_ltssm_speeds[] = {
 	{"GEN1", SWITCHTEC_DIAG_LTSSM_GEN1, "GEN1 LTSSM Speed"},
@@ -2064,6 +2243,7 @@ static int aer_event_gen(int argc, char **argv)
 static const struct cmd commands[] = {
 	CMD(crosshair,		CMD_DESC_CROSS_HAIR),
 	CMD(eye,		CMD_DESC_EYE),
+	CMD(eye_gen5,		CMD_DESC_EYE_GEN5),
 	CMD(list_mrpc,		CMD_DESC_LIST_MRPC),
 	CMD(loopback,		CMD_DESC_LOOPBACK),
 	CMD(pattern,		CMD_DESC_PATTERN),

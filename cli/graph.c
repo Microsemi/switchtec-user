@@ -390,6 +390,15 @@ void graph_init(void)
 
 #endif /* defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES) */
 
+int graph_draw_win_no_invert(struct range *X, struct range *Y, int *data,
+		   int *shades, const char *title, char x_title, char y_title, 
+		   char *status, graph_anim_fn *anim, void *opaque)
+{
+	graph_draw_text_no_invert(X, Y, data, title, x_title, y_title);
+	return 0;
+}
+
+
 void graph_draw_text(struct range *X, struct range *Y, int *data,
 		     const char *title, char x_title, char y_title)
 {
@@ -426,5 +435,45 @@ void graph_draw_text(struct range *X, struct range *Y, int *data,
 		}
 		printf("\n");
 		j--;
+	}
+}
+
+void graph_draw_text_no_invert(struct range *X, struct range *Y,
+			 int *data, const char *title, char x_title, char y_title)
+{
+	int stride = RANGE_CNT(X);
+	int x, y, i = RANGE_CNT(Y) - 1;
+	int j = Y->start;
+	int space_ch;
+
+	printf("    %s\n\n", title);
+
+	printf("       ");
+	for_range(x, X)
+		printf("%d ", x / 10);
+	printf("\n");
+
+	printf("       ");
+	for_range(x, X)
+		printf("%d ", x % 10);
+	printf("\n\n");
+
+	for_range(y, Y) {
+		printf("%5d  ", y);
+		i = 0;
+		for_range(x, X)  {
+			space_ch = ' ';
+			if (data[j * stride + i] == GRAPH_TEXT_HLINE ||
+			    data[j * stride + i] == GRAPH_TEXT_PLUS)
+				space_ch = GRAPH_TEXT_HLINE;
+			else if (data[j * stride + i] == '-' ||
+				 data[j * stride + i] == '+')
+				space_ch = '-';
+
+			printf("%lc%lc", data[j * stride + i], space_ch);
+			i++;
+		}
+		printf("\n");
+		j++;
 	}
 }
