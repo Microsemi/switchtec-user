@@ -259,6 +259,7 @@ struct switchtec_fw_image_info {
 	size_t part_body_offset;		//!< Partition image body offset
 	size_t image_len;			//!< Length of the image
 	unsigned long image_crc;		//!< CRC checksum of the image
+	char img_str[16];
 
 	bool valid;
 	bool active;
