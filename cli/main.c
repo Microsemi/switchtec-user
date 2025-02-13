@@ -1770,17 +1770,37 @@ static const char *fw_active_string(struct switchtec_fw_image_info *inf)
 	return inf->active ? " - Active" : "";
 }
 
+static void char_arr_print(char *buf, size_t len)
+{
+    int i;
+
+    for (i = 0; i < len; i++)
+    {
+        printf("%c", buf[i]);
+        if (buf[i] == 0)
+        {
+            break;
+        }
+    }
+}
+
 static void print_fw_part_line(const char *tag,
 			       struct switchtec_fw_image_info *inf)
 {
 	if (!inf)
 		return;
 
-	printf("  %-4s\tVersion: %-8s\tCRC: %08lx\t%4s%11s%s\n",
+	printf("  %-4s\tVersion: %-8s\tCRC: %08lx\t%4s%11s%s ",
 	       tag, inf->version, inf->image_crc,
 	       inf->read_only ? "(RO)" : "",
 	       inf->running ? "  (Running)" : "",
 	       inf->valid ? "" : "  (Invalid)");
+
+	if(inf->valid){
+	    printf("Image String:");
+	    char_arr_print(inf->img_str, sizeof(inf->img_str));
+	}
+	printf("\n");
 }
 
 static int print_fw_part_info(struct switchtec_dev *dev)
