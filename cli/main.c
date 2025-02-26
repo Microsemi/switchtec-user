@@ -1130,6 +1130,7 @@ static int log_parse(int argc, char **argv)
 	const struct argconfig_choice log_types[] = {
 		{"APP", SWITCHTEC_LOG_PARSE_TYPE_APP, "app log"},
 		{"MAILBOX", SWITCHTEC_LOG_PARSE_TYPE_MAILBOX, "mailbox log"},
+		{"FTDC", SWITCHTEC_LOG_PARSE_TYPE_FTDC, "ftdc"},
 		{}
 	};
 	const struct argconfig_choice device_gen[] = {
@@ -1208,7 +1209,7 @@ static int log_parse(int argc, char **argv)
 		fprintf(stderr, "\nParsed log saved to %s.\n",
 			cfg.parsed_log_filename);
 
-	if (info.version_mismatch) {
+	if (info.version_mismatch && cfg.log_type != SWITCHTEC_LOG_PARSE_TYPE_FTDC) {
 		fprintf(stderr, "\nWARNING: The two input files have different version numbers.\n");
 		fprintf(stderr, "\t\tFW Version\tSDK Version\n");
 		fprintf(stderr, "Log file:\t0x%08x\t0x%08x\n",
