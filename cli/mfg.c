@@ -1526,6 +1526,58 @@ static int debug_unlock_token(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_CSR_GET "get Device ID Certificate Signing Request (CSR)"
+
+static int csr_get(int argc, char **argv)
+{
+	int ret;
+
+	const char *desc = CMD_DESC_CSR_GET "\n\n"
+			   "This command can only be used in Main Firmware.\n\n"
+			   "It gets the DevID Certificate Signing Request (CSR)"
+			   "in DER format and save it to a specified file\n";
+
+	static struct {
+		struct switchtec_dev *dev;
+		int    csr_fd;
+		const char *csr_file_name;
+		int assume_yes;
+	} cfg = {
+		.csr_fd = 0,
+	};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG,
+		{"csr_file", .cfg_type=CFG_FD_WR, .value_addr=&cfg.csr_fd,
+			.argument_type=optional_positional,
+			.force_default="devid_csr.der",
+			.help="The CSR file to save to disk"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_FW) {
+		fprintf(stderr,
+			"This command is only available in Main Firmware!\n");
+		return -1;
+	}
+
+	ret = switchtec_csr_to_file(cfg.dev, cfg.csr_fd);
+	if (ret) {
+		switchtec_perror("mfg csr_get");
+		close(cfg.csr_fd);
+		return ret;
+	}
+
+	close(cfg.csr_fd);
+
+	fprintf(stderr, "\nCertificate Signing Request (CSR) saved to %s.\n", cfg.csr_file_name);
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	CMD(ping, CMD_DESC_PING),
 	CMD(info, CMD_DESC_INFO),
@@ -1541,6 +1593,7 @@ static const struct cmd commands[] = {
 	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
 	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
 	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
+	CMD(csr_get, CMD_DESC_CSR_GET),
 	{}
 };
 

@@ -275,5 +275,5 @@ int switchtec_read_uds_file(FILE *uds_file, struct switchtec_uds *uds);
 int
 switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 				  struct switchtec_kmsk *kmsk);
-
+int switchtec_csr_to_file(struct switchtec_dev *dev, int fd);
 #endif // LIBSWITCHTEC_MFG_H

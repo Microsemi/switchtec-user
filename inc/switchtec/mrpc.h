@@ -125,8 +125,9 @@ enum mrpc_cmd {
 	MRPC_DBG_UNLOCK_GEN5 = 0x11A,
 	MRPC_BOOTUP_RESUME_GEN5 = 0x11B,
 	MRPC_FTDC_LOG_DUMP = 0x147,
+	MRPC_CSR_GET = 0x14A,
 
-	MRPC_MAX_ID = 0x148,
+	MRPC_MAX_ID = 0x14B,
 };
 
 enum mrpc_bg_status {

@@ -1703,4 +1703,51 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 		return sn_ver_get_gen4(dev, info);
 }
 
+/**
+ * @brief Retrieve Certificate Signing Request (CSR)
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  fd	File handle to write the CSR data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_csr_to_file(struct switchtec_dev *dev, int fd)
+{
+	int ret;
+	uint16_t remaining_len;
+	struct csr_read {
+		uint8_t subcmd;
+		uint8_t reserved0;
+		uint16_t read_offset;
+		uint16_t read_len;
+		uint16_t reserved1;
+	} read = {};
+	struct csr_reply {
+		uint16_t read_offset;
+		uint16_t returned_data_len;
+		uint16_t total_data_len;
+		uint16_t reserved;
+		uint8_t data[800];
+	} reply = {};
+
+	read.subcmd = 0;
+	read.read_offset = 0;
+	read.read_len= 800;
+
+	do {
+		ret = switchtec_mfg_cmd(dev, MRPC_CSR_GET,
+					&read, sizeof(read),
+					&reply, sizeof(reply));
+		if (ret)
+			return ret;
+
+		read.read_offset = reply.read_offset + reply.returned_data_len;
+		remaining_len = reply.total_data_len - read.read_offset;
+		read.read_len = (remaining_len > 800) ? 800 : remaining_len;
+		ret = write(fd, reply.data, reply.returned_data_len);
+		if (ret < 0)
+			return ret;
+	} while (remaining_len);
+
+	return 0;
+}
+
 /**@}*/
