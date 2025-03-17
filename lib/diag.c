@@ -942,7 +942,6 @@ int switchtec_diag_ltssm_log_gen5(struct switchtec_dev *dev,
 		uint16_t no_of_logs;
 	} log_dump;
 
-
 	struct {
 		uint16_t length;
 		uint16_t dw1_unused;
