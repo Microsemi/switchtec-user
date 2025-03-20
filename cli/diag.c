@@ -126,16 +126,20 @@ static int ltssm_log(int argc, char **argv) {
 		DEVICE_OPTION, PORT_OPTION, {}
 	};
 
-	struct switchtec_diag_ltssm_log output[128];
 	int ret;
 	int port;
-	int log_count = 128;
 	int i;
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_LTSSM_LOG,
 				    &cfg, opts);
 	if (ret)
 		return ret;
+	
+	int log_count = 512;
+	if (!switchtec_is_gen5(cfg.dev)) {
+		log_count = 128;
+	}
+	struct switchtec_diag_ltssm_log output[log_count];
 
 	if (switchtec_is_gen3(cfg.dev)) {
 		fprintf (stderr,
@@ -143,10 +147,19 @@ static int ltssm_log(int argc, char **argv) {
 		return 0;
 	}
 	port = cfg.port_id;
-	ret = switchtec_diag_ltssm_log(cfg.dev, port, &log_count, output);
-	if (ret) {
-		switchtec_perror("ltssm_log");
-		return ret;
+	if (switchtec_is_gen5(cfg.dev)) {
+		ret = switchtec_diag_ltssm_log_gen5(cfg.dev, port, &log_count, output);
+		if (ret) {
+			switchtec_perror("ltssm_log");
+			return ret;
+		}
+	}
+	else {
+		ret = switchtec_diag_ltssm_log_gen4(cfg.dev, port, &log_count, output);
+		if (ret) {
+			switchtec_perror("ltssm_log");
+			return ret;
+		}
 	}
 
 	printf("LTSSM Log for Physical Port %d (autowrap ON)\n\n", port);
