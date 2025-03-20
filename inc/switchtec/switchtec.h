@@ -209,7 +209,8 @@ enum switchtec_log_type {
  */
 enum switchtec_log_parse_type {
 	SWITCHTEC_LOG_PARSE_TYPE_APP,
-	SWITCHTEC_LOG_PARSE_TYPE_MAILBOX
+	SWITCHTEC_LOG_PARSE_TYPE_MAILBOX,
+	SWITCHTEC_LOG_PARSE_TYPE_FTDC
 };
 
 /**
