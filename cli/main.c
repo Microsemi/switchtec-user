@@ -1000,6 +1000,7 @@ static int log_dump(int argc, char **argv)
 	const struct argconfig_choice types[] = {
 		{"RAM", SWITCHTEC_LOG_RAM, "dump the app log from RAM"},
 		{"FLASH", SWITCHTEC_LOG_FLASH, "dump the app log from flash"},
+		{"FTDC", SWITCHTEC_LOG_FTDC, "dump the FTDC firmware log"},
 		{"MEMLOG", SWITCHTEC_LOG_MEMLOG,
 		 "dump the Memlog info from flash in the last fatal error handling dump"},
 		{"REGS", SWITCHTEC_LOG_REGS,

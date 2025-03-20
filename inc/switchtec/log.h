@@ -81,4 +81,14 @@ struct log_b_retr_result {
 	uint8_t data[MRPC_MAX_DATA_LEN - sizeof(struct log_b_retr_hdr)];
 };
 
+struct log_ftdc_retr {
+	uint8_t sub_cmd_id;
+	uint8_t reserved;
+	uint16_t req_seq;
+};
+
+struct log_ftdc_retr_result {
+	uint8_t data[MRPC_MAX_DATA_LEN];
+};
+
 #endif
