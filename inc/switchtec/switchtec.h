@@ -1173,6 +1173,7 @@ enum switchtec_diag_ltssm_speed {
 	SWITCHTEC_DIAG_LTSSM_GEN2 = 1,
 	SWITCHTEC_DIAG_LTSSM_GEN3 = 2,
 	SWITCHTEC_DIAG_LTSSM_GEN4 = 3,
+	SWITCHTEC_DIAG_LTSSM_GEN5 = 4,
 };
 
 enum switchtec_diag_end {
@@ -1205,10 +1206,13 @@ int switchtec_diag_eye_fetch(struct switchtec_dev *dev, double *pixels,
 			     size_t pixel_cnt, int *lane_id);
 int switchtec_diag_eye_cancel(struct switchtec_dev *dev);
 
-int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
-		int enable, enum switchtec_diag_ltssm_speed ltssm_speed);
+int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id, 
+				int enable, int enable_parallel, 
+				int enable_external, int enable_ltssm,
+				enum switchtec_diag_ltssm_speed ltssm_speed);
 int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
-		int *enabled, enum switchtec_diag_ltssm_speed *ltssm_speed);
+				int *enabled, 
+				enum switchtec_diag_ltssm_speed *ltssm_speed);
 int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
 		enum switchtec_diag_pattern type);
 int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
