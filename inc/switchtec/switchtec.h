@@ -1171,6 +1171,7 @@ enum switchtec_diag_ltssm_speed {
 	SWITCHTEC_DIAG_LTSSM_GEN2 = 1,
 	SWITCHTEC_DIAG_LTSSM_GEN3 = 2,
 	SWITCHTEC_DIAG_LTSSM_GEN4 = 3,
+	SWITCHTEC_DIAG_LTSSM_GEN5 = 4,
 };
 
 enum switchtec_diag_end {

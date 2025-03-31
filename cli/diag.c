@@ -1458,7 +1458,7 @@ static const struct argconfig_choice loopback_ltssm_speeds[] = {
 	{"GEN2", SWITCHTEC_DIAG_LTSSM_GEN2, "GEN2 LTSSM Speed"},
 	{"GEN3", SWITCHTEC_DIAG_LTSSM_GEN3, "GEN3 LTSSM Speed"},
 	{"GEN4", SWITCHTEC_DIAG_LTSSM_GEN4, "GEN4 LTSSM Speed"},
-	{}
+	{"GEN5", SWITCHTEC_DIAG_LTSSM_GEN5, "GEN5 LTSSM Speed"},
 };
 
 static int print_loopback_mode(struct switchtec_dev *dev, int port_id)

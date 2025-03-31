@@ -137,6 +137,11 @@ enum switchtec_diag_loopback_type {
 	DIAG_LOOPBACK_TX_TO_RX = 1,
 };
 
+enum switchtec_diag_loopback_type_gen5 {
+	DIAG_LOOPBACK_RX_TO_TX_GEN5 = 5,
+	DIAG_LOOPBACL_TX_TO_RX_GEN5 = 6,
+};
+
 struct switchtec_diag_loopback_in {
 	uint8_t sub_cmd;
 	uint8_t port_id;
