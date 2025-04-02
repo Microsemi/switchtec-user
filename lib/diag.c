@@ -358,16 +358,18 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 	if (ret)
 		return ret;
 	
-	if (ltssm_speed == 4)
-		int_in.type = DIAG_LOOPBACK_TX_TO_RX_GEN5;
-	else
-		int_in.type = DIAG_LOOPBACK_TX_TO_RX;
-	int_in.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX);
+	if (!!(enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)) {
+		if (ltssm_speed == 4)
+			int_in.type = DIAG_LOOPBACK_TX_TO_RX_GEN5;
+		else
+			int_in.type = DIAG_LOOPBACK_TX_TO_RX;
+		int_in.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX);
 
-	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-			    sizeof(int_in), NULL, 0);
-	if (ret)
-		return ret;
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+				    sizeof(int_in), NULL, 0);
+		if (ret)
+			return ret;
+	}
 
 	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
 			    sizeof(ltssm_in), NULL, 0);
