@@ -66,3 +66,23 @@ and follow the above installation instructions as usual.
 
 ### Firmware Demo
 [![asciicast](https://asciinema.org/a/96442.png)](https://asciinema.org/a/96442)
+
+## OpenSSL (Linux)
+In some cases users may want to use the switchtec-cli with a different/custom 
+version of OpenSSL that is not the default version packaged with the OS, whose 
+library files exist elsewhere in the host system and therefore is not expected 
+by the current switchtec-cli build system.
+
+Users have observed the below error (or similar shared library errors) when 
+using OpenSSL commands after compiling the codebase.
+~~~
+openssl: error while loading shared libraries: libssl.so.3: cannot open shared 
+object file: No such file or directory
+~~~
+To build the switchtec libraries to an alternate library path use the following 
+make flag when building:
+~~~
+./configure
+make
+sudo make LIBDIR=<custom_lib_path> install
+~~~
