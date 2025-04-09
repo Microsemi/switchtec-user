@@ -277,5 +277,12 @@ struct switchtec_diag_cross_hair_get {
 	};
 };
 
+struct switchtec_diag_ltssm_log_dmp_out {
+	uint32_t dw0;
+	uint32_t ram_timestamp;
+	uint32_t unused;
+	uint32_t arc;
+};
+
 #endif
 /**@}*/

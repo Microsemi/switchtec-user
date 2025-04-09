@@ -28,6 +28,7 @@
  */
 
 #define SWITCHTEC_LIB_CORE
+#define SWITCHTEC_LTSSM_MAX_LOGS 61
 
 #include "switchtec_priv.h"
 #include "switchtec/diag.h"
@@ -922,17 +923,183 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
 	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
 }
 
+static void switchtec_diag_ltssm_set_log_data(struct switchtec_diag_ltssm_log 
+					*log_data, 
+					struct switchtec_diag_ltssm_log_dmp_out 
+					*log_dump_out_ptr, 
+					int curr_idx, uint16_t num_of_logs) 
+{
+	uint32_t dw0;
+	uint32_t timestamp;
+	
+	int major;
+	int minor;
+	int rate;
+	
+	for (int j = 0; j < num_of_logs; j++) {
+		dw0 = log_dump_out_ptr[j].dw0;
+		timestamp = log_dump_out_ptr[j].ram_timestamp;
+
+		rate = (dw0 >> 13) & 0x7;
+		major = (dw0 >> 7) & 0x3f;
+		minor = (dw0 >> 3) & 0xf;
+
+		log_data[curr_idx + j].timestamp = timestamp;
+		log_data[curr_idx + j].link_rate = switchtec_gen_transfers[rate+1];
+		log_data[curr_idx + j].link_state = major | (minor << 8);
+	}
+}
+
 /**
- * @brief Get the LTSSM log of a port on a switchtec device
+ * @brief Get the LTSSM log of a port on a gen5 switchtec device
  * @param[in]	dev    Switchtec device handle
  * @param[in]	port   Switchtec Port
  * @param[inout] log_count number of log entries
  * @param[out] log    A pointer to an array containing the log
  *
  */
-int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
-			     int port, int *log_count,
-			     struct switchtec_diag_ltssm_log *log_data)
+static int switchtec_diag_ltssm_log_gen5(struct switchtec_dev *dev,
+				 int port, int *log_count,
+				 struct switchtec_diag_ltssm_log *log_data)
+{
+	struct {
+		uint8_t sub_cmd;
+		uint8_t port;
+		uint8_t freeze;
+		uint8_t unused;
+	} ltssm_freeze;
+
+	struct {
+		uint8_t sub_cmd;
+		uint8_t port;
+	} status;
+
+	struct {
+		uint16_t log_count;
+		uint16_t w0_trigger_count;
+		uint16_t w1_trigger_count;
+	} status_output;
+
+	struct {
+		uint8_t sub_cmd;
+		uint8_t port;
+		uint16_t log_index;
+		uint16_t no_of_logs;
+	} log_dump;
+
+	uint8_t log_buffer[1024];
+
+	struct switchtec_diag_ltssm_log_dmp_out *log_dump_out_ptr = NULL;
+
+	int ret;
+	int log_dmp_size = sizeof(struct switchtec_diag_ltssm_log_dmp_out);
+
+	/* freeze logs */
+	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
+	ltssm_freeze.port = port;
+	ltssm_freeze.freeze = 1;
+
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
+			    sizeof(ltssm_freeze), NULL, 0);
+	if (ret)
+		return ret;
+
+	/* get number of entries */
+	status.sub_cmd = MRPC_LTMON_GET_STATUS_GEN5;
+	status.port = port;
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &status,
+			    sizeof(status), &status_output,
+			    sizeof(status_output));
+	if (ret)
+		return ret;
+
+	*log_count = status_output.log_count;
+
+	/* get log data */
+	log_dump.sub_cmd = MRPC_LTMON_LOG_DUMP_GEN5;
+	log_dump.port = port;
+	log_dump.log_index = 0;
+	log_dump.no_of_logs = *log_count;
+
+	if(log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
+		/* Single buffer log case */
+		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
+				    sizeof(log_dump), &log_buffer[0], 
+				    log_dump.no_of_logs * log_dmp_size + 4);
+		if (ret)
+			return ret;
+		log_dump_out_ptr = 
+			(struct switchtec_diag_ltssm_log_dmp_out *)
+			&(log_buffer[4]);
+		
+		switchtec_diag_ltssm_set_log_data(log_data, 
+						  log_dump_out_ptr, 
+						  0, log_dump.no_of_logs);
+	} else {
+		/* Multiple buffer log case */
+		int buff_count = log_dump.no_of_logs / SWITCHTEC_LTSSM_MAX_LOGS;
+		int curr_idx = 0;
+		int buffer_size = SWITCHTEC_LTSSM_MAX_LOGS * log_dmp_size + 4;
+
+		for (int i = 0; i < buff_count; i++) {
+			log_dump.no_of_logs = SWITCHTEC_LTSSM_MAX_LOGS;
+			ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, 
+					    &log_dump, sizeof(log_dump), 
+					    &log_buffer[0], buffer_size);
+			if (ret)
+				return ret;
+			log_dump_out_ptr = 
+				(struct switchtec_diag_ltssm_log_dmp_out *)
+				&(log_buffer[4]);
+			
+			switchtec_diag_ltssm_set_log_data(log_data, 
+							  log_dump_out_ptr, 
+							  curr_idx, 
+							  log_dump.no_of_logs);
+			curr_idx += SWITCHTEC_LTSSM_MAX_LOGS;
+			log_dump.log_index = curr_idx;
+		}
+		if (*log_count % SWITCHTEC_LTSSM_MAX_LOGS) {
+			log_dump.no_of_logs = *log_count - curr_idx;
+			buffer_size = log_dump.no_of_logs * log_dmp_size + 4;
+			ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, 
+					    &log_dump, sizeof(log_dump), 
+					    &log_buffer[0], buffer_size);
+			if (ret)
+				return ret;
+			log_dump_out_ptr = 
+				(struct switchtec_diag_ltssm_log_dmp_out *)
+				&(log_buffer[4]);
+			
+			switchtec_diag_ltssm_set_log_data(log_data, 
+							  log_dump_out_ptr, 
+							  curr_idx, 
+							  log_dump.no_of_logs);
+		}
+	}
+
+	/* unfreeze logs */
+	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
+	ltssm_freeze.port = port;
+	ltssm_freeze.freeze = 0;
+
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
+			    sizeof(ltssm_freeze), NULL, 0);
+
+	return ret;
+}
+
+/**
+ * @brief Get the LTSSM log of a port on a gen4 switchtec device
+ * @param[in]	dev    Switchtec device handle
+ * @param[in]	port   Switchtec Port
+ * @param[inout] log_count number of log entries
+ * @param[out] log    A pointer to an array containing the log
+ *
+ */
+static int switchtec_diag_ltssm_log_gen4(struct switchtec_dev *dev,
+				 int port, int *log_count,
+				 struct switchtec_diag_ltssm_log *log_data)
 {
 	struct {
 		uint8_t sub_cmd;
@@ -971,7 +1138,7 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 	int i;
 
 	/* freeze logs */
-	ltssm_freeze.sub_cmd = 14;
+	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
 	ltssm_freeze.port = port;
 	ltssm_freeze.freeze = 1;
 
@@ -981,7 +1148,7 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 		return ret;
 
 	/* get number of entries */
-	status.sub_cmd = 13;
+	status.sub_cmd = MRPC_LTMON_GET_STATUS_GEN4;
 	status.port = port;
 	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &status,
 			    sizeof(status), &status_output,
@@ -993,7 +1160,7 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 		*log_count = status_output.log_num;
 
 	/* get log data */
-	log_dump.sub_cmd = 15;
+	log_dump.sub_cmd = MRPC_LTMON_LOG_DUMP_GEN4;
 	log_dump.port = port;
 	log_dump.log_index = 0;
 	log_dump.no_of_logs = *log_count;
@@ -1033,13 +1200,33 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 	}
 
 	/* unfreeze logs */
-	ltssm_freeze.sub_cmd = 14;
+	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
 	ltssm_freeze.port = port;
 	ltssm_freeze.freeze = 0;
 
 	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
 			    sizeof(ltssm_freeze), NULL, 0);
 
+	return ret;
+}
+
+/**
+ * @brief Determine the generation and call the related LTSSM log func
+ * @param[in]	dev    Switchtec device handle
+ * @param[in]	port   Switchtec Port
+ * @param[inout] log_count number of log entries
+ * @param[out] log    A pointer to an array containing the log
+ *
+ */
+int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
+			    int port, int *log_count,
+			    struct switchtec_diag_ltssm_log *log_data)
+{
+	int ret;
+	if (switchtec_is_gen5(dev))
+		ret = switchtec_diag_ltssm_log_gen5(dev, port, log_count, log_data);
+	else
+		ret = switchtec_diag_ltssm_log_gen4(dev, port, log_count, log_data);
 	return ret;
 }
 

@@ -126,16 +126,20 @@ static int ltssm_log(int argc, char **argv) {
 		DEVICE_OPTION, PORT_OPTION, {}
 	};
 
-	struct switchtec_diag_ltssm_log output[128];
 	int ret;
 	int port;
-	int log_count = 128;
 	int i;
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_LTSSM_LOG,
 				    &cfg, opts);
 	if (ret)
 		return ret;
+	
+	int log_count = 512;
+	if (switchtec_is_gen4(cfg.dev))
+		log_count = 128;
+	
+	struct switchtec_diag_ltssm_log output[log_count];
 
 	if (switchtec_is_gen3(cfg.dev)) {
 		fprintf (stderr,
