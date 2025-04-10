@@ -2354,8 +2354,7 @@ static void show_event_counter(int stack, int counter,
 	printf("Events:    %s\n", type_mask_to_string(setup->type_mask,
 						      buf, sizeof(buf)));
 	if (setup->type_mask & ALL_TLPS)
-		printf("Direction: %s\n", setup->egress ?
-		       "EGRESS" : "INGRESS");
+		printf("Direction: %s\n", setup->egress ? "EGRESS" : "INGRESS");
 }
 
 #define CMD_DESC_EVCNTR_SETUP "configure an event counter"
@@ -2378,30 +2377,25 @@ static int evcntr_setup(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
-		 "stack to create the counter in",
-		 .require_in_usage=1},
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, 
+			required_argument, "stack to create the counter in",
+			.require_in_usage=1},
 		{"event", 'e', "EVENT", CFG_MULT_CHOICES, &cfg.setup.type_mask,
-		  required_argument,
-		 "event to count on, may specify this argument multiple times "
-		 "to count on multiple events",
-		 .choices=type_choices, .require_in_usage=1},
-
-		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
-		 "counter index, default is to use the next unused index"},
+			required_argument, "event to count on, may specify this argument multiple times to count on multiple events", 
+			.choices=type_choices, .require_in_usage=1},
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, 
+			required_argument, "counter index, default is to use the next unused index"},
 		{"egress", 'g', "", CFG_NONE, &cfg.setup.egress, no_argument,
-		 "measure egress TLPs instead of ingress -- only meaningful for "
-		 "POSTED_TLP, COMP_TLP and NON_POSTED_TLP counts"},
-		{"port_mask", 'p', "0xXX|#,#,#-#,#", CFG_MASK_8, &cfg.setup.port_mask,
-		  required_argument,
-		 "ports to capture events on, default is all ports"},
+			"measure egress TLPs instead of ingress -- only meaningful for POSTED_TLP, COMP_TLP and NON_POSTED_TLP counts"},
+		{"port_mask", 'p', "0xXX|#,#,#-#,#", CFG_MASK_8, 
+		  	&cfg.setup.port_mask, required_argument, "ports to capture events on, default is all ports"},
 		{"thresh", 't', "NUM", CFG_POSITIVE, &cfg.setup.threshold,
-		 required_argument,
-		 "threshold to trigger an event notification"},
+			required_argument, "threshold to trigger an event notification"},
 		{NULL}};
 
 	create_type_choices(type_choices);
-	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_SETUP, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_SETUP, opts, &cfg, 
+			sizeof(cfg));
 
 	if (cfg.stack < 0) {
 		argconfig_print_usage(opts);
@@ -2461,8 +2455,8 @@ static int evcntr(int argc, char **argv)
 		DEVICE_OPTION,
 		{"reset", 'r', "", CFG_NONE, &cfg.reset, no_argument,
 		 "reset counters back to zero"},
-		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
-		 "stack to show the counters for"},
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, 
+			required_argument, "stack to show the counters for"},
 		{}};
 
 	argconfig_parse(argc, argv, CMD_DESC_EVCNTR, opts, &cfg, sizeof(cfg));
@@ -2498,15 +2492,15 @@ static int evcntr_show(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
-		 "stack to show the configuration for",
-		 .require_in_usage=1},
-		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
-		 "counter index",
-		 .require_in_usage=1},
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, 
+			required_argument, "stack to show the configuration for",
+		 	.require_in_usage=1},
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, 
+			required_argument, "counter index", .require_in_usage=1},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_SHOW, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_SHOW, opts, &cfg, 
+			sizeof(cfg));
 
 	if (cfg.stack < 0) {
 		argconfig_print_usage(opts);
@@ -2550,15 +2544,16 @@ static int evcntr_del(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, required_argument,
-		 "stack to deconfigure the counter in",
-		 .require_in_usage=1},
-		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, required_argument,
-		 "counter index",
-		 .require_in_usage=1},
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack, 
+			required_argument, "stack to deconfigure the counter in",
+		 	.require_in_usage=1},
+		{"counter", 'c', "NUM", CFG_NONNEGATIVE, &cfg.counter, 
+			required_argument, "counter index", 
+			.require_in_usage=1},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_DEL, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_DEL, opts, &cfg, 
+			sizeof(cfg));
 
 	if (cfg.stack < 0) {
 		argconfig_print_usage(opts);
@@ -2601,7 +2596,8 @@ static int evcntr_wait(int argc, char **argv)
 		 "timeout in milliseconds (-1 = forever)"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_WAIT, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_EVCNTR_WAIT, opts, &cfg, 
+			sizeof(cfg));
 
 	ret = switchtec_evcntr_wait(cfg.dev, cfg.timeout);
 	if (ret < 0) {
@@ -2633,14 +2629,15 @@ static int lnkerr_dllp(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
-			"physical port ID"},
-		{"data", 'd', "", CFG_LONG_SUFFIX, &cfg.dllp_data, required_argument,
-			"DLLP data to inject"},
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, 
+			required_argument, "physical port ID"},
+		{"data", 'd', "", CFG_LONG_SUFFIX, &cfg.dllp_data, 
+			required_argument, "DLLP data to inject"},
 		{NULL}};
 
 	
-	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_DLLP, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_DLLP, opts, &cfg, 
+			sizeof(cfg));
 	ret = switchtec_inject_err_dllp(cfg.dev, cfg.phy_port, cfg.dllp_data);
 
 	switchtec_perror("errinj-dllp");
@@ -2662,8 +2659,8 @@ static int lnkerr_dllp_crc(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, required_argument,
-			"physical port ID"},
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phy_port, 
+			required_argument, "physical port ID"},
 		{"enable", 'e', "", CFG_NONE, &cfg.enable, no_argument,
 			"enable DLLP CRC Error Injection"},
 		{"rate", 'r', "", CFG_NONNEGATIVE, &cfg.rate, required_argument,
@@ -2671,8 +2668,10 @@ static int lnkerr_dllp_crc(int argc, char **argv)
 		{NULL}};
 
 	
-	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_DLLP_CRC, opts, &cfg, sizeof(cfg));
-	ret = switchtec_inject_err_dllp_crc(cfg.dev, cfg.phy_port, cfg.enable, cfg.rate);
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_DLLP_CRC, opts, &cfg, 
+			sizeof(cfg));
+	ret = switchtec_inject_err_dllp_crc(cfg.dev, cfg.phy_port, cfg.enable, 
+					    cfg.rate);
 
 	if (cfg.rate > 4096) {
 		fprintf(stderr, "Rate out of range. Valid range is 0-4095.\n");
@@ -2699,21 +2698,23 @@ static int lnkerr_tlp_lcrc(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
-			"physical port ID"},
-		{"enable", 'e', "", CFG_NONNEGATIVE, &cfg.enable, required_argument,
-			"enable TLP LCRC Error Injection, 1 -> enable, 0 -> disable"},
-		{"rate", 'r', "", CFG_NONNEGATIVE, &cfg.rate, required_argument,
-			"valid range (0-7). Ex. rate = 1 -> every other TLP has an error"},
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, 
+			required_argument, "physical port ID"},
+		{"enable", 'e', "", CFG_NONNEGATIVE, &cfg.enable, 
+			required_argument, "enable TLP LCRC Error Injection, 1 -> enable, 0 -> disable"},
+		{"rate", 'r', "", CFG_NONNEGATIVE, &cfg.rate, 
+			required_argument, "valid range (0-7). Ex. rate = 1 -> every other TLP has an error"},
 		{NULL}};
 
 
 	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_TLP_LCRC, opts, &cfg, sizeof(cfg));
 
 	if (switchtec_is_gen4(cfg.dev)) {
-		ret = switchtec_inject_err_tlp_lcrc_gen4(cfg.dev, cfg.phys_port, cfg.enable, cfg.rate);
+		ret = switchtec_inject_err_tlp_lcrc_gen4(cfg.dev, cfg.phys_port, 
+							 cfg.enable, cfg.rate);
 	} else if (switchtec_is_gen5(cfg.dev)) {
-		ret = switchtec_inject_err_tlp_lcrc_gen5(cfg.dev, cfg.phys_port, cfg.enable, cfg.rate);
+		ret = switchtec_inject_err_tlp_lcrc_gen5(cfg.dev, cfg.phys_port, 
+							 cfg.enable, cfg.rate);
 	} else {
 		fprintf(stderr, "This command is not supported for Gen3 switches.\n");
 		return -1;
@@ -2742,11 +2743,12 @@ static int lnkerr_tlp_seq(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
-			"physical port ID"},
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, 
+			required_argument, "physical port ID"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_SEQ, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_SEQ, opts, &cfg, 
+			sizeof(cfg));
 	ret = switchtec_inject_err_tlp_seq_num(cfg.dev, cfg.phys_port);
 
 	switchtec_perror("lnkerr-tlp-seq");	
@@ -2769,15 +2771,16 @@ static int lnkerr_nack(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
-			"physical port ID"},
-		{"seq_num", 's', "", CFG_NONNEGATIVE, &cfg.seq_num, required_argument,
-			"sequence number of ACK to be replaced by NACK (0-4095)"},
-		{"count", 'c', "", CFG_NONNEGATIVE, &cfg.count, required_argument,
-			"number of times to replace ACK with NACK (0-255)"},
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port,
+			required_argument, "physical port ID"},
+		{"seq_num", 's', "", CFG_NONNEGATIVE, &cfg.seq_num, 
+			required_argument, "sequence number of ACK to be replaced by NACK (0-4095)"},
+		{"count", 'c', "", CFG_NONNEGATIVE, &cfg.count, 
+			required_argument, "number of times to replace ACK with NACK (0-255)"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_ACK_NACK, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_ACK_NACK, opts, &cfg, 
+			sizeof(cfg));
 	
 	if (cfg.seq_num > 4095) {
 		fprintf(stderr, "Sequence number out of range. Valid range is 0-4095).\n");
@@ -2788,7 +2791,8 @@ static int lnkerr_nack(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_inject_err_ack_nack(cfg.dev, cfg.phys_port, cfg.seq_num, cfg.count);
+	ret = switchtec_inject_err_ack_nack(cfg.dev, cfg.phys_port, cfg.seq_num, 
+					    cfg.count);
 
 	switchtec_perror("lnkerr-nack");	
 
@@ -2807,11 +2811,12 @@ static int lnkerr_cto(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, required_argument,
-			"physical port ID"},
+		{"physical", 'f', "", CFG_NONNEGATIVE, &cfg.phys_port, 
+			required_argument, "physical port ID"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_CTO, opts, &cfg, sizeof(cfg));
+	argconfig_parse(argc, argv, CMD_DESC_ERR_INJECT_CTO, opts, &cfg, 
+			sizeof(cfg));
 
 	if (!switchtec_is_gen5(cfg.dev)) {
 		fprintf(stderr, "Credit timeout error injection is only supported on Gen5.\n");

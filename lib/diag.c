@@ -915,10 +915,10 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 
 	if (switchtec_is_gen5(dev)) {
 		ret = switchtec_gen5_diag_port_eq_tx_coeff(dev, port_id, end,
-				link, res);
+							   link, res);
 	} else if (switchtec_is_gen4(dev)){
 		ret = switchtec_gen4_diag_port_eq_tx_coeff(dev, port_id, end,
-				link, res);
+							   link, res);
 	}
 
 	return ret;
@@ -959,9 +959,9 @@ int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 	}
 
 	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, in,
-						sizeof(struct switchtec_port_eq_table_in),
-						out,
-						sizeof(struct switchtec_gen5_port_eq_table));
+			    sizeof(struct switchtec_port_eq_table_in),
+			    out,
+			    sizeof(struct switchtec_gen5_port_eq_table));
 	if (ret)
 		return -1;
 
@@ -969,14 +969,14 @@ int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 	res->step_cnt = out->step_cnt;
 
 	for (i = 0; i < res->step_cnt; i++) {
-		res->steps[i].pre_cursor		= out->steps[i].pre_cursor;
-		res->steps[i].post_cursor		= out->steps[i].post_cursor;
-		res->steps[i].fom				= 0;
-		res->steps[i].pre_cursor_up		= 0;
-		res->steps[i].post_cursor_up	= 0;
-		res->steps[i].error_status		= out->steps[i].error_status;
-		res->steps[i].active_status		= out->steps[i].active_status;
-		res->steps[i].speed				= out->steps[i].speed;
+		res->steps[i].pre_cursor = out->steps[i].pre_cursor;
+		res->steps[i].post_cursor = out->steps[i].post_cursor;
+		res->steps[i].fom = 0;
+		res->steps[i].pre_cursor_up = 0;
+		res->steps[i].post_cursor_up = 0;
+		res->steps[i].error_status = out->steps[i].error_status;
+		res->steps[i].active_status = out->steps[i].active_status;
+		res->steps[i].speed = out->steps[i].speed;
 	}
 
 	return 0;
@@ -1617,9 +1617,11 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 {
 	int ret;
 	if (switchtec_is_gen5(dev))
-		ret = switchtec_diag_ltssm_log_gen5(dev, port, log_count, log_data);
+		ret = switchtec_diag_ltssm_log_gen5(dev, port, log_count, 
+						    log_data);
 	else
-		ret = switchtec_diag_ltssm_log_gen4(dev, port, log_count, log_data);
+		ret = switchtec_diag_ltssm_log_gen4(dev, port, log_count, 
+						    log_data);
 	return ret;
 }
 
@@ -1648,7 +1650,7 @@ int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 	};
 
 	ret_val = switchtec_cmd(dev, MRPC_AER_GEN, &sub_cmd_id,
-					sizeof(sub_cmd_id), &output, sizeof(output));
+				sizeof(sub_cmd_id), &output, sizeof(output));
 	return ret_val;
 }
 

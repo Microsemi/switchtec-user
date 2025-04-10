@@ -1220,7 +1220,7 @@ static int parse_def_header(FILE *log_def_file, uint32_t *fw_version,
 }
 
 static int append_ftdc_log_header(int fd, uint32_t sdk_def_version,
-								uint32_t fw_def_version)
+				  uint32_t fw_def_version)
 {
 	int ret;
 	char hdr_str_fmt[] = "##########################################\n"
@@ -2313,7 +2313,7 @@ int switchtec_inject_err_dllp(struct switchtec_dev *dev, int phys_port_id, int d
 
 
 	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			sizeof(cmd), &output, sizeof(output));
+			     sizeof(cmd), &output, sizeof(output));
 }
 
 
@@ -2337,7 +2337,7 @@ int switchtec_inject_err_dllp_crc(struct switchtec_dev *dev, int phys_port_id, i
 	};
 
 	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			sizeof(cmd), &output, sizeof(output));
+			     sizeof(cmd), &output, sizeof(output));
 }
 
 
@@ -2362,7 +2362,7 @@ int switchtec_inject_err_tlp_lcrc_gen4(struct switchtec_dev *dev, int phys_port_
 	printf("enable: %d\n", enable);
 
 	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			sizeof(cmd), &output, sizeof(output));
+			     sizeof(cmd), &output, sizeof(output));
 }
 
 
@@ -2386,7 +2386,7 @@ int switchtec_inject_err_tlp_lcrc_gen5(struct switchtec_dev *dev, int phys_port_
 	};
 
 	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			sizeof(cmd), &output, sizeof(output));
+			     sizeof(cmd), &output, sizeof(output));
 }
 
 /**
@@ -2405,7 +2405,7 @@ int switchtec_inject_err_tlp_seq_num(struct switchtec_dev *dev, int phys_port_id
 	};
 
 	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			sizeof(cmd), &output, sizeof(output));
+			     sizeof(cmd), &output, sizeof(output));
 }
 
 /**
@@ -2428,7 +2428,7 @@ int switchtec_inject_err_ack_nack(struct switchtec_dev *dev, int phys_port_id, u
 	};
 
 	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			sizeof(cmd), &output, sizeof(output));
+			     sizeof(cmd), &output, sizeof(output));
 }
 
 /**
@@ -2447,6 +2447,6 @@ int switchtec_inject_err_cto(struct switchtec_dev *dev, int phys_port_id)
 	};
 
 	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			sizeof(cmd), &output, sizeof(output));
+			     sizeof(cmd), &output, sizeof(output));
 }
 /**@}*/

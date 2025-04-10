@@ -842,12 +842,9 @@ static void crosshair_csv(FILE *f, struct switchtec_diag_cross_hair *ch,
 	fprintf(f, "left_limit, %d, %d\n", ch->eye_left_lim, 0);
 	fprintf(f, "right_limit, %d, %d\n", ch->eye_right_lim, 0);
 	fprintf(f, "top_left_limit, %d, %d\n", ch_left, ch->eye_top_left_lim);
-	fprintf(f, "bottom_left_limit, %d, %d\n", ch_left,
-		ch->eye_bot_left_lim);
-	fprintf(f, "top_right_limit, %d, %d\n", ch_right,
-		ch->eye_top_right_lim);
-	fprintf(f, "bottom_right_limit, %d, %d\n", ch_right,
-		ch->eye_bot_right_lim);
+	fprintf(f, "bottom_left_limit, %d, %d\n", ch_left, ch->eye_bot_left_lim);
+	fprintf(f, "top_right_limit, %d, %d\n", ch_right, ch->eye_top_right_lim);
+	fprintf(f, "bottom_right_limit, %d, %d\n", ch_right, ch->eye_bot_right_lim);
 	fprintf(f, "interval_ms, 200\n");
 	fprintf(f, "w2h, %d\n", crosshair_w2h(ch));
 }
@@ -873,8 +870,7 @@ static void crosshair_write_all_csv(struct switchtec_dev *dev,
 		rc = switchtec_calc_port_lane(dev, ch[i].lane_id, &port, &lane,
 					      &status);
 		if (rc) {
-			fprintf(stderr,
-				"Unable to get port information for lane: %d\n",
+			fprintf(stderr, "Unable to get port information for lane: %d\n",
 				ch[i].lane_id);
 			continue;
 		}
@@ -902,11 +898,9 @@ static int crosshair_write_csv(const char *title,
 	char fname[100];
 	FILE *f;
 
-	sscanf(title, "Crosshair - Port %d, Lane %d, Gen %d",
-	       &port, &lane, &gen);
+	sscanf(title, "Crosshair - Port %d, Lane %d, Gen %d", &port, &lane, &gen);
 
-	snprintf(fname, sizeof(fname), "crosshair_port%d_lane%d.csv",
-		 port, lane);
+	snprintf(fname, sizeof(fname), "crosshair_port%d_lane%d.csv", port, lane);
 
 	f = fopen(fname, "w");
 	if (!f) {
@@ -1068,21 +1062,18 @@ static int crosshair(int argc, char **argv)
 
 	} else {
 		if (!cfg.dev) {
-			fprintf(stderr,
-				"Must specify a switchtec device if not using -C\n");
+			fprintf(stderr, "Must specify a switchtec device if not using -C\n");
 			return -1;
 		}
 
 		if (cfg.all) {
 			if (cfg.lane_id) {
-				fprintf(stderr,
-					"Must not specify both --all/-a and --lane/-l\n");
+				fprintf(stderr, "Must not specify both --all/-a and --lane/-l\n");
 				return -1;
 			}
 
 			if (cfg.fmt != FMT_CSV) {
-				fprintf(stderr,
-					"Must use --format=CSV with --all/-a\n");
+				fprintf(stderr, "Must use --format=CSV with --all/-a\n");
 				return -1;
 			}
 		} else if (cfg.port_id < 0) {
@@ -1103,8 +1094,7 @@ static int crosshair(int argc, char **argv)
 
 		} else {
 			lane = SWITCHTEC_DIAG_CROSS_HAIR_ALL_LANES;
-			snprintf(subtitle, sizeof(subtitle) - 1,
-				 "Crosshair - All Lanes");
+			snprintf(subtitle, sizeof(subtitle) - 1, "Crosshair - All Lanes");
 		}
 
 		if (pixels)
@@ -1292,10 +1282,10 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 
 	if (sw_gen == SWITCHTEC_GEN5)
 		return graph_draw_win(X, Y, data, shades, title, 'P', 'B',
-			      	status_ptr, NULL, NULL);
+				      status_ptr, NULL, NULL);
 	else
 		return graph_draw_win(X, Y, data, shades, title, 'T', 'V',
-			      	status_ptr, NULL, NULL);
+			      	      status_ptr, NULL, NULL);
 }
 
 #define CMD_DESC_EYE "Capture PCIe Eye Errors"
@@ -1388,8 +1378,8 @@ static int eye(int argc, char **argv)
 
 	if (cfg.plot_file) {
 		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
-				&cfg.y_range, subtitle, sizeof(subtitle),
-				&cfg.step_interval);
+				      &cfg.y_range, subtitle, sizeof(subtitle),
+				      &cfg.step_interval);
 		if (!pixels) {
 			fprintf(stderr, "Unable to parse CSV file: %s\n",
 				cfg.plot_filename);
@@ -1446,8 +1436,9 @@ static int eye(int argc, char **argv)
 
 	if (!pixels) {
 		pixels = eye_observe_dev(cfg.dev, cfg.port_id, cfg.lane_id,
-				cfg.num_lanes, cfg.mode, cfg.step_interval,
-				&cfg.x_range, &cfg.y_range, &gen);
+					 cfg.num_lanes, cfg.mode, 
+					 cfg.step_interval, &cfg.x_range, 
+					 &cfg.y_range, &gen);
 		if (!pixels)
 			return -1;
 
@@ -1472,8 +1463,8 @@ static int eye(int argc, char **argv)
 
 /*Gen5 eye capture logic*/
 static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
-					int port_id, int lane_id, int num_lanes,
-					int capture_depth, int* num_phases, int* gen)
+				    int port_id, int lane_id, int num_lanes,
+				    int capture_depth, int* num_phases, int* gen)
 {
 	int bin, j, ret, eye_status, first_lane, num_phases_l, stride;
 	int lane_mask[4] = {};
@@ -1519,8 +1510,9 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 	first_lane = switchtec_calc_lane_id(dev, port_id, lane_id, NULL);
 	for (j = 0; j < num_lanes; j++) {
 		for (bin = 0; bin < 64; bin++) {
-			ret = switchtec_gen5_diag_eye_read(dev, first_lane + j, bin,
-						&num_phases_l, tmp);
+			ret = switchtec_gen5_diag_eye_read(dev, first_lane + j, 
+							   bin, &num_phases_l, 
+							   tmp);
 			if (ret) {
 				switchtec_perror("eye_read");
 				if (ber_data)
@@ -1530,15 +1522,16 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 
 			if (!ber_data) {
 				stride = 64 * num_phases_l;
-				ber_data = calloc(num_lanes * stride, sizeof(double));
+				ber_data = calloc(num_lanes * stride, 
+					sizeof(double));
 				if (!ber_data) {
 					perror("allocating BER data");
 					return NULL;
 				}
 			}
 
-			memcpy(&ber_data[(j * stride) + (bin * num_phases_l)], tmp,
-				   num_phases_l * sizeof(double));
+			memcpy(&ber_data[(j * stride) + (bin * num_phases_l)], 
+				tmp, num_phases_l * sizeof(double));
 		}
 	}
 
@@ -1613,8 +1606,8 @@ static int eye_gen5(int argc, char **argv)
 	}
 
 	data = eye_capture_dev_gen5(cfg.dev, cfg.port_id, cfg.lane_id,
-					cfg.num_lanes, cfg.capture_depth, &num_phases,
-					&gen);
+				    cfg.num_lanes, cfg.capture_depth, &num_phases,
+				    &gen);
 	if (!data)
 		return -1;
 	
@@ -1622,12 +1615,12 @@ static int eye_gen5(int argc, char **argv)
 	
 	if (cfg.fmt == FMT_CSV) {
 		write_eye_csv_files(cfg.port_id, cfg.lane_id, cfg.num_lanes,
-				-1, gen, &x_range, &y_range, data);
+				    -1, gen, &x_range, &y_range, data);
 		ret = 0;
 	} else {
 		eye_set_title(title, cfg.port_id, cfg.lane_id, gen);
 		ret = eye_graph(cfg.fmt, &x_range, &y_range, data, title, NULL,
-					SWITCHTEC_GEN5);
+				SWITCHTEC_GEN5);
 	}
 
 	free(data);
@@ -2219,13 +2212,14 @@ static int aer_event_gen(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port_id, required_argument,
-			"port ID"},
-		{"ce_event", 'e', "", CFG_NONNEGATIVE, &cfg.aer_error_id, required_argument,
-			"aer CE event - 0,6,7,8,12,14,15"},
-		{"trigger", 't', "", CFG_NONNEGATIVE, &cfg.trigger_event, required_argument,
-			"trigger event (only CE events supported-0x1)"},
-		{NULL}};
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port_id, 
+			required_argument, "port ID"},
+		{"ce_event", 'e', "", CFG_NONNEGATIVE, &cfg.aer_error_id, 
+			required_argument, "aer CE event - 0,6,7,8,12,14,15"},
+		{"trigger", 't', "", CFG_NONNEGATIVE, &cfg.trigger_event, 
+			required_argument, "trigger event (only CE events supported-0x1)"},
+		{NULL}
+	};
 
 	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg, sizeof(cfg));
 

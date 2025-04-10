@@ -438,8 +438,8 @@ void graph_draw_text(struct range *X, struct range *Y, int *data,
 	}
 }
 
-void graph_draw_text_no_invert(struct range *X, struct range *Y,
-			 int *data, const char *title, char x_title, char y_title)
+void graph_draw_text_no_invert(struct range *X, struct range *Y, int *data, 
+			       const char *title, char x_title, char y_title)
 {
 	int stride = RANGE_CNT(X);
 	int x, y, i = RANGE_CNT(Y) - 1;
