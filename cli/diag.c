@@ -1243,7 +1243,7 @@ out_err:
 static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 		     double *pixels, const char *title,
 		     struct switchtec_diag_cross_hair *ch,
-			 enum switchtec_gen sw_gen)
+		     struct switchtec_dev *dev)
 {
 	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
 	int data[pixel_cnt], shades[pixel_cnt];
@@ -1271,7 +1271,7 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 	}
 
 	if (fmt == FMT_TEXT) {
-		if (sw_gen == SWITCHTEC_GEN5)
+		if (switchtec_is_gen5(dev))
 			graph_draw_text_no_invert(X, Y, data, title, 'P', 'B');
 		else
 			graph_draw_text(X, Y, data, title, 'T', 'V');
@@ -1280,7 +1280,7 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 		return 0;
 	}
 
-	if (sw_gen == SWITCHTEC_GEN5)
+	if (switchtec_is_gen5(dev))
 		return graph_draw_win(X, Y, data, shades, title, 'P', 'B',
 				      status_ptr, NULL, NULL);
 	else
@@ -1288,180 +1288,6 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 			      	      status_ptr, NULL, NULL);
 }
 
-#define CMD_DESC_EYE "Capture PCIe Eye Errors"
-
-
-static int eye(int argc, char **argv)
-{
-	struct switchtec_diag_cross_hair ch = {}, *ch_ptr = NULL;
-	char title[128], subtitle[50];
-	double *pixels = NULL;
-	int ret, gen;
-
-	static struct {
-		struct switchtec_dev *dev;
-		int fmt;
-		int port_id;
-		int lane_id;
-		int num_lanes;
-		int mode;
-		struct range x_range, y_range;
-		int step_interval;
-		FILE *plot_file;
-		const char *plot_filename;
-		FILE *crosshair_file;
-		const char *crosshair_filename;
-	} cfg = {
-		.fmt = FMT_DEFAULT,
-		.port_id = -1,
-		.lane_id = 0,
-		.num_lanes = 1,
-		.mode = SWITCHTEC_DIAG_EYE_RAW,
-		.x_range.start = 0,
-		.x_range.end = 63,
-		.x_range.step = 1,
-		.y_range.start = -255,
-		.y_range.end = 255,
-		.y_range.step = 5,
-		.step_interval = 1,
-	};
-	const struct argconfig_options opts[] = {
-		DEVICE_OPTION_OPTIONAL,
-		{"crosshair", 'C', "FILE", CFG_FILE_R, &cfg.crosshair_file,
-		 required_argument,
-		 "optionally, superimpose a crosshair CSV onto the result"},
-		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
-		 "output format (default: " FMT_DEFAULT_STR ")",
-		 .choices=output_fmt_choices},
-		{"lane", 'l', "LANE_ID", CFG_NONNEGATIVE, &cfg.lane_id,
-		 required_argument, "lane id within the port to observe"},
-		{"mode", 'm', "MODE", CFG_CHOICES, &cfg.mode,
-		 required_argument, "data mode for the capture",
-		 .choices=eye_modes},
-		{"num-lanes", 'n', "NUM", CFG_POSITIVE, &cfg.num_lanes,
-		 required_argument,
-		 "number of lanes to capture, if greater than one, format must be csv (default: 1)"},
-		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
-		 required_argument, "physical port ID to observe"},
-		{"plot", 'P', "FILE", CFG_FILE_R, &cfg.plot_file,
-		 required_argument, "plot a CSV file from an earlier capture"},
-		{"t-start", 't', "NUM", CFG_NONNEGATIVE, &cfg.x_range.start,
-		 required_argument, "start time (0 to 63)"},
-		{"t-end", 'T', "NUM", CFG_NONNEGATIVE, &cfg.x_range.end,
-		 required_argument, "end time (t-start to 63)"},
-		{"t-step", 's', "NUM", CFG_NONNEGATIVE, &cfg.x_range.step,
-		 required_argument, "time step (default 1)"},
-		{"v-start", 'v', "NUM", CFG_INT, &cfg.y_range.start,
-		 required_argument, "start voltage (-255 to 255)"},
-		{"v-end", 'V', "NUM", CFG_INT, &cfg.y_range.end,
-		 required_argument, "end voltage (v-start to 255)"},
-		{"v-step", 'S', "NUM", CFG_NONNEGATIVE, &cfg.y_range.step,
-		 required_argument, "voltage step (default: 5)"},
-		{"interval", 'i', "NUM", CFG_NONNEGATIVE, &cfg.step_interval,
-		 required_argument, "step interval in ms (default: 1ms)"},
-		{NULL}};
-
-	argconfig_parse(argc, argv, CMD_DESC_EYE, opts, &cfg,
-			sizeof(cfg));
-
-	if (cfg.crosshair_file) {
-		ret = load_crosshair_csv(cfg.crosshair_file, &ch, subtitle,
-					 sizeof(subtitle));
-		if (ret) {
-			fprintf(stderr, "Unable to parse crosshair CSV file: %s\n",
-				cfg.crosshair_filename);
-			return -1;
-		}
-
-		ch_ptr = &ch;
-	}
-
-	if (cfg.plot_file) {
-		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
-				      &cfg.y_range, subtitle, sizeof(subtitle),
-				      &cfg.step_interval);
-		if (!pixels) {
-			fprintf(stderr, "Unable to parse CSV file: %s\n",
-				cfg.plot_filename);
-			return -1;
-		}
-
-		gen = 0;
-		sscanf(subtitle, "Eye Observation, Port %d, Lane %d, Gen %d",
-		       &cfg.port_id, &cfg.lane_id, &gen);
-
-		if (cfg.crosshair_filename)
-			snprintf(title, sizeof(title) - 1, "%s (%s / %s)",
-				 subtitle, cfg.plot_filename,
-				 cfg.crosshair_filename);
-		else
-			snprintf(title, sizeof(title), "%s (%s)", subtitle,
-				 cfg.plot_filename);
-	} else {
-		if (!cfg.dev) {
-			fprintf(stderr,
-				"Must specify a switchtec device if not using -P\n");
-			return -1;
-		}
-		if (cfg.port_id < 0) {
-			fprintf(stderr, "Must specify a port ID with --port/-p\n");
-			return -1;
-		}
-	}
-
-	if (cfg.x_range.start > 63) {
-		fprintf(stderr, "Start time (--t-start/-t) is out of range (0, 63)\n");
-		return -1;
-	}
-
-	if (cfg.x_range.end > 63 || cfg.x_range.end <= cfg.x_range.start) {
-		fprintf(stderr, "End time (--t-end/-T) is out of range (t-start, 63)\n");
-		return -1;
-	}
-
-	if (cfg.y_range.start < -255 || cfg.y_range.start > 255) {
-		fprintf(stderr, "Start voltage (--v-start/-v) is out of range (-255, 255)\n");
-		return -1;
-	}
-
-	if (cfg.y_range.end > 255 || cfg.y_range.end <= cfg.y_range.start) {
-		fprintf(stderr, "End voltage (--v-end/-V) is out of range (v-start, 255)\n");
-		return -1;
-	}
-
-	if (cfg.num_lanes > 1 && cfg.fmt != FMT_CSV) {
-		fprintf(stderr, "--format/-f must be CSV if --num-lanes/-n is greater than 1\n");
-		return -1;
-	}
-
-	if (!pixels) {
-		pixels = eye_observe_dev(cfg.dev, cfg.port_id, cfg.lane_id,
-					 cfg.num_lanes, cfg.mode, 
-					 cfg.step_interval, &cfg.x_range, 
-					 &cfg.y_range, &gen);
-		if (!pixels)
-			return -1;
-
-		eye_set_title(title, cfg.port_id, cfg.lane_id, gen);
-	}
-
-	if (cfg.fmt == FMT_CSV) {
-		write_eye_csv_files(cfg.port_id, cfg.lane_id, cfg.num_lanes,
-				    cfg.step_interval, gen, &cfg.x_range,
-				    &cfg.y_range, pixels);
-		free(pixels);
-		return 0;
-	}
-
-	ret = eye_graph(cfg.fmt, &cfg.x_range, &cfg.y_range, pixels, title,
-			ch_ptr, SWITCHTEC_GEN4);
-
-	free(pixels);
-	return ret;
-}
-
-
-/*Gen5 eye capture logic*/
 static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 				    int port_id, int lane_id, int num_lanes,
 				    int capture_depth, int* num_phases, int* gen)
@@ -1540,63 +1366,157 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 	return ber_data;
 }
 
-#define CMD_DESC_EYE_GEN5 "Capture PCIe Eye Errors (Harpoon)"
+#define CMD_DESC_EYE "Capture PCIe Eye Errors"
 
-
-static int eye_gen5(int argc, char **argv)
+static int eye(int argc, char **argv)
 {
-	double *data = NULL;
-	int num_phases, gen, ret;
-	char title[128];
-	struct range x_range = {
-		.start = 0,
-		.step = 1,
-	};
-	struct range y_range = {
-		.start = 0,
-		.end = 63,
-		.step = 1,
-	};
+	struct switchtec_diag_cross_hair ch = {}, *ch_ptr = NULL;
+	char title[128], subtitle[50];
+	double *pixels = NULL;
+	int num_phases, ret, gen;
+
 	static struct {
 		struct switchtec_dev *dev;
+		int fmt;
 		int port_id;
 		int lane_id;
 		int capture_depth;
 		int num_lanes;
-		int fmt;
+		int mode;
+		struct range x_range, y_range;
+		int step_interval;
+		FILE *plot_file;
+		const char *plot_filename;
+		FILE *crosshair_file;
+		const char *crosshair_filename;
 	} cfg = {
+		.fmt = FMT_DEFAULT,
 		.port_id = -1,
 		.lane_id = 0,
 		.capture_depth = 24,
 		.num_lanes = 1,
-		.fmt = FMT_DEFAULT,
+		.mode = SWITCHTEC_DIAG_EYE_RAW,
+		.x_range.start = 0,
+		.x_range.end = 63,
+		.x_range.step = 1,
+		.y_range.start = -255,
+		.y_range.end = 255,
+		.y_range.step = 5,
+		.step_interval = 1,
 	};
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION,
-		{"lane", 'l', "LANE_ID", CFG_NONNEGATIVE, &cfg.lane_id,
-		 required_argument, "lane id within the port to observe (default: 0)"},
-		 {"num-lanes", 'n', "NUM", CFG_POSITIVE, &cfg.num_lanes,
+		DEVICE_OPTION_OPTIONAL,
+		{"crosshair", 'C', "FILE", CFG_FILE_R, &cfg.crosshair_file,
 		 required_argument,
-		 "number of lanes to capture, if greater than one (default: 1)"},
-		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
-		 required_argument, "physical port ID to observe"},
-		{"capture-depth", 'd', "NUM", CFG_POSITIVE, &cfg.capture_depth,
-		 required_argument, "capture depth (6 to 40; default: 24)"},
+		 "optionally, superimpose a crosshair CSV onto the result (Not supported in Gen 5)"},
 		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
 		 "output format (default: " FMT_DEFAULT_STR ")",
 		 .choices=output_fmt_choices},
+		{"lane", 'l', "LANE_ID", CFG_NONNEGATIVE, &cfg.lane_id,
+		 required_argument, "lane id within the port to observe"},
+		{"mode", 'm', "MODE", CFG_CHOICES, &cfg.mode,
+		 required_argument, "data mode for the capture",
+		 .choices=eye_modes},
+		{"num-lanes", 'n', "NUM", CFG_POSITIVE, &cfg.num_lanes,
+		 required_argument,
+		 "number of lanes to capture, if greater than one, format must be csv (default: 1)"},
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
+		 required_argument, "physical port ID to observe"},
+		{"plot", 'P', "FILE", CFG_FILE_R, &cfg.plot_file,
+		 required_argument, "plot a CSV file from an earlier capture"},
+		{"t-start", 't', "NUM", CFG_NONNEGATIVE, &cfg.x_range.start,
+		 required_argument, "start time (0 to 63)"},
+		{"t-end", 'T', "NUM", CFG_NONNEGATIVE, &cfg.x_range.end,
+		 required_argument, "end time (t-start to 63)"},
+		{"t-step", 's', "NUM", CFG_NONNEGATIVE, &cfg.x_range.step,
+		 required_argument, "time step (default 1)"},
+		{"v-start", 'v', "NUM", CFG_INT, &cfg.y_range.start,
+		 required_argument, "start voltage (-255 to 255)"},
+		{"v-end", 'V', "NUM", CFG_INT, &cfg.y_range.end,
+		 required_argument, "end voltage (v-start to 255)"},
+		{"v-step", 'S', "NUM", CFG_NONNEGATIVE, &cfg.y_range.step,
+		 required_argument, "voltage step (default: 5)"},
+		{"interval", 'i', "NUM", CFG_NONNEGATIVE, &cfg.step_interval,
+		 required_argument, "step interval in ms (default: 1ms)"},
+		{"capture-depth", 'd', "NUM", CFG_POSITIVE, &cfg.capture_depth,
+		 required_argument, "capture depth (6 to 40; default: 24)"},
 		{NULL}};
-	
-	argconfig_parse(argc, argv, CMD_DESC_EYE_GEN5, opts, &cfg,
+
+	argconfig_parse(argc, argv, CMD_DESC_EYE, opts, &cfg,
 			sizeof(cfg));
+
+	if (cfg.dev != NULL && switchtec_is_gen5(cfg.dev)) {
+		cfg.y_range.start = 0;
+		cfg.y_range.end = 63;
+		cfg.y_range.step = 1;
+	}
 	
-	if (cfg.port_id < 0) {
-		fprintf(stderr, "Must specify a port ID with --port/-p\n");
+	if (cfg.crosshair_file) {
+		if (switchtec_is_gen5(cfg.dev)) {
+			fprintf(stderr, "Crosshair superimpose not suppored in Gen 5\n");
+			return -1;
+		}
+		ret = load_crosshair_csv(cfg.crosshair_file, &ch, subtitle,
+					 sizeof(subtitle));
+		if (ret) {
+			fprintf(stderr, "Unable to parse crosshair CSV file: %s\n",
+				cfg.crosshair_filename);
+			return -1;
+		}
+
+		ch_ptr = &ch;
+	}
+	
+	if (cfg.plot_file) {
+		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
+				      &cfg.y_range, subtitle, sizeof(subtitle),
+				      &cfg.step_interval);
+		if (!pixels) {
+			fprintf(stderr, "Unable to parse CSV file: %s\n",
+				cfg.plot_filename);
+			return -1;
+		}
+
+		gen = 0;
+		sscanf(subtitle, "Eye Observation, Port %d, Lane %d, Gen %d",
+		       &cfg.port_id, &cfg.lane_id, &gen);
+
+		if (cfg.crosshair_filename)
+			snprintf(title, sizeof(title) - 1, "%s (%s / %s)",
+				 subtitle, cfg.plot_filename,
+				 cfg.crosshair_filename);
+		else
+			snprintf(title, sizeof(title), "%s (%s)", subtitle,
+				 cfg.plot_filename);
+	} else {
+		if (!cfg.dev) {
+			fprintf(stderr,
+				"Must specify a switchtec device if not using -P\n");
+			return -1;
+		}
+		if (cfg.port_id < 0) {
+			fprintf(stderr, "Must specify a port ID with --port/-p\n");
+			return -1;
+		}
+	}
+
+	if (cfg.x_range.start > 63) {
+		fprintf(stderr, "Start time (--t-start/-t) is out of range (0, 63)\n");
 		return -1;
 	}
 
-	if (cfg.capture_depth < 6 || cfg.capture_depth > 40) {
-		fprintf(stderr, "Capture depth (--capture-depth/-d) must be between 6 and 40 (inclusive)\n");
+	if (cfg.x_range.end > 63 || cfg.x_range.end <= cfg.x_range.start) {
+		fprintf(stderr, "End time (--t-end/-T) is out of range (t-start, 63)\n");
+		return -1;
+	}
+
+	if (cfg.y_range.start < -255 || cfg.y_range.start > 255) {
+		fprintf(stderr, "Start voltage (--v-start/-v) is out of range (-255, 255)\n");
+		return -1;
+	}
+
+	if (cfg.y_range.end > 255 || cfg.y_range.end <= cfg.y_range.start) {
+		fprintf(stderr, "End voltage (--v-end/-V) is out of range (v-start, 255)\n");
 		return -1;
 	}
 
@@ -1605,29 +1525,41 @@ static int eye_gen5(int argc, char **argv)
 		return -1;
 	}
 
-	data = eye_capture_dev_gen5(cfg.dev, cfg.port_id, cfg.lane_id,
-				    cfg.num_lanes, cfg.capture_depth, &num_phases,
-				    &gen);
-	if (!data)
-		return -1;
-	
-	x_range.end = num_phases - 1;
-	
-	if (cfg.fmt == FMT_CSV) {
-		write_eye_csv_files(cfg.port_id, cfg.lane_id, cfg.num_lanes,
-				    -1, gen, &x_range, &y_range, data);
-		ret = 0;
-	} else {
+	if (!pixels) {
+		if (switchtec_is_gen5(cfg.dev)) {
+			pixels = eye_capture_dev_gen5(cfg.dev, cfg.port_id, cfg.lane_id,
+				cfg.num_lanes, cfg.capture_depth, &num_phases,
+				&gen);
+			if (!pixels)
+				return -1;
+
+			cfg.x_range.end = num_phases - 1;
+		}
+		else {
+			pixels = eye_observe_dev(cfg.dev, cfg.port_id, cfg.lane_id,
+						 cfg.num_lanes, cfg.mode, 
+						 cfg.step_interval, &cfg.x_range, 
+						 &cfg.y_range, &gen);
+			if (!pixels)
+				return -1;
+		}
 		eye_set_title(title, cfg.port_id, cfg.lane_id, gen);
-		ret = eye_graph(cfg.fmt, &x_range, &y_range, data, title, NULL,
-				SWITCHTEC_GEN5);
 	}
 
-	free(data);
+	if (cfg.fmt == FMT_CSV) {
+		write_eye_csv_files(cfg.port_id, cfg.lane_id, cfg.num_lanes,
+				    cfg.step_interval, gen, &cfg.x_range,
+				    &cfg.y_range, pixels);
+		free(pixels);
+		return 0;
+	}
+
+	ret = eye_graph(cfg.fmt, &cfg.x_range, &cfg.y_range, pixels, title,
+			ch_ptr, cfg.dev);
+
+	free(pixels);
 	return ret;
 }
-
-
 
 static const struct argconfig_choice loopback_ltssm_speeds[] = {
 	{"GEN1", SWITCHTEC_DIAG_LTSSM_GEN1, "GEN1 LTSSM Speed"},
@@ -2237,7 +2169,6 @@ static int aer_event_gen(int argc, char **argv)
 static const struct cmd commands[] = {
 	CMD(crosshair,		CMD_DESC_CROSS_HAIR),
 	CMD(eye,		CMD_DESC_EYE),
-	CMD(eye_gen5,		CMD_DESC_EYE_GEN5),
 	CMD(list_mrpc,		CMD_DESC_LIST_MRPC),
 	CMD(loopback,		CMD_DESC_LOOPBACK),
 	CMD(pattern,		CMD_DESC_PATTERN),
