@@ -323,7 +323,7 @@ int switchtec_diag_eye_cancel(struct switchtec_dev *dev)
 }
 
 /**
- * @brief Start a new Eye Capture (Harpoon)
+ * @brief Start a new Eye Capture
  * @param[in]  dev	       Switchtec device handle
  * @param[in]  lane_mask       Bitmap of the lanes to capture
  * @param[in]  capture_depth   A maximum of 2^(capture_depth)-1 bits
@@ -358,7 +358,7 @@ int switchtec_gen5_diag_eye_run(struct switchtec_dev *dev,
 }
 
 /**
- * @brief Get Eye Capture status (Harpoon)
+ * @brief Get Eye Capture status
  * @param[in]  dev	       Switchtec device handle
  * @param[out] status	   Eye Capture status
  * 
@@ -382,7 +382,7 @@ int switchtec_gen5_diag_eye_status(struct switchtec_dev *dev,
 }
 
 /**
- * @brief Read data from an Eye Capture (Harpoon)
+ * @brief Read data from an Eye Capture
  * @param[in]  dev	       Switchtec device handle
  * @param[in]  lane_id	   Lane ID for the capture data
  * @param[in]  bin		   Bin number [0-63]
