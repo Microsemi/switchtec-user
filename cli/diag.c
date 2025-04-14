@@ -1906,8 +1906,8 @@ static int port_eq_txcoeff(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	ret = switchtec_get_gen_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, cfg.end,
-					      cfg.link, &coeff);
+	ret = switchtec_get_gen_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, 
+						      cfg.end, cfg.link, &coeff);
 	if (ret) {
 		switchtec_perror("port_eq_coeff");
 		return -1;
@@ -1949,8 +1949,10 @@ static int port_eq_txfslf(int argc, char **argv)
 	printf("Lane    FS    LF\n");
 
 	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
-		ret = switchtec_get_gen_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, i,
-				cfg.end, cfg.link, &data);
+		ret = switchtec_get_gen_diag_port_eq_tx_fslf(cfg.dev, 
+							     cfg.port_id, i,
+							     cfg.end, cfg.link, 
+							     &data);
 		if (ret) {
 			switchtec_perror("port_eq_fs_ls");
 			return -1;
@@ -1980,7 +1982,7 @@ static int port_eq_txtable(int argc, char **argv)
 		return ret;
 
 	ret = switchtec_get_gen_diag_port_eq_tx_table(cfg.dev, cfg.port_id,
-					      cfg.link, &table);
+					      	      cfg.link, &table);
 	if (ret) {
 		switchtec_perror("port_eq_table");
 		return -1;
