@@ -1352,13 +1352,13 @@ int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
 			    int lane_id, enum switchtec_diag_link link,
 			    struct switchtec_rcvr_ext *res);
 
-int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
+int switchtec_get_gen_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 		enum switchtec_diag_end end, enum switchtec_diag_link link,
 		struct switchtec_port_eq_coeff *res);
-int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+int switchtec_get_gen_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 				    enum switchtec_diag_link link,
 				    struct switchtec_port_eq_table *res);
-int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
+int switchtec_get_gen_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 				 int lane_id, enum switchtec_diag_end end,
 				 enum switchtec_diag_link link,
 				 struct switchtec_port_eq_tx_fslf *res);
