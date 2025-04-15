@@ -913,13 +913,12 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 {
 	int ret = -1;
 
-	if (switchtec_is_gen5(dev)) {
+	if (switchtec_is_gen5(dev))
 		ret = switchtec_gen5_diag_port_eq_tx_coeff(dev, port_id, end,
 							   link, res);
-	} else if (switchtec_is_gen4(dev)){
+	else
 		ret = switchtec_gen4_diag_port_eq_tx_coeff(dev, port_id, end,
 							   link, res);
-	}
 
 	return ret;
 }
@@ -1055,13 +1054,12 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 	int ret = -1;
 
 
-	if (switchtec_is_gen5(dev)) {
+	if (switchtec_is_gen5(dev))
 		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id,
 				link, res);
-	} else if (switchtec_is_gen4(dev)){
+	else
 		ret = switchtec_gen4_diag_port_eq_tx_table(dev, port_id,
 				link, res);
-	}
 
 	return ret;
 }
@@ -1203,13 +1201,12 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 {
 	int ret = -1;
 
-	if (switchtec_is_gen5(dev)) {
+	if (switchtec_is_gen5(dev))
 		ret = switchtec_gen5_diag_port_eq_tx_fslf(dev, port_id,
 				lane_id, end, link, res);
-	} else if (switchtec_is_gen4(dev)){
+	else
 		ret = switchtec_gen4_diag_port_eq_tx_fslf(dev, port_id,
 				lane_id, end, link, res);
-	}
 
 	return ret;
 }
