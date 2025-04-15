@@ -279,5 +279,13 @@ struct switchtec_diag_ltssm_log_dmp_out {
 	uint32_t arc;
 };
 
+struct switchtec_tlp_inject_in {
+	uint32_t dest_port;
+	uint32_t tlp_type;
+	uint32_t tlp_length;
+	uint32_t ecrc;
+	uint32_t raw_tlp_data[132];
+};
+
 #endif
 /**@}*/
