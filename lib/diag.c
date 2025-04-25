@@ -1227,7 +1227,7 @@ int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type,
 	};
 	for (int i = 0; i < tlp_in.tlp_length; i++)
 	{
-		tlp_in.raw_tlp_data[i] = *(raw_tlp_data + i);
+		tlp_in.raw_tlp_data[i] = htole32(*(raw_tlp_data + i));
 	}
 	free(raw_tlp_data);
 
