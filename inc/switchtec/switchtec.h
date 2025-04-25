@@ -1243,7 +1243,8 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en);
 int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 			     int port, int *log_count,
 			     struct switchtec_diag_ltssm_log *log_data);
-
+int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type, 
+			 int tlp_length, int ecrc, uint32_t * raw_tlp_data);
 #ifdef __cplusplus
 }
 #endif
