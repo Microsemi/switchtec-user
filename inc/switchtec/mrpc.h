@@ -126,7 +126,9 @@ enum mrpc_cmd {
 	MRPC_BOOTUP_RESUME_GEN5 = 0x11B,
 	MRPC_FTDC_LOG_DUMP = 0x147,
 
-	MRPC_MAX_ID = 0x148,
+	MRPC_TRACE = 0x14B,
+
+	MRPC_MAX_ID = 0x14C,
 };
 
 enum mrpc_bg_status {
@@ -283,6 +285,9 @@ enum mrpc_sub_cmd {
 	MRPC_LTMON_LOG_DUMP_GEN4 = 15,
 	MRPC_LTMON_GET_STATUS_GEN5 = 20,
 	MRPC_LTMON_LOG_DUMP_GEN5 = 21,
+
+	MRPC_TRACE_CONFIGURE = 0,
+	MRPC_TRACE_DOWNLOAD = 1
 };
 
 #endif

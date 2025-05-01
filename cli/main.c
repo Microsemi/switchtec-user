@@ -1331,6 +1331,163 @@ static int temp(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_TRACE_CONFIG "trace configuration commands"
+
+static int trace_config(int argc, char **argv)
+{
+	int rc = 0;
+
+	static struct {
+		struct switchtec_dev *dev;
+		bool query;
+		struct switchtec_trace_config_set_params trace_config;
+		struct switchtec_trace_mrpc_configuration_response trace_query;
+	} cfg = {
+		.dev = NULL,
+		.query = false,
+		.trace_config = {{ 0 }},
+		.trace_query = { 0 }
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{
+			"query", 'q',
+			"", CFG_NONE, &cfg.query, no_argument,
+			"set trace level",
+			.force_default = false,
+		},
+		{
+			"level", 'l',
+			"", CFG_BYTE, &cfg.trace_config.trace_level.value, required_argument,
+			"set trace level"
+		},
+		{
+			"typemask", 't',
+			"", CFG_LONG_LONG, &cfg.trace_config.trace_type_mask.value, required_argument,
+			"set trace type mask"
+		},
+		{
+			"enable_state", 'e',
+			"", CFG_BOOL, &cfg.trace_config.trace_enable_state.value, required_argument,
+			"set trace enable state"
+		},
+		{
+			"clear", 'c',
+			"", CFG_NONE, &cfg.trace_config.trace_clear, no_argument,
+			.force_default = false,
+			"clear the trace log"
+		},
+		{ NULL }
+	};
+
+
+	/* First get the device option to get the current trace configuration */
+	argconfig_parse(argc, argv, CMD_DESC_TRACE_CONFIG, opts, &cfg, sizeof(cfg));
+	if (cfg.dev == NULL) {
+		switchtec_perror("trace_control");
+		return 1;
+	}
+
+	rc = switchtec_trace_config_get(cfg.dev, &cfg.trace_query);
+	if (rc != 0) {
+		switchtec_perror("trace_control");
+		return rc;
+	}
+
+	/*
+	 * Copy the current settings from trace settings
+	 *
+	 * If the user wants to update any of these configurations then
+	 * it will be updated in the following argconfig_parse call.
+	 *
+	 * Equivalent to a read modify write flow
+	 *
+	 * Note this does not include query, trace_clear flags
+	 */
+	cfg.trace_config.trace_enable_state.valid = true;
+	cfg.trace_config.trace_enable_state.value = cfg.trace_query.trace_enable_value;
+
+	cfg.trace_config.trace_level.valid = true;
+	cfg.trace_config.trace_level.value = cfg.trace_query.trace_level_value;
+
+	cfg.trace_config.trace_type_mask.valid = true;
+	cfg.trace_config.trace_type_mask.value = cfg.trace_query.trace_type_mask_value;
+
+	/*
+	 * Update any fields defined by the user
+	 */
+	argconfig_parse(argc, argv, CMD_DESC_TRACE_CONFIG, opts, &cfg, sizeof(cfg));
+
+	rc = switchtec_trace_config_set(cfg.dev, &cfg.trace_config, &cfg.trace_query);
+	if (rc != 0) {
+		switchtec_perror("trace_control");
+		return rc;
+	}
+
+	if (cfg.query) {
+		printf(
+				"enable state: %d\n" \
+				"level:        %d\n" \
+				"typemask:     0x%lu\n" \
+				"total_bytes:  %d\n",
+				cfg.trace_query.trace_enable_value,
+				cfg.trace_query.trace_level_value,
+				cfg.trace_query.trace_type_mask_value,
+				cfg.trace_query.trace_log_total_bytes
+			);
+	}
+
+	return 0;
+}
+
+#define CMD_DESC_TRACE_DOWNLOAD "trace download command"
+
+static int trace_download(int argc, char **argv)
+{
+	int rc = 0;
+	struct switchtec_trace_config_set_params config_params = { 0 };
+	struct switchtec_trace_mrpc_configuration_response config_response = { 0 };
+	static struct {
+		struct switchtec_dev *dev;
+		struct switchtec_trace_download_params download_params;
+	} cfg = {
+		.dev = NULL,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{
+			"clear", 'c',
+			"", CFG_NONE, &cfg.download_params.clear_when_done, no_argument,
+			.help = "clear trace when done downloading trace",
+			.force_default=false,
+		},
+		{
+			"output", 'o',
+			"", CFG_FILE_W, &cfg.download_params.output_file, required_argument,
+			.help = "output file for trace"
+		},
+		{ NULL }
+	};
+
+
+	argconfig_parse(argc, argv, CMD_DESC_TRACE_DOWNLOAD, opts, &cfg, sizeof(cfg));
+	if (cfg.dev == NULL) {
+		switchtec_perror("trace_download");
+		return 1;
+	}
+
+	rc = switchtec_trace_download(cfg.dev, &cfg.download_params);
+
+	if ((rc == 0) && cfg.download_params.clear_when_done) {
+		config_params.trace_clear = 1;
+		rc = switchtec_trace_config_set(cfg.dev, &config_params, &config_response);
+	}
+
+	return rc;
+}
+
 static void print_bind_info(struct switchtec_bind_status_out status)
 {
 	int i;
@@ -2633,6 +2790,8 @@ static const struct cmd commands[] = {
 	CMD(log_parse, CMD_DESC_LOG_PARSE),
 	CMD(test, CMD_DESC_TEST),
 	CMD(temp, CMD_DESC_TEMP),
+	CMD(trace_config, CMD_DESC_TRACE_CONFIG),
+	CMD(trace_download, CMD_DESC_TRACE_DOWNLOAD),
 	CMD(port_bind_info, CMD_DESC_PORT_BIND_INFO),
 	CMD(port_bind, CMD_DESC_PORT_BIND),
 	CMD(port_unbind, CMD_DESC_PORT_UNBIND),

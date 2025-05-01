@@ -301,6 +301,49 @@ struct switchtec_event_summary {
 };
 
 /**
+ * @brief Trace configuration parameters
+ *
+ * If a parameter's `valid` field set to 0
+ * then it will not be applied to device when sent
+ */
+struct switchtec_trace_config_set_params {
+	struct {
+		bool valid;
+		uint8_t value;
+	} trace_level;
+
+	struct {
+		bool valid;
+		uint64_t value;
+	} trace_type_mask;
+
+	struct {
+		bool valid;
+		bool value;
+	} trace_enable_state;
+
+	uint8_t trace_clear;
+};
+
+/**
+ * @brief Trace MRPC download parameters
+ */
+struct switchtec_trace_download_params {
+	FILE *output_file;
+	bool clear_when_done;
+};
+
+/**
+ * @brief Trace MRPC configuration response
+ */
+struct switchtec_trace_mrpc_configuration_response {
+    uint8_t trace_enable_value;
+    uint8_t trace_level_value;
+    uint64_t trace_type_mask_value;
+    uint32_t trace_log_total_bytes;
+};
+
+/**
  * @brief Enumeration of all possible events
  */
 enum switchtec_event_id {
@@ -420,6 +463,13 @@ int switchtec_calc_port_lane(struct switchtec_dev *dev, int lane_id,
 int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
 		int lane_id, int num_lanes, int *lane_mask,
 		struct switchtec_status *port);
+int switchtec_trace_config_get(struct switchtec_dev *dev,
+		struct switchtec_trace_mrpc_configuration_response *params);
+int switchtec_trace_config_set(struct switchtec_dev *dev,
+		const struct switchtec_trace_config_set_params *params,
+		struct switchtec_trace_mrpc_configuration_response *out);
+int switchtec_trace_download(struct switchtec_dev *dev,
+		struct switchtec_trace_download_params *params);
 
 /**
  * @brief Return whether a Switchtec device is a Gen 3 device.

@@ -39,6 +39,7 @@
 #include "switchtec/utils.h"
 
 #include <string.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
@@ -81,6 +82,53 @@ struct switchtec_device_id {
 	unsigned short device_id;
 	enum switchtec_gen gen;
 	enum switchtec_variant var;
+};
+
+/**
+ * @brief Trace MRPC configuration command parameters
+ */
+struct switchtec_trace_mrpc_configuration_command {
+    bool trace_enable_state_action;
+    uint8_t trace_enable_value;
+
+    uint8_t trace_level_action;
+    uint8_t trace_level_value;
+
+    uint8_t trace_type_mask_action;
+    uint64_t trace_type_mask_value;
+
+	uint8_t trace_clear;
+};
+
+/**
+ * @brief Trace MRPC download command parameters
+ */
+struct switchtec_trace_mrpc_download_command {
+    uint32_t offset;
+    uint32_t bytes_to_download;
+};
+
+/**
+ * @brief Trace MRPC download response
+ */
+union switchtec_trace_mrpc_download_response {
+	struct {
+		uint32_t payload_bytes;
+		uint32_t remaining_bytes;
+		uint8_t trace_data[1];
+	};
+	uint8_t raw[MRPC_MAX_DATA_LEN];
+};
+
+/**
+ * @brief Trace MRPC command structure
+ */
+struct switchtec_trace_mrpc_command {
+	uint8_t subcommand_id;
+	union {
+		struct switchtec_trace_mrpc_configuration_command config_cmd;
+		struct switchtec_trace_mrpc_download_command download_cmd;
+	} subcommand;
 };
 
 /**
@@ -1453,7 +1501,7 @@ static int log_d_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 
 	cmd.req_seq = 0;
 	res.data[1] = 0;
-	
+
 	while ( !(res.data[1]) ) {
 		ret = switchtec_cmd(dev, MRPC_FTDC_LOG_DUMP, &cmd, sizeof(cmd),
 				    &res, sizeof(res));
@@ -1466,7 +1514,7 @@ static int log_d_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 
 		read += length;
 		cmd.req_seq++;
-	
+
 	}
 
 	return 0;
@@ -1628,7 +1676,7 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		if (ret)
 			return ret;
 	}
-	
+
 	ret = parse_def_header(log_def_file, &fw_version_def,
 			       &sdk_version_def);
 	if (ret)
@@ -2293,4 +2341,137 @@ int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
 			    sizeof(out));
 }
 
+/**
+ * @brief Get the trace configuration
+ * @param[in] dev Switchtec device handle
+ * @param[out] out Response structure
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_trace_config_get(struct switchtec_dev *dev,
+		struct switchtec_trace_mrpc_configuration_response *out)
+{
+	int rc = 0;
+	struct switchtec_trace_mrpc_configuration_response resp;
+
+	struct switchtec_trace_mrpc_command cmd = {
+		.subcommand_id = MRPC_TRACE_CONFIGURE,
+		.subcommand.config_cmd = {
+			.trace_enable_state_action = 0,
+			.trace_level_action = 0,
+			.trace_type_mask_action = 0,
+		}
+	};
+
+	rc = switchtec_cmd(
+			dev,
+			MRPC_TRACE,
+			(void*)&cmd,
+			sizeof(cmd),
+			(void*)&resp,
+			sizeof(resp)
+	);
+
+	if (rc == 0) {
+		out->trace_enable_value = resp.trace_enable_value;
+		out->trace_level_value = resp.trace_level_value;
+		out->trace_type_mask_value = resp.trace_type_mask_value;
+		out->trace_log_total_bytes = resp.trace_log_total_bytes;
+	}
+
+	return rc;
+}
+
+/**
+ * @brief Set the trace configuration
+ * @param[in] dev Switchtec device handle
+ * @param[in] params Configuration parameters
+ * @param[out] out Response structure
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_trace_config_set(struct switchtec_dev *dev,
+		const struct switchtec_trace_config_set_params *params,
+		struct switchtec_trace_mrpc_configuration_response *out
+		)
+{
+	int rc = 0;
+	struct switchtec_trace_mrpc_command cmd = {
+		.subcommand_id = MRPC_TRACE_CONFIGURE,
+		.subcommand.config_cmd = {
+			.trace_enable_state_action = params->trace_enable_state.valid ? 1 : 0,
+			.trace_enable_value = params->trace_enable_state.value,
+
+			.trace_level_action = params->trace_level.valid ? 1 : 0,
+			.trace_level_value = params->trace_level.value,
+
+			.trace_type_mask_action = params->trace_type_mask.valid ? 1 : 0,
+			.trace_type_mask_value = params->trace_type_mask.value,
+
+			.trace_clear = params->trace_clear
+		}
+	};
+
+	rc = switchtec_cmd(
+			dev,
+			MRPC_TRACE,
+			(void*)&cmd,
+			sizeof(cmd),
+			(void*)out,
+			sizeof(struct switchtec_trace_mrpc_configuration_response)
+	);
+
+	return rc;
+}
+
+/**
+ * @brief Download the trace log
+ * @param[in] dev Switchtec device handle
+ * @param[in] params Download parameters
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_trace_download(struct switchtec_dev *dev,
+		struct switchtec_trace_download_params *params)
+{
+	int rc = 0;
+	int bytes_written = 0;
+
+	union switchtec_trace_mrpc_download_response resp;
+	struct switchtec_trace_mrpc_command cmd = {
+		.subcommand_id = MRPC_TRACE_DOWNLOAD,
+		.subcommand.download_cmd = {
+			.bytes_to_download = 0,
+			.offset = 0
+		}
+	};
+
+	if (params->output_file == NULL) {
+		errno = SWITCHTEC_ERR_TRACE_DOWNLOAD_MISSING_FILE;
+		return -1;
+	}
+
+	do {
+		rc = switchtec_cmd(
+				dev,
+				MRPC_TRACE,
+				(void*)&cmd,
+				sizeof(cmd),
+				(void*)&resp,
+				sizeof(resp)
+		);
+
+		if (rc) {
+			break;
+		}
+
+		bytes_written = fwrite(resp.trace_data, sizeof(uint8_t), resp.payload_bytes, params->output_file);
+
+		if (bytes_written != resp.payload_bytes) {
+			errno = SWITCHTEC_ERR_TRACE_DOWNLOAD_WRITE_ERROR;
+			break;
+		}
+
+		cmd.subcommand.download_cmd.offset += resp.payload_bytes;
+	} while (resp.remaining_bytes != 0);
+
+	return rc;
+}
 /**@}*/
