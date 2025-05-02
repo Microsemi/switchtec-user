@@ -88,16 +88,16 @@ struct switchtec_device_id {
  * @brief Trace MRPC configuration command parameters
  */
 struct switchtec_trace_mrpc_configuration_command {
-    bool trace_enable_state_action;
-    uint8_t trace_enable_value;
-
-    uint8_t trace_level_action;
-    uint8_t trace_level_value;
-
-    uint8_t trace_type_mask_action;
-    uint64_t trace_type_mask_value;
-
+	bool trace_enable_state_action;
+	uint8_t trace_level_action;
+	uint8_t trace_type_mask_action;
 	uint8_t trace_clear;
+
+	uint8_t trace_enable_value;
+	uint8_t trace_level_value;
+	uint8_t reserved[2];
+
+	uint64_t trace_type_mask_value;
 };
 
 /**
@@ -125,6 +125,7 @@ union switchtec_trace_mrpc_download_response {
  */
 struct switchtec_trace_mrpc_command {
 	uint8_t subcommand_id;
+	uint8_t reserved[3];
 	union {
 		struct switchtec_trace_mrpc_configuration_command config_cmd;
 		struct switchtec_trace_mrpc_download_command download_cmd;
