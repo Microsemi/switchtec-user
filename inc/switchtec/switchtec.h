@@ -330,6 +330,7 @@ struct switchtec_trace_config_set_params {
  */
 struct switchtec_trace_download_params {
 	FILE *output_file;
+	const char *output_filename;
 	bool clear_when_done;
 };
 

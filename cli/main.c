@@ -1453,6 +1453,7 @@ static int trace_download(int argc, char **argv)
 		struct switchtec_trace_download_params download_params;
 	} cfg = {
 		.dev = NULL,
+		.download_params = { 0 }
 	};
 
 	const struct argconfig_options opts[] = {
