@@ -442,7 +442,7 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 	};
 	int ret;
 
-	if (ltssm_speed == 4)
+	if (switchtec_is_gen5(dev))
 		int_in.type = DIAG_LOOPBACK_RX_TO_TX_GEN5;
 	else
 		int_in.type = DIAG_LOOPBACK_RX_TO_TX;
@@ -454,7 +454,7 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 		return ret;
 	
 	if (!!(enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)) {
-		if (ltssm_speed == 4)
+		if (switchtec_is_gen5(dev))
 			int_in.type = DIAG_LOOPBACK_TX_TO_RX_GEN5;
 		else
 			int_in.type = DIAG_LOOPBACK_TX_TO_RX;
@@ -499,7 +499,7 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
 	struct switchtec_diag_loopback_ltssm_out lt_out;
 	int ret, en = 0;
 
-	if (*ltssm_speed == 4)
+	if (switchtec_is_gen5(dev))
 		int_in.type = DIAG_LOOPBACK_RX_TO_TX_GEN5;
 	else
 		int_in.type = DIAG_LOOPBACK_RX_TO_TX;
@@ -512,7 +512,7 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
 	if (int_out.enabled)
 		en |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
 
-	if (*ltssm_speed == 4)
+	if (switchtec_is_gen5(dev))
 		int_in.type = DIAG_LOOPBACK_TX_TO_RX_GEN5;
 	else
 		int_in.type = DIAG_LOOPBACK_TX_TO_RX;
