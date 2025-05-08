@@ -138,8 +138,8 @@ enum switchtec_diag_loopback_type {
 };
 
 enum switchtec_diag_loopback_type_gen5 {
-	DIAG_LOOPBACK_RX_TO_TX_GEN5 = 5,
-	DIAG_LOOPBACK_TX_TO_RX_GEN5 = 6,
+	DIAG_LOOPBACK_PARALEL_DATAPATH = 5,
+	DIAG_LOOPBACK_EXTERNAL_DATAPATH = 6,
 };
 
 struct switchtec_diag_loopback_in {

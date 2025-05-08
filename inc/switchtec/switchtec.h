@@ -1329,6 +1329,9 @@ int switchtec_gen5_diag_eye_status(struct switchtec_dev *dev, int* status);
 int switchtec_gen5_diag_eye_read(struct switchtec_dev *dev, int lane_id,
 				int bin, int* num_phases, double* ber_data);
 
+int switchtec_diag_loopback_set_gen5(struct switchtec_dev *dev, int port_id,
+		int enable_parallel, int enable_external, int enable_ltssm,
+		enum switchtec_diag_ltssm_speed ltssm_speed);					
 int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 		int enable, enum switchtec_diag_ltssm_speed ltssm_speed);
 int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,

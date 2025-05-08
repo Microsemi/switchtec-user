@@ -1585,10 +1585,17 @@ static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
 
 	if (!enable)
 		b += snprintf(&buf[b], sizeof(buf) - b, "DISABLED, ");
-	if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
-		b += snprintf(&buf[b], sizeof(buf) - b, "RX->TX, ");
-	if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
-		b += snprintf(&buf[b], sizeof(buf) - b, "TX->RX, ");
+	if (switchtec_is_gen5(dev)) {
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
+			b += snprintf(&buf[b], sizeof(buf) - b, "PARALLEL, ");
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
+			b += snprintf(&buf[b], sizeof(buf) - b, "EXTERNAL, ");
+	} else {
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
+			b += snprintf(&buf[b], sizeof(buf) - b, "RX->TX, ");
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
+			b += snprintf(&buf[b], sizeof(buf) - b, "TX->RX, ");
+	}
 	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM)
 		b += snprintf(&buf[b], sizeof(buf) - b, "LTSSM, ");
 
@@ -1623,6 +1630,8 @@ static int loopback(int argc, char **argv)
 		int disable;
 		int enable_tx_to_rx;
 		int enable_rx_to_tx;
+		int enable_parallel;
+		int enable_external;
 		int enable_ltssm;
 		int speed;
 	} cfg = {
@@ -1637,11 +1646,15 @@ static int loopback(int argc, char **argv)
 		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
 		 "Disable all loopback modes"},
 		{"ltssm", 'l', "", CFG_NONE, &cfg.enable_ltssm, no_argument,
-		 "Enable LTSSM loopback mode"},
+		 "Enable LTSSM loopback mode (Gen 4 / Gen 5)"},
 		{"rx-to-tx", 'r', "", CFG_NONE, &cfg.enable_rx_to_tx, no_argument,
-		 "Enable RX->TX loopback mode"},
+		 "Enable RX->TX loopback mode (Gen 4)"},
 		{"tx-to-rx", 't', "", CFG_NONE, &cfg.enable_tx_to_rx, no_argument,
-		 "Enable TX->RX loopback mode"},
+		 "Enable TX->RX loopback mode (Gen 4)"},
+		 {"parallel", 'P', "", CFG_NONE, &cfg.enable_parallel, no_argument,
+		 "Enable parallel datapath loopback mode in SERDES digital layer (Gen 5)"},
+		{"external", 'e', "", CFG_NONE, &cfg.enable_external, no_argument,
+		 "Enable external datapath loopback mode in physical layer (Gen 5)"},
 		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed, required_argument,
 		 "LTSSM Speed (if enabling the LTSSM loopback mode), default: GEN4",
 		 .choices = loopback_ltssm_speeds},
@@ -1649,13 +1662,19 @@ static int loopback(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_LOOPBACK, opts, &cfg, sizeof(cfg));
 
+	if ((cfg.enable_external || cfg.enable_parallel) && (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx)) {
+		fprintf(stderr, "Cannot enable both Gen4 and Gen5 loopback settings. Use \'--help\' to see full list and support for each.\n");
+		return -1;
+	}
+
 	if (cfg.port_id < 0) {
 		fprintf(stderr, "Must specify -p / --port_id\n");
 		return -1;
 	}
 
 	if (cfg.disable && (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx ||
-			    cfg.enable_ltssm)) {
+			    cfg.enable_ltssm || cfg.enable_external ||
+			    cfg.enable_parallel)) {
 		fprintf(stderr,
 			"Must not specify -d / --disable with an enable flag\n");
 		return -1;
@@ -1666,7 +1685,7 @@ static int loopback(int argc, char **argv)
 		return ret;
 
 	if (cfg.disable || cfg.enable_rx_to_tx || cfg.enable_tx_to_rx ||
-	    cfg.enable_ltssm) {
+	    cfg.enable_ltssm || cfg.enable_external || cfg.enable_parallel) {
 		if (cfg.enable_rx_to_tx)
 			enable |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
 		if (cfg.enable_tx_to_rx)
@@ -1674,8 +1693,19 @@ static int loopback(int argc, char **argv)
 		if (cfg.enable_ltssm)
 			enable |= SWITCHTEC_DIAG_LOOPBACK_LTSSM;
 
-		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id,
-						  enable, cfg.speed);
+		if (switchtec_is_gen5(cfg.dev)) {
+			if (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx) {
+				fprintf(stderr, "Cannot enable Gen 4 settings \'-r\' \'--rx-to-tx\' or \'-t\' \'--tx-to-rx\' on Gen 5 system. \n");
+				return -1;
+			}
+			ret = switchtec_diag_loopback_set_gen5(cfg.dev, cfg.port_id,
+				cfg.enable_parallel, cfg.enable_external, 
+				cfg.enable_ltssm, cfg.speed);
+		}
+		else {
+			ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id,
+				enable, cfg.speed);
+		}
 		if (ret) {
 			switchtec_perror("loopback_set");
 			return -1;
