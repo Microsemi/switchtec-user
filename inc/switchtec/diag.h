@@ -25,6 +25,8 @@
 #ifndef LIBSWITCHTEC_DIAG_H
 #define LIBSWITCHTEC_DIAG_H
 
+#include "switchtec.h"
+
 #include <stdint.h>
 
 /**
@@ -318,6 +320,7 @@ struct switchtec_diag_ltssm_log_dmp_out {
 	uint32_t arc;
 };
 
+
 enum switchtec_aer_event_gen_result {
 	AER_EVENT_GEN_SUCCESS = 0,
 	AER_EVENT_GEN_FAIL = 1,
@@ -334,6 +337,14 @@ struct switchtec_aer_event_gen_in {
 	uint32_t err_mask;
 	/** HDR log */
 	uint32_t hdr_log[4];
+};
+
+struct switchtec_tlp_inject_in {
+	uint32_t dest_port;
+	uint32_t tlp_type;
+	uint32_t tlp_length;
+	uint32_t ecrc;
+	uint32_t raw_tlp_data[SWITCHTEC_DIAG_MAX_TLP_DWORDS];
 };
 
 #endif

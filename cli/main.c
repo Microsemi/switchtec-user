@@ -188,7 +188,7 @@ static int print_dev_info(struct switchtec_dev *dev)
 {
 	int ret;
 	int device_id;
-	char version[64];
+	char version[32];
 	enum switchtec_boot_phase phase;
 	enum switchtec_rev hw_rev;
 

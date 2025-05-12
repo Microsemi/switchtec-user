@@ -67,6 +67,8 @@ struct switchtec_dev;
 #define SWITCHTEC_PAX_ID_MASK 0x1f
 #define SWITCHTEC_PAX_ID_LOCAL SWITCHTEC_PAX_ID_MASK
 
+#define SWITCHTEC_DIAG_MAX_TLP_DWORDS 132
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
@@ -1276,6 +1278,15 @@ enum switchtec_diag_pattern {
 	SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED,
 };
 
+enum switchtec_diag_pattern_link_rate {
+	SWITCHTEC_DIAG_PAT_LINK_DISABLED = 0,
+	SWITCHTEC_DIAG_PAT_LINK_GEN1 = 1,
+	SWITCHTEC_DIAG_PAT_LINK_GEN2 = 2,
+	SWITCHTEC_DIAG_PAT_LINK_GEN3 = 3,
+	SWITCHTEC_DIAG_PAT_LINK_GEN4 = 4,
+	SWITCHTEC_DIAG_PAT_LINK_GEN5 = 5,
+};
+
 enum switchtec_diag_ltssm_speed {
 	SWITCHTEC_DIAG_LTSSM_GEN1 = 0,
 	SWITCHTEC_DIAG_LTSSM_GEN2 = 1,
@@ -1337,7 +1348,8 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
 		int *enabled, enum switchtec_diag_ltssm_speed *ltssm_speed);
 int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
-		enum switchtec_diag_pattern type);
+		enum switchtec_diag_pattern type,
+		enum switchtec_diag_pattern_link_rate link_speed);
 int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
 		enum switchtec_diag_pattern *type);
 int switchtec_diag_pattern_mon_set(struct switchtec_dev *dev, int port_id,
@@ -1375,6 +1387,8 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 
 int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 				 int aer_error_id, int trigger_event);
+int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type, 
+			 int tlp_length, int ecrc, uint32_t * raw_tlp_data);
 #ifdef __cplusplus
 }
 #endif
