@@ -601,13 +601,18 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
  * @return 0 on success, error code on failure
  */
 int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
-		enum switchtec_diag_pattern type)
+		enum switchtec_diag_pattern type, 
+		enum switchtec_diag_pattern_link_rate link_speed)
 {
 	struct switchtec_diag_pat_gen_in in = {
 		.sub_cmd = MRPC_PAT_GEN_SET_GEN,
 		.port_id = port_id,
 		.pattern_type = type,
+		.lane_id = link_speed
 	};
+	if (switchtec_is_gen5(dev)) {
+		in.sub_cmd = MRPC_PAT_GEN_SET_GEN_GEN5;
+	}
 
 	return switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), NULL, 0);
 }
