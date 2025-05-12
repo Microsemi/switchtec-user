@@ -1714,6 +1714,14 @@ static const struct argconfig_choice pattern_types[] = {
 	{}
 };
 
+static const struct argconfig_choice pat_gen_link_speeds[] = {
+	{"GEN1", SWITCHTEC_DIAG_PAT_LINK_GEN1, "GEN1 Pattern Generator Speed"},
+	{"GEN2", SWITCHTEC_DIAG_PAT_LINK_GEN2, "GEN2 Pattern Generator Speed"},
+	{"GEN3", SWITCHTEC_DIAG_PAT_LINK_GEN3, "GEN3 Pattern Generator Speed"},
+	{"GEN4", SWITCHTEC_DIAG_PAT_LINK_GEN4, "GEN4 Pattern Generator Speed"},
+	{"GEN5", SWITCHTEC_DIAG_PAT_LINK_GEN5, "GEN5 Pattern Generator Speed"},
+};
+
 static const char *pattern_to_str(enum switchtec_diag_pattern type)
 {
 	const struct argconfig_choice *s;
@@ -1739,7 +1747,8 @@ static int print_pattern_mode(struct switchtec_dev *dev,
 		return -1;
 	}
 
-	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, &err_cnt);
+	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, 
+					     &err_cnt);
 	if (ret) {
 		switchtec_perror("pattern_mon_get");
 		return -1;
@@ -1759,11 +1768,15 @@ static int print_pattern_mode(struct switchtec_dev *dev,
 		for (lane_id = 1; lane_id < port->cfg_lnk_width; lane_id++) {
 			ret = switchtec_diag_pattern_mon_get(dev, port_id,
 					lane_id, NULL, &err_cnt);
-			printf("    Lane %-2d    Errors: 0x%llx\n", lane_id,
-			       err_cnt);
-			if (ret) {
+			if (ret == 0x70b02) {
+				printf("    Lane %d has the pattern monitor disabled.\n", 
+				       lane_id);
+			} else if (ret) {
 				switchtec_perror("pattern_mon_get");
 				return -1;
+			} else {
+				printf("    Lane %-2d    Errors: 0x%llx\n", 
+				       lane_id, err_cnt);
 			}
 		}
 	}
@@ -1786,7 +1799,9 @@ static int pattern(int argc, char **argv)
 		int monitor;
 		int pattern;
 		int inject_errs;
+		int link_speed;
 	} cfg = {
+		.link_speed = SWITCHTEC_DIAG_PAT_LINK_DISABLED,
 		.port_id = -1,
 		.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_31,
 	};
@@ -1808,6 +1823,10 @@ static int pattern(int argc, char **argv)
 		 required_argument,
 		 "pattern to generate or monitor for (default: PRBS31)",
 		 .choices = pattern_types},
+		{"speed", 's', "SPEED", CFG_CHOICES, &cfg.link_speed,
+		 required_argument, 
+		 "link speed that applies to the pattern generator (default: GEN1)",
+		 .choices = pat_gen_link_speeds},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_PATTERN, opts, &cfg, sizeof(cfg));
@@ -1823,6 +1842,12 @@ static int pattern(int argc, char **argv)
 		return -1;
 	}
 
+	if (cfg.link_speed && cfg.monitor) {
+		fprintf(stderr,
+			"Cannot enable link speed -s / --speed on pattern monitor\n");
+		return -1;
+	}
+	
 	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
 	if (ret)
 		return ret;
@@ -1844,7 +1869,7 @@ static int pattern(int argc, char **argv)
 
 	if (cfg.generate) {
 		ret = switchtec_diag_pattern_gen_set(cfg.dev, cfg.port_id,
-						     cfg.pattern);
+						     cfg.pattern, cfg.link_speed);
 		if (ret) {
 			switchtec_perror("pattern_gen_set");
 			return -1;
