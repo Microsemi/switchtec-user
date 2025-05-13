@@ -2026,6 +2026,109 @@ static int refclk(int argc, char **argv)
 	return 0;
 }
 
+static int convert_str_to_dwords(char *str, uint32_t **dwords, int *num_dwords)
+{
+	*num_dwords = 0;
+	const char *ptr = str;
+	int dword_len = 0;
+	while (*ptr != '\0') {
+		if (*ptr == '0' && *(ptr + 1) == 'x') {
+			(*num_dwords)++;
+			ptr += 2;
+			dword_len = 0;
+		}
+		while (*ptr != ' ' && *ptr != '\0') {
+			ptr++;
+			dword_len++;
+		}
+		if (dword_len > 8) {
+			printf("Entered dword longer than allowed\n");
+			return -1;
+		}
+		if (*ptr == ' ')
+			ptr++;
+	}
+
+	*dwords = (uint32_t *)malloc(*num_dwords * sizeof(uint32_t));
+	if (*dwords == NULL)
+		return -1;
+
+	ptr = str;
+	for (int i = 0; i < *num_dwords; i++) {
+		char *endptr;
+		(*dwords)[i] = (uint32_t)strtoul(ptr, &endptr, 0);
+		if (endptr == ptr || (*endptr != ' ' && *endptr != '\0')) {
+			free(*dwords);
+			return -1;
+		}
+		ptr = endptr;
+		while (*ptr == ' ')
+			ptr++;
+	}
+
+	return 0;
+}
+
+#define CMD_TLP_INJECT "Inject a raw TLP"
+
+static int tlp_inject (int argc, char **argv)
+{
+	int ret = 0;
+	uint32_t * raw_tlp_dwords = NULL;
+	int num_dwords = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int port_id;
+		int tlp_type;
+		int ecrc;
+		char * raw_tlp_data;
+	} cfg = {
+		.tlp_type = 0
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id, 
+			required_argument, "destination port ID"},
+		{"tlp_type", 't', "TYPE", CFG_NONNEGATIVE, &cfg.tlp_type, 
+			required_argument, "tlp type:\n0: P  - Posted\n1: NP - Non-posted\n2: CP - Completion\n(default 0)"},
+		{"enable_ecrc", 'e', "", CFG_NONE, &cfg.ecrc, no_argument, 
+			"Enable the ecrc to be included at the end of the input data (Default: disabled)"},
+		{"tlp_data", 'd', "\"DW0 DW1 ... DW131\"", CFG_STRING, 
+			&cfg.raw_tlp_data, required_argument, 
+			"DWs to be sent as part of the raw TLP (Maximum 132 DWs). Every DW must start with \'0x\'"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_TLP_INJECT, opts, &cfg, sizeof(cfg));
+
+	if (cfg.raw_tlp_data == NULL) {
+		fprintf(stderr, "Must set tlp data --tlp_data -d \n");
+		return -1;
+	}
+	ret = convert_str_to_dwords(cfg.raw_tlp_data, &raw_tlp_dwords, 
+				    &num_dwords);
+	if (ret) {
+		fprintf(stderr, "Error with tlp data provided \n");
+		return -1;
+	}
+	if (num_dwords > SWITCHTEC_DIAG_MAX_TLP_DWORDS) {
+		fprintf(stderr, "TLP data cannot exceed %d dwords \n", 
+			SWITCHTEC_DIAG_MAX_TLP_DWORDS);
+		free(raw_tlp_dwords);
+		return -1;
+	}
+
+	ret = switchtec_tlp_inject(cfg.dev, cfg.port_id, cfg.tlp_type, 
+				   num_dwords, cfg.ecrc, raw_tlp_dwords);
+	if (ret != 0) {
+		switchtec_perror("tlp_inject");
+		return -1;
+	}
+
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	CMD(crosshair,		CMD_DESC_CROSS_HAIR),
 	CMD(eye,		CMD_DESC_EYE),
@@ -2039,6 +2142,7 @@ static const struct cmd commands[] = {
 	CMD(rcvr_obj,		CMD_DESC_RCVR_OBJ),
 	CMD(refclk,		CMD_DESC_REF_CLK),
 	CMD(ltssm_log,		CMD_DESC_LTSSM_LOG),
+	CMD(tlp_inject,		CMD_TLP_INJECT),
 	{}
 };
 

@@ -66,6 +66,8 @@ struct switchtec_dev;
 #define SWITCHTEC_PAX_ID_MASK 0x1f
 #define SWITCHTEC_PAX_ID_LOCAL SWITCHTEC_PAX_ID_MASK
 
+#define SWITCHTEC_DIAG_MAX_TLP_DWORDS 132
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
@@ -1243,7 +1245,8 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en);
 int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 			     int port, int *log_count,
 			     struct switchtec_diag_ltssm_log *log_data);
-
+int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type, 
+			 int tlp_length, int ecrc, uint32_t * raw_tlp_data);
 #ifdef __cplusplus
 }
 #endif
