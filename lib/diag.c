@@ -1706,4 +1706,25 @@ int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 	return ret_val;
 }
 
+int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type, 
+			 int tlp_length, int ecrc, uint32_t * raw_tlp_data)
+{
+	uint32_t tlp_out;
+	int ret = 1;
+	struct switchtec_tlp_inject_in tlp_in = {
+		.dest_port = port_id,
+		.tlp_type = tlp_type,
+		.tlp_length = tlp_length,
+		.ecrc = ecrc
+	};
+	for (int i = 0; i < tlp_in.tlp_length; i++) {
+		tlp_in.raw_tlp_data[i] = htole32(*(raw_tlp_data + i));
+	}
+	free(raw_tlp_data);
+
+	ret = switchtec_cmd(dev, MRPC_DIAG_TLP_INJECT, &tlp_in, sizeof(tlp_in),
+			    &tlp_out, sizeof(tlp_out));
+	return ret;
+}
+
 /**@}*/
