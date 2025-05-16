@@ -35,6 +35,7 @@
 #include "portable.h"
 #include "registers.h"
 #include "utils.h"
+#include "inject.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -420,8 +421,26 @@ int switchtec_calc_port_lane(struct switchtec_dev *dev, int lane_id,
 			     int *phys_port_id, int *port_lane_id,
 			     struct switchtec_status *port);
 int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
-		int lane_id, int num_lanes, int *lane_mask,
-		struct switchtec_status *port);
+			     int lane_id, int num_lanes, int *lane_mask,
+			     struct switchtec_status *port);
+
+/**
+ * @brief Return Link error injection command outputs for DLLP, DLLP_CRC,
+ * LCRC, SEQ_NUM, ACK_NACK, CTO.
+ */
+
+int switchtec_inject_err_dllp(struct switchtec_dev *dev, int phys_port_id,
+                	      int data);
+int switchtec_inject_err_dllp_crc(struct switchtec_dev *dev, int phys_port_id,
+                                  int enable, uint16_t rate);
+int switchtec_inject_err_tlp_lcrc_gen4(struct switchtec_dev *dev, int phys_port_id,
+                		       int enable, uint8_t rate);
+int switchtec_inject_err_tlp_lcrc_gen5(struct switchtec_dev *dev, int phys_port_id,
+                		       int enable, uint8_t rate);
+int switchtec_inject_err_tlp_seq_num(struct switchtec_dev *dev, int phys_port_id);
+int switchtec_inject_err_ack_nack(struct switchtec_dev *dev, int phys_port_id,
+                		  uint16_t seq_num, uint8_t count);
+int switchtec_inject_err_cto(struct switchtec_dev *dev, int phys_port_id);
 
 /**
  * @brief Return whether a Switchtec device is a Gen 3 device.
@@ -1106,11 +1125,61 @@ struct switchtec_rcvr_obj {
 };
 
 struct switchtec_port_eq_coeff {
-	int lane_cnt;
+	uint8_t lane_cnt;
+	uint8_t reserved[3];
 	struct {
-		int pre;
-		int post;
+		uint8_t pre;
+		uint8_t post;
 	} cursors[16];
+};
+
+struct switchtec_rem_port_eq_coeff {
+	uint8_t lane_cnt;
+	uint8_t reserved[3];
+	struct {
+		uint8_t is_coef;
+		uint8_t pre;
+		uint8_t post;
+		uint8_t preset;
+	} cursors[16];
+};
+
+enum lane_eq_dump_type_enum {
+	LANE_EQ_DUMP_TYPE_CURR,   /**< current settings */
+	LANE_EQ_DUMP_TYPE_PREV,   /**< previous link-up settings */
+	LANE_EQ_DUMP_TYPE_NUM     /**< total number of dump types */
+};
+
+enum link_rate_enum {
+	PCIE_LINK_RATE_INV  = 0,  /**< invalid */
+	PCIE_LINK_RATE_GEN1 = 1,  /**< Gen1, supports 2.5GT/s */
+	PCIE_LINK_RATE_GEN2 = 2,  /**< Gen2, supports 2.5GT/s, 5GT/s */
+	PCIE_LINK_RATE_GEN3 = 3,  /**< Gen3, supports 2.5GT/s, 5GT/s, 8GT/s */
+	PCIE_LINK_RATE_GEN4 = 4,  /**< Gen4, supports 2.5GT/s, 5GT/s, 8GT/s, 16GT/s */
+	PCIE_LINK_RATE_GEN5 = 5,  /**< Gen5, supports 2.5GT/s, 5GT/s, 8GT/s, 16GT/s, 32GT/s */
+	PCIE_LINK_RATE_NUM  = 5   /**< total number of PCIe generations */
+};
+
+struct switchtec_port_eq_coeff_in {
+	uint8_t cmd;
+	uint8_t op_type;
+	uint8_t phys_port_id;
+	uint8_t lane_id;
+	uint8_t dump_type;
+	uint8_t prev_rate;
+	uint8_t reserved[2];
+} ;
+
+struct switchtec_port_eq_tx_coeff {
+	struct switchtec_port_eq_coeff_in in;
+	struct switchtec_port_eq_coeff out;
+};
+
+struct switchtec_port_eq_table_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t dump_type;
+	uint8_t prev_rate;
 };
 
 struct switchtec_port_eq_table {
@@ -1129,9 +1198,50 @@ struct switchtec_port_eq_table {
 	} steps[126];
 };
 
+struct switchtec_gen5_port_eq_table {
+	uint8_t lane_id;
+	uint8_t step_cnt;
+	uint8_t reserved[2];
+
+	struct {
+		uint8_t pre_cursor;
+		uint8_t post_cursor;
+		uint16_t reserved_0;
+		uint8_t reserved_1;
+		uint8_t error_status;
+		uint8_t active_status;
+		uint8_t speed;
+	} steps[25];
+};
+
+struct switchtec_port_eq_table_dump {
+	struct switchtec_port_eq_table_in in;
+	struct switchtec_gen5_port_eq_table out;
+};
+
 struct switchtec_port_eq_tx_fslf {
 	int fs;
 	int lf;
+};
+
+struct switchtec_port_eq_tx_fslf_out {
+	uint8_t fs;
+	uint8_t lf;
+	uint8_t reserved[2];
+};
+
+struct switchtec_port_eq_tx_fslf_in {
+	uint8_t sub_cmd;
+	uint8_t port_id;
+	uint8_t lane_id;
+	uint8_t dump_type;
+	uint8_t prev_rate;
+	uint8_t reserved[3];
+};
+
+struct switchtec_port_eq_tx_fslf_dump {
+	struct switchtec_port_eq_tx_fslf_in in;
+	struct switchtec_port_eq_tx_fslf_out out;
 };
 
 struct switchtec_rcvr_ext {
@@ -1168,11 +1278,21 @@ enum switchtec_diag_pattern {
 	SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED,
 };
 
+enum switchtec_diag_pattern_link_rate {
+	SWITCHTEC_DIAG_PAT_LINK_DISABLED = 0,
+	SWITCHTEC_DIAG_PAT_LINK_GEN1 = 1,
+	SWITCHTEC_DIAG_PAT_LINK_GEN2 = 2,
+	SWITCHTEC_DIAG_PAT_LINK_GEN3 = 3,
+	SWITCHTEC_DIAG_PAT_LINK_GEN4 = 4,
+	SWITCHTEC_DIAG_PAT_LINK_GEN5 = 5,
+};
+
 enum switchtec_diag_ltssm_speed {
 	SWITCHTEC_DIAG_LTSSM_GEN1 = 0,
 	SWITCHTEC_DIAG_LTSSM_GEN2 = 1,
 	SWITCHTEC_DIAG_LTSSM_GEN3 = 2,
 	SWITCHTEC_DIAG_LTSSM_GEN4 = 3,
+	SWITCHTEC_DIAG_LTSSM_GEN5 = 4,
 };
 
 enum switchtec_diag_end {
@@ -1183,6 +1303,15 @@ enum switchtec_diag_end {
 enum switchtec_diag_link {
 	SWITCHTEC_DIAG_LINK_CURRENT,
 	SWITCHTEC_DIAG_LINK_PREVIOUS,
+};
+
+enum switchtec_gen5_diag_eye_status {
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_IDLE = 0,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING = 1,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_IN_PROGRESS = 2,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE = 3,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT = 4,
+	SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR = 5,
 };
 
 struct switchtec_diag_ltssm_log {
@@ -1205,12 +1334,22 @@ int switchtec_diag_eye_fetch(struct switchtec_dev *dev, double *pixels,
 			     size_t pixel_cnt, int *lane_id);
 int switchtec_diag_eye_cancel(struct switchtec_dev *dev);
 
+int switchtec_gen5_diag_eye_run(struct switchtec_dev *dev, int lane_mask[4],
+				int capture_depth);
+int switchtec_gen5_diag_eye_status(struct switchtec_dev *dev, int* status);
+int switchtec_gen5_diag_eye_read(struct switchtec_dev *dev, int lane_id,
+				int bin, int* num_phases, double* ber_data);
+
+int switchtec_diag_loopback_set_gen5(struct switchtec_dev *dev, int port_id,
+		int enable_parallel, int enable_external, int enable_ltssm,
+		enum switchtec_diag_ltssm_speed ltssm_speed);					
 int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 		int enable, enum switchtec_diag_ltssm_speed ltssm_speed);
 int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
 		int *enabled, enum switchtec_diag_ltssm_speed *ltssm_speed);
 int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
-		enum switchtec_diag_pattern type);
+		enum switchtec_diag_pattern type,
+		enum switchtec_diag_pattern_link_rate link_speed);
 int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
 		enum switchtec_diag_pattern *type);
 int switchtec_diag_pattern_mon_set(struct switchtec_dev *dev, int port_id,
@@ -1245,6 +1384,9 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en);
 int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 			     int port, int *log_count,
 			     struct switchtec_diag_ltssm_log *log_data);
+
+int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
+				 int aer_error_id, int trigger_event);
 int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type, 
 			 int tlp_length, int ecrc, uint32_t * raw_tlp_data);
 #ifdef __cplusplus
