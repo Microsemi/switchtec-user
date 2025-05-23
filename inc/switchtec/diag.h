@@ -320,7 +320,6 @@ struct switchtec_diag_ltssm_log_dmp_out {
 	uint32_t arc;
 };
 
-
 enum switchtec_aer_event_gen_result {
 	AER_EVENT_GEN_SUCCESS = 0,
 	AER_EVENT_GEN_FAIL = 1,
