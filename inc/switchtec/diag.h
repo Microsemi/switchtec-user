@@ -139,6 +139,11 @@ enum switchtec_diag_loopback_type {
 	DIAG_LOOPBACK_TX_TO_RX = 1,
 };
 
+enum switchtec_diag_loopback_type_gen5 {
+	DIAG_LOOPBACK_PARALEL_DATAPATH = 5,
+	DIAG_LOOPBACK_EXTERNAL_DATAPATH = 6,
+};
+
 struct switchtec_diag_loopback_in {
 	uint8_t sub_cmd;
 	uint8_t port_id;
@@ -237,6 +242,40 @@ struct switchtec_diag_port_eye_fetch {
 	};
 };
 
+
+struct switchtec_gen5_diag_eye_run_in {
+	uint8_t sub_cmd;
+	uint8_t capture_depth;
+	uint8_t timeout_disable;
+	uint8_t resvd1;
+	uint32_t lane_mask[4];
+};
+
+struct switchtec_gen5_diag_eye_status_in {
+	uint8_t sub_cmd;
+	uint8_t resvd1[3];
+};
+
+struct switchtec_gen5_diag_eye_status_out {
+	uint8_t status;
+	uint8_t resvd1[3];
+};
+
+struct switchtec_gen5_diag_eye_read_in {
+	uint8_t sub_cmd;
+	uint8_t lane_id;
+	uint8_t bin;
+	uint8_t resvd1;
+};
+
+struct switchtec_gen5_diag_eye_read_out {
+	uint8_t num_phases;
+	uint8_t resvd1[3];
+	uint32_t resvd2;
+	uint64_t ber_data[60];
+};
+
+
 struct switchtec_diag_cross_hair_in {
 	uint8_t sub_cmd;
 	uint8_t lane_id;
@@ -279,6 +318,24 @@ struct switchtec_diag_ltssm_log_dmp_out {
 	uint32_t ram_timestamp;
 	uint32_t unused;
 	uint32_t arc;
+};
+
+enum switchtec_aer_event_gen_result {
+	AER_EVENT_GEN_SUCCESS = 0,
+	AER_EVENT_GEN_FAIL = 1,
+};
+
+struct switchtec_aer_event_gen_in {
+	/**  sub_cmd_id */
+	uint8_t sub_cmd;
+	/** physical port id */
+	uint8_t phys_port_id;
+	/** reserved */
+	uint8_t reserved[2];
+	/** err mask */
+	uint32_t err_mask;
+	/** HDR log */
+	uint32_t hdr_log[4];
 };
 
 struct switchtec_tlp_inject_in {
