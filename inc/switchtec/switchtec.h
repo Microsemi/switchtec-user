@@ -337,7 +337,7 @@ struct switchtec_trace_download_params {
 /**
  * @brief Trace MRPC configuration response
  */
-struct switchtec_trace_mrpc_configuration_response {
+struct switchtec_trace_mrpc_cfg_resp {
     uint8_t trace_enable_value;
     uint8_t trace_level_value;
     uint8_t reserved[2];
@@ -466,11 +466,11 @@ int switchtec_calc_port_lane(struct switchtec_dev *dev, int lane_id,
 int switchtec_calc_lane_mask(struct switchtec_dev *dev, int phys_port_id,
 		int lane_id, int num_lanes, int *lane_mask,
 		struct switchtec_status *port);
-int switchtec_trace_config_get(struct switchtec_dev *dev,
-		struct switchtec_trace_mrpc_configuration_response *params);
-int switchtec_trace_config_set(struct switchtec_dev *dev,
+int switchtec_trace_cfg_get(struct switchtec_dev *dev,
+		struct switchtec_trace_mrpc_cfg_resp *params);
+int switchtec_trace_cfg_set(struct switchtec_dev *dev,
 		const struct switchtec_trace_config_set_params *params,
-		struct switchtec_trace_mrpc_configuration_response *out);
+		struct switchtec_trace_mrpc_cfg_resp *out);
 int switchtec_trace_download(struct switchtec_dev *dev,
 		struct switchtec_trace_download_params *params);
 

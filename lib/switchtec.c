@@ -87,7 +87,7 @@ struct switchtec_device_id {
 /**
  * @brief Trace MRPC configuration command parameters
  */
-struct switchtec_trace_mrpc_configuration_command {
+struct switchtec_trace_mrpc_cfg_cmd {
 	bool trace_enable_state_action;
 	uint8_t trace_level_action;
 	uint8_t trace_type_mask_action;
@@ -103,7 +103,7 @@ struct switchtec_trace_mrpc_configuration_command {
 /**
  * @brief Trace MRPC download command parameters
  */
-struct switchtec_trace_mrpc_download_command {
+struct switchtec_trace_mrpc_download_cmd {
     uint32_t offset;
     uint32_t bytes_to_download;
 };
@@ -111,7 +111,7 @@ struct switchtec_trace_mrpc_download_command {
 /**
  * @brief Trace MRPC download response
  */
-union switchtec_trace_mrpc_download_response {
+union switchtec_trace_mrpc_download_resp {
 	struct {
 		uint32_t payload_bytes;
 		uint32_t remaining_bytes;
@@ -123,12 +123,12 @@ union switchtec_trace_mrpc_download_response {
 /**
  * @brief Trace MRPC command structure
  */
-struct switchtec_trace_mrpc_command {
+struct switchtec_trace_mrpc_cmd {
 	uint8_t subcommand_id;
 	uint8_t reserved[3];
 	union {
-		struct switchtec_trace_mrpc_configuration_command config_cmd;
-		struct switchtec_trace_mrpc_download_command download_cmd;
+		struct switchtec_trace_mrpc_cfg_cmd config_cmd;
+		struct switchtec_trace_mrpc_download_cmd download_cmd;
 	} subcommand;
 };
 
@@ -2348,13 +2348,13 @@ int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
  * @param[out] out Response structure
  * @return 0 on success, or a negative value on failure
  */
-int switchtec_trace_config_get(struct switchtec_dev *dev,
-		struct switchtec_trace_mrpc_configuration_response *out)
+int switchtec_trace_cfg_get(struct switchtec_dev *dev,
+		struct switchtec_trace_mrpc_cfg_resp *out)
 {
 	int rc = 0;
-	struct switchtec_trace_mrpc_configuration_response resp;
+	struct switchtec_trace_mrpc_cfg_resp resp;
 
-	struct switchtec_trace_mrpc_command cmd = {
+	struct switchtec_trace_mrpc_cmd cmd = {
 		.subcommand_id = MRPC_TRACE_CONFIGURE,
 		.subcommand.config_cmd = {
 			.trace_enable_state_action = 0,
@@ -2389,13 +2389,13 @@ int switchtec_trace_config_get(struct switchtec_dev *dev,
  * @param[out] out Response structure
  * @return 0 on success, or a negative value on failure
  */
-int switchtec_trace_config_set(struct switchtec_dev *dev,
+int switchtec_trace_cfg_set(struct switchtec_dev *dev,
 		const struct switchtec_trace_config_set_params *params,
-		struct switchtec_trace_mrpc_configuration_response *out
+		struct switchtec_trace_mrpc_cfg_resp *out
 		)
 {
 	int rc = 0;
-	struct switchtec_trace_mrpc_command cmd = {
+	struct switchtec_trace_mrpc_cmd cmd = {
 		.subcommand_id = MRPC_TRACE_CONFIGURE,
 		.subcommand.config_cmd = {
 			.trace_enable_state_action = params->trace_enable_state.valid ? 1 : 0,
@@ -2417,7 +2417,7 @@ int switchtec_trace_config_set(struct switchtec_dev *dev,
 			(void*)&cmd,
 			sizeof(cmd),
 			(void*)out,
-			sizeof(struct switchtec_trace_mrpc_configuration_response)
+			sizeof(struct switchtec_trace_mrpc_cfg_resp)
 	);
 
 	return rc;
@@ -2435,8 +2435,8 @@ int switchtec_trace_download(struct switchtec_dev *dev,
 	int rc = 0;
 	int bytes_written = 0;
 
-	union switchtec_trace_mrpc_download_response resp;
-	struct switchtec_trace_mrpc_command cmd = {
+	union switchtec_trace_mrpc_download_resp resp;
+	struct switchtec_trace_mrpc_cmd cmd = {
 		.subcommand_id = MRPC_TRACE_DOWNLOAD,
 		.subcommand.download_cmd = {
 			.bytes_to_download = 0,

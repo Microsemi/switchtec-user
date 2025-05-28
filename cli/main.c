@@ -1341,7 +1341,7 @@ static int trace_config(int argc, char **argv)
 		struct switchtec_dev *dev;
 		bool query;
 		struct switchtec_trace_config_set_params trace_config;
-		struct switchtec_trace_mrpc_configuration_response trace_query;
+		struct switchtec_trace_mrpc_cfg_resp trace_query;
 	} cfg = {
 		.dev = NULL,
 		.query = false,
@@ -1389,7 +1389,7 @@ static int trace_config(int argc, char **argv)
 		return 1;
 	}
 
-	rc = switchtec_trace_config_get(cfg.dev, &cfg.trace_query);
+	rc = switchtec_trace_cfg_get(cfg.dev, &cfg.trace_query);
 	if (rc != 0) {
 		switchtec_perror("trace_control");
 		return rc;
@@ -1419,7 +1419,7 @@ static int trace_config(int argc, char **argv)
 	 */
 	argconfig_parse(argc, argv, CMD_DESC_TRACE_CONFIG, opts, &cfg, sizeof(cfg));
 
-	rc = switchtec_trace_config_set(cfg.dev, &cfg.trace_config, &cfg.trace_query);
+	rc = switchtec_trace_cfg_set(cfg.dev, &cfg.trace_config, &cfg.trace_query);
 	if (rc != 0) {
 		switchtec_perror("trace_control");
 		return rc;
@@ -1447,7 +1447,7 @@ static int trace_download(int argc, char **argv)
 {
 	int rc = 0;
 	struct switchtec_trace_config_set_params config_params = { 0 };
-	struct switchtec_trace_mrpc_configuration_response config_response = { 0 };
+	struct switchtec_trace_mrpc_cfg_resp config_response = { 0 };
 	static struct {
 		struct switchtec_dev *dev;
 		struct switchtec_trace_download_params download_params;
@@ -1483,7 +1483,7 @@ static int trace_download(int argc, char **argv)
 
 	if ((rc == 0) && cfg.download_params.clear_when_done) {
 		config_params.trace_clear = 1;
-		rc = switchtec_trace_config_set(cfg.dev, &config_params, &config_response);
+		rc = switchtec_trace_cfg_set(cfg.dev, &config_params, &config_response);
 	}
 
 	return rc;
