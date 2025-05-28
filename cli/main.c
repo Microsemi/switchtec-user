@@ -1432,7 +1432,7 @@ static int trace_config(int argc, char **argv)
 		printf(
 				"enable state: %d\n" \
 				"level:        %d\n" \
-				"typemask:     0x%lu\n" \
+				"typemask:     0x%lx\n" \
 				"total_bytes:  %d\n",
 				cfg.trace_query.trace_enable_value,
 				cfg.trace_query.trace_level_value,
