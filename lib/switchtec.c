@@ -97,7 +97,8 @@ struct switchtec_trace_mrpc_cfg_cmd {
 	uint8_t trace_level_value;
 	uint8_t reserved[2];
 
-	uint64_t trace_type_mask_value;
+	uint32_t trace_type_mask_value_low;
+	uint32_t trace_type_mask_value_high;
 };
 
 /**
@@ -2375,7 +2376,8 @@ int switchtec_trace_cfg_get(struct switchtec_dev *dev,
 	if (rc == 0) {
 		out->trace_enable_value = resp.trace_enable_value;
 		out->trace_level_value = resp.trace_level_value;
-		out->trace_type_mask_value = resp.trace_type_mask_value;
+		out->trace_type_mask_value_low = resp.trace_type_mask_value_low;
+		out->trace_type_mask_value_high = resp.trace_type_mask_value_high;
 		out->trace_log_total_bytes = resp.trace_log_total_bytes;
 	}
 
@@ -2405,7 +2407,8 @@ int switchtec_trace_cfg_set(struct switchtec_dev *dev,
 			.trace_level_value = params->trace_level.value,
 
 			.trace_type_mask_action = params->trace_type_mask.valid ? 1 : 0,
-			.trace_type_mask_value = params->trace_type_mask.value,
+			.trace_type_mask_value_low = params->trace_type_mask.value & UINT32_MAX,
+			.trace_type_mask_value_high = ((params->trace_type_mask.value >> 32) & UINT32_MAX),
 
 			.trace_clear = params->trace_clear
 		}

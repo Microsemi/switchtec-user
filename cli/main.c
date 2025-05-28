@@ -1336,6 +1336,7 @@ static int temp(int argc, char **argv)
 static int trace_config(int argc, char **argv)
 {
 	int rc = 0;
+	uint64_t trace_type_mask = 0;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1412,7 +1413,8 @@ static int trace_config(int argc, char **argv)
 	cfg.trace_config.trace_level.value = cfg.trace_query.trace_level_value;
 
 	cfg.trace_config.trace_type_mask.valid = true;
-	cfg.trace_config.trace_type_mask.value = cfg.trace_query.trace_type_mask_value;
+	trace_type_mask = ((((uint64_t)cfg.trace_query.trace_type_mask_value_high) << 32) | cfg.trace_query.trace_type_mask_value_low);
+	cfg.trace_config.trace_type_mask.value = trace_type_mask;
 
 	/*
 	 * Update any fields defined by the user
@@ -1426,6 +1428,7 @@ static int trace_config(int argc, char **argv)
 	}
 
 	if (cfg.query) {
+		trace_type_mask = ((((uint64_t)cfg.trace_query.trace_type_mask_value_high) << 32) | cfg.trace_query.trace_type_mask_value_low);
 		printf(
 				"enable state: %d\n" \
 				"level:        %d\n" \
@@ -1433,7 +1436,7 @@ static int trace_config(int argc, char **argv)
 				"total_bytes:  %d\n",
 				cfg.trace_query.trace_enable_value,
 				cfg.trace_query.trace_level_value,
-				cfg.trace_query.trace_type_mask_value,
+				trace_type_mask,
 				cfg.trace_query.trace_log_total_bytes
 			);
 	}
