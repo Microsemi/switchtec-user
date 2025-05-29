@@ -93,6 +93,7 @@ struct switchtec_ops {
 	int (*get_device_id)(struct switchtec_dev *dev);
 	int (*get_fw_version)(struct switchtec_dev *dev, char *buf,
 			      size_t buflen);
+	int (*get_device_version)(struct switchtec_dev *dev, int *device_version);
 	int (*cmd)(struct switchtec_dev *dev,  uint32_t cmd,
 		   const void *payload, size_t payload_len, void *resp,
 		   size_t resp_len);
