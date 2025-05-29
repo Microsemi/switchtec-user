@@ -188,6 +188,32 @@ int gasop_get_fw_version(struct switchtec_dev *dev, char *buf,
 	return 0;
 }
 
+int gasop_get_device_minor_ver(struct switchtec_dev *dev, char ** res)
+{
+	void __gas * addr;
+	int offset = 0x2004;
+	gasptr_t map;
+	size_t map_size;
+	uint32_t gas_result;
+	char result[5];
+
+	uint8_t minor;
+	map = switchtec_gas_map(dev, 0, &map_size);
+	if (map == SWITCHTEC_MAP_FAILED) {
+		switchtec_perror("gas_map");
+		return -1;
+	}
+	addr = map;
+	gas_result = __gas_read32(dev, addr + offset);
+	minor = (gas_result >> 0x10) & 0xFF;
+	snprintf(result, 5, ".%d", minor);
+	*res = result;
+
+	switchtec_gas_unmap(dev, map);
+
+	return 0;
+}
+
 int gasop_pff_to_port(struct switchtec_dev *dev, int pff,
 		      int *partition, int *port)
 {

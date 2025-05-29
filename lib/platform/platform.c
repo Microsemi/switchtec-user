@@ -150,6 +150,12 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 	return 0;
 }
 
+int switchtec_get_device_minor_ver(struct switchtec_dev *dev, char ** res)
+{
+	int ret;
+	ret = dev->ops->get_device_minor_ver(dev, res);
+	return ret;
+}
 /**
  * @brief Execute an MRPC command
  * @ingroup Device
