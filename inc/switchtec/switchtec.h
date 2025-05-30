@@ -340,7 +340,6 @@ struct switchtec_trace_download_params {
 struct switchtec_trace_mrpc_cfg_resp {
     uint8_t trace_enable_value;
     uint8_t trace_level_value;
-    uint8_t reserved[2];
 
     uint32_t trace_type_mask_value_low;
     uint32_t trace_type_mask_value_high;
