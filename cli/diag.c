@@ -31,6 +31,7 @@
 
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
+#include <switchtec/endian.h>
 
 #include <limits.h>
 #include <locale.h>
@@ -325,7 +326,9 @@ static void print_eye_csv(FILE *f, struct range *X, struct range *Y,
 	int x, y, i, j = 0;
 
 	fprintf(f, "%s\n", title);
-	fprintf(f, "interval_ms, %d\n", interval);
+
+	if (interval > -1)
+		fprintf(f, "interval_ms, %d\n", interval);
 
 	for_range(x, X)
 		fprintf(f, ", %d", x);
@@ -1190,7 +1193,7 @@ static double *eye_observe_dev(struct switchtec_dev *dev, int port_id,
 		goto out_err;
 	}
 
-	ret = switchtec_diag_eye_start(dev, lane_mask, X, Y, interval);
+	ret = switchtec_diag_eye_start(dev, lane_mask, X, Y, interval, 0);
 	if (ret) {
 		switchtec_perror("eye_start");
 		goto out_err;
@@ -1249,7 +1252,8 @@ out_err:
 
 static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 		     double *pixels, const char *title,
-		     struct switchtec_diag_cross_hair *ch)
+		     struct switchtec_diag_cross_hair *ch,
+		     struct switchtec_dev *dev)
 {
 	size_t pixel_cnt = RANGE_CNT(X) * RANGE_CNT(Y);
 	int data[pixel_cnt], shades[pixel_cnt];
@@ -1277,14 +1281,77 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 	}
 
 	if (fmt == FMT_TEXT) {
-		graph_draw_text(X, Y, data, title, 'T', 'V');
+		if (switchtec_is_gen5(dev))
+			graph_draw_text_no_invert(X, Y, data, title, 'P', 'B');
+		else
+			graph_draw_text(X, Y, data, title, 'T', 'V');
 		if (status_ptr)
 			printf("\n      %s\n", status_ptr);
 		return 0;
 	}
 
-	return graph_draw_win(X, Y, data, shades, title, 'T', 'V',
-			      status_ptr, NULL, NULL);
+	if (switchtec_is_gen5(dev))
+		return graph_draw_win(X, Y, data, shades, title, 'P', 'B',
+				      status_ptr, NULL, NULL);
+	else
+		return graph_draw_win(X, Y, data, shades, title, 'T', 'V',
+				      status_ptr, NULL, NULL);
+}
+
+static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
+				    int port_id, int lane_id, int num_lanes,
+				    int capture_depth, int* num_phases, int* gen)
+{
+	int bin, j, ret, first_lane, num_phases_l, stride;
+	int lane_mask[4] = {};
+	struct switchtec_status sw_status;
+	double tmp[60];
+	double* ber_data = NULL;
+
+	ret = switchtec_calc_lane_mask(dev, port_id, lane_id, num_lanes,
+				       lane_mask, &sw_status);
+	if (ret < 0) {
+		switchtec_perror("Invalid lane");
+		return NULL;
+	}
+
+	ret = switchtec_diag_eye_start(dev, lane_mask, NULL, NULL, 0, 
+				       capture_depth);
+	if (ret) {
+		switchtec_perror("eye_run");
+		return NULL;
+	}
+
+	first_lane = switchtec_calc_lane_id(dev, port_id, lane_id, NULL);
+	for (j = 0; j < num_lanes; j++) {
+		for (bin = 0; bin < 64; bin++) {
+			ret = switchtec_diag_eye_read(dev, first_lane + j, bin, 
+						      &num_phases_l, tmp);
+			if (ret) {
+				switchtec_perror("eye_read");
+				if (ber_data)
+					free(ber_data);
+				return NULL;
+			}
+
+			if (!ber_data) {
+				stride = 64 * num_phases_l;
+				ber_data = calloc(num_lanes * stride, 
+						  sizeof(double));
+				if (!ber_data) {
+					perror("allocating BER data");
+					return NULL;
+				}
+			}
+
+			memcpy(&ber_data[(j * stride) + (bin * num_phases_l)], 
+			       tmp, num_phases_l * sizeof(double));
+		}
+	}
+
+	*gen = sw_status.link_rate;
+	*num_phases = num_phases_l;
+	return ber_data;
 }
 
 #define CMD_DESC_EYE "Capture PCIe Eye Errors"
@@ -1294,13 +1361,14 @@ static int eye(int argc, char **argv)
 	struct switchtec_diag_cross_hair ch = {}, *ch_ptr = NULL;
 	char title[128], subtitle[50];
 	double *pixels = NULL;
-	int ret, gen;
+	int num_phases, ret, gen;
 
 	static struct {
 		struct switchtec_dev *dev;
 		int fmt;
 		int port_id;
 		int lane_id;
+		int capture_depth;
 		int num_lanes;
 		int mode;
 		struct range x_range, y_range;
@@ -1313,6 +1381,7 @@ static int eye(int argc, char **argv)
 		.fmt = FMT_DEFAULT,
 		.port_id = -1,
 		.lane_id = 0,
+		.capture_depth = 24,
 		.num_lanes = 1,
 		.mode = SWITCHTEC_DIAG_EYE_RAW,
 		.x_range.start = 0,
@@ -1327,7 +1396,7 @@ static int eye(int argc, char **argv)
 		DEVICE_OPTION_OPTIONAL,
 		{"crosshair", 'C', "FILE", CFG_FILE_R, &cfg.crosshair_file,
 		 required_argument,
-		 "optionally, superimpose a crosshair CSV onto the result"},
+		 "optionally, superimpose a crosshair CSV onto the result (Not supported in Gen 5)"},
 		{"format", 'f', "FMT", CFG_CHOICES, &cfg.fmt, required_argument,
 		 "output format (default: " FMT_DEFAULT_STR ")",
 		 .choices=output_fmt_choices},
@@ -1357,12 +1426,24 @@ static int eye(int argc, char **argv)
 		 required_argument, "voltage step (default: 5)"},
 		{"interval", 'i', "NUM", CFG_NONNEGATIVE, &cfg.step_interval,
 		 required_argument, "step interval in ms (default: 1ms)"},
+		{"capture-depth", 'd', "NUM", CFG_POSITIVE, &cfg.capture_depth,
+		 required_argument, "capture depth (6 to 40; default: 24)"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_EYE, opts, &cfg,
 			sizeof(cfg));
 
+	if (cfg.dev != NULL && switchtec_is_gen5(cfg.dev)) {
+		cfg.y_range.start = 0;
+		cfg.y_range.end = 63;
+		cfg.y_range.step = 1;
+	}
+	
 	if (cfg.crosshair_file) {
+		if (switchtec_is_gen5(cfg.dev)) {
+			fprintf(stderr, "Crosshair superimpose not suppored in Gen 5\n");
+			return -1;
+		}
 		ret = load_crosshair_csv(cfg.crosshair_file, &ch, subtitle,
 					 sizeof(subtitle));
 		if (ret) {
@@ -1373,11 +1454,11 @@ static int eye(int argc, char **argv)
 
 		ch_ptr = &ch;
 	}
-
+	
 	if (cfg.plot_file) {
 		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
-				&cfg.y_range, subtitle, sizeof(subtitle),
-				&cfg.step_interval);
+				      &cfg.y_range, subtitle, sizeof(subtitle),
+				      &cfg.step_interval);
 		if (!pixels) {
 			fprintf(stderr, "Unable to parse CSV file: %s\n",
 				cfg.plot_filename);
@@ -1433,12 +1514,25 @@ static int eye(int argc, char **argv)
 	}
 
 	if (!pixels) {
-		pixels = eye_observe_dev(cfg.dev, cfg.port_id, cfg.lane_id,
-				cfg.num_lanes, cfg.mode, cfg.step_interval,
-				&cfg.x_range, &cfg.y_range, &gen);
-		if (!pixels)
-			return -1;
+		if (switchtec_is_gen5(cfg.dev)) {
+			pixels = eye_capture_dev_gen5(cfg.dev, cfg.port_id, 
+						      cfg.lane_id, cfg.num_lanes, 
+						      cfg.capture_depth, 
+						      &num_phases, &gen);
+			if (!pixels)
+				return -1;
 
+			cfg.x_range.end = num_phases - 1;
+		}
+		else {
+			pixels = eye_observe_dev(cfg.dev, cfg.port_id, 
+						 cfg.lane_id, cfg.num_lanes, 
+						 cfg.mode, cfg.step_interval, 
+						 &cfg.x_range, &cfg.y_range, 
+						 &gen);
+			if (!pixels)
+				return -1;
+		}
 		eye_set_title(title, cfg.port_id, cfg.lane_id, gen);
 	}
 
@@ -1451,7 +1545,7 @@ static int eye(int argc, char **argv)
 	}
 
 	ret = eye_graph(cfg.fmt, &cfg.x_range, &cfg.y_range, pixels, title,
-			ch_ptr);
+			ch_ptr, cfg.dev);
 
 	free(pixels);
 	return ret;
@@ -1462,6 +1556,7 @@ static const struct argconfig_choice loopback_ltssm_speeds[] = {
 	{"GEN2", SWITCHTEC_DIAG_LTSSM_GEN2, "GEN2 LTSSM Speed"},
 	{"GEN3", SWITCHTEC_DIAG_LTSSM_GEN3, "GEN3 LTSSM Speed"},
 	{"GEN4", SWITCHTEC_DIAG_LTSSM_GEN4, "GEN4 LTSSM Speed"},
+	{"GEN5", SWITCHTEC_DIAG_LTSSM_GEN5, "GEN5 LTSSM Speed"},
 	{}
 };
 
@@ -1481,10 +1576,17 @@ static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
 
 	if (!enable)
 		b += snprintf(&buf[b], sizeof(buf) - b, "DISABLED, ");
-	if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
-		b += snprintf(&buf[b], sizeof(buf) - b, "RX->TX, ");
-	if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
-		b += snprintf(&buf[b], sizeof(buf) - b, "TX->RX, ");
+	if (switchtec_is_gen5(dev)) {
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
+			b += snprintf(&buf[b], sizeof(buf) - b, "PARALLEL, ");
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
+			b += snprintf(&buf[b], sizeof(buf) - b, "EXTERNAL, ");
+	} else {
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
+			b += snprintf(&buf[b], sizeof(buf) - b, "RX->TX, ");
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
+			b += snprintf(&buf[b], sizeof(buf) - b, "TX->RX, ");
+	}
 	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM)
 		b += snprintf(&buf[b], sizeof(buf) - b, "LTSSM, ");
 
@@ -1519,6 +1621,8 @@ static int loopback(int argc, char **argv)
 		int disable;
 		int enable_tx_to_rx;
 		int enable_rx_to_tx;
+		int enable_parallel;
+		int enable_external;
 		int enable_ltssm;
 		int speed;
 	} cfg = {
@@ -1533,17 +1637,27 @@ static int loopback(int argc, char **argv)
 		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
 		 "Disable all loopback modes"},
 		{"ltssm", 'l', "", CFG_NONE, &cfg.enable_ltssm, no_argument,
-		 "Enable LTSSM loopback mode"},
-		{"rx-to-tx", 'r', "", CFG_NONE, &cfg.enable_rx_to_tx, no_argument,
-		 "Enable RX->TX loopback mode"},
-		{"tx-to-rx", 't', "", CFG_NONE, &cfg.enable_tx_to_rx, no_argument,
-		 "Enable TX->RX loopback mode"},
-		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed, required_argument,
-		 "LTSSM Speed (if enabling the LTSSM loopback mode), default: GEN4",
+		 "Enable LTSSM loopback mode (Gen 4 / Gen 5)"},
+		{"rx-to-tx", 'r', "", CFG_NONE, &cfg.enable_rx_to_tx, 
+		 no_argument, "Enable RX->TX loopback mode (Gen 4)"},
+		{"tx-to-rx", 't', "", CFG_NONE, &cfg.enable_tx_to_rx, 
+		 no_argument, "Enable TX->RX loopback mode (Gen 4)"},
+		{"parallel", 'P', "", CFG_NONE, &cfg.enable_parallel, 
+		 no_argument, "Enable parallel datapath loopback mode in SERDES digital layer (Gen 5)"},
+		{"external", 'e', "", CFG_NONE, &cfg.enable_external, 
+		 no_argument, "Enable external datapath loopback mode in physical layer (Gen 5)"},
+		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed, 
+		 required_argument, "LTSSM Speed (if enabling the LTSSM loopback mode), default: GEN4",
 		 .choices = loopback_ltssm_speeds},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_LOOPBACK, opts, &cfg, sizeof(cfg));
+
+	if ((cfg.enable_external || cfg.enable_parallel) && 
+	    (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx)) {
+		fprintf(stderr, "Cannot enable both Gen4 and Gen5 loopback settings. Use \'--help\' to see full list and support for each.\n");
+		return -1;
+	}
 
 	if (cfg.port_id < 0) {
 		fprintf(stderr, "Must specify -p / --port_id\n");
@@ -1551,7 +1665,8 @@ static int loopback(int argc, char **argv)
 	}
 
 	if (cfg.disable && (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx ||
-			    cfg.enable_ltssm)) {
+			    cfg.enable_ltssm || cfg.enable_external ||
+			    cfg.enable_parallel)) {
 		fprintf(stderr,
 			"Must not specify -d / --disable with an enable flag\n");
 		return -1;
@@ -1562,7 +1677,7 @@ static int loopback(int argc, char **argv)
 		return ret;
 
 	if (cfg.disable || cfg.enable_rx_to_tx || cfg.enable_tx_to_rx ||
-	    cfg.enable_ltssm) {
+	    cfg.enable_ltssm || cfg.enable_external || cfg.enable_parallel) {
 		if (cfg.enable_rx_to_tx)
 			enable |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
 		if (cfg.enable_tx_to_rx)
@@ -1570,8 +1685,16 @@ static int loopback(int argc, char **argv)
 		if (cfg.enable_ltssm)
 			enable |= SWITCHTEC_DIAG_LOOPBACK_LTSSM;
 
-		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id,
-						  enable, cfg.speed);
+		if (switchtec_is_gen5(cfg.dev)) {
+			if (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx) {
+				fprintf(stderr, "Cannot enable Gen 4 settings \'-r\' \'--rx-to-tx\' or \'-t\' \'--tx-to-rx\' on Gen 5 system. \n");
+				return -1;
+			}
+		}
+		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id, enable,
+						  cfg.enable_parallel, 
+						  cfg.enable_external, 
+						  cfg.enable_ltssm, cfg.speed);
 		if (ret) {
 			switchtec_perror("loopback_set");
 			return -1;
@@ -1589,6 +1712,14 @@ static const struct argconfig_choice pattern_types[] = {
 	{"PRBS9",   SWITCHTEC_DIAG_PATTERN_PRBS_9,  "PRBS 9"},
 	{"PRBS15",  SWITCHTEC_DIAG_PATTERN_PRBS_15, "PRBS 15"},
 	{}
+};
+
+static const struct argconfig_choice pat_gen_link_speeds[] = {
+	{"GEN1", SWITCHTEC_DIAG_PAT_LINK_GEN1, "GEN1 Pattern Generator Speed"},
+	{"GEN2", SWITCHTEC_DIAG_PAT_LINK_GEN2, "GEN2 Pattern Generator Speed"},
+	{"GEN3", SWITCHTEC_DIAG_PAT_LINK_GEN3, "GEN3 Pattern Generator Speed"},
+	{"GEN4", SWITCHTEC_DIAG_PAT_LINK_GEN4, "GEN4 Pattern Generator Speed"},
+	{"GEN5", SWITCHTEC_DIAG_PAT_LINK_GEN5, "GEN5 Pattern Generator Speed"},
 };
 
 static const char *pattern_to_str(enum switchtec_diag_pattern type)
@@ -1616,7 +1747,8 @@ static int print_pattern_mode(struct switchtec_dev *dev,
 		return -1;
 	}
 
-	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, &err_cnt);
+	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, 
+					     &err_cnt);
 	if (ret) {
 		switchtec_perror("pattern_mon_get");
 		return -1;
@@ -1636,11 +1768,15 @@ static int print_pattern_mode(struct switchtec_dev *dev,
 		for (lane_id = 1; lane_id < port->cfg_lnk_width; lane_id++) {
 			ret = switchtec_diag_pattern_mon_get(dev, port_id,
 					lane_id, NULL, &err_cnt);
-			printf("    Lane %-2d    Errors: 0x%llx\n", lane_id,
-			       err_cnt);
-			if (ret) {
+			if (ret == 0x70b02) {
+				printf("    Lane %d has the pattern monitor disabled.\n", 
+				       lane_id);
+			} else if (ret) {
 				switchtec_perror("pattern_mon_get");
 				return -1;
+			} else {
+				printf("    Lane %-2d    Errors: 0x%llx\n", 
+				       lane_id, err_cnt);
 			}
 		}
 	}
@@ -1663,7 +1799,9 @@ static int pattern(int argc, char **argv)
 		int monitor;
 		int pattern;
 		int inject_errs;
+		int link_speed;
 	} cfg = {
+		.link_speed = SWITCHTEC_DIAG_PAT_LINK_DISABLED,
 		.port_id = -1,
 		.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_31,
 	};
@@ -1685,6 +1823,10 @@ static int pattern(int argc, char **argv)
 		 required_argument,
 		 "pattern to generate or monitor for (default: PRBS31)",
 		 .choices = pattern_types},
+		{"speed", 's', "SPEED", CFG_CHOICES, &cfg.link_speed,
+		 required_argument, 
+		 "link speed that applies to the pattern generator (default: GEN1)",
+		 .choices = pat_gen_link_speeds},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_PATTERN, opts, &cfg, sizeof(cfg));
@@ -1700,6 +1842,12 @@ static int pattern(int argc, char **argv)
 		return -1;
 	}
 
+	if (cfg.link_speed && cfg.monitor) {
+		fprintf(stderr,
+			"Cannot enable link speed -s / --speed on pattern monitor\n");
+		return -1;
+	}
+	
 	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
 	if (ret)
 		return ret;
@@ -1721,7 +1869,7 @@ static int pattern(int argc, char **argv)
 
 	if (cfg.generate) {
 		ret = switchtec_diag_pattern_gen_set(cfg.dev, cfg.port_id,
-						     cfg.pattern);
+						     cfg.pattern, cfg.link_speed);
 		if (ret) {
 			switchtec_perror("pattern_gen_set");
 			return -1;
@@ -1794,7 +1942,7 @@ static int port_eq_txcoeff(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {NULL}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXCOEFF,
@@ -1828,7 +1976,7 @@ static int port_eq_txfslf(int argc, char **argv)
 {
 	struct diag_common_cfg cfg = DEFAULT_DIAG_COMMON_CFG;
 	struct switchtec_port_eq_tx_fslf data;
-	int i, ret;
+	int i, ret, lnk_width;
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
@@ -1844,7 +1992,12 @@ static int port_eq_txfslf(int argc, char **argv)
 	       cfg.prev ? "(Previous Link-Up)" : "");
 	printf("Lane    FS    LF\n");
 
-	for (i = 0; i < cfg.port.neg_lnk_width; i++) {
+	if (switchtec_is_gen5(cfg.dev))
+		lnk_width = cfg.port.cfg_lnk_width;
+	else 
+		lnk_width = cfg.port.neg_lnk_width;
+
+	for (i = 0; i < lnk_width; i++) {
 		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, i,
 				cfg.end, cfg.link, &data);
 		if (ret) {
@@ -2129,6 +2282,196 @@ static int tlp_inject (int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_AER_EVENT_GEN "Generate an AER Error Event"
+
+static int aer_event_gen(int argc, char **argv)
+{
+	int ret;
+	static struct {
+		struct switchtec_dev *dev;
+		int port_id;
+		int aer_error_id;
+		int trigger_event;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port_id, 
+		 required_argument, "port ID"},
+		{"ce_event", 'e', "", CFG_NONNEGATIVE, &cfg.aer_error_id, 
+		 required_argument, "aer CE event - 0,6,7,8,12,14,15"},
+		{"trigger", 't', "", CFG_NONNEGATIVE, &cfg.trigger_event, 
+		 required_argument, "trigger event (only CE events supported-0x1)"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg, 
+			sizeof(cfg));
+
+	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, cfg.aer_error_id, 
+				      cfg.trigger_event);
+
+	if (ret != 0) {
+		switchtec_perror("aer event generation");
+		return 1;
+	}
+
+	return 0;
+}
+
+#define CMD_DESC_LNKERR_INJECT "Inject a link error"
+
+static int linkerr_inject(int argc, char ** argv)
+{
+	int ret = 0;
+	uint32_t * dllp_data_dword = NULL;
+	int num_dwords = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int inject_dllp;
+		int inject_dllp_crc;
+		int inject_tlp_lcrc;
+		int inject_tlp_seq;
+		int inject_nack;
+		int inject_cto;
+		uint8_t enable;
+		uint8_t count;
+		uint16_t dllp_rate;
+		uint16_t tlp_rate;
+		uint16_t seq_num;
+		char * dllp_data;
+		int phy_port;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"dllp", 'd', "", CFG_NONE, &cfg.inject_dllp, 
+		 no_argument, "Inject a DLLP"},
+		{"dllp-crc", 'D', "", CFG_NONE, &cfg.inject_dllp_crc, 
+		 no_argument, "Inject a DLLP CRC error"},
+		{"tlp-lcrc", 'l', "", CFG_NONE, &cfg.inject_tlp_lcrc, 
+		 no_argument, "Inject a TLP LCRC error"},
+		{"tlp-seq", 's', "", CFG_NONE, &cfg.inject_tlp_seq, 
+		 no_argument, "Inject a TLP Sequence Number error"},
+		{"nack", 'n', "", CFG_NONE, &cfg.inject_nack, no_argument,
+		 "Inject an ACK to NACK error"},
+		{"cto", 't', "", CFG_NONE, &cfg.inject_cto, no_argument,
+		 "Inject a TLP Credit Timeout"},
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.phy_port, 
+		 required_argument, "physical port ID, default: port 0"},
+		{"enable", 'e', "", CFG_NONNEGATIVE, &cfg.enable, 
+		 required_argument, "enable DLLP CRC Error Injection or TLP LCRC Error Injection, default: 0"},
+		{"data", 'i', "", CFG_STRING, &cfg.dllp_data, required_argument,
+		 "DLLP data to inject, a single dword in hex prefixed with \"0x\""},
+		{"seq_num", 'S', "", CFG_NONNEGATIVE, &cfg.seq_num, 
+		 required_argument, "sequence number of ACK to be replaced by NACK (0-4095)"},
+		{"count", 'c', "", CFG_NONNEGATIVE, &cfg.count, 
+		 required_argument, "number of times to replace ACK with NACK (0-255)"},
+		{"dllp-crc-rate", 'r', "", CFG_NONNEGATIVE, &cfg.dllp_rate, 
+		 required_argument, "valid range (0-4096). errors are injected at intervals of rate x 256 x clk "},
+		{"tlp-lcrc-rate", 'R', "", CFG_NONNEGATIVE, &cfg.tlp_rate, 
+		 required_argument, "valid range (0-7). Ex. rate = 1 -> every other TLP has an error"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_LNKERR_INJECT, opts, &cfg, 
+			sizeof(cfg));
+
+	uint8_t *ptr = (uint8_t *)&cfg + 5;
+	int total_en = 0;
+	for (size_t i = 0; i < 6; i++) {
+		ptr += 3;
+		if (ptr[i] == 1)
+			total_en++;
+	}
+	if (total_en > 1) {
+		fprintf(stderr, "Cannot enable more than one link error injection command at a time.\n");
+		return -1;
+	}
+	if (total_en == 0) {
+		fprintf(stderr, "Must enable one link error injection command.\n");
+		return -1;
+	}
+
+	if (cfg.enable && !(cfg.inject_dllp_crc || cfg.inject_tlp_lcrc))
+		printf("Ignoring -e enable flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_nack && cfg.count)
+		printf("Ignoring -c flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_nack && cfg.seq_num)
+		printf("Ignoring -S flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_tlp_lcrc && cfg.tlp_rate)
+		printf("Ignoring -R flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_dllp_crc && cfg.dllp_rate)
+		printf("Ignoring -r flag, not valid for the currently selected command.\n");
+	if (!cfg.inject_dllp && cfg.dllp_data) {
+		printf("Ignoring -i flag, not valid for the currently selected command.\n");
+	} else if (cfg.inject_dllp && cfg.dllp_data) {
+		ret = convert_str_to_dwords(cfg.dllp_data, &dllp_data_dword, 
+				    &num_dwords);
+		if (ret) {
+			fprintf(stderr, "Error with DLLP data provided\n");
+			return -1;
+		}
+		if (num_dwords == 0) {
+			fprintf(stderr, "Must provide a single valid DLLP data dword\n");
+			free(dllp_data_dword);
+			return -1;
+		}
+	}
+
+	if (cfg.dllp_rate && cfg.tlp_rate) {
+		fprintf(stderr, "Cannot enable both rate configurations.\n");
+		return -1;
+	}
+
+	if (cfg.inject_dllp) {
+		ret = switchtec_inject_err_dllp(cfg.dev, cfg.phy_port, 
+						cfg.dllp_data != NULL ? *dllp_data_dword : 0);
+		free(dllp_data_dword);
+	}
+	if (cfg.inject_dllp_crc) {
+		if (cfg.dllp_rate > 4096) {
+			fprintf(stderr, "DLLP CRC rate out of range. Valid range is 0-4095.\n");
+			return -1;
+		}
+		ret = switchtec_inject_err_dllp_crc(cfg.dev, cfg.phy_port, 
+						    cfg.enable, cfg.dllp_rate);
+	}
+	if (cfg.inject_tlp_lcrc) {
+		if (cfg.tlp_rate > 7) {
+			fprintf(stderr, "TLP LCRC rate out of range. Valid range is 0-7.\n");
+			return -1;
+		}
+		ret = switchtec_inject_err_tlp_lcrc(cfg.dev, cfg.phy_port, 
+						    cfg.enable, cfg.tlp_rate);
+		if (ret)
+			return -1;
+	}
+	if (cfg.inject_tlp_seq)
+		ret = switchtec_inject_err_tlp_seq_num(cfg.dev, cfg.phy_port);
+	if (cfg.inject_nack) {
+		if (cfg.seq_num > 4095) {
+			fprintf(stderr, "Sequence number out of range. Valid range is 0-4095).\n");
+			return -1;
+		}
+		if (cfg.count > 255) {
+			fprintf(stderr, "Count out of range. Valid range is 0-255\n");
+			return -1;
+		}
+		ret = switchtec_inject_err_ack_nack(cfg.dev, cfg.phy_port, 
+						    cfg.seq_num, cfg.count);
+	}
+	if (cfg.inject_cto) {
+		if (!switchtec_is_gen5(cfg.dev)) {
+			fprintf(stderr, "Credit timeout error injection is only supported on Gen5.\n");
+			return -1;
+		}
+		ret = switchtec_inject_err_cto(cfg.dev, cfg.phy_port);
+	}
+
+	switchtec_perror("linkerr-inject");
+	return ret;
+}
+
 static const struct cmd commands[] = {
 	CMD(crosshair,		CMD_DESC_CROSS_HAIR),
 	CMD(eye,		CMD_DESC_EYE),
@@ -2143,6 +2486,8 @@ static const struct cmd commands[] = {
 	CMD(refclk,		CMD_DESC_REF_CLK),
 	CMD(ltssm_log,		CMD_DESC_LTSSM_LOG),
 	CMD(tlp_inject,		CMD_TLP_INJECT),
+	CMD(aer_event_gen,	CMD_DESC_AER_EVENT_GEN),
+	CMD(linkerr_inject,	CMD_DESC_LNKERR_INJECT),
 	{}
 };
 

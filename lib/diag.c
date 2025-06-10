@@ -128,6 +128,43 @@ int switchtec_diag_cross_hair_get(struct switchtec_dev *dev, int start_lane_id,
 	return 0;
 }
 
+static int switchtec_diag_eye_status_gen5(struct switchtec_dev *dev)
+{
+	int ret;
+	int eye_status;
+
+	struct switchtec_gen5_diag_eye_status_in in = {
+		.sub_cmd = MRPC_EYE_CAP_STATUS_GEN5,
+	};
+	struct switchtec_gen5_diag_eye_status_out out;
+
+	do {
+		ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
+				    &out, sizeof(out));
+		if (ret) {
+			switchtec_perror("eye_status");
+			return -1;
+		}
+		eye_status = out.status;
+		usleep(200000);
+	} while (eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_IN_PROGRESS ||
+		 eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING);
+	
+	switch (eye_status) {
+		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_IDLE:
+			switchtec_perror("Eye capture idle");
+		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE:
+			return 0;
+		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT:
+			switchtec_perror("Eye capture timeout");
+		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR:
+			switchtec_perror("Eye capture error");
+		return -1;
+	}
+	switchtec_perror("Unknown eye capture state");
+	return -1;
+}
+
 static int switchtec_diag_eye_status(int status)
 {
 	switch (status) {
@@ -144,8 +181,23 @@ static int switchtec_diag_eye_status(int status)
 	}
 }
 
-static int switchtec_diag_eye_cmd(struct switchtec_dev *dev, void *in,
-				  size_t size)
+static int switchtec_diag_eye_cmd_gen5(struct switchtec_dev *dev, void *in,
+				       size_t size)
+{
+	int ret;
+
+	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, in, size,
+			    NULL, 0);
+	if (ret)
+		return ret;
+
+	usleep(200000);
+
+	return switchtec_diag_eye_status_gen5(dev);
+}
+
+static int switchtec_diag_eye_cmd_gen4(struct switchtec_dev *dev, void *in,
+				       size_t size)
 {
 	struct switchtec_diag_port_eye_cmd out;
 	int ret;
@@ -174,7 +226,45 @@ int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
 		.data_mode = mode,
 	};
 
-	return switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+	return switchtec_diag_eye_cmd_gen4(dev, &in, sizeof(in));
+}
+
+/**
+ * @brief Start a PCIe Eye Read Gen5
+ * @param[in]  dev	       Switchtec device handle
+ * @param[in]  lane_id         lane_id
+ * @param[in]  bin             bin
+ * @param[in]  num_phases      pointer to the number of phases
+ * @param[in]  ber_data        pointer to the Ber data
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
+		      	    int bin, int* num_phases, double* ber_data)
+{
+	if (dev) {
+		fprintf(stderr, "Eye read not supported on Gen 4 switches.\n");
+		return -1;
+	}
+	struct switchtec_gen5_diag_eye_read_in in = {
+		.sub_cmd = MRPC_EYE_CAP_READ_GEN5,
+		.lane_id = lane_id,
+		.bin = bin,
+	};
+	struct switchtec_gen5_diag_eye_read_out out;
+	int i, ret;
+
+	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
+			    &out, sizeof(out));
+	if (ret)
+		return ret;
+
+	*num_phases = out.num_phases;
+
+	for(i = 0; i < out.num_phases; i++)
+		ber_data[i] = le64toh(out.ber_data[i]) / 281474976710656.;
+
+	return ret;
 }
 
 /**
@@ -191,33 +281,48 @@ int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
  */
 int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 			     struct range *x_range, struct range *y_range,
-			     int step_interval)
+			     int step_interval, int capture_depth)
 {
-	int err;
-	int ret;
-	struct switchtec_diag_port_eye_start in = {
-		.sub_cmd = MRPC_EYE_OBSERVE_START,
-		.lane_mask[0] = lane_mask[0],
-		.lane_mask[1] = lane_mask[1],
-		.lane_mask[2] = lane_mask[2],
-		.lane_mask[3] = lane_mask[3],
-		.x_start = x_range->start,
-		.y_start = y_range->start,
-		.x_end = x_range->end,
-		.y_end = y_range->end,
-		.x_step = x_range->step,
-		.y_step = y_range->step,
-		.step_interval = step_interval,
-	};
+	int err, ret;
+	if (switchtec_is_gen5(dev)) {
+		struct switchtec_gen5_diag_eye_run_in in = {
+			.sub_cmd = MRPC_EYE_CAP_RUN_GEN5,
+			.capture_depth = capture_depth,
+			.timeout_disable = 1,
+			.lane_mask[0] = lane_mask[0],
+			.lane_mask[1] = lane_mask[1],
+			.lane_mask[2] = lane_mask[2],
+			.lane_mask[3] = lane_mask[3],
+		};
 
-	ret = switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+		ret = switchtec_diag_eye_cmd_gen5(dev, &in, sizeof(in));
+		err = errno;
+		errno = err;
+		return ret;
+	} else {
+		struct switchtec_diag_port_eye_start in = {
+			.sub_cmd = MRPC_EYE_OBSERVE_START,
+			.lane_mask[0] = lane_mask[0],
+			.lane_mask[1] = lane_mask[1],
+			.lane_mask[2] = lane_mask[2],
+			.lane_mask[3] = lane_mask[3],
+			.x_start = x_range->start,
+			.y_start = y_range->start,
+			.x_end = x_range->end,
+			.y_end = y_range->end,
+			.x_step = x_range->step,
+			.y_step = y_range->step,
+			.step_interval = step_interval,
+		};
 
-	/* Add delay so hardware has enough time to start */
-	err = errno;
-	usleep(200000);
-	errno = err;
-
-	return ret;
+		ret = switchtec_diag_eye_cmd_gen4(dev, &in, sizeof(in));
+		/* Add delay so hardware has enough time to start */
+		err = errno;
+		usleep(200000);
+		errno = err;
+		return ret;
+	}
+	return -1;
 }
 
 static uint64_t hi_lo_to_uint64(uint32_t lo, uint32_t hi)
@@ -312,7 +417,7 @@ int switchtec_diag_eye_cancel(struct switchtec_dev *dev)
 		.sub_cmd = MRPC_EYE_OBSERVE_CANCEL,
 	};
 
-	ret = switchtec_diag_eye_cmd(dev, &in, sizeof(in));
+	ret = switchtec_diag_eye_cmd_gen4(dev, &in, sizeof(in));
 
 	/* Add delay so hardware can stop completely */
 	err = errno;
@@ -322,18 +427,60 @@ int switchtec_diag_eye_cancel(struct switchtec_dev *dev)
 	return ret;
 }
 
-/**
- * @brief Setup Loopback Mode
- * @param[in]  dev	    Switchtec device handle
- * @param[in]  port_id	    Physical port ID
- * @param[in]  enable       Any enum switchtec_diag_loopback_enable flags
- *			    or'd together to enable specific loopback modes
- * @param[in]  ltssm_speed  LTSSM loopback max speed
- *
- * @return 0 on success, error code on failure
- */
-int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
-		int enable, enum switchtec_diag_ltssm_speed ltssm_speed)
+static int switchtec_diag_loopback_set_gen5(struct switchtec_dev *dev, 
+					    int port_id, int enable_parallel, 
+					    int enable_external, 
+					    int enable_ltssm,
+					    enum switchtec_diag_ltssm_speed 
+					    ltssm_speed)
+{
+	struct switchtec_diag_loopback_in int_in = {
+		.sub_cmd = MRPC_LOOPBACK_SET_INT_LOOPBACK,
+		.port_id = port_id,
+		.enable = 1,
+	};
+	struct switchtec_diag_loopback_ltssm_in ltssm_in = {
+		.sub_cmd = MRPC_LOOPBACK_SET_LTSSM_LOOPBACK,
+		.port_id = port_id,
+		.enable = enable_ltssm,
+		.speed = ltssm_speed,
+	};
+	int ret;
+	
+	if (enable_ltssm && !(enable_external || enable_parallel)) {
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
+				    sizeof(ltssm_in), NULL, 0);
+      		if (ret)
+	       		return ret;
+	} else {
+		int_in.type = DIAG_LOOPBACK_PARALEL_DATAPATH;
+		int_in.enable = enable_parallel;
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+				    sizeof(int_in), NULL, 0);
+		if (ret)
+			return ret;
+		if (!enable_parallel) {
+			int_in.type = DIAG_LOOPBACK_EXTERNAL_DATAPATH;
+			int_in.enable = enable_external;
+			ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+					    sizeof(int_in), NULL, 0);
+			if (ret)
+				return ret;
+		}	
+		
+		ltssm_in.enable = enable_ltssm;
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
+				    sizeof(ltssm_in), NULL, 0);
+      		if (ret)
+	       		return ret;
+	}
+	return 0;
+}
+
+static int switchtec_diag_loopback_set_gen4(struct switchtec_dev *dev, 
+					    int port_id, int enable, 
+					    enum switchtec_diag_ltssm_speed 
+					    ltssm_speed)
 {
 	struct switchtec_diag_loopback_in int_in = {
 		.sub_cmd = MRPC_LOOPBACK_SET_INT_LOOPBACK,
@@ -374,6 +521,42 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 
 /**
  * @brief Setup Loopback Mode
+ * @param[in]  dev	    Switchtec device handle
+ * @param[in]  port_id	    Physical port ID
+ * @param[in]  enable		Enable bitmap - Gen 4
+ * @param[in]  enable_parallel	Enable the parallel SERDES loopback - Gen 5
+ * @param[in]  enable_external	Enable the external physical loopback - Gen 5
+ * @param[in]  enable_ltssm	Enable the ltssm loopback
+ * @param[in]  ltssm_speed  LTSSM loopback max speed
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id, 
+				int enable, int enable_parallel, 
+				int enable_external, int enable_ltssm,
+				enum switchtec_diag_ltssm_speed ltssm_speed)
+{
+	int ret = 0;
+	if (switchtec_is_gen5(dev)) {
+		ret = switchtec_diag_loopback_set_gen5(dev, port_id, 
+						       enable_parallel, 
+						       enable_external, 
+						       enable_ltssm, 
+						       ltssm_speed);
+		if (ret)
+			return ret;
+	}
+	else {
+		ret = switchtec_diag_loopback_set_gen4(dev, port_id, enable,
+						       ltssm_speed);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
+/**
+ * @brief Setup Loopback Mode
  * @param[in]  dev	     Switchtec device handle
  * @param[in]  port_id	     Physical port ID
  * @param[out] enabled       Set of enum switchtec_diag_loopback_enable
@@ -382,13 +565,13 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on succes, error code on failure
  */
-int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
-		int *enabled, enum switchtec_diag_ltssm_speed *ltssm_speed)
+int switchtec_diag_loopback_get(struct switchtec_dev *dev, 
+				int port_id, int *enabled, 
+				enum switchtec_diag_ltssm_speed *ltssm_speed)
 {
 	struct switchtec_diag_loopback_in int_in = {
 		.sub_cmd = MRPC_LOOPBACK_GET_INT_LOOPBACK,
 		.port_id = port_id,
-		.type = DIAG_LOOPBACK_RX_TO_TX,
 	};
 	struct switchtec_diag_loopback_ltssm_in lt_in = {
 		.sub_cmd = MRPC_LOOPBACK_GET_LTSSM_LOOPBACK,
@@ -398,6 +581,11 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
 	struct switchtec_diag_loopback_ltssm_out lt_out;
 	int ret, en = 0;
 
+	if (switchtec_is_gen5(dev))
+		int_in.type = DIAG_LOOPBACK_PARALEL_DATAPATH;
+	else
+		int_in.type = DIAG_LOOPBACK_RX_TO_TX;
+
 	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in, sizeof(int_in),
 			    &int_out, sizeof(int_out));
 	if (ret)
@@ -406,7 +594,11 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
 	if (int_out.enabled)
 		en |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
 
-	int_in.type = DIAG_LOOPBACK_TX_TO_RX;
+	if (switchtec_is_gen5(dev))
+		int_in.type = DIAG_LOOPBACK_EXTERNAL_DATAPATH;
+	else
+		int_in.type = DIAG_LOOPBACK_TX_TO_RX;
+	
 	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in, sizeof(int_in),
 			    &int_out, sizeof(int_out));
 	if (ret)
@@ -441,13 +633,17 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
  * @return 0 on success, error code on failure
  */
 int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
-		enum switchtec_diag_pattern type)
+				   enum switchtec_diag_pattern type, 
+				   enum switchtec_diag_pattern_link_rate link_speed)
 {
 	struct switchtec_diag_pat_gen_in in = {
 		.sub_cmd = MRPC_PAT_GEN_SET_GEN,
 		.port_id = port_id,
 		.pattern_type = type,
+		.lane_id = link_speed
 	};
+	if (switchtec_is_gen5(dev))
+		in.sub_cmd = MRPC_PAT_GEN_SET_GEN_GEN5;
 
 	return switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), NULL, 0);
 }
@@ -461,7 +657,7 @@ int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
  * @return 0 on success, error code on failure
  */
 int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
-		enum switchtec_diag_pattern *type)
+				   enum switchtec_diag_pattern *type)
 {
 	struct switchtec_diag_pat_gen_in in = {
 		.sub_cmd = MRPC_PAT_GEN_GET_GEN,
@@ -511,8 +707,8 @@ int switchtec_diag_pattern_mon_set(struct switchtec_dev *dev, int port_id,
  * @return 0 on success, error code on failure
  */
 int switchtec_diag_pattern_mon_get(struct switchtec_dev *dev, int port_id,
-		int lane_id, enum switchtec_diag_pattern *type,
-		unsigned long long *err_cnt)
+				   int lane_id, enum switchtec_diag_pattern *type,
+				   unsigned long long *err_cnt)
 {
 	struct switchtec_diag_pat_gen_in in = {
 		.sub_cmd = MRPC_PAT_GEN_GET_MON,
@@ -623,7 +819,7 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
 }
 
 /**
- * @brief Get the port equalization TX coefficients
+ * @brief Get the Gen5 port equalization TX coefficients
  * @param[in]  dev	Switchtec device handle
  * @param[in]  port_id	Physical port ID
  * @param[in]  end      Get coefficents for the Local or the Far End
@@ -631,9 +827,118 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
-		enum switchtec_diag_end end, enum switchtec_diag_link link,
-		struct switchtec_port_eq_coeff *res)
+static int switchtec_gen5_diag_port_eq_tx_coeff(struct switchtec_dev *dev, 
+						int port_id,
+					 	enum switchtec_diag_end end, 
+					 	enum switchtec_diag_link link,
+					 	struct switchtec_port_eq_coeff 
+						*res)
+{
+	struct switchtec_port_eq_coeff *loc_out;
+	struct switchtec_rem_port_eq_coeff *rem_out;
+	struct switchtec_port_eq_coeff_in *in;
+	uint8_t *buf;
+	uint32_t buf_size;
+	uint32_t in_size = sizeof(struct switchtec_port_eq_coeff_in);
+	uint32_t out_size = 0;
+	int ret = 0;
+	int i;
+
+	if (!res) {
+		fprintf(stderr, "Error inval output buffer\n");
+		errno = -EINVAL;
+		return -1;
+	}
+
+	buf_size = in_size;
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		buf_size += sizeof(struct switchtec_port_eq_coeff);
+		out_size = sizeof(struct switchtec_port_eq_coeff);
+	} else if (end == SWITCHTEC_DIAG_FAR_END) {
+		buf_size += sizeof(struct switchtec_rem_port_eq_coeff);
+		out_size = sizeof(struct switchtec_rem_port_eq_coeff);
+	} else {
+		fprintf(stderr, "Error inval end option\n");
+		errno = -EINVAL;
+	}
+	buf = (uint8_t *)malloc(buf_size);
+	if (!buf) {
+		fprintf(stderr, "Error in buffer alloc\n");
+		errno = -ENOMEM;
+		return -1;
+	}
+
+	in = (struct switchtec_port_eq_coeff_in *)buf;
+	in->op_type = DIAG_PORT_EQ_STATUS_OP_PER_PORT;
+	in->phys_port_id = port_id;
+	in->lane_id = 0;
+	in->dump_type = LANE_EQ_DUMP_TYPE_CURR;
+
+	if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
+		in->dump_type = LANE_EQ_DUMP_TYPE_PREV;
+		in->prev_rate = PCIE_LINK_RATE_GEN5;
+	}
+
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		in->cmd = MRPC_GEN5_PORT_EQ_LOCAL_TX_COEFF_DUMP;
+		loc_out = (struct switchtec_port_eq_coeff *)&buf[in_size];
+		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, in, in_size,
+				    loc_out, out_size);
+		if (ret) {
+			fprintf(stderr, "Error in switchtec cmd:%d\n", ret);
+			goto end;
+		}
+	} else if (end == SWITCHTEC_DIAG_FAR_END) {
+		in->cmd = MRPC_GEN5_PORT_EQ_FAR_END_TX_COEFF_DUMP;
+		rem_out = (struct switchtec_rem_port_eq_coeff *)&buf[in_size];
+		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, in, in_size,
+				    rem_out, out_size);
+		if (ret) {
+			fprintf(stderr, "Error in switchtec cmd:%d\n", ret);
+			goto end;
+		}
+	} else {
+		fprintf(stderr, "Error inval end request\n");
+		errno = -EINVAL;
+		goto end;
+	}
+
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		res->lane_cnt = loc_out->lane_cnt + 1;
+		for (i = 0; i < res->lane_cnt; i++) {
+			res->cursors[i].pre = loc_out->cursors[i].pre;
+			res->cursors[i].post = loc_out->cursors[i].post;
+		}
+	} else {
+		res->lane_cnt = rem_out->lane_cnt + 1;
+		for (i = 0; i < res->lane_cnt; i++) {
+			res->cursors[i].pre = rem_out->cursors[i].pre;
+			res->cursors[i].post = rem_out->cursors[i].post;
+		}
+	}
+
+end:
+	if (buf)
+		free(buf);
+
+	return ret;
+}
+
+/**
+ * @brief Get the Gen4 port equalization TX coefficients
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[in]  end      Get coefficents for the Local or the Far End
+ * @param[out] res      Resulting port equalization coefficients
+ *
+ * @return 0 on success, error code on failure
+ */
+static int switchtec_gen4_diag_port_eq_tx_coeff(struct switchtec_dev *dev, 
+						int port_id,
+					 	enum switchtec_diag_end end, 
+					 	enum switchtec_diag_link link,
+					 	struct switchtec_port_eq_coeff 
+						*res)
 {
 	struct switchtec_diag_port_eq_status_out out = {};
 	struct switchtec_diag_port_eq_status_in in = {
@@ -686,16 +991,101 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 }
 
 /**
- * @brief Get the far end TX equalization table
+ * @brief Get the port equalization TX coefficients
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[in]  end      Get coefficents for the Local or the Far End
+ * @param[out] res      Resulting port equalization coefficients
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
+				    enum switchtec_diag_end end, 
+				    enum switchtec_diag_link link,
+				    struct switchtec_port_eq_coeff *res)
+{
+	int ret = -1;
+
+	if (switchtec_is_gen5(dev))
+		ret = switchtec_gen5_diag_port_eq_tx_coeff(dev, port_id, end,
+							   link, res);
+	else if (switchtec_is_gen4(dev))
+		ret = switchtec_gen4_diag_port_eq_tx_coeff(dev, port_id, end,
+							   link, res);
+
+	return ret;
+}
+
+/**
+ * @brief Get the Gen5 far end TX equalization table
  * @param[in]  dev	Switchtec device handle
  * @param[in]  port_id	Physical port ID
  * @param[out] res      Resulting port equalization table
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
-				    enum switchtec_diag_link link,
-				    struct switchtec_port_eq_table *res)
+static int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev, 
+						int port_id,
+						enum switchtec_diag_link link,
+						struct switchtec_port_eq_table 
+						*res)
+{
+	struct switchtec_gen5_port_eq_table out = {};
+	struct switchtec_port_eq_table_in in = {
+		.sub_cmd = MRPC_GEN5_PORT_EQ_FAR_END_TX_EQ_TABLE_DUMP,
+		port_id = port_id,
+	};
+	int ret, i;
+
+	if (!res) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	in.dump_type = LANE_EQ_DUMP_TYPE_CURR;
+	in.prev_rate = 0;
+
+	if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
+		in.dump_type = LANE_EQ_DUMP_TYPE_PREV;
+		in.prev_rate = PCIE_LINK_RATE_GEN5;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in,
+			    sizeof(struct switchtec_port_eq_table_in),
+			    &out, sizeof(struct switchtec_gen5_port_eq_table));
+	if (ret)
+		return -1;
+
+	res->lane_id = out.lane_id;
+	res->step_cnt = out.step_cnt;
+
+	for (i = 0; i < res->step_cnt; i++) {
+		res->steps[i].pre_cursor = out.steps[i].pre_cursor;
+		res->steps[i].post_cursor = out.steps[i].post_cursor;
+		res->steps[i].fom = 0;
+		res->steps[i].pre_cursor_up = 0;
+		res->steps[i].post_cursor_up = 0;
+		res->steps[i].error_status = out.steps[i].error_status;
+		res->steps[i].active_status = out.steps[i].active_status;
+		res->steps[i].speed = out.steps[i].speed;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Get the Gen4 far end TX equalization table
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[out] res      Resulting port equalization table
+ *
+ * @return 0 on success, error code on failure
+ */
+static int switchtec_gen4_diag_port_eq_tx_table(struct switchtec_dev *dev, 
+						int port_id,
+						enum switchtec_diag_link link,
+					 	struct switchtec_port_eq_table 
+						*res)
 {
 	struct switchtec_diag_port_eq_table_out out = {};
 	struct switchtec_diag_port_eq_status_in2 in = {
@@ -730,21 +1120,45 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
 	res->lane_id = out.lane_id;
 	res->step_cnt = out.step_cnt;
 	for (i = 0; i < res->step_cnt; i++) {
-		res->steps[i].pre_cursor     = out.steps[i].pre_cursor;
-		res->steps[i].post_cursor    = out.steps[i].post_cursor;
-		res->steps[i].fom            = out.steps[i].fom;
-		res->steps[i].pre_cursor_up  = out.steps[i].pre_cursor_up;
+		res->steps[i].pre_cursor = out.steps[i].pre_cursor;
+		res->steps[i].post_cursor = out.steps[i].post_cursor;
+		res->steps[i].fom = out.steps[i].fom;
+		res->steps[i].pre_cursor_up = out.steps[i].pre_cursor_up;
 		res->steps[i].post_cursor_up = out.steps[i].post_cursor_up;
-		res->steps[i].error_status   = out.steps[i].error_status;
-		res->steps[i].active_status  = out.steps[i].active_status;
-		res->steps[i].speed          = out.steps[i].speed;
+		res->steps[i].error_status = out.steps[i].error_status;
+		res->steps[i].active_status = out.steps[i].active_status;
+		res->steps[i].speed = out.steps[i].speed;
 	}
 
 	return 0;
 }
 
 /**
- * @brief Get the equalization FS/LF
+ * @brief Get the far end TX equalization table
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[out] res      Resulting port equalization table
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+				    enum switchtec_diag_link link,
+				    struct switchtec_port_eq_table *res)
+{
+	int ret = -1;
+
+	if (switchtec_is_gen5(dev))
+		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id, link, 
+							   res);
+	else if (switchtec_is_gen4(dev))
+		ret = switchtec_gen4_diag_port_eq_tx_table(dev, port_id, link, 
+							   res);
+
+	return ret;
+}
+
+/**
+ * @brief Get the Gen5 equalization FS/LF
  * @param[in]  dev	Switchtec device handle
  * @param[in]  port_id	Physical port ID
  * @param[in]  lane_id	Physical port ID
@@ -753,10 +1167,70 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
-				   int lane_id, enum switchtec_diag_end end,
-				   enum switchtec_diag_link link,
-				   struct switchtec_port_eq_tx_fslf *res)
+static int switchtec_gen5_diag_port_eq_tx_fslf(struct switchtec_dev *dev, 
+					       int port_id, int lane_id, 
+					       enum switchtec_diag_end end,
+				   	       enum switchtec_diag_link link,
+				   	       struct switchtec_port_eq_tx_fslf 
+					       *res)
+{
+	struct switchtec_port_eq_tx_fslf_in in = {};
+	struct switchtec_port_eq_tx_fslf_out out = {};
+	int ret;
+
+	if (!res) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	in.port_id = port_id;
+	in.lane_id = lane_id;
+
+
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		in.sub_cmd = MRPC_GEN5_PORT_EQ_LOCAL_TX_FSLF_DUMP;
+	} else if (end == SWITCHTEC_DIAG_FAR_END) {
+		in.sub_cmd = MRPC_GEN5_PORT_EQ_FAR_END_TX_FSLF_DUMP;
+	} else {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
+		in.dump_type = LANE_EQ_DUMP_TYPE_CURR;
+	} else {
+		in.dump_type = LANE_EQ_DUMP_TYPE_PREV;
+		in.prev_rate = PCIE_LINK_RATE_GEN5;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in,
+			    sizeof(struct switchtec_port_eq_tx_fslf_in), &out,
+			    sizeof(struct switchtec_port_eq_tx_fslf_out));
+	if (ret)
+		return -1;
+
+	res->fs = out.fs;
+	res->lf = out.lf;
+
+	return 0;
+}
+
+/**
+ * @brief Get the Gen4 equalization FS/LF
+ * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[in]  lane_id	Physical port ID
+ * @param[in]  end      Get coefficents for the Local or the Far End
+ * @param[out] res      Resulting FS/LF values
+ *
+ * @return 0 on success, error code on failure
+ */
+static int switchtec_gen4_diag_port_eq_tx_fslf(struct switchtec_dev *dev, 
+					       int port_id, int lane_id, 
+					       enum switchtec_diag_end end,
+					       enum switchtec_diag_link link,
+					       struct switchtec_port_eq_tx_fslf 
+					       *res)
 {
 	struct switchtec_diag_port_eq_tx_fslf_out out = {};
 	struct switchtec_diag_port_eq_status_in2 in = {
@@ -806,8 +1280,37 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 }
 
 /**
- * @brief Get the Extended Receiver Object
+ * @brief Get the equalization FS/LF
  * @param[in]  dev	Switchtec device handle
+ * @param[in]  port_id	Physical port ID
+ * @param[in]  lane_id	Physical port ID
+ * @param[in]  end      Get coefficents for the Local or the Far End
+ * @param[out] res      Resulting FS/LF values
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
+				   int lane_id, enum switchtec_diag_end end,
+				   enum switchtec_diag_link link,
+				   struct switchtec_port_eq_tx_fslf *res)
+{
+	int ret = -1;
+
+	if (switchtec_is_gen5(dev))
+		ret = switchtec_gen5_diag_port_eq_tx_fslf(dev, port_id,
+							  lane_id, end, 
+							  link, res);
+	else if (switchtec_is_gen4(dev))
+		ret = switchtec_gen4_diag_port_eq_tx_fslf(dev, port_id,
+							  lane_id, end, 
+							  link, res);
+
+	return ret;
+}
+
+/**
+ * @brief Get the Extended Receiver Object
+ * @param[in]  dev 	Switchtec device handle
  * @param[in]  port_id	Physical port ID
  * @param[in]  lane_id  Lane ID
  * @param[in]  link     Current or previous link-up
@@ -1233,6 +1736,201 @@ int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type,
 	ret = switchtec_cmd(dev, MRPC_DIAG_TLP_INJECT, &tlp_in, sizeof(tlp_in),
 			    &tlp_out, sizeof(tlp_out));
 	return ret;
+}
+
+/**
+ * @brief Call the aer event gen function to generate AER events
+ * @param[in]   dev    Switchtec device handle
+ * @param[in]   port   Switchtec Port
+ * @param[in]   aer_error_id aer error bit
+ * @param[out]  trigger_event One of the trigger events
+ *
+ */
+int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
+			    int aer_error_id, int trigger_event)
+{
+	uint32_t output;
+	int ret_val;
+
+	struct switchtec_aer_event_gen_in sub_cmd_id = {
+		.sub_cmd = trigger_event,
+		.phys_port_id = port_id,
+		.err_mask = (1 << aer_error_id),
+		.hdr_log[0] = 0,
+		.hdr_log[1] = 0,
+		.hdr_log[2] = 0,
+		.hdr_log[3] = 0
+	};
+
+	ret_val = switchtec_cmd(dev, MRPC_AER_GEN, &sub_cmd_id,
+				sizeof(sub_cmd_id), &output, sizeof(output));
+	return ret_val;
+}
+
+/**
+ * @brief Inject a DLLP into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @param[in] data	DLLP data
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_dllp(struct switchtec_dev *dev, int phys_port_id, 
+			      int data)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_dllp_in cmd = {
+		.subcmd = MRPC_ERR_INJ_DLLP,
+		.phys_port_id = phys_port_id,
+		.data = data,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			     sizeof(cmd), &output, sizeof(output));
+}
+
+/**
+ * @brief Inject a DLLP CRC error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @param[in] enable	Enable DLLP CRC error injection
+ * @param[in] rate 	Rate of the error injection
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_dllp_crc(struct switchtec_dev *dev, 
+				  int phys_port_id, int enable, 
+				  uint16_t rate)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_dllp_crc_in cmd = {
+		.subcmd = MRPC_ERR_INJ_DLLP_CRC,
+		.phys_port_id = phys_port_id,
+		.enable = enable,
+		.rate = rate,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			     sizeof(cmd), &output, sizeof(output));
+}
+
+static int switchtec_inject_err_tlp_lcrc_gen4(struct switchtec_dev *dev, 
+					      int phys_port_id, int enable, 
+					      uint8_t rate)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_tlp_lcrc_gen4_in cmd = {
+		.subcmd = MRPC_ERR_INJ_TLP_LCRC,
+		.phys_port_id = phys_port_id,
+		.enable = enable,
+		.rate = rate,
+	};
+	printf("enable: %d\n", enable);
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			     sizeof(cmd), &output, sizeof(output));
+}
+
+static int switchtec_inject_err_tlp_lcrc_gen5(struct switchtec_dev *dev, 
+					      int phys_port_id, int enable, 
+					      uint8_t rate)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_tlp_lcrc_gen5_in cmd = {
+		.subcmd = MRPC_ERR_INJ_TLP_LCRC,
+		.phys_port_id = phys_port_id,
+		.enable = enable,
+		.rate = rate,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			     sizeof(cmd), &output, sizeof(output));
+}
+
+/**
+ * @brief Inject a TLP LCRC error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phy_port Physical port id
+ * @param[in] rate	Rate of the error injection
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_tlp_lcrc(struct switchtec_dev *dev, int phy_port, 
+				  int enable, uint8_t rate)
+{
+	int ret;
+	if (switchtec_is_gen4(dev)) {
+		ret = switchtec_inject_err_tlp_lcrc_gen4(dev, phy_port, enable, rate);
+		return ret;
+	} else if (switchtec_is_gen5(dev)) {
+		ret = switchtec_inject_err_tlp_lcrc_gen5(dev, phy_port, enable, rate);
+		return ret;
+	}
+	fprintf(stderr, "The TLP LCRC is not supported for Gen3 switches.\n");
+	return -1;
+}
+
+/**
+ * @brief Inject a TLP Sequence Number error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_tlp_seq_num(struct switchtec_dev *dev, int phys_port_id)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_tlp_seqn_in cmd = {
+		.subcmd = MRPC_ERR_INJ_TLP_SEQ,
+		.phys_port_id = phys_port_id,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			     sizeof(cmd), &output, sizeof(output));
+}
+
+/**
+ * @brief Inject an ACK to NACK error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @param[in] seq_num	Sequence Number of ACK to be changed to a NACK (0-4095)
+ * @param[in] count		Number of times to replace ACK with NACK (0-255)
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_ack_nack(struct switchtec_dev *dev, int phys_port_id, 
+				  uint16_t seq_num, uint8_t count)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_ack_nack_in cmd = {
+		.subcmd = MRPC_ERR_INJ_ACK_NACK,
+		.phys_port_id = phys_port_id,
+		.seq_num = seq_num,
+		.count = count,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			     sizeof(cmd), &output, sizeof(output));
+}
+
+/**
+ * @brief Inject Credit Timeout error into a physical port
+ * @param[in] dev	Switchtec device handle
+ * @param[in] phys_port_id Physical port id
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_inject_err_cto(struct switchtec_dev *dev, int phys_port_id)
+{
+	uint32_t output;
+
+	struct switchtec_lnkerr_cto_in cmd = {
+		.subcmd = MRPC_ERR_INJ_CTO,
+		.phys_port_id = phys_port_id,
+	};
+
+	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
+			     sizeof(cmd), &output, sizeof(output));
 }
 
 /**@}*/
