@@ -556,7 +556,7 @@ int switchtec_status(struct switchtec_dev *dev,
 		s[p].link_up = ports[i].linkup_linkrate >> 7;
 		s[p].link_rate = ports[i].linkup_linkrate & 0x7F;
 		s[p].ltssm = le16toh(ports[i].LTSSM);
-		s[p].ltssm_str = switchtec_ltssm_str(s[p].ltssm, 1);
+		s[p].ltssm_str = switchtec_ltssm_str(s[p].ltssm, 1, dev);
 		s[p].lane_reversal = ports[i].lane_reversal;
 		s[p].lane_reversal_str = lane_reversal_str(s[p].link_up,
 							   s[p].lane_reversal);
