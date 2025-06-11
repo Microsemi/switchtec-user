@@ -359,6 +359,7 @@ int switchtec_list(struct switchtec_device_info **devlist);
 void switchtec_list_free(struct switchtec_device_info *devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen);
+int switchtec_get_device_minor_ver(struct switchtec_dev *dev, char ** res);
 int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		  const void *payload, size_t payload_len, void *resp,
 		  size_t resp_len);

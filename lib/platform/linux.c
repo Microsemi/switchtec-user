@@ -971,6 +971,7 @@ static const struct switchtec_ops linux_ops = {
 	.close = linux_close,
 	.get_device_id = linux_get_device_id,
 	.get_fw_version = linux_get_fw_version,
+	.get_device_minor_ver = gasop_get_device_minor_ver,
 	.cmd = linux_cmd,
 	.get_devices = linux_get_devices,
 	.pff_to_port = linux_pff_to_port,
