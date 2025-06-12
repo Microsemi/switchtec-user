@@ -2284,15 +2284,27 @@ static int tlp_inject (int argc, char **argv)
 	return 0;
 }
 
+static int convert_bitfield(char * bits)
+{
+	int total = 0;
+	char * sep_bits = strtok(bits, ",");
+
+	while (sep_bits != NULL) {
+		total += 0x1 << atoi(sep_bits);
+		sep_bits = strtok(NULL, ",");
+    	}
+	return total;
+}
+
 #define CMD_DESC_AER_EVENT_GEN "Generate an AER Error Event"
 
 static int aer_event_gen(int argc, char **argv)
 {
-	int ret;
+	int ret, aer_bitfield;
 	static struct {
 		struct switchtec_dev *dev;
 		int port_id;
-		int aer_error_id;
+		char * aer_error_id;
 		int trigger_event;
 	} cfg = {};
 
@@ -2300,7 +2312,7 @@ static int aer_event_gen(int argc, char **argv)
 		DEVICE_OPTION,
 		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port_id, 
 		 required_argument, "port ID"},
-		{"ce_event", 'e', "", CFG_NONNEGATIVE, &cfg.aer_error_id, 
+		{"ce_event", 'e', "", CFG_STRING, &cfg.aer_error_id, 
 		 required_argument, "aer CE event - 0,6,7,8,12,14,15"},
 		{"trigger", 't', "", CFG_NONNEGATIVE, &cfg.trigger_event, 
 		 required_argument, "trigger event (only CE events supported-0x1)"},
@@ -2308,8 +2320,9 @@ static int aer_event_gen(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg, 
 			sizeof(cfg));
+	aer_bitfield = convert_bitfield(cfg.aer_error_id);
 
-	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, cfg.aer_error_id, 
+	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, aer_bitfield, 
 				      cfg.trigger_event);
 
 	if (ret != 0) {

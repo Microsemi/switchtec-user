@@ -1751,7 +1751,7 @@ int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 	struct switchtec_aer_event_gen_in sub_cmd_id = {
 		.sub_cmd = trigger_event,
 		.phys_port_id = port_id,
-		.err_mask = (1 << aer_error_id),
+		.err_mask = aer_error_id,
 		.hdr_log[0] = 0,
 		.hdr_log[1] = 0,
 		.hdr_log[2] = 0,
