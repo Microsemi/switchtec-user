@@ -32,6 +32,7 @@
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
 #include <switchtec/endian.h>
+#include <switchtec/errors.h>
 
 #include <limits.h>
 #include <locale.h>
@@ -1739,17 +1740,34 @@ static int print_pattern_mode(struct switchtec_dev *dev,
 		struct switchtec_status *port, int port_id)
 {
 	enum switchtec_diag_pattern gen_pat, mon_pat;
+	int gen_pat_gen5, mon_pat_gen5;
 	unsigned long long err_cnt;
 	int ret, lane_id;
+	int err = 0;
 
 	ret = switchtec_diag_pattern_gen_get(dev, port_id, &gen_pat);
 	if (ret) {
 		switchtec_perror("pattern_gen_get");
 		return -1;
 	}
+	gen_pat_gen5 = gen_pat;
+	if (gen_pat_gen5 == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_DISABLED) {
+		fprintf(stderr, "!! The pattern generator is disabled on either the TX or RX port\n");
+		err = 1;
+	}
 
 	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, 
 					     &err_cnt);
+	mon_pat_gen5 = mon_pat;
+	if (ret == ERR_PAT_MON_IS_DISABLED || mon_pat_gen5 == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_DISABLED) {
+		fprintf(stderr, "!! The pattern monitor is disabled on either the TX or RX port\n");
+		err = 1;
+	}
+	if (err) {
+		fprintf(stderr, "Unable to print additional pattern information until both monitor and generator are enabled correctly\n");
+		return -1;
+	}
+
 	if (ret) {
 		switchtec_perror("pattern_mon_get");
 		return -1;
