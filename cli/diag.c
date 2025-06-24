@@ -48,6 +48,14 @@ struct diag_common_cfg {
 	int port_id;
 	int far_end;
 	int prev;
+	int prev_speed;
+};
+
+static const struct argconfig_choice port_eq_prev_speeds[] = {
+	{"GEN3", PCIE_LINK_RATE_GEN3, "GEN3 Previous Speed"},
+	{"GEN4", PCIE_LINK_RATE_GEN4, "GEN4 Previous Speed"},
+	{"GEN5", PCIE_LINK_RATE_GEN5, "GEN5 Previous Speed"},
+	{}
 };
 
 #define DEFAULT_DIAG_COMMON_CFG {	\
@@ -65,6 +73,12 @@ struct diag_common_cfg {
 #define PREV_OPTION {							\
 	"prev", 'P', "", CFG_NONE, &cfg.prev, no_argument,		\
 	"return the data for the previous link",			\
+}
+
+#define PREV_SPEED_OPTION {						\
+	"prev_rate", 'r', "RATE", CFG_CHOICES, &cfg.prev_speed, 	\
+	required_argument, "return the data for the previous link at the specified link rate\n(supported on Gen 5 switchtec devices only)", \
+	.choices=port_eq_prev_speeds					\
 }
 
 static int get_port(struct switchtec_dev *dev, int port_id,
@@ -1994,7 +2008,8 @@ static int port_eq_txcoeff(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {NULL}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, 
+		PREV_SPEED_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXCOEFF,
@@ -2002,7 +2017,15 @@ static int port_eq_txcoeff(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	ret = switchtec_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, cfg.end,
+	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+		return -1;
+	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+		return -1;
+	}
+
+	ret = switchtec_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, cfg.prev_speed, cfg.end,
 					      cfg.link, &coeff);
 	if (ret) {
 		switchtec_perror("port_eq_coeff");
@@ -2031,13 +2054,22 @@ static int port_eq_txfslf(int argc, char **argv)
 	int i, ret, lnk_width;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, 
+		PREV_SPEED_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXFSLF,
 				    &cfg, opts);
 	if (ret)
 		return ret;
+
+	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+		return -1;
+	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+		return -1;
+	}
 
 	printf("%s Equalization FS/LF data for physical port %d %s\n\n",
 	       cfg.far_end ? "Far End" : "Local", cfg.port_id,
@@ -2050,7 +2082,7 @@ static int port_eq_txfslf(int argc, char **argv)
 		lnk_width = cfg.port.neg_lnk_width;
 
 	for (i = 0; i < lnk_width; i++) {
-		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, i,
+		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, cfg.prev_speed, i,
 				cfg.end, cfg.link, &data);
 		if (ret) {
 			switchtec_perror("port_eq_fs_ls");
@@ -2072,7 +2104,7 @@ static int port_eq_txtable(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, PORT_OPTION, PREV_OPTION, {}
+		DEVICE_OPTION, PORT_OPTION, PREV_OPTION, PREV_SPEED_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXTABLE,
@@ -2080,7 +2112,15 @@ static int port_eq_txtable(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	ret = switchtec_diag_port_eq_tx_table(cfg.dev, cfg.port_id,
+	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+		return -1;
+	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+		return -1;
+	}
+
+	ret = switchtec_diag_port_eq_tx_table(cfg.dev, cfg.port_id, cfg.prev_speed,
 					      cfg.link, &table);
 	if (ret) {
 		switchtec_perror("port_eq_table");
