@@ -1668,6 +1668,122 @@ static int stack_bif(int argc, char **argv)
 	return 0;
 }
 
+
+#define CMD_DESC_GPIO "Perform GPIO commands on the switch"
+
+static int gpio(int argc, char **argv)
+{
+	int ret;
+	int gpio_val;
+	int direction;
+	int polarity;
+	uint32_t values[SWITCHTEC_MAX_GPIO_PIN_VALS];
+	static struct {
+		struct switchtec_dev *dev;
+		int get_dir_cfg;
+		int get_pol_config;
+		int en_gpio_int;
+		int get_pin_sts;
+		int log_pin_id;
+		int pin_val;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"get_dir_config", 'd', "", CFG_NONE, &cfg.get_dir_cfg, 
+			no_argument, "get the direction configuration of the specified GPIO pin"},
+		{"get_pol_config", 'P', "", CFG_NONE, &cfg.get_pol_config, 
+			no_argument, "get the polarity configuration of the specified GPIO pin"},
+		{"en_gpio_int", 'i', "", CFG_NONNEGATIVE, &cfg.en_gpio_int, 
+			required_argument, "enable/disable the gpio interrupt on the specified GPIO pin,\n0 - disable\n1 - enable"},
+		{"get_pin_sts", 's', "", CFG_NONE, &cfg.get_pin_sts, no_argument,
+			"get the GPIO pin status of all GPIO pins"},
+		{"gpio_pin_value", 'v', "", CFG_NONNEGATIVE, &cfg.pin_val, 
+			required_argument, "GPIO pin value, used to set the specified logical GPIO pin ID to this value,\n0 - Low\n1 - High"},
+		{"logical_gpio_pin", 'p', "", CFG_NONNEGATIVE, &cfg.log_pin_id, 
+			required_argument,
+			"logical GPIO pin ID, this arguement used on its own will read the specified GPIO pin."\
+			" Required for all other operations EXCEPT when using the -s --get_pin_sts for reading all GPIO pins"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_GPIO, opts, &cfg, sizeof(cfg));
+	if (!cfg.log_pin_id && !cfg.get_pin_sts) {
+		printf("You must specify a logicial pin ID --help\n");
+		return -1;
+	}
+	if (cfg.en_gpio_int > 1) {
+		printf("Invalid paramter for enabling the GPIO interrupt. Must be 0/1 --help\n");
+		return -1;
+	}
+	if (cfg.pin_val > 1) {
+		printf("Invalid paramter for enabling the pin value. Must be 0/1 --help\n");
+		return -1;
+	}
+
+	if ((cfg.get_dir_cfg || cfg.get_pol_config 
+	     || cfg.get_pin_sts || cfg.en_gpio_int) && cfg.pin_val) {
+		printf("Cannot set pin value for the selected sub-command(s), ignoring -v --gpio_pin_value..\n");
+	}
+
+	if (cfg.get_dir_cfg) {
+		ret = switchtec_get_gpio_direction_cfg(cfg.dev, cfg.log_pin_id, 
+						       &direction);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("Direction configuration of GPIO logical pin %d is %s\n", 
+		       cfg.log_pin_id, direction ? "Input" : "Output");
+	} else if (cfg.get_pol_config) {
+		ret = switchtec_get_gpio_polarity_cfg(cfg.dev, cfg.log_pin_id, 
+						      &polarity);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("Polarity configuration of GPIO logical pin %d is %s\n", 
+		       cfg.log_pin_id, polarity ? "Non-Inverted" : "Inverted");
+	} else if (cfg.en_gpio_int) {
+		ret = switchtec_en_dis_interrupt(cfg.dev, cfg.log_pin_id, 
+						 cfg.en_gpio_int);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("%s the interrupt at GPIO logical pin %d\n", 
+		       cfg.en_gpio_int ? "Enabled" : "Disabled", cfg.log_pin_id);
+	} else if (cfg.get_pin_sts) {
+		ret = switchtec_get_all_pin_sts(cfg.dev, values);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("GPIO status of all pins:\n");
+		printf("DW\tDW VALUE\n");
+		for (int i = 0; i < SWITCHTEC_MAX_GPIO_PIN_VALS; i++)
+			printf("%d\t0x%08x\n", i, values[i]);
+	} else if (cfg.pin_val) {
+		printf("Setting value of logical GPIO pin %d to: %d\n", 
+			cfg.log_pin_id, cfg.pin_val);
+		ret = switchtec_set_gpio(cfg.dev, cfg.log_pin_id, cfg.pin_val);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+	} else {
+		ret = switchtec_get_gpio(cfg.dev, cfg.log_pin_id, &gpio_val);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("Value of GPIO logical pin %d: %d\n", cfg.log_pin_id, 
+			gpio_val);
+	}
+	
+	printf("\nGPIO operation successful.\n");
+	return 0;
+}
+
 #define CMD_DESC_HARD_RESET "perform a hard reset of the switch"
 
 static int hard_reset(int argc, char **argv)
@@ -2637,6 +2753,7 @@ static const struct cmd commands[] = {
 	CMD(port_bind, CMD_DESC_PORT_BIND),
 	CMD(port_unbind, CMD_DESC_PORT_UNBIND),
 	CMD(stack_bif, CMD_DESC_STACK_BIF),
+	CMD(gpio, CMD_DESC_GPIO),
 	CMD(hard_reset, CMD_DESC_HARD_RESET),
 	CMD(fw_update, CMD_DESC_FW_UPDATE),
 	CMD(fw_info, CMD_DESC_FW_INFO),

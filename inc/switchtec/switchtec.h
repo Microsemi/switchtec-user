@@ -69,6 +69,8 @@ struct switchtec_dev;
 
 #define SWITCHTEC_DIAG_MAX_TLP_DWORDS 132
 
+#define SWITCHTEC_MAX_GPIO_PIN_VALS 30
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
@@ -904,6 +906,34 @@ int switchtec_get_stack_bif(struct switchtec_dev *dev, int stack_id,
 			    int port_bif[SWITCHTEC_PORTS_PER_STACK]);
 int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
 			    int port_bif[SWITCHTEC_PORTS_PER_STACK]);
+
+/******** GPIO Management ********/
+
+struct switchtec_gpio {
+	uint8_t sub_cmd;
+	uint8_t resvd;
+	uint16_t log_gpio_id;
+	uint8_t data;
+	uint8_t resvd1[3];
+};
+
+struct switchtec_gpio_sts_out {
+	uint8_t sub_cmd;
+	uint8_t resvd;
+	uint16_t pin_num;
+	uint32_t pin_values[SWITCHTEC_MAX_GPIO_PIN_VALS];
+};
+
+int switchtec_get_gpio(struct switchtec_dev *dev, int pin_id,
+		       int *gpio_val);
+int switchtec_set_gpio(struct switchtec_dev *dev, int pin_id,
+		       int gpio_val);
+int switchtec_get_gpio_direction_cfg(struct switchtec_dev *dev, int pin_id,
+				     int *direction);
+int switchtec_get_gpio_polarity_cfg(struct switchtec_dev *dev, int pin_id,
+				    int *polarity);
+int switchtec_en_dis_interrupt(struct switchtec_dev *dev, int pin_id, int en);
+int switchtec_get_all_pin_sts(struct switchtec_dev *dev, uint32_t *values);
 
 /********** EVENT COUNTER *********/
 
