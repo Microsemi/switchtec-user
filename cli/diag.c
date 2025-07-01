@@ -2342,7 +2342,8 @@ static int tlp_inject (int argc, char **argv)
 			"Enable the ecrc to be included at the end of the input data (Default: disabled)"},
 		{"tlp_data", 'd', "\"DW0 DW1 ... DW131\"", CFG_STRING, 
 			&cfg.raw_tlp_data, required_argument, 
-			"DWs to be sent as part of the raw TLP (Maximum 132 DWs). Every DW must start with \'0x\'"},
+			"DWs to be sent as part of the raw TLP (Maximum 132 DWs)"\
+			", surrounded by quotations. Every DW must start with \'0x\'\nEx. -d \"0x1 0x2 0x3\""},
 		{NULL}
 	};
 
