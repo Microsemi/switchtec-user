@@ -2179,22 +2179,23 @@ static int refclk(int argc, char **argv)
 	return 0;
 }
 
-static int convert_str_to_dwords(char *str, uint32_t **dwords, int *num_dwords)
+static int convert_hex_str(char *str, uint32_t **output, int *num_hex_words, 
+			   int hex_len_max)
 {
-	*num_dwords = 0;
+	*num_hex_words = 0;
 	const char *ptr = str;
-	int dword_len = 0;
+	int len = 0;
 	while (*ptr != '\0') {
 		if (*ptr == '0' && *(ptr + 1) == 'x') {
-			(*num_dwords)++;
+			(*num_hex_words)++;
 			ptr += 2;
-			dword_len = 0;
+			len = 0;
 		}
 		while (*ptr != ' ' && *ptr != '\0') {
 			ptr++;
-			dword_len++;
+			len++;
 		}
-		if (dword_len > 8) {
+		if (len > hex_len_max) {
 			printf("Entered dword longer than allowed\n");
 			return -1;
 		}
@@ -2202,16 +2203,16 @@ static int convert_str_to_dwords(char *str, uint32_t **dwords, int *num_dwords)
 			ptr++;
 	}
 
-	*dwords = (uint32_t *)malloc(*num_dwords * sizeof(uint32_t));
-	if (*dwords == NULL)
+	*output = (uint32_t *)malloc(*num_hex_words * sizeof(uint32_t));
+	if (*output == NULL)
 		return -1;
 
 	ptr = str;
-	for (int i = 0; i < *num_dwords; i++) {
+	for (int i = 0; i < *num_hex_words; i++) {
 		char *endptr;
-		(*dwords)[i] = (uint32_t)strtoul(ptr, &endptr, 0);
+		(*output)[i] = (uint32_t)strtoul(ptr, &endptr, 0);
 		if (endptr == ptr || (*endptr != ' ' && *endptr != '\0')) {
-			free(*dwords);
+			free(*output);
 			return -1;
 		}
 		ptr = endptr;
@@ -2259,8 +2260,8 @@ static int tlp_inject (int argc, char **argv)
 		fprintf(stderr, "Must set tlp data --tlp_data -d \n");
 		return -1;
 	}
-	ret = convert_str_to_dwords(cfg.raw_tlp_data, &raw_tlp_dwords, 
-				    &num_dwords);
+	ret = convert_hex_str(cfg.raw_tlp_data, &raw_tlp_dwords, 
+			      &num_dwords, 8);
 	if (ret) {
 		fprintf(stderr, "Error with tlp data provided \n");
 		return -1;
@@ -2405,8 +2406,8 @@ static int linkerr_inject(int argc, char ** argv)
 	if (!cfg.inject_dllp && cfg.dllp_data) {
 		printf("Ignoring -i flag, not valid for the currently selected command.\n");
 	} else if (cfg.inject_dllp && cfg.dllp_data) {
-		ret = convert_str_to_dwords(cfg.dllp_data, &dllp_data_dword, 
-				    &num_dwords);
+		ret = convert_hex_str(cfg.dllp_data, &dllp_data_dword, 
+				    	    &num_dwords, 8);
 		if (ret) {
 			fprintf(stderr, "Error with DLLP data provided\n");
 			return -1;
