@@ -2179,22 +2179,23 @@ static int refclk(int argc, char **argv)
 	return 0;
 }
 
-static int convert_str_to_dwords(char *str, uint32_t **dwords, int *num_dwords)
+static int convert_hex_str(char *str, uint32_t **output, int *num_hex_words, 
+			   int hex_len_max)
 {
-	*num_dwords = 0;
+	*num_hex_words = 0;
 	const char *ptr = str;
-	int dword_len = 0;
+	int len = 0;
 	while (*ptr != '\0') {
 		if (*ptr == '0' && *(ptr + 1) == 'x') {
-			(*num_dwords)++;
+			(*num_hex_words)++;
 			ptr += 2;
-			dword_len = 0;
+			len = 0;
 		}
 		while (*ptr != ' ' && *ptr != '\0') {
 			ptr++;
-			dword_len++;
+			len++;
 		}
-		if (dword_len > 8) {
+		if (len > hex_len_max) {
 			printf("Entered dword longer than allowed\n");
 			return -1;
 		}
@@ -2202,16 +2203,16 @@ static int convert_str_to_dwords(char *str, uint32_t **dwords, int *num_dwords)
 			ptr++;
 	}
 
-	*dwords = (uint32_t *)malloc(*num_dwords * sizeof(uint32_t));
-	if (*dwords == NULL)
+	*output = (uint32_t *)malloc(*num_hex_words * sizeof(uint32_t));
+	if (*output == NULL)
 		return -1;
 
 	ptr = str;
-	for (int i = 0; i < *num_dwords; i++) {
+	for (int i = 0; i < *num_hex_words; i++) {
 		char *endptr;
-		(*dwords)[i] = (uint32_t)strtoul(ptr, &endptr, 0);
+		(*output)[i] = (uint32_t)strtoul(ptr, &endptr, 0);
 		if (endptr == ptr || (*endptr != ' ' && *endptr != '\0')) {
-			free(*dwords);
+			free(*output);
 			return -1;
 		}
 		ptr = endptr;
@@ -2259,8 +2260,8 @@ static int tlp_inject (int argc, char **argv)
 		fprintf(stderr, "Must set tlp data --tlp_data -d \n");
 		return -1;
 	}
-	ret = convert_str_to_dwords(cfg.raw_tlp_data, &raw_tlp_dwords, 
-				    &num_dwords);
+	ret = convert_hex_str(cfg.raw_tlp_data, &raw_tlp_dwords, 
+			      &num_dwords, 8);
 	if (ret) {
 		fprintf(stderr, "Error with tlp data provided \n");
 		return -1;
@@ -2405,8 +2406,8 @@ static int linkerr_inject(int argc, char ** argv)
 	if (!cfg.inject_dllp && cfg.dllp_data) {
 		printf("Ignoring -i flag, not valid for the currently selected command.\n");
 	} else if (cfg.inject_dllp && cfg.dllp_data) {
-		ret = convert_str_to_dwords(cfg.dllp_data, &dllp_data_dword, 
-				    &num_dwords);
+		ret = convert_hex_str(cfg.dllp_data, &dllp_data_dword, 
+				    	    &num_dwords, 8);
 		if (ret) {
 			fprintf(stderr, "Error with DLLP data provided\n");
 			return -1;
@@ -2472,6 +2473,553 @@ static int linkerr_inject(int argc, char ** argv)
 	return ret;
 }
 
+#define CMD_ORDERED_SET_ANALYZER "Ordered set analyzer"
+
+static int osa(int argc, char **argv)
+{
+	int ret = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		int operation;
+	} cfg;
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack_id", 's', "STACK_ID", CFG_INT, &cfg.stack_id, 
+		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
+		{"operation", 'o', "0/1/2/3/4/5", CFG_INT, &cfg.operation, 
+		required_argument,"operations:\n- stop:0\n- start:1\n- trigger:2\n- reset:3\n- release:4\n- status:5"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg, 
+			sizeof(cfg));
+
+	if (cfg.stack_id < 0 || (cfg.stack_id > 5 && cfg.stack_id != 7)) {
+		fprintf(stderr, "Invalid stack ID.\n");
+		return -1;
+	}
+
+	if (cfg.operation > 5 || cfg.operation < 0) {
+		printf("Invalid operation!\n");
+		return -1;
+	}
+
+	ret = switchtec_osa(cfg.dev, cfg.stack_id, cfg.operation);
+	if (ret) {
+		switchtec_perror("osa");
+		return -1;
+	}
+	return 0;
+}
+
+#define CMD_ORDERED_SET_ANALYZER_CONF "Ordered set analyzer configure type"
+
+static int osa_config_type(int argc, char **argv)
+{
+	int ret = 0;
+	uint32_t * lane_mask = NULL;
+	uint32_t * direction_mask = NULL;
+	uint32_t * link_rate_mask = NULL;
+	uint32_t * os_type_mask = NULL;
+	int num_dwords = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		char *lane_mask;
+		char *direction;
+		char *link_rate;
+		char *os_types;
+	} cfg;
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack_id", 's', "STACK_ID", CFG_INT, &cfg.stack_id, 
+		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
+		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask, 
+		required_argument,
+		"16 bit lane mask, 1 enables the triggering for that specified lane. " \
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
+		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction, 
+		required_argument,
+		"3 bit mask for the direction, 1 enables the correisponding direction. " \
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
+		{"link_rate", 'r', "LINK_RATE", CFG_STRING, &cfg.link_rate, 
+		required_argument,
+		"5 bit mask for link rate, 1 enables the corrisponding link rate. " \
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with " \
+		"0x\nBit 0 : Gen1\nBit 1 : Gen2\nBit 2 : Gen3\nBit 3 : Gen4\nBit 4 : Gen5"},
+		{"os_types", 't', "OS_TYPES", CFG_STRING, &cfg.os_types, 
+		required_argument,
+		"4 bit mask for OS types, 1 enables the corrisponding OS type. "\
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with "\
+		"0x\nBit 0 : TS1\nBit 1 : TS2\nBit 2 : FTS\nBit 3 : CTL_SKP"},
+		{NULL}};
+	
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CONF, opts, &cfg, 
+			sizeof(cfg));
+
+	if (cfg.stack_id < 0 || (cfg.stack_id > 5 && cfg.stack_id != 7)) {
+		fprintf(stderr, "Invalid stack ID.\n");
+		return -1;
+	}
+
+	if (cfg.lane_mask) {
+		ret = convert_hex_str(cfg.lane_mask, &lane_mask, &num_dwords, 4);
+		if (ret) {
+			fprintf(stderr, "Error with lane mask.\n");
+			return -1;
+		}
+	}
+	if (cfg.direction) {
+		ret = convert_hex_str(cfg.direction, &direction_mask, 
+				      &num_dwords, 1);
+		if (ret) {
+			fprintf(stderr, "Error with direction mask.\n");
+			return -1;
+		}
+		if (*direction_mask > 3) {
+			fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
+			free(lane_mask);
+			free(direction_mask);
+			return -1;
+		}
+	}
+	if (cfg.link_rate) {
+		ret = convert_hex_str(cfg.link_rate, &link_rate_mask, 
+				      &num_dwords, 2);
+		if (ret) {
+			fprintf(stderr, "Error with link rate mask.\n");
+			return -1;
+		}
+		if (*link_rate_mask > 31) {
+			fprintf(stderr, "Link rate cannot be greater than 0x1F.\n");
+			free(lane_mask);
+			free(direction_mask);
+			free(link_rate_mask);
+			return -1;
+		}
+	}
+	if (cfg.os_types) {
+		ret = convert_hex_str(cfg.os_types, &os_type_mask, 
+				      &num_dwords, 1);
+		if (ret) {
+			fprintf(stderr, "Error with OS type mask.\n");
+			free(lane_mask);
+			free(direction_mask);
+			free(link_rate_mask);
+			return -1;
+		}
+	}
+
+	ret = switchtec_osa_config_type(cfg.dev, cfg.stack_id, 
+					direction_mask != NULL ? *direction_mask : 0, 
+					lane_mask != NULL ? *lane_mask : 0, 
+					link_rate_mask != NULL ? *link_rate_mask : 0, 
+					os_type_mask != NULL ? *os_type_mask : 0);
+	free(lane_mask);
+	free(direction_mask);
+	free(link_rate_mask);
+	free(os_type_mask);
+
+	if (ret) {
+		switchtec_perror("osa_config_type");
+		return -1;
+	}
+	return 0;
+}
+
+#define CMD_ORDERED_SET_ANALYZER_PAT_CONF "Ordered set analyzer configure pattern"
+
+static int osa_config_pat(int argc, char **argv)
+{
+	int ret = 0;
+	uint32_t * value_dwords_arr = NULL;
+	uint32_t * mask_dwords_arr = NULL;
+	uint32_t * lane_mask = NULL;
+	uint32_t * direction_mask = NULL;
+	uint32_t * link_rate_mask = NULL;
+	int num_dwords = 0;
+	int total_dwords = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		char *direction;
+		char *lane_mask;
+		char *link_rate;
+		char *value_dwords;
+		char *mask_dwords;
+	} cfg;
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack_id", 's', "STACK_ID", CFG_NONNEGATIVE, &cfg.stack_id, 
+		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
+		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask, 
+		required_argument,
+		"16 bit lane mask, 1 enables the triggering for that specified lane. "\
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
+		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction, 
+		required_argument,
+		"3 bit mask for the direction, 1 enables the correisponding direction. "\
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
+		{"link_rate", 'r', "LINK_RATE", CFG_STRING, &cfg.link_rate, 
+		required_argument,
+		"5 bit mask for link rate, 1 enables the corrisponding link rate. "\
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value "\
+		"prefixed with 0x\nBit 0 : Gen1\nBit 1 : Gen2\nBit 2 : Gen3\nBit 3 : Gen4\nBit 4 : Gen5"},
+		{"dwords_value", 'V', "\"val_dword0 val_dword1 etc.\"", CFG_STRING, 
+		&cfg.value_dwords, required_argument, 
+		"(Maximum 4 DWs) Dwords should be surrounded by quotations, each "\
+		"dword must begine with \"0x\" and each dword must have a space between them."},
+		{"dwords_mask", 'M', "\"val_dword0 val_dword1 etc.\"", CFG_STRING, 
+		&cfg.mask_dwords, required_argument, 
+		"(Maximum 4 DWs) Dwords should be surrounded by quotations, and "\
+		"each dword must begine with \"0x\" and each dword must have a space between them."},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CONF, opts, &cfg, 
+			sizeof(cfg));
+	
+	if (cfg.stack_id < 0 || (cfg.stack_id > 5 && cfg.stack_id != 7)) {
+		fprintf(stderr, "Invalid stack ID.\n");
+		return -1;
+	}
+
+	if (cfg.lane_mask) {
+		ret = convert_hex_str(cfg.lane_mask, &lane_mask, &num_dwords, 4);
+		if (ret) {
+			fprintf(stderr, "Error with lane mask.\n");
+			return -1;
+		}
+	}
+	if (cfg.direction) {
+		ret = convert_hex_str(cfg.direction, &direction_mask, 
+				      &num_dwords, 1);
+		if (ret) {
+			fprintf(stderr, "Error with direction mask.\n");
+			return -1;
+		}
+		if (*direction_mask > 3) {
+			fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
+			free(lane_mask);
+			free(direction_mask);
+			return -1;
+		}
+	}
+	if (cfg.link_rate) {
+		ret = convert_hex_str(cfg.link_rate, &link_rate_mask, 
+				      &num_dwords, 2);
+		if (ret) {
+			fprintf(stderr, "Error with link rate mask.\n");
+			return -1;
+		}
+		if (*link_rate_mask > 31) {
+			fprintf(stderr, "Link rate cannot be greater than 0x1F.\n");
+			free(lane_mask);
+			free(direction_mask);
+			free(link_rate_mask);
+			return -1;
+		}
+	}
+	num_dwords = 0;
+	if (cfg.value_dwords == NULL) {
+		fprintf(stderr, "Must set value dword data --dwords_value -V \n");
+		return -1;
+	}
+	if (cfg.mask_dwords == NULL) {
+		fprintf(stderr, "Must set mask dword data --dwords_mask -M \n");
+		return -1;
+	}
+	ret = convert_hex_str(cfg.value_dwords, &value_dwords_arr, 
+			      &num_dwords, 8);
+	if (ret) {
+		fprintf(stderr, "Error with data provided \n");
+		return -1;
+	}
+	total_dwords += num_dwords;
+	num_dwords = 0;
+	ret = convert_hex_str(cfg.mask_dwords, &mask_dwords_arr, 
+				    &num_dwords, 8);
+	total_dwords += num_dwords;
+	if (ret) {
+		fprintf(stderr, "Error with data provided \n");
+		return -1;
+	}
+	if (total_dwords > 8) {
+		fprintf(stderr, "Total data (values + mask) cannot exceed 8 dwords \n");
+		free(value_dwords_arr);
+		free(mask_dwords_arr);
+		return -1;
+	}
+
+	ret = switchtec_osa_config_pattern(cfg.dev, cfg.stack_id, 
+					   direction_mask != NULL ? *direction_mask : 0, 
+					   lane_mask != NULL ? *lane_mask : 0, 
+					   link_rate_mask != NULL ? *link_rate_mask : 0, 
+					   value_dwords_arr, mask_dwords_arr);
+	free(lane_mask);
+	free(direction_mask);
+	free(link_rate_mask);
+	free(value_dwords_arr);
+	free(mask_dwords_arr);
+	if (ret) {
+		switchtec_perror("osa_config_pat");
+		return -1;
+	}
+	return 0;
+}
+
+#define CMD_ORDERED_SET_ANALYZER_MISC_CONF "Ordered set analyzer configure misc"
+
+static int osa_config_misc(int argc, char **argv)
+{
+	int ret = 0;
+	uint32_t * trigger_mask = NULL;
+	int num_dwords = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		char *trigger_en;
+	} cfg;
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack_id", 's', "STACK_ID", CFG_INT, &cfg.stack_id, 
+		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
+		{"trigger_en", 't', "ENABLED", CFG_STRING, &cfg.trigger_en,
+		required_argument,
+		"3 bit mask for trigger enable, 1 enables the correisponding trigger. "\
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal "\
+		"value prefixed with 0x\nBit 0 : LTMON/other hardware blocks\nBit 1 : Reserved\nBit 2 : General purpose input"}, 
+		{NULL}};
+	
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_MISC_CONF, 
+			opts, &cfg, sizeof(cfg));
+
+	if (cfg.stack_id < 0 || (cfg.stack_id > 5 && cfg.stack_id != 7)) {
+		fprintf(stderr, "Invalid stack ID.\n");
+		return -1;
+	}
+
+	if (cfg.trigger_en) {
+		ret = convert_hex_str(cfg.trigger_en, &trigger_mask, 
+				      &num_dwords, 1);
+		if (ret) {
+			fprintf(stderr, "Error with trigger mask \n");
+			return -1;
+		}
+		if (*trigger_mask > 7) {
+			fprintf(stderr, "Trigger mask cannot be greater than 0x7.\n");
+			free(trigger_mask);
+			return -1;
+		}
+	}
+	ret = switchtec_osa_config_misc(cfg.dev, cfg.stack_id, 
+					trigger_mask != NULL ? *trigger_mask : 0);
+	free(trigger_mask);
+	if (ret) {
+		switchtec_perror("osa_config_misc");
+		return -1;
+	}
+	return 0;
+}
+
+#define CMD_ORDERED_SET_ANALYZER_CAP_CTRL "Ordered set analyzer capture control"
+
+static int osa_capture_contol(int argc, char **argv)
+{
+	int ret = 0;
+	uint32_t * os_type_mask = NULL;
+	uint32_t * lane_mask = NULL;
+	uint32_t * direction_mask = NULL;
+	int num_dwords = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		char *lane_mask;
+		char *direction;
+		int drop_single_os;
+		int stop_mode;
+		int snapshot_mode;
+		int post_trig_entries;
+		char *os_types;
+	} cfg;
+
+	cfg.stop_mode = 0;
+	cfg.drop_single_os = 0;
+	cfg.snapshot_mode = 0;
+	cfg.post_trig_entries = 0;
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack_id", 's', "STACK_ID", CFG_INT, &cfg.stack_id, 
+		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
+		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask, 
+		required_argument,
+		"16 bit lane mask, 1 enables the triggering for that specified lane. "\
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
+		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction, 
+		required_argument,
+		"3 bit mask for the direction, 1 enables the correisponding direction. "\
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
+		{"drop_single_os", 'o', "", CFG_NONE, &cfg.drop_single_os, 
+		no_argument, 
+		"When set to 1, the single TS1, TS2, FTS, and CTL_SKP OS's are excluded from the capture."},
+		{"stop_mode", 'S', "", CFG_NONE, &cfg.stop_mode, 
+		no_argument, 
+		"Controls when the OSA stops capturing. disabled: any lane has stopped, enabled: all lanes have stopped. (Default: disabled)"},
+		{"snapshot_mode", 's', "", CFG_NONE, &cfg.snapshot_mode, 
+		no_argument, 
+		"Enable the snapshot mode setting. When enabled, OS's are captured until the RAM is full. "\
+		"If disabled the OS's captured is dictated by the number of Post-Trigger Entries. (default disabled)"},
+		{"post_trig_entries", 'p', "POST_TRIG_ENTRIES", CFG_INT, &cfg.post_trig_entries, 
+		required_argument, 
+		"Number of post trigger OS entries to be captured. Not valid if snapshot_mode is enabled. "\
+		"Max 256 entries.\n(Required if disabling --snapshot_mode -s)"},
+		{"os_types", 't', "OS_TYPES", CFG_STRING, &cfg.os_types, 
+		required_argument,
+		"8 bit mask for OS types, 1 enables the corrisponding OS type. "\
+		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed "\
+		"with 0x\nBit 0 : TS1\nBit 1 : TS2\nBit 2 : FTS\nBit 3 : CTL_SKP\nBit 4 : SKP\nBit 5 : EIEOS\nBit 6 : EIOS\nBit 7 : ERR_OS"},
+		{NULL}};
+	
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CAP_CTRL, opts, &cfg, sizeof(cfg));
+
+	if (cfg.stack_id < 0 || (cfg.stack_id > 5 && cfg.stack_id != 7)) {
+		fprintf(stderr, "Invalid stack ID.\n");
+		return -1;
+	}
+
+	if (cfg.post_trig_entries && cfg.snapshot_mode) {
+		fprintf(stderr, "Cannot enable snapshot mode and set the number of post trigger entries.\n");
+		fprintf(stderr, "Snapshot mode --snapshot_mode -s enables capturing until the RAM is full, --post_trig_entries -p sets a specified number of entries to capture.\n");
+		return -1;
+	} else if (cfg.post_trig_entries == 0 && cfg.snapshot_mode == 0) {
+		fprintf(stderr, "Must specify a number of OS entries to capture.\n");
+		return -1;
+	}
+
+	if (cfg.lane_mask) {
+		ret = convert_hex_str(cfg.lane_mask, &lane_mask, &num_dwords, 4);
+		if (ret) {
+			fprintf(stderr, "Error with lane mask.\n");
+			return -1;
+		}
+	}
+	if (cfg.direction) {
+		ret = convert_hex_str(cfg.direction, &direction_mask, 
+				      &num_dwords, 1);
+		if (ret) {
+			fprintf(stderr, "Error with direction mask.\n");
+			return -1;
+		}
+		if (*direction_mask > 3) {
+			fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
+			free(lane_mask);
+			free(direction_mask);
+			return -1;
+		}
+	}
+	if (cfg.os_types) {
+		ret = convert_hex_str(cfg.os_types, &os_type_mask, 
+				      &num_dwords, 2);
+		if (ret) {
+			fprintf(stderr, "Error with OS type mask.\n");
+			free(lane_mask);
+			free(direction_mask);
+			return -1;
+		}
+	}
+
+	ret = switchtec_osa_capture_control(cfg.dev, cfg.stack_id, 
+					    lane_mask != NULL ? *lane_mask : 0, 
+					    direction_mask != NULL ? *direction_mask : 0,
+					    cfg.drop_single_os, cfg.stop_mode, 
+					    cfg.snapshot_mode, cfg.post_trig_entries, 
+					    os_type_mask != NULL ? *os_type_mask : 0);
+	free(os_type_mask);
+	free(lane_mask);
+	free(direction_mask);
+	if (ret) {
+		switchtec_perror("osa_capture_control");
+		return -1;
+	}
+	return 0;
+}
+
+#define CMD_ORDERED_SET_ANALYZER_DUMP_CONF "dump osa config"
+
+static int osa_dump_config(int argc, char **argv)
+{
+	int ret = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		int lane_id;
+		int direction;
+	} cfg;
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack_id", 's', "STACK_ID", CFG_INT, &cfg.stack_id, 
+		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg, 
+			sizeof(cfg));
+
+	if (cfg.stack_id < 0 || (cfg.stack_id > 5 && cfg.stack_id != 7)) {
+		fprintf(stderr, "Invalid stack ID.\n");
+		return -1;
+	}
+
+	ret = switchtec_osa_dump_conf(cfg.dev, cfg.stack_id);
+	if (ret) {
+		switchtec_perror("osa_dump_config");
+		return -1;
+	}
+	return 0;
+}
+
+#define CMD_ORDERED_SET_ANALYZER_DUMP_DATA "dump osa data"
+
+static int osa_dump_data(int argc, char **argv)
+{
+	int ret = 0;
+	static struct {
+		struct switchtec_dev *dev;
+		int stack_id;
+		int lane;
+		int direction;
+	} cfg;
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"stack_id", 's', "STACK_ID", CFG_INT, &cfg.stack_id, 
+		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
+		{"lane", 'l', "lane", CFG_INT, &cfg.lane, 
+		required_argument,"lane ID"},
+		{"direction", 'd', "0/1", CFG_INT, &cfg.direction, 
+		required_argument,"direction tx: 0 rx: 1"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg, 
+			sizeof(cfg));
+	
+	if (cfg.stack_id < 0 || (cfg.stack_id > 5 && cfg.stack_id != 7)) {
+		fprintf(stderr, "Invalid stack ID.\n");
+		return -1;
+	}
+
+	if (cfg.direction > 1) {
+		fprintf(stderr, "Direction must be either 0 or 1\n");
+		return -1;
+	}
+	
+	ret = switchtec_osa_capture_data(cfg.dev, cfg.stack_id, cfg.lane, 
+					 cfg.direction);
+	if (ret) {
+		switchtec_perror("osa_dump_data");
+		return -1;
+	}
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	CMD(crosshair,		CMD_DESC_CROSS_HAIR),
 	CMD(eye,		CMD_DESC_EYE),
@@ -2488,6 +3036,13 @@ static const struct cmd commands[] = {
 	CMD(tlp_inject,		CMD_TLP_INJECT),
 	CMD(aer_event_gen,	CMD_DESC_AER_EVENT_GEN),
 	CMD(linkerr_inject,	CMD_DESC_LNKERR_INJECT),
+	CMD(osa, 		CMD_ORDERED_SET_ANALYZER),
+	CMD(osa_config_type, 	CMD_ORDERED_SET_ANALYZER_CONF),
+	CMD(osa_config_pat,	CMD_ORDERED_SET_ANALYZER_PAT_CONF),
+	CMD(osa_config_misc,	CMD_ORDERED_SET_ANALYZER_MISC_CONF),
+	CMD(osa_capture_contol, CMD_ORDERED_SET_ANALYZER_CAP_CTRL),
+	CMD(osa_dump_config,	CMD_ORDERED_SET_ANALYZER_DUMP_CONF),
+	CMD(osa_dump_data,	CMD_ORDERED_SET_ANALYZER_DUMP_DATA),
 	{}
 };
 

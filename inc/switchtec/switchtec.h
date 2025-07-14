@@ -1393,6 +1393,23 @@ int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type,
 			 int tlp_length, int ecrc, uint32_t * raw_tlp_data);
 int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 			    int aer_error_id, int trigger_event);
+int switchtec_osa(struct switchtec_dev * dev, int stack_id, int operation);
+int switchtec_osa_config_type(struct switchtec_dev * dev, int stack_id, 
+			      int direction, int lane_mask, int link_rate, 
+			      int os_types);
+int switchtec_osa_config_misc(struct switchtec_dev * dev, int stack_id, 
+			      int trigger_en);
+int switchtec_osa_capture_control(struct switchtec_dev * dev, int stack_id, 
+				  int lane_mask, int direction, 
+				  int drop_single_os, int stop_mode,
+				  int snapshot_mode, int post_trigger, 
+				  int os_types);
+int switchtec_osa_dump_conf(struct switchtec_dev * dev, int stack_id);
+int switchtec_osa_config_pattern(struct switchtec_dev * dev, int stack_id, 
+				 int direction, int lane_mask,int link_rate, 
+				 uint32_t * value_data, uint32_t * mask_data);
+int switchtec_osa_capture_data(struct switchtec_dev * dev, int stack_id, 
+			       int lane, int direction);
 #ifdef __cplusplus
 }
 #endif
