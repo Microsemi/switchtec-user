@@ -1915,6 +1915,8 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	print_fw_part_line("BOOT", sum->boot.active);
 	print_fw_part_line("MAP", sum->map.active);
 	print_fw_part_line("KEY", sum->key.active);
+	if (switchtec_is_gen5(dev))
+		print_fw_part_line("RIOT", sum->riot.active);
 	print_fw_part_line("BL2", sum->bl2.active);
 	print_fw_part_line("IMG", sum->img.active);
 	print_fw_part_line("CFG", sum->cfg.active);
@@ -1925,6 +1927,8 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("Inactive Partitions:\n");
 	print_fw_part_line("MAP", sum->map.inactive);
 	print_fw_part_line("KEY", sum->key.inactive);
+	if (switchtec_is_gen5(dev))
+		print_fw_part_line("RIOT", sum->riot.inactive);
 	print_fw_part_line("BL2", sum->bl2.inactive);
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
@@ -2135,6 +2139,7 @@ static int fw_toggle(int argc, char **argv)
 		int key;
 		int firmware;
 		int config;
+		int riotcore;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -2146,23 +2151,29 @@ static int fw_toggle(int argc, char **argv)
 		 "toggle IMG firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.config, no_argument,
 		 "toggle CFG data"},
+		{"riotcore", 'r', "", CFG_NONE, &cfg.riotcore, no_argument,
+		 "toggle RIOTCORE - Gen5 switch only"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_FW_TOGGLE, opts, &cfg, sizeof(cfg));
 
-	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config) {
+	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config && !cfg.riotcore) {
 		fprintf(stderr, "NOTE: Not toggling images as no "
 			"partition type options were specified\n\n");
-	} else if ((cfg.bl2 || cfg.key) && switchtec_is_gen3(cfg.dev)) {
-		fprintf(stderr, "Firmware type BL2 and Key manifest"
+	} else if ((cfg.bl2 || cfg.key || cfg.riotcore) && switchtec_is_gen3(cfg.dev)) {
+		fprintf(stderr, "Firmware type BL2, Key manifest, or RIORCORE "
 			"are not supported by Gen3 switches\n");
+		return 1;
+	} else if (cfg.riotcore && switchtec_is_gen4(cfg.dev)){
+		fprintf(stderr, "Firmware type RIOTCORE is not supported by Gen4 switchtes\n");
 		return 1;
 	} else {
 		ret = switchtec_fw_toggle_active_partition(cfg.dev,
 							   cfg.bl2,
 							   cfg.key,
 							   cfg.firmware,
-							   cfg.config);
+							   cfg.config,
+							   cfg.riotcore);
 		if (ret)
 			err = errno;
 	}
