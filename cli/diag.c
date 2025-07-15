@@ -1722,6 +1722,8 @@ static const struct argconfig_choice pat_gen_link_speeds[] = {
 	{"GEN3", SWITCHTEC_DIAG_PAT_LINK_GEN3, "GEN3 Pattern Generator Speed"},
 	{"GEN4", SWITCHTEC_DIAG_PAT_LINK_GEN4, "GEN4 Pattern Generator Speed"},
 	{"GEN5", SWITCHTEC_DIAG_PAT_LINK_GEN5, "GEN5 Pattern Generator Speed"},
+	{"PRBS5",   SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5,  "PRBS 5 (Gen 5)"},
+	{"PRBS20",  SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20, "PRBS 20 (Gen 5)"},
 };
 
 static const char *pattern_to_str(enum switchtec_diag_pattern type)
@@ -1820,7 +1822,6 @@ static int pattern(int argc, char **argv)
 		int inject_errs;
 		int link_speed;
 	} cfg = {
-		.link_speed = SWITCHTEC_DIAG_PAT_LINK_DISABLED,
 		.port_id = -1,
 		.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_31,
 	};
@@ -1850,20 +1851,26 @@ static int pattern(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_PATTERN, opts, &cfg, sizeof(cfg));
 
-	if (cfg.port_id < 0) {
-		fprintf(stderr, "Must specify -p / --port_id\n");
+	if (cfg.link_speed && cfg.monitor) {
+		fprintf(stderr,
+			"Cannot enable link speed -s / --speed on pattern monitor\n");
 		return -1;
 	}
-
 	if (cfg.disable && (cfg.generate || cfg.monitor)) {
 		fprintf(stderr,
 			"Must not specify -d / --disable with an enable flag\n");
 		return -1;
 	}
+	
+	if (!cfg.link_speed) {
+		if (switchtec_is_gen5(cfg.dev))
+			cfg.link_speed = SWITCHTEC_DIAG_PAT_LINK_GEN1;
+		else
+			cfg.link_speed = SWITCHTEC_DIAG_PAT_LINK_DISABLED;
+	}
 
-	if (cfg.link_speed && cfg.monitor) {
-		fprintf(stderr,
-			"Cannot enable link speed -s / --speed on pattern monitor\n");
+	if (cfg.port_id < 0) {
+		fprintf(stderr, "Must specify -p / --port_id\n");
 		return -1;
 	}
 	
