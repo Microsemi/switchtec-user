@@ -1265,10 +1265,11 @@ struct switchtec_rcvr_obj {
 };
 
 struct switchtec_port_eq_coeff {
-	int lane_cnt;
+	uint8_t lane_cnt;
+	uint8_t reserved[3];
 	struct {
-		int pre;
-		int post;
+		uint8_t pre;
+		uint8_t post;
 	} cursors[16];
 };
 
