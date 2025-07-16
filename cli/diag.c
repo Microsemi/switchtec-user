@@ -1738,6 +1738,18 @@ static const char *pattern_to_str(enum switchtec_diag_pattern type)
 	return "UNKNOWN";
 }
 
+static const char *link_speed_to_str(enum switchtec_diag_pattern_link_rate type)
+{
+	const struct argconfig_choice *s;
+
+	for (s = pat_gen_link_speeds; s->name; s++) {
+		if (s->value == type)
+			return s->name;
+	}
+
+	return "UNKNOWN";
+}
+
 static int print_pattern_mode(struct switchtec_dev *dev,
 		struct switchtec_status *port, int port_id)
 {
@@ -1831,7 +1843,8 @@ static int pattern(int argc, char **argv)
 		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
 		 required_argument, "physical port ID to set/get loopback for"},
 		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
-		 "Disable all generators and monitors"},
+		 "Without any accompanying flags this will disable both monitor and generator."\
+		 " When included with either -m --monitor or -g --generator it will disable the selected type."},
 		{"inject", 'i', "NUM", CFG_NONNEGATIVE, &cfg.inject_errs,
 		 required_argument,
 		 "Inject the specified number of errors into all lanes of the TX port"},
@@ -1856,11 +1869,6 @@ static int pattern(int argc, char **argv)
 			"Cannot enable link speed -s / --speed on pattern monitor\n");
 		return -1;
 	}
-	if (cfg.disable && (cfg.generate || cfg.monitor)) {
-		fprintf(stderr,
-			"Must not specify -d / --disable with an enable flag\n");
-		return -1;
-	}
 	
 	if (!cfg.link_speed) {
 		if (switchtec_is_gen5(cfg.dev))
@@ -1879,9 +1887,14 @@ static int pattern(int argc, char **argv)
 		return ret;
 
 	if (cfg.disable) {
-		cfg.generate = 1;
-		cfg.monitor = 1;
-		cfg.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED;
+		if (!cfg.generate && !cfg.monitor) {
+			cfg.generate = 1;
+			cfg.monitor = 1;
+		}
+		if (switchtec_is_gen5(cfg.dev))
+			cfg.pattern = SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_DISABLED;
+		else
+			cfg.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED;
 	}
 
 	if (cfg.monitor) {
@@ -1891,6 +1904,12 @@ static int pattern(int argc, char **argv)
 			switchtec_perror("pattern_mon_set");
 			return -1;
 		}
+		if (cfg.disable)
+			printf("Disabled pattern monitor on port %d\n",
+				cfg.port_id);
+		else
+			printf("Pattern monitor set for port %d with pattern type %s\n", 
+				cfg.port_id, pattern_to_str(cfg.pattern));
 	}
 
 	if (cfg.generate) {
@@ -1900,6 +1919,13 @@ static int pattern(int argc, char **argv)
 			switchtec_perror("pattern_gen_set");
 			return -1;
 		}
+		if (cfg.disable)
+			printf("Disabled pattern generator on port %d\n",
+				cfg.port_id);
+		else
+			printf("Pattern generator set for port %d with pattern type %s at %s\n", 
+				cfg.port_id, pattern_to_str(cfg.pattern), 
+				link_speed_to_str(cfg.link_speed));
 	}
 
 	if (cfg.inject_errs > 1000) {
