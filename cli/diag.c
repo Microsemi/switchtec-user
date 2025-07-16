@@ -1774,12 +1774,12 @@ static int print_pattern_mode(struct switchtec_dev *dev,
 	}
 
 	printf("Port: %d\n", port_id);
-	if (gen_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED)
+	if (gen_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED && switchtec_is_gen4(dev))
 		printf("  Generator: Disabled\n");
 	else
 		printf("  Generator: %s\n", pattern_to_str(gen_pat));
 
-	if (mon_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED) {
+	if (mon_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED && switchtec_is_gen4(dev)) {
 		printf("  Monitor: Disabled\n");
 	} else {
 		printf("  Monitor: %-20s\n", pattern_to_str(mon_pat));
