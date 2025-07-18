@@ -188,6 +188,15 @@ int gasop_get_fw_version(struct switchtec_dev *dev, char *buf,
 	return 0;
 }
 
+int gasop_get_device_version(struct switchtec_dev *dev, int *res)
+{
+	uint32_t dev_ver;
+	dev_ver = gas_reg_read32(dev, sys_info.device_version);
+
+	*res = dev_ver;
+	return 0;
+}
+
 int gasop_pff_to_port(struct switchtec_dev *dev, int pff,
 		      int *partition, int *port)
 {

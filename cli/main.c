@@ -191,6 +191,9 @@ static int print_dev_info(struct switchtec_dev *dev)
 	char version[32];
 	enum switchtec_boot_phase phase;
 	enum switchtec_rev hw_rev;
+	char minor_str[8] = "";
+	int dev_ver;
+	int minor_ver;
 
 	device_id = switchtec_device_id(dev);
 
@@ -203,11 +206,20 @@ static int print_dev_info(struct switchtec_dev *dev)
 		switchtec_perror("dev info");
 		return ret;
 	}
+	if (switchtec_is_gen5(dev)) {
+		switchtec_get_device_version(dev, &dev_ver);
+		if (ret) {
+			switchtec_perror("dev version");
+			return ret;
+		}
+		minor_ver = ((dev_ver >> 0x10) & 0xFF);
+		sprintf(minor_str, ".%d", minor_ver);
+	}
 
 	printf("%s (%s):\n", switchtec_name(dev),
 	       switchtec_phase_id_str(phase));
 	printf("    Generation:  %s\n", switchtec_gen_str(dev));
-	printf("    HW Revision: %s\n", switchtec_rev_str(hw_rev));
+	printf("    HW Revision: %s%s\n", switchtec_rev_str(hw_rev), minor_str);
 	printf("    Variant:     %s\n",
 	       device_id ? switchtec_variant_str(dev) : "N/A");
 	if (device_id)

@@ -524,6 +524,7 @@ static const struct switchtec_ops eth_ops = {
 	.cmd = eth_cmd,
 	.get_device_id = gasop_get_device_id,
 	.get_fw_version = gasop_get_fw_version,
+	.get_device_version = gasop_get_device_version,
 	.pff_to_port = gasop_pff_to_port,
 	.port_to_pff = gasop_port_to_pff,
 	.flash_part = gasop_flash_part,
