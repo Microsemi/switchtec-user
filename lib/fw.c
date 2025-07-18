@@ -1076,6 +1076,7 @@ static int switchtec_fw_info_metadata_gen5(struct switchtec_dev *dev,
 		.part_id = inf->part_id,
 	};
 	int ret;
+	int i;
 
 	if (inf->part_id == SWITCHTEC_FW_PART_ID_G5_NVLOG)
 		return 1;
@@ -1103,6 +1104,9 @@ static int switchtec_fw_info_metadata_gen5(struct switchtec_dev *dev,
 	inf->image_crc = le32toh(metadata->image_crc);
 	inf->image_len = le32toh(metadata->image_len);
 	inf->metadata = metadata;
+
+	for(i = 0; i< 16; i++)
+            inf->img_str[i] = metadata->img_str[i];
 
 	return 0;
 
