@@ -107,23 +107,6 @@ static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
 			     const void *payload, size_t payload_len,
 			     void *resp, size_t resp_len);
 
-#if (HAVE_LIBCRYPTO && !HAVE_DECL_RSA_GET0_KEY)
-/**
-*  openssl1.0 or older versions don't have this function, so copy
-*  the code from openssl1.1 here
-*/
-static void RSA_get0_key(const RSA *r, const BIGNUM **n,
-			 const BIGNUM **e, const BIGNUM **d)
-{
-	if (n != NULL)
-		*n = r->n;
-	if (e != NULL)
-		*e = r->e;
-	if (d != NULL)
-		*d = r->d;
-}
-#endif
-
 static void get_i2c_operands(enum switchtec_gen gen, uint32_t *addr_shift,
 			     uint32_t *map_shift, uint32_t *map_mask)
 {
@@ -1484,6 +1467,24 @@ int switchtec_kmsk_set(struct switchtec_dev *dev,
 }
 
 #if HAVE_LIBCRYPTO
+
+#if !HAVE_DECL_RSA_GET0_KEY
+/**
+ *  openssl1.0 or older versions don't have this function, so copy
+ *  the code from openssl1.1 here
+ */
+static void RSA_get0_key(const RSA *r, const BIGNUM **n,
+			 const BIGNUM **e, const BIGNUM **d)
+{
+	if (n)
+		*n = r->n;
+	if (e)
+		*e = r->e;
+	if (d)
+		*d = r->d;
+}
+#endif
+
 /**
  * @brief Read public key from public key file
  * @param[in]  pubk_file Public key file
