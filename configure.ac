@@ -1,4 +1,5 @@
-AC_INIT(VERSION-GEN)
+AC_INIT
+AC_CONFIG_SRCDIR([VERSION-GEN])
 
 AC_PROG_CC
 AC_CHECK_TOOL([WINDRES], [windres])
@@ -32,6 +33,6 @@ AS_IF([test "x$with_openssl" != xno],
 
 AC_CONFIG_FILES([Makefile])
 
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
-AC_OUTPUT()
+AC_OUTPUT
