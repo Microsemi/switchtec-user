@@ -2056,25 +2056,27 @@ int switchtec_osa_capture_data(struct switchtec_dev *dev, int stack_id,
 		uint16_t entries_remaining;
 		uint16_t wrap;
 		uint16_t reserved;
-		uint32_t entry_dwords[osa_data_entries_out.entries_remaining * 6];
-	} osa_data_read_out;
+		uint32_t entry_dwords[];
+	} *osa_data_read_out = alloca(sizeof(*osa_data_read_out) +
+				      osa_data_entries_out.entries_remaining * 6 *
+				      sizeof(uint32_t));
 
-	osa_data_read_out.entries_remaining = osa_data_entries_out.entries_remaining;
-	osa_data_read_out.next_entry = osa_data_entries_out.next_entry;
+	osa_data_read_out->entries_remaining = osa_data_entries_out.entries_remaining;
+	osa_data_read_out->next_entry = osa_data_entries_out.next_entry;
 
-	while (osa_data_read_out.entries_remaining != 0) {
-		osa_data_read_in.num_entries = osa_data_read_out.entries_remaining;
-		osa_data_read_in.start_entry = osa_data_read_out.next_entry;
+	while (osa_data_read_out->entries_remaining != 0) {
+		osa_data_read_in.num_entries = osa_data_read_out->entries_remaining;
+		osa_data_read_in.start_entry = osa_data_read_out->next_entry;
 
 		ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER,
 				    &osa_data_read_in, sizeof(osa_data_read_in),
-				    &osa_data_read_out, sizeof(osa_data_read_out));
+				    osa_data_read_out, sizeof(*osa_data_read_out));
 
 		if (ret) {
 			return -1;
 		}
-		print_osa_capture_data(osa_data_read_out.entry_dwords,
-				       osa_data_read_out.entries_read);
+		print_osa_capture_data(osa_data_read_out->entry_dwords,
+				       osa_data_read_out->entries_read);
 	}
 
 	return ret;
