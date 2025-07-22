@@ -36,6 +36,7 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 int gasop_get_device_id(struct switchtec_dev *dev);
 int gasop_get_fw_version(struct switchtec_dev *dev, char *buf,
 			 size_t buflen);
+int gasop_get_device_version(struct switchtec_dev *dev, int *res);
 int gasop_pff_to_port(struct switchtec_dev *dev, int pff,
 		      int *partition, int *port);
 int gasop_port_to_pff(struct switchtec_dev *dev, int partition,

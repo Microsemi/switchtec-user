@@ -107,23 +107,6 @@ static int switchtec_mfg_cmd(struct switchtec_dev *dev, uint32_t cmd,
 			     const void *payload, size_t payload_len,
 			     void *resp, size_t resp_len);
 
-#if (HAVE_LIBCRYPTO && !HAVE_DECL_RSA_GET0_KEY)
-/**
-*  openssl1.0 or older versions don't have this function, so copy
-*  the code from openssl1.1 here
-*/
-static void RSA_get0_key(const RSA *r, const BIGNUM **n,
-			 const BIGNUM **e, const BIGNUM **d)
-{
-	if (n != NULL)
-		*n = r->n;
-	if (e != NULL)
-		*e = r->e;
-	if (d != NULL)
-		*d = r->d;
-}
-#endif
-
 static void get_i2c_operands(enum switchtec_gen gen, uint32_t *addr_shift,
 			     uint32_t *map_shift, uint32_t *map_mask)
 {
@@ -1484,6 +1467,60 @@ int switchtec_kmsk_set(struct switchtec_dev *dev,
 }
 
 #if HAVE_LIBCRYPTO
+
+#ifdef HAVE_DECL_PEM_READ_PUBKEY
+
+#include <openssl/core_names.h>
+
+/**
+ * @brief Read public key from public key file
+ * @param[in]  pubk_file Public key file
+ * @param[out] pubk	 Public key
+ * @return 0 on success, error code on failure
+ */
+int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk)
+{
+	BIGNUM *bn_priv = NULL;
+	uint32_t exponent_tmp;
+	EVP_PKEY *pkey;
+
+	pkey = PEM_read_PUBKEY(pubk_file, NULL, NULL, NULL);
+	if (!pkey) {
+		fseek(pubk_file, 0L, SEEK_SET);
+		pkey = PEM_read_PrivateKey(pubk_file, NULL, NULL, NULL);
+		if (!pkey)
+			return -1;
+	}
+
+	EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn_priv);
+	BN_bn2bin(bn_priv, pubk->pubkey);
+	EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bn_priv);
+	BN_bn2bin(bn_priv, (uint8_t *)&exponent_tmp);
+	pubk->pubkey_exp = be32toh(exponent_tmp);
+
+	EVP_PKEY_free(pkey);
+	return 0;
+}
+
+#else /* ! HAVE_DECL_PEM_READ_PUBKEY */
+
+#if !HAVE_DECL_RSA_GET0_KEY
+/**
+ *  openssl1.0 or older versions don't have this function, so copy
+ *  the code from openssl1.1 here
+ */
+static void RSA_get0_key(const RSA *r, const BIGNUM **n,
+			 const BIGNUM **e, const BIGNUM **d)
+{
+	if (n)
+		*n = r->n;
+	if (e)
+		*e = r->e;
+	if (d)
+		*d = r->d;
+}
+#endif
+
 /**
  * @brief Read public key from public key file
  * @param[in]  pubk_file Public key file
@@ -1515,6 +1552,9 @@ int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk)
 
 	return 0;
 }
+
+#endif /* HAVE_DECL_PEM_READ_PUBKEY */
+
 #endif
 
 /**

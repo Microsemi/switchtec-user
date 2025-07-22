@@ -69,6 +69,8 @@ struct switchtec_dev;
 
 #define SWITCHTEC_DIAG_MAX_TLP_DWORDS 132
 
+#define SWITCHTEC_MAX_GPIO_PIN_VALS 30
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else
@@ -359,6 +361,7 @@ int switchtec_list(struct switchtec_device_info **devlist);
 void switchtec_list_free(struct switchtec_device_info *devlist);
 int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 			     size_t buflen);
+int switchtec_get_device_version(struct switchtec_dev *dev, int *res);
 int switchtec_cmd(struct switchtec_dev *dev, uint32_t cmd,
 		  const void *payload, size_t payload_len, void *resp,
 		  size_t resp_len);
@@ -970,7 +973,8 @@ enum switchtec_fw_ro {
 
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
-					 int toggle_fw, int toggle_cfg);
+					 int toggle_fw, int toggle_cfg,
+					 int toggle_riotcore);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
 			  void (*progress_callback)(int cur, int tot));
@@ -1014,6 +1018,34 @@ int switchtec_get_stack_bif(struct switchtec_dev *dev, int stack_id,
 			    int port_bif[SWITCHTEC_PORTS_PER_STACK]);
 int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
 			    int port_bif[SWITCHTEC_PORTS_PER_STACK]);
+
+/******** GPIO Management ********/
+
+struct switchtec_gpio {
+	uint8_t sub_cmd;
+	uint8_t resvd;
+	uint16_t log_gpio_id;
+	uint8_t data;
+	uint8_t resvd1[3];
+};
+
+struct switchtec_gpio_sts_out {
+	uint8_t sub_cmd;
+	uint8_t resvd;
+	uint16_t pin_num;
+	uint32_t pin_values[SWITCHTEC_MAX_GPIO_PIN_VALS];
+};
+
+int switchtec_get_gpio(struct switchtec_dev *dev, int pin_id,
+		       int *gpio_val);
+int switchtec_set_gpio(struct switchtec_dev *dev, int pin_id,
+		       int gpio_val);
+int switchtec_get_gpio_direction_cfg(struct switchtec_dev *dev, int pin_id,
+				     int *direction);
+int switchtec_get_gpio_polarity_cfg(struct switchtec_dev *dev, int pin_id,
+				    int *polarity);
+int switchtec_en_dis_interrupt(struct switchtec_dev *dev, int pin_id, int en);
+int switchtec_get_all_pin_sts(struct switchtec_dev *dev, uint32_t *values);
 
 /********** EVENT COUNTER *********/
 
@@ -1520,6 +1552,23 @@ int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type,
 			 int tlp_length, int ecrc, uint32_t * raw_tlp_data);
 int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 			    int aer_error_id, int trigger_event);
+int switchtec_osa(struct switchtec_dev * dev, int stack_id, int operation);
+int switchtec_osa_config_type(struct switchtec_dev * dev, int stack_id, 
+			      int direction, int lane_mask, int link_rate, 
+			      int os_types);
+int switchtec_osa_config_misc(struct switchtec_dev * dev, int stack_id, 
+			      int trigger_en);
+int switchtec_osa_capture_control(struct switchtec_dev * dev, int stack_id, 
+				  int lane_mask, int direction, 
+				  int drop_single_os, int stop_mode,
+				  int snapshot_mode, int post_trigger, 
+				  int os_types);
+int switchtec_osa_dump_conf(struct switchtec_dev * dev, int stack_id);
+int switchtec_osa_config_pattern(struct switchtec_dev * dev, int stack_id, 
+				 int direction, int lane_mask,int link_rate, 
+				 uint32_t * value_data, uint32_t * mask_data);
+int switchtec_osa_capture_data(struct switchtec_dev * dev, int stack_id, 
+			       int lane, int direction);
 #ifdef __cplusplus
 }
 #endif

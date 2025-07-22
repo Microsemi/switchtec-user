@@ -1605,8 +1605,8 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		.module_defs = NULL,
 		.num_alloc = 0};
 	int entry_idx = 0;
-	uint32_t fw_version_log;
-	uint32_t sdk_version_log;
+	uint32_t fw_version_log = 0;
+	uint32_t sdk_version_log = 0;
 	uint32_t fw_version_def;
 	uint32_t sdk_version_def;
 	enum switchtec_gen gen_file;
@@ -1628,14 +1628,11 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		if (ret)
 			return ret;
 	}
-	
+
 	ret = parse_def_header(log_def_file, &fw_version_def,
 			       &sdk_version_def);
 	if (ret)
 		return ret;
-
-	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_FTDC)
-		fw_version_log = 0;
 
 	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_MAILBOX) {
 		fw_version_log = fw_version_def;
@@ -2291,6 +2288,146 @@ int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
 
 	return switchtec_cmd(dev, MRPC_STACKBIF, &in, sizeof(in), &out,
 			    sizeof(out));
+}
+
+/**
+ * @brief Get the GPIO pin value
+ * @param[in] dev	Switchtec device handle
+ * @param[in] pin_id	Logical GPIO pin to get the value of
+ * @param[out] gpio_val	GPIO pin value returned
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_get_gpio(struct switchtec_dev *dev, int pin_id,
+		       int *gpio_val)
+{
+	int ret;
+	struct switchtec_gpio out, in = {
+		.sub_cmd = MRPC_VGPIO_GET_VAL,
+		.log_gpio_id = pin_id,
+	};
+
+	ret = switchtec_cmd(dev, MRPC_VGPIO, &in, sizeof(in), &out,
+			    sizeof(out));
+	if (ret)
+		return ret;
+
+	*gpio_val = out.data;
+
+	return 0;
+}
+
+/**
+ * @brief Set the GPIO pin value
+ * @param[in] dev	Switchtec device handle
+ * @param[in] pin_id	Logical GPIO pin to set the value of
+ * @param[in] gpio_val	GPIO pin value to assign
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_set_gpio(struct switchtec_dev *dev, int pin_id,
+		       int gpio_val)
+{
+	struct switchtec_gpio in = {
+		.sub_cmd = MRPC_VGPIO_SET_VAL,
+		.log_gpio_id = pin_id,
+	};
+
+	in.data = gpio_val;
+	return switchtec_cmd(dev, MRPC_VGPIO, &in, sizeof(in), NULL, 0);
+}
+
+/**
+ * @brief Get the GPIO pin direction
+ * @param[in] dev	Switchtec device handle
+ * @param[in] pin_id	Logical GPIO pin to get the direction of
+ * @param[out] direction GPIO pin direction returned
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_get_gpio_direction_cfg(struct switchtec_dev *dev, int pin_id,
+				     int *direction)
+{
+	int ret;
+	struct switchtec_gpio out, in = {
+		.sub_cmd = MRPC_VGPIO_GET_DIR,
+		.log_gpio_id = pin_id,
+	};
+
+	ret = switchtec_cmd(dev, MRPC_VGPIO, &in, sizeof(in), &out,
+			    sizeof(out));
+	if (ret)
+		return ret;
+
+	*direction = out.data;
+
+	return 0;
+}
+
+/**
+ * @brief Get the GPIO pin polarity
+ * @param[in] dev	Switchtec device handle
+ * @param[in] pin_id	Logical GPIO pin to get the polarity of
+ * @param[out] polarity GPIO pin polarity returned
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_get_gpio_polarity_cfg(struct switchtec_dev *dev, int pin_id,
+				    int *polarity)
+{
+	int ret;
+	struct switchtec_gpio out, in = {
+		.sub_cmd = MRPC_VGPIO_GET_POL,
+		.log_gpio_id = pin_id,
+	};
+
+	ret = switchtec_cmd(dev, MRPC_VGPIO, &in, sizeof(in), &out,
+			    sizeof(out));
+	if (ret)
+		return ret;
+
+	*polarity = out.data;
+	
+	return 0;
+}
+
+/**
+ * @brief Enable/Disable the GPIO pin interrupt
+ * @param[in] dev	Switchtec device handle
+ * @param[in] pin_id	Logical GPIO pin to set the interrupt on
+ * @param[out] en 	Enable/Disable the interrupt
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_en_dis_interrupt(struct switchtec_dev *dev, int pin_id, int en)
+{
+	struct switchtec_gpio in = {
+		.sub_cmd = MRPC_VGPIO_DIS_INT,
+		.log_gpio_id = pin_id,
+	};
+
+	if (en)
+		in.sub_cmd = MRPC_VGPIO_EN_INT;
+
+	return switchtec_cmd(dev, MRPC_VGPIO, &in, sizeof(in), NULL, 0);
+}
+
+/**
+ * @brief Get all GPIO pin status
+ * @param[in] dev	Switchtec device handle
+ * @param[in] values	Values of all GPIO pins to return
+ * @return 0 on success, or a negative value on failure
+ */
+int switchtec_get_all_pin_sts(struct switchtec_dev *dev, uint32_t *values)
+{
+	int ret;
+	struct switchtec_gpio in = {
+		.sub_cmd = MRPC_VPGIO_GET_PIN_STS,
+	};
+	struct switchtec_gpio_sts_out out;
+
+	ret = switchtec_cmd(dev, MRPC_VGPIO, &in, sizeof(in), &out, sizeof(out));
+	if (ret)
+		return ret;
+	
+	memcpy(values, out.pin_values, sizeof(out.pin_values));
+
+	return 0;
 }
 
 /**@}*/

@@ -151,6 +151,20 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 }
 
 /**
+ * @brief Get the minor version number as a user readable int
+ * @ingroup Device
+ * @param[in] dev	Switchtec device handle
+ * @param[in] res	Int to put the version in
+ */
+int switchtec_get_device_version(struct switchtec_dev *dev, int *res)
+{
+	if (!dev->ops->get_device_version)
+		return 0;
+
+	return dev->ops->get_device_version(dev, res);
+}
+
+/**
  * @brief Execute an MRPC command
  * @ingroup Device
  * @param[in]  dev		Switchtec device handle

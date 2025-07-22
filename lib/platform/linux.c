@@ -300,6 +300,26 @@ static int linux_get_fw_version(struct switchtec_dev *dev, char *buf,
 	return 0;
 }
 
+static int linux_get_device_version(struct switchtec_dev *dev, int *version_res)
+{
+	int ret;
+	int version;
+	char syspath[PATH_MAX];
+	struct switchtec_linux *ldev = to_switchtec_linux(dev);
+
+	ret = dev_to_sysfs_path(ldev, "device_version", syspath, sizeof(syspath));
+	if (ret)
+		return ret;
+
+	version = sysfs_read_int(syspath, 16);
+	if (version < 0)
+		return version;
+	
+	memcpy(version_res, &version, sizeof(int));
+
+	return 0;
+}
+
 static int submit_cmd(struct switchtec_linux *ldev, uint32_t cmd,
 		      const void *payload, size_t payload_len)
 {
@@ -971,6 +991,7 @@ static const struct switchtec_ops linux_ops = {
 	.close = linux_close,
 	.get_device_id = linux_get_device_id,
 	.get_fw_version = linux_get_fw_version,
+	.get_device_version = linux_get_device_version,
 	.cmd = linux_cmd,
 	.get_devices = linux_get_devices,
 	.pff_to_port = linux_pff_to_port,

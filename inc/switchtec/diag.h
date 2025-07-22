@@ -316,5 +316,49 @@ struct switchtec_aer_event_gen_in {
 	uint32_t hdr_log[4];
 };
 
+struct osa_type_config_in{
+	uint8_t sub_cmd;
+	uint8_t stack_id;
+	uint16_t reserved;
+	uint16_t lane_mask;
+	uint8_t direction;
+	uint8_t link_rate;
+	uint8_t os_types;
+	uint8_t reserved2;
+	uint16_t reserved3;
+};
+
+struct osa_pattern_config_in{
+	uint8_t sub_cmd;
+	uint8_t stack_id;
+	uint16_t reserved;
+	uint16_t lane_mask;
+	uint8_t direction;
+	uint8_t link_rate;
+	uint32_t pat_val_dword0;
+	uint32_t pat_val_dword1;
+	uint32_t pat_val_dword2;
+	uint32_t pat_val_dword3;
+	uint32_t pat_mask_dword0;
+	uint32_t pat_mask_dword1;
+	uint32_t pat_mask_dword2;
+	uint32_t pat_mask_dword3;
+};
+
+struct osa_capture_ctrl_in{
+	uint8_t sub_cmd;
+	uint8_t stack_id;
+	uint16_t reserved;
+	uint16_t lane_mask;
+	uint8_t direction;
+	uint8_t drop_single_os;
+	uint8_t stop_mode;
+	uint8_t snapshot_mode;
+	uint16_t post_trig_entries;
+	uint8_t os_types;
+	uint8_t reserved2;
+	uint16_t reserved3;
+};
+
 #endif
 /**@}*/

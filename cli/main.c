@@ -191,6 +191,9 @@ static int print_dev_info(struct switchtec_dev *dev)
 	char version[32];
 	enum switchtec_boot_phase phase;
 	enum switchtec_rev hw_rev;
+	char minor_str[8] = "";
+	int dev_ver;
+	int minor_ver;
 
 	device_id = switchtec_device_id(dev);
 
@@ -203,11 +206,20 @@ static int print_dev_info(struct switchtec_dev *dev)
 		switchtec_perror("dev info");
 		return ret;
 	}
+	if (switchtec_is_gen5(dev)) {
+		switchtec_get_device_version(dev, &dev_ver);
+		if (ret) {
+			switchtec_perror("dev version");
+			return ret;
+		}
+		minor_ver = ((dev_ver >> 0x10) & 0xFF);
+		sprintf(minor_str, ".%d", minor_ver);
+	}
 
 	printf("%s (%s):\n", switchtec_name(dev),
 	       switchtec_phase_id_str(phase));
 	printf("    Generation:  %s\n", switchtec_gen_str(dev));
-	printf("    HW Revision: %s\n", switchtec_rev_str(hw_rev));
+	printf("    HW Revision: %s%s\n", switchtec_rev_str(hw_rev), minor_str);
 	printf("    Variant:     %s\n",
 	       device_id ? switchtec_variant_str(dev) : "N/A");
 	if (device_id)
@@ -1668,6 +1680,122 @@ static int stack_bif(int argc, char **argv)
 	return 0;
 }
 
+
+#define CMD_DESC_GPIO "Perform GPIO commands on the switch"
+
+static int gpio(int argc, char **argv)
+{
+	int ret;
+	int gpio_val;
+	int direction;
+	int polarity;
+	uint32_t values[SWITCHTEC_MAX_GPIO_PIN_VALS];
+	static struct {
+		struct switchtec_dev *dev;
+		int get_dir_cfg;
+		int get_pol_config;
+		int en_gpio_int;
+		int get_pin_sts;
+		int log_pin_id;
+		int pin_val;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"get_dir_config", 'd', "", CFG_NONE, &cfg.get_dir_cfg, 
+			no_argument, "get the direction configuration of the specified GPIO pin"},
+		{"get_pol_config", 'P', "", CFG_NONE, &cfg.get_pol_config, 
+			no_argument, "get the polarity configuration of the specified GPIO pin"},
+		{"en_gpio_int", 'i', "", CFG_NONNEGATIVE, &cfg.en_gpio_int, 
+			required_argument, "enable/disable the gpio interrupt on the specified GPIO pin,\n0 - disable\n1 - enable"},
+		{"get_pin_sts", 's', "", CFG_NONE, &cfg.get_pin_sts, no_argument,
+			"get the GPIO pin status of all GPIO pins"},
+		{"gpio_pin_value", 'v', "", CFG_NONNEGATIVE, &cfg.pin_val, 
+			required_argument, "GPIO pin value, used to set the specified logical GPIO pin ID to this value,\n0 - Low\n1 - High"},
+		{"logical_gpio_pin", 'p', "", CFG_NONNEGATIVE, &cfg.log_pin_id, 
+			required_argument,
+			"logical GPIO pin ID, this arguement used on its own will read the specified GPIO pin."\
+			" Required for all other operations EXCEPT when using the -s --get_pin_sts for reading all GPIO pins"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_GPIO, opts, &cfg, sizeof(cfg));
+	if (!cfg.log_pin_id && !cfg.get_pin_sts) {
+		printf("You must specify a logicial pin ID --help\n");
+		return -1;
+	}
+	if (cfg.en_gpio_int > 1) {
+		printf("Invalid paramter for enabling the GPIO interrupt. Must be 0/1 --help\n");
+		return -1;
+	}
+	if (cfg.pin_val > 1) {
+		printf("Invalid paramter for enabling the pin value. Must be 0/1 --help\n");
+		return -1;
+	}
+
+	if ((cfg.get_dir_cfg || cfg.get_pol_config 
+	     || cfg.get_pin_sts || cfg.en_gpio_int) && cfg.pin_val) {
+		printf("Cannot set pin value for the selected sub-command(s), ignoring -v --gpio_pin_value..\n");
+	}
+
+	if (cfg.get_dir_cfg) {
+		ret = switchtec_get_gpio_direction_cfg(cfg.dev, cfg.log_pin_id, 
+						       &direction);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("Direction configuration of GPIO logical pin %d is %s\n", 
+		       cfg.log_pin_id, direction ? "Input" : "Output");
+	} else if (cfg.get_pol_config) {
+		ret = switchtec_get_gpio_polarity_cfg(cfg.dev, cfg.log_pin_id, 
+						      &polarity);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("Polarity configuration of GPIO logical pin %d is %s\n", 
+		       cfg.log_pin_id, polarity ? "Non-Inverted" : "Inverted");
+	} else if (cfg.en_gpio_int) {
+		ret = switchtec_en_dis_interrupt(cfg.dev, cfg.log_pin_id, 
+						 cfg.en_gpio_int);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("%s the interrupt at GPIO logical pin %d\n", 
+		       cfg.en_gpio_int ? "Enabled" : "Disabled", cfg.log_pin_id);
+	} else if (cfg.get_pin_sts) {
+		ret = switchtec_get_all_pin_sts(cfg.dev, values);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("GPIO status of all pins:\n");
+		printf("DW\tDW VALUE\n");
+		for (int i = 0; i < SWITCHTEC_MAX_GPIO_PIN_VALS; i++)
+			printf("%d\t0x%08x\n", i, values[i]);
+	} else if (cfg.pin_val) {
+		printf("Setting value of logical GPIO pin %d to: %d\n", 
+			cfg.log_pin_id, cfg.pin_val);
+		ret = switchtec_set_gpio(cfg.dev, cfg.log_pin_id, cfg.pin_val);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+	} else {
+		ret = switchtec_get_gpio(cfg.dev, cfg.log_pin_id, &gpio_val);
+		if (ret) {
+			switchtec_perror("switchtec_get_gpio");
+			return 1;
+		}
+		printf("Value of GPIO logical pin %d: %d\n", cfg.log_pin_id, 
+			gpio_val);
+	}
+	
+	printf("\nGPIO operation successful.\n");
+	return 0;
+}
+
 #define CMD_DESC_HARD_RESET "perform a hard reset of the switch"
 
 static int hard_reset(int argc, char **argv)
@@ -1799,6 +1927,8 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	print_fw_part_line("BOOT", sum->boot.active);
 	print_fw_part_line("MAP", sum->map.active);
 	print_fw_part_line("KEY", sum->key.active);
+	if (switchtec_is_gen5(dev))
+		print_fw_part_line("RIOT", sum->riot.active);
 	print_fw_part_line("BL2", sum->bl2.active);
 	print_fw_part_line("IMG", sum->img.active);
 	print_fw_part_line("CFG", sum->cfg.active);
@@ -1809,6 +1939,8 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	printf("Inactive Partitions:\n");
 	print_fw_part_line("MAP", sum->map.inactive);
 	print_fw_part_line("KEY", sum->key.inactive);
+	if (switchtec_is_gen5(dev))
+		print_fw_part_line("RIOT", sum->riot.inactive);
 	print_fw_part_line("BL2", sum->bl2.inactive);
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
@@ -2019,6 +2151,7 @@ static int fw_toggle(int argc, char **argv)
 		int key;
 		int firmware;
 		int config;
+		int riotcore;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -2030,23 +2163,29 @@ static int fw_toggle(int argc, char **argv)
 		 "toggle IMG firmware"},
 		{"config", 'c', "", CFG_NONE, &cfg.config, no_argument,
 		 "toggle CFG data"},
+		{"riotcore", 'r', "", CFG_NONE, &cfg.riotcore, no_argument,
+		 "toggle RIOTCORE - Gen5 switch only"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_FW_TOGGLE, opts, &cfg, sizeof(cfg));
 
-	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config) {
+	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config && !cfg.riotcore) {
 		fprintf(stderr, "NOTE: Not toggling images as no "
 			"partition type options were specified\n\n");
-	} else if ((cfg.bl2 || cfg.key) && switchtec_is_gen3(cfg.dev)) {
-		fprintf(stderr, "Firmware type BL2 and Key manifest"
+	} else if ((cfg.bl2 || cfg.key || cfg.riotcore) && switchtec_is_gen3(cfg.dev)) {
+		fprintf(stderr, "Firmware type BL2, Key manifest, or RIORCORE "
 			"are not supported by Gen3 switches\n");
+		return 1;
+	} else if (cfg.riotcore && switchtec_is_gen4(cfg.dev)){
+		fprintf(stderr, "Firmware type RIOTCORE is not supported by Gen4 switchtes\n");
 		return 1;
 	} else {
 		ret = switchtec_fw_toggle_active_partition(cfg.dev,
 							   cfg.bl2,
 							   cfg.key,
 							   cfg.firmware,
-							   cfg.config);
+							   cfg.config,
+							   cfg.riotcore);
 		if (ret)
 			err = errno;
 	}
@@ -2637,6 +2776,7 @@ static const struct cmd commands[] = {
 	CMD(port_bind, CMD_DESC_PORT_BIND),
 	CMD(port_unbind, CMD_DESC_PORT_UNBIND),
 	CMD(stack_bif, CMD_DESC_STACK_BIF),
+	CMD(gpio, CMD_DESC_GPIO),
 	CMD(hard_reset, CMD_DESC_HARD_RESET),
 	CMD(fw_update, CMD_DESC_FW_UPDATE),
 	CMD(fw_info, CMD_DESC_FW_INFO),
