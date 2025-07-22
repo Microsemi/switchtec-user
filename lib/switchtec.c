@@ -1605,8 +1605,8 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		.module_defs = NULL,
 		.num_alloc = 0};
 	int entry_idx = 0;
-	uint32_t fw_version_log;
-	uint32_t sdk_version_log;
+	uint32_t fw_version_log = 0;
+	uint32_t sdk_version_log = 0;
 	uint32_t fw_version_def;
 	uint32_t sdk_version_def;
 	enum switchtec_gen gen_file;
@@ -1628,14 +1628,11 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 		if (ret)
 			return ret;
 	}
-	
+
 	ret = parse_def_header(log_def_file, &fw_version_def,
 			       &sdk_version_def);
 	if (ret)
 		return ret;
-
-	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_FTDC)
-		fw_version_log = 0;
 
 	if (log_type == SWITCHTEC_LOG_PARSE_TYPE_MAILBOX) {
 		fw_version_log = fw_version_def;

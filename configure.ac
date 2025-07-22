@@ -1,4 +1,5 @@
-AC_INIT(VERSION-GEN)
+AC_INIT
+AC_CONFIG_SRCDIR([VERSION-GEN])
 
 AC_PROG_CC
 AC_CHECK_TOOL([WINDRES], [windres])
@@ -28,10 +29,12 @@ AC_CHECK_HEADERS([curses.h ncurses/curses.h])
 AS_IF([test "x$with_openssl" != xno],
        [AC_CHECK_HEADERS([openssl/pem.h])
         AC_CHECK_LIB([crypto], [RSA_free], [], [], [])
-        AC_CHECK_DECLS([RSA_get0_key], [], [], [#include <openssl/pem.h>])])
+        AC_CHECK_DECLS([RSA_get0_key], [], [], [#include <openssl/pem.h>])
+        AC_CHECK_DECLS([PEM_read_PUBKEY], [], [],
+                       [#include <openssl/pem.h>])])
 
 AC_CONFIG_FILES([Makefile])
 
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
-AC_OUTPUT()
+AC_OUTPUT
