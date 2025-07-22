@@ -1033,7 +1033,7 @@ static int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev,
 	struct switchtec_gen5_port_eq_table out = {};
 	struct switchtec_port_eq_table_in in = {
 		.sub_cmd = MRPC_GEN5_PORT_EQ_FAR_END_TX_EQ_TABLE_DUMP,
-		port_id = port_id,
+		.port_id = port_id,
 	};
 	int ret, i;
 
