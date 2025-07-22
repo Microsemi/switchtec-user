@@ -29,7 +29,9 @@ AC_CHECK_HEADERS([curses.h ncurses/curses.h])
 AS_IF([test "x$with_openssl" != xno],
        [AC_CHECK_HEADERS([openssl/pem.h])
         AC_CHECK_LIB([crypto], [RSA_free], [], [], [])
-        AC_CHECK_DECLS([RSA_get0_key], [], [], [#include <openssl/pem.h>])])
+        AC_CHECK_DECLS([RSA_get0_key], [], [], [#include <openssl/pem.h>])
+        AC_CHECK_DECLS([PEM_read_PUBKEY], [], [],
+                       [#include <openssl/pem.h>])])
 
 AC_CONFIG_FILES([Makefile])
 

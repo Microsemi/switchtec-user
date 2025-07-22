@@ -3711,6 +3711,16 @@ else $as_nop
 fi
 printf "%s\n" "#define HAVE_DECL_RSA_GET0_KEY $ac_have_decl" >>confdefs.h
 
+        ac_fn_check_decl "$LINENO" "PEM_read_PUBKEY" "ac_cv_have_decl_PEM_read_PUBKEY" "#include <openssl/pem.h>
+" "$ac_c_undeclared_builtin_options" "CFLAGS"
+if test "x$ac_cv_have_decl_PEM_read_PUBKEY" = xyes
+then :
+  ac_have_decl=1
+else $as_nop
+  ac_have_decl=0
+fi
+printf "%s\n" "#define HAVE_DECL_PEM_READ_PUBKEY $ac_have_decl" >>confdefs.h
+
 fi
 
 ac_config_files="$ac_config_files Makefile"
