@@ -529,7 +529,7 @@ static int topo_info(int argc, char **argv)
 		ltssm |= port_info->port_major_ltssm;
 
 		printf("        LTSSM:			        %s\n",
-		       switchtec_ltssm_str(ltssm, 1));
+		       switchtec_ltssm_str(ltssm, 1, cfg.dev));
 		printf("        Clock Channel:			%d\n",
 		       port_info->port_clock_channel);
 		printf("        Connector Index:		%d\n",

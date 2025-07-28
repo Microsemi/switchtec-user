@@ -32,6 +32,7 @@
 #include <switchtec/switchtec.h>
 #include <switchtec/utils.h>
 #include <switchtec/endian.h>
+#include <switchtec/errors.h>
 
 #include <limits.h>
 #include <locale.h>
@@ -47,6 +48,14 @@ struct diag_common_cfg {
 	int port_id;
 	int far_end;
 	int prev;
+	int prev_speed;
+};
+
+static const struct argconfig_choice port_eq_prev_speeds[] = {
+	{"GEN3", PCIE_LINK_RATE_GEN3, "GEN3 Previous Speed"},
+	{"GEN4", PCIE_LINK_RATE_GEN4, "GEN4 Previous Speed"},
+	{"GEN5", PCIE_LINK_RATE_GEN5, "GEN5 Previous Speed"},
+	{}
 };
 
 #define DEFAULT_DIAG_COMMON_CFG {	\
@@ -64,6 +73,12 @@ struct diag_common_cfg {
 #define PREV_OPTION {							\
 	"prev", 'P', "", CFG_NONE, &cfg.prev, no_argument,		\
 	"return the data for the previous link",			\
+}
+
+#define PREV_SPEED_OPTION {						\
+	"prev_rate", 'r', "RATE", CFG_CHOICES, &cfg.prev_speed, 	\
+	required_argument, "return the data for the previous link at the specified link rate\n(supported on Gen 5 switchtec devices only)", \
+	.choices=port_eq_prev_speeds					\
 }
 
 static int get_port(struct switchtec_dev *dev, int port_id,
@@ -160,7 +175,8 @@ static int ltssm_log(int argc, char **argv) {
 		printf("%3d\t", i);
 		printf("%09x\t", output[i].timestamp);
 		printf("%.1fG\t\t", output[i].link_rate);
-		printf("%s\n", switchtec_ltssm_str(output[i].link_state, 1));
+		printf("%s\n", switchtec_ltssm_str(output[i].link_state, 1, 
+						   cfg.dev));
 	}
 
 	return ret;
@@ -1711,6 +1727,8 @@ static const struct argconfig_choice pattern_types[] = {
 	{"PRBS31",  SWITCHTEC_DIAG_PATTERN_PRBS_31, "PRBS 31"},
 	{"PRBS9",   SWITCHTEC_DIAG_PATTERN_PRBS_9,  "PRBS 9"},
 	{"PRBS15",  SWITCHTEC_DIAG_PATTERN_PRBS_15, "PRBS 15"},
+	{"PRBS5",   SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5,  "PRBS 5 (Gen 5)"},
+	{"PRBS20",  SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20, "PRBS 20 (Gen 5)"},
 	{}
 };
 
@@ -1734,33 +1752,62 @@ static const char *pattern_to_str(enum switchtec_diag_pattern type)
 	return "UNKNOWN";
 }
 
+static const char *link_speed_to_str(enum switchtec_diag_pattern_link_rate type)
+{
+	const struct argconfig_choice *s;
+
+	for (s = pat_gen_link_speeds; s->name; s++) {
+		if (s->value == type)
+			return s->name;
+	}
+
+	return "UNKNOWN";
+}
+
 static int print_pattern_mode(struct switchtec_dev *dev,
 		struct switchtec_status *port, int port_id)
 {
 	enum switchtec_diag_pattern gen_pat, mon_pat;
+	int gen_pat_gen5, mon_pat_gen5;
 	unsigned long long err_cnt;
 	int ret, lane_id;
+	int err = 0;
 
 	ret = switchtec_diag_pattern_gen_get(dev, port_id, &gen_pat);
 	if (ret) {
 		switchtec_perror("pattern_gen_get");
 		return -1;
 	}
+	gen_pat_gen5 = gen_pat;
+	if (gen_pat_gen5 == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_DISABLED) {
+		fprintf(stderr, "!! The pattern generator is disabled on either the TX or RX port\n");
+		err = 1;
+	}
 
 	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, 
 					     &err_cnt);
+	mon_pat_gen5 = mon_pat;
+	if (ret == ERR_PAT_MON_IS_DISABLED || mon_pat_gen5 == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_DISABLED) {
+		fprintf(stderr, "!! The pattern monitor is disabled on either the TX or RX port\n");
+		err = 1;
+	}
+	if (err) {
+		fprintf(stderr, "Unable to print additional pattern information until both monitor and generator are enabled correctly\n");
+		return -1;
+	}
+
 	if (ret) {
 		switchtec_perror("pattern_mon_get");
 		return -1;
 	}
 
 	printf("Port: %d\n", port_id);
-	if (gen_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED)
+	if (gen_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED && switchtec_is_gen4(dev))
 		printf("  Generator: Disabled\n");
 	else
 		printf("  Generator: %s\n", pattern_to_str(gen_pat));
 
-	if (mon_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED) {
+	if (mon_pat == SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED && switchtec_is_gen4(dev)) {
 		printf("  Monitor: Disabled\n");
 	} else {
 		printf("  Monitor: %-20s\n", pattern_to_str(mon_pat));
@@ -1801,7 +1848,6 @@ static int pattern(int argc, char **argv)
 		int inject_errs;
 		int link_speed;
 	} cfg = {
-		.link_speed = SWITCHTEC_DIAG_PAT_LINK_DISABLED,
 		.port_id = -1,
 		.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_31,
 	};
@@ -1811,7 +1857,8 @@ static int pattern(int argc, char **argv)
 		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
 		 required_argument, "physical port ID to set/get loopback for"},
 		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
-		 "Disable all generators and monitors"},
+		 "Without any accompanying flags this will disable both monitor and generator."\
+		 " When included with either -m --monitor or -g --generator it will disable the selected type."},
 		{"inject", 'i', "NUM", CFG_NONNEGATIVE, &cfg.inject_errs,
 		 required_argument,
 		 "Inject the specified number of errors into all lanes of the TX port"},
@@ -1831,20 +1878,21 @@ static int pattern(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_PATTERN, opts, &cfg, sizeof(cfg));
 
-	if (cfg.port_id < 0) {
-		fprintf(stderr, "Must specify -p / --port_id\n");
-		return -1;
-	}
-
-	if (cfg.disable && (cfg.generate || cfg.monitor)) {
-		fprintf(stderr,
-			"Must not specify -d / --disable with an enable flag\n");
-		return -1;
-	}
-
 	if (cfg.link_speed && cfg.monitor) {
 		fprintf(stderr,
 			"Cannot enable link speed -s / --speed on pattern monitor\n");
+		return -1;
+	}
+	
+	if (!cfg.link_speed) {
+		if (switchtec_is_gen5(cfg.dev))
+			cfg.link_speed = SWITCHTEC_DIAG_PAT_LINK_GEN1;
+		else
+			cfg.link_speed = SWITCHTEC_DIAG_PAT_LINK_DISABLED;
+	}
+
+	if (cfg.port_id < 0) {
+		fprintf(stderr, "Must specify -p / --port_id\n");
 		return -1;
 	}
 	
@@ -1853,9 +1901,14 @@ static int pattern(int argc, char **argv)
 		return ret;
 
 	if (cfg.disable) {
-		cfg.generate = 1;
-		cfg.monitor = 1;
-		cfg.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED;
+		if (!cfg.generate && !cfg.monitor) {
+			cfg.generate = 1;
+			cfg.monitor = 1;
+		}
+		if (switchtec_is_gen5(cfg.dev))
+			cfg.pattern = SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_DISABLED;
+		else
+			cfg.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED;
 	}
 
 	if (cfg.monitor) {
@@ -1865,6 +1918,12 @@ static int pattern(int argc, char **argv)
 			switchtec_perror("pattern_mon_set");
 			return -1;
 		}
+		if (cfg.disable)
+			printf("Disabled pattern monitor on port %d\n",
+				cfg.port_id);
+		else
+			printf("Pattern monitor set for port %d with pattern type %s\n", 
+				cfg.port_id, pattern_to_str(cfg.pattern));
 	}
 
 	if (cfg.generate) {
@@ -1874,6 +1933,13 @@ static int pattern(int argc, char **argv)
 			switchtec_perror("pattern_gen_set");
 			return -1;
 		}
+		if (cfg.disable)
+			printf("Disabled pattern generator on port %d\n",
+				cfg.port_id);
+		else
+			printf("Pattern generator set for port %d with pattern type %s at %s\n", 
+				cfg.port_id, pattern_to_str(cfg.pattern), 
+				link_speed_to_str(cfg.link_speed));
 	}
 
 	if (cfg.inject_errs > 1000) {
@@ -1942,7 +2008,8 @@ static int port_eq_txcoeff(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {NULL}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, 
+		PREV_SPEED_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXCOEFF,
@@ -1950,7 +2017,15 @@ static int port_eq_txcoeff(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	ret = switchtec_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, cfg.end,
+	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+		return -1;
+	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+		return -1;
+	}
+
+	ret = switchtec_diag_port_eq_tx_coeff(cfg.dev, cfg.port_id, cfg.prev_speed, cfg.end,
 					      cfg.link, &coeff);
 	if (ret) {
 		switchtec_perror("port_eq_coeff");
@@ -1979,13 +2054,22 @@ static int port_eq_txfslf(int argc, char **argv)
 	int i, ret, lnk_width;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, {}
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, 
+		PREV_SPEED_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXFSLF,
 				    &cfg, opts);
 	if (ret)
 		return ret;
+
+	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+		return -1;
+	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+		return -1;
+	}
 
 	printf("%s Equalization FS/LF data for physical port %d %s\n\n",
 	       cfg.far_end ? "Far End" : "Local", cfg.port_id,
@@ -1998,7 +2082,7 @@ static int port_eq_txfslf(int argc, char **argv)
 		lnk_width = cfg.port.neg_lnk_width;
 
 	for (i = 0; i < lnk_width; i++) {
-		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, i,
+		ret = switchtec_diag_port_eq_tx_fslf(cfg.dev, cfg.port_id, cfg.prev_speed, i,
 				cfg.end, cfg.link, &data);
 		if (ret) {
 			switchtec_perror("port_eq_fs_ls");
@@ -2020,7 +2104,7 @@ static int port_eq_txtable(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, PORT_OPTION, PREV_OPTION, {}
+		DEVICE_OPTION, PORT_OPTION, PREV_OPTION, PREV_SPEED_OPTION, {}
 	};
 
 	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_PORT_EQ_TXTABLE,
@@ -2028,7 +2112,15 @@ static int port_eq_txtable(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	ret = switchtec_diag_port_eq_tx_table(cfg.dev, cfg.port_id,
+	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+		return -1;
+	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+		return -1;
+	}
+
+	ret = switchtec_diag_port_eq_tx_table(cfg.dev, cfg.port_id, cfg.prev_speed,
 					      cfg.link, &table);
 	if (ret) {
 		switchtec_perror("port_eq_table");
@@ -2250,7 +2342,8 @@ static int tlp_inject (int argc, char **argv)
 			"Enable the ecrc to be included at the end of the input data (Default: disabled)"},
 		{"tlp_data", 'd', "\"DW0 DW1 ... DW131\"", CFG_STRING, 
 			&cfg.raw_tlp_data, required_argument, 
-			"DWs to be sent as part of the raw TLP (Maximum 132 DWs). Every DW must start with \'0x\'"},
+			"DWs to be sent as part of the raw TLP (Maximum 132 DWs)"\
+			", surrounded by quotations. Every DW must start with \'0x\'\nEx. -d \"0x1 0x2 0x3\""},
 		{NULL}
 	};
 
@@ -2283,15 +2376,27 @@ static int tlp_inject (int argc, char **argv)
 	return 0;
 }
 
+static int convert_bitfield(char * bits)
+{
+	int total = 0;
+	char * sep_bits = strtok(bits, ",");
+
+	while (sep_bits != NULL) {
+		total += 0x1 << atoi(sep_bits);
+		sep_bits = strtok(NULL, ",");
+    	}
+	return total;
+}
+
 #define CMD_DESC_AER_EVENT_GEN "Generate an AER Error Event"
 
 static int aer_event_gen(int argc, char **argv)
 {
-	int ret;
+	int ret, aer_bitfield;
 	static struct {
 		struct switchtec_dev *dev;
 		int port_id;
-		int aer_error_id;
+		char * aer_error_id;
 		int trigger_event;
 	} cfg = {};
 
@@ -2299,7 +2404,7 @@ static int aer_event_gen(int argc, char **argv)
 		DEVICE_OPTION,
 		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port_id, 
 		 required_argument, "port ID"},
-		{"ce_event", 'e', "", CFG_NONNEGATIVE, &cfg.aer_error_id, 
+		{"ce_event", 'e', "", CFG_STRING, &cfg.aer_error_id, 
 		 required_argument, "aer CE event - 0,6,7,8,12,14,15"},
 		{"trigger", 't', "", CFG_NONNEGATIVE, &cfg.trigger_event, 
 		 required_argument, "trigger event (only CE events supported-0x1)"},
@@ -2307,8 +2412,9 @@ static int aer_event_gen(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg, 
 			sizeof(cfg));
+	aer_bitfield = convert_bitfield(cfg.aer_error_id);
 
-	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, cfg.aer_error_id, 
+	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, aer_bitfield, 
 				      cfg.trigger_event);
 
 	if (ret != 0) {

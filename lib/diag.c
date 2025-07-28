@@ -827,11 +827,11 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on success, error code on failure
  */
-static int switchtec_gen5_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
-						int port_id,
-						enum switchtec_diag_end end,
-						enum switchtec_diag_link link,
-						struct switchtec_port_eq_coeff
+static int switchtec_gen5_diag_port_eq_tx_coeff(struct switchtec_dev *dev, 
+						int port_id, int prev_speed,
+					 	enum switchtec_diag_end end, 
+					 	enum switchtec_diag_link link,
+					 	struct switchtec_port_eq_coeff 
 						*res)
 {
 	struct switchtec_port_eq_coeff *loc_out;
@@ -876,7 +876,7 @@ static int switchtec_gen5_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
 
 	if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
 		in->dump_type = LANE_EQ_DUMP_TYPE_PREV;
-		in->prev_rate = PCIE_LINK_RATE_GEN5;
+		in->prev_rate = prev_speed;
 	}
 
 	if (end == SWITCHTEC_DIAG_LOCAL) {
@@ -999,15 +999,15 @@ static int switchtec_gen4_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
-				    enum switchtec_diag_end end,
+int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id, 
+				    int prev_speed, enum switchtec_diag_end end, 
 				    enum switchtec_diag_link link,
 				    struct switchtec_port_eq_coeff *res)
 {
 	int ret = -1;
 
 	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_coeff(dev, port_id, end,
+		ret = switchtec_gen5_diag_port_eq_tx_coeff(dev, port_id, prev_speed, end,
 							   link, res);
 	else if (switchtec_is_gen4(dev))
 		ret = switchtec_gen4_diag_port_eq_tx_coeff(dev, port_id, end,
@@ -1024,8 +1024,8 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on success, error code on failure
  */
-static int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev,
-						int port_id,
+static int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev, 
+						int port_id, int prev_speed,
 						enum switchtec_diag_link link,
 						struct switchtec_port_eq_table
 						*res)
@@ -1047,7 +1047,7 @@ static int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev,
 
 	if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
 		in.dump_type = LANE_EQ_DUMP_TYPE_PREV;
-		in.prev_rate = PCIE_LINK_RATE_GEN5;
+		in.prev_rate = prev_speed;
 	}
 
 	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in,
@@ -1141,14 +1141,15 @@ static int switchtec_gen4_diag_port_eq_tx_table(struct switchtec_dev *dev,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id, int prev_speed,
 				    enum switchtec_diag_link link,
 				    struct switchtec_port_eq_table *res)
 {
 	int ret = -1;
 
 	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id, link,
+		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id, 
+							   prev_speed, link, 
 							   res);
 	else if (switchtec_is_gen4(dev))
 		ret = switchtec_gen4_diag_port_eq_tx_table(dev, port_id, link,
@@ -1167,8 +1168,9 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on success, error code on failure
  */
-static int switchtec_gen5_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
-					       int port_id, int lane_id,
+static int switchtec_gen5_diag_port_eq_tx_fslf(struct switchtec_dev *dev, 
+					       int port_id, int prev_speed, 
+					       int lane_id, 
 					       enum switchtec_diag_end end,
 				   	       enum switchtec_diag_link link,
 					       struct switchtec_port_eq_tx_fslf
@@ -1200,7 +1202,7 @@ static int switchtec_gen5_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
 		in.dump_type = LANE_EQ_DUMP_TYPE_CURR;
 	} else {
 		in.dump_type = LANE_EQ_DUMP_TYPE_PREV;
-		in.prev_rate = PCIE_LINK_RATE_GEN5;
+		in.prev_rate = prev_speed;
 	}
 
 	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in,
@@ -1289,17 +1291,18 @@ static int switchtec_gen4_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
-				   int lane_id, enum switchtec_diag_end end,
+int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id, 
+				   int prev_speed, int lane_id, 
+				   enum switchtec_diag_end end,
 				   enum switchtec_diag_link link,
 				   struct switchtec_port_eq_tx_fslf *res)
 {
 	int ret = -1;
 
 	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_fslf(dev, port_id,
-							  lane_id, end,
-							  link, res);
+		ret = switchtec_gen5_diag_port_eq_tx_fslf(dev, port_id, 
+							  prev_speed, lane_id, 
+							  end, link, res);
 	else if (switchtec_is_gen4(dev))
 		ret = switchtec_gen4_diag_port_eq_tx_fslf(dev, port_id,
 							  lane_id, end,
@@ -1751,7 +1754,7 @@ int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 	struct switchtec_aer_event_gen_in sub_cmd_id = {
 		.sub_cmd = trigger_event,
 		.phys_port_id = port_id,
-		.err_mask = (1 << aer_error_id),
+		.err_mask = aer_error_id,
 		.hdr_log[0] = 0,
 		.hdr_log[1] = 0,
 		.hdr_log[2] = 0,
