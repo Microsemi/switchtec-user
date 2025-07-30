@@ -348,7 +348,7 @@ static int read_resp(struct switchtec_linux *ldev, void *resp,
 		     size_t resp_len)
 {
 	int32_t ret;
-    size_t bufsize = sizeof(uint32_t) + resp_len;
+	size_t bufsize = sizeof(uint32_t) + resp_len;
 	char buf[bufsize];
 
 	ret = read(ldev->fd, buf, bufsize);
@@ -362,8 +362,11 @@ static int read_resp(struct switchtec_linux *ldev, void *resp,
 	}
 
 	memcpy(&ret, buf, sizeof(ret));
-	if (ret)
-		errno = ret;
+
+	if (ret) {
+		errno = ENODATA;
+		return -errno;
+	}
 
 	if (!resp)
 		return ret;
