@@ -132,9 +132,9 @@ int switchtec_get_fw_version(struct switchtec_dev *dev, char *buf,
 	if (!sum)
 		return -1;
 
-	if (sum->img.active->running) {
+	if (sum->img.active && sum->img.active->running) {
 		running_img = sum->img.active;
-	} else if (sum->img.inactive->running) {
+	} else if (sum->img.inactive && sum->img.inactive->running) {
 		running_img = sum->img.inactive;
 	} else {
 		switchtec_fw_part_summary_free(sum);
