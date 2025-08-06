@@ -2129,14 +2129,25 @@ static int port_eq_txtable(int argc, char **argv)
 
 	printf("Far End TX Equalization Table for physical port %d, lane %d %s\n\n",
 	       cfg.port_id, table.lane_id, cfg.prev ? "(Previous Link-Up)" : "");
-	printf("Step  Pre-Cursor  Post-Cursor  FOM  Pre-Up  Post-Up  Error  Active  Speed\n");
-
-	for (i = 0; i < table.step_cnt; i++) {
-		printf("%4d  %10d  %11d  %3d  %6d  %7d  %5d  %6d  %5d\n",
-		       i, table.steps[i].pre_cursor, table.steps[i].post_cursor,
-		       table.steps[i].fom, table.steps[i].pre_cursor_up,
-		       table.steps[i].post_cursor_up, table.steps[i].error_status,
-		       table.steps[i].active_status, table.steps[i].speed);
+	printf("%s\n", switchtec_is_gen5(cfg.dev) ? 
+	       "Step  Pre-Cursor  Post-Cursor  Error  Active  Speed" : 
+	       "Step  Pre-Cursor  Post-Cursor  FOM  Pre-Up  Post-Up  Error  Active  Speed");
+	
+	if (switchtec_is_gen5(cfg.dev)) {
+		for (i = 0; i < table.step_cnt; i++) {
+			printf("%4d  %10d  %11d  %5d  %6d  %5d\n",
+				i, table.steps[i].pre_cursor, table.steps[i].post_cursor,
+				table.steps[i].error_status, table.steps[i].active_status, 
+				table.steps[i].speed);
+		}
+	} else {
+		for (i = 0; i < table.step_cnt; i++) {
+			printf("%4d  %10d  %11d  %3d  %6d  %7d  %5d  %6d  %5d\n",
+				i, table.steps[i].pre_cursor, table.steps[i].post_cursor,
+				table.steps[i].fom, table.steps[i].pre_cursor_up,
+				table.steps[i].post_cursor_up, table.steps[i].error_status,
+				table.steps[i].active_status, table.steps[i].speed);
+		}
 	}
 
 	return 0;
