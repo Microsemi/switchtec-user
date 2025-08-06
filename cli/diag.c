@@ -136,21 +136,29 @@ static int diag_parse_common_cfg(int argc, char **argv, const char *desc,
 
 #define CMD_DESC_LTSSM_LOG "Display LTSSM log"
 static int ltssm_log(int argc, char **argv) {
-	struct diag_common_cfg cfg = DEFAULT_DIAG_COMMON_CFG;
+	static struct {
+		struct switchtec_dev *dev;
+		int port_id;
+		int clear;
+	} cfg = {
+		.port_id = -1,
+		.clear = 0,
+	};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, PORT_OPTION, {}
+		DEVICE_OPTION, 
+		{"clear", 'c', "", CFG_NONE, &cfg.clear, no_argument,
+		 "clear the LTSSM log at the specified port"}, PORT_OPTION, 
+		{NULL}
 	};
 
 	int ret;
 	int port;
 	int i;
 
-	ret = diag_parse_common_cfg(argc, argv, CMD_DESC_LTSSM_LOG,
-				    &cfg, opts);
-	if (ret)
-		return ret;
-	
+	argconfig_parse(argc, argv, CMD_DESC_LTSSM_LOG, opts, &cfg,
+			sizeof(cfg));
+
 	int log_count = 512;
 	if (switchtec_is_gen4(cfg.dev))
 		log_count = 128;
@@ -163,20 +171,29 @@ static int ltssm_log(int argc, char **argv) {
 		return 0;
 	}
 	port = cfg.port_id;
-	ret = switchtec_diag_ltssm_log(cfg.dev, port, &log_count, output);
-	if (ret) {
-		switchtec_perror("ltssm_log");
-		return ret;
-	}
+	if (cfg.clear == 1) {
+		ret = switchtec_diag_ltssm_clear(cfg.dev, port);
+		if (ret) {
+			switchtec_perror("ltssm_log");
+			return ret;
+		}
+		printf("Cleared the ltssm log on port %d\n", port);
+	} else {
+		ret = switchtec_diag_ltssm_log(cfg.dev, port, &log_count, output);
+		if (ret) {
+			switchtec_perror("ltssm_log");
+			return ret;
+		}
 
-	printf("LTSSM Log for Physical Port %d (autowrap ON)\n\n", port);
-	printf("Idx\tDelta Time\tPCIe Rate\tState\n");
-	for(i = 0; i < log_count ; i++) {
-		printf("%3d\t", i);
-		printf("%09x\t", output[i].timestamp);
-		printf("%.1fG\t\t", output[i].link_rate);
-		printf("%s\n", switchtec_ltssm_str(output[i].link_state, 1, 
-						   cfg.dev));
+		printf("LTSSM Log for Physical Port %d (autowrap ON)\n\n", port);
+		printf("Idx\tDelta Time\tPCIe Rate\tState\n");
+		for(i = 0; i < log_count ; i++) {
+			printf("%3d\t", i);
+			printf("%09x\t", output[i].timestamp);
+			printf("%.1fG\t\t", output[i].link_rate);
+			printf("%s\n", switchtec_ltssm_str(output[i].link_state, 
+							   1, cfg.dev));
+		}
 	}
 
 	return ret;

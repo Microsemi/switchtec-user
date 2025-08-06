@@ -1717,6 +1717,28 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 	return ret;
 }
 
+/**
+ * @brief Call the LTSSM clear MRPC command
+ * @param[in]	dev    Switchtec device handle
+ * @param[in]	port   Switchtec Port
+ */
+int switchtec_diag_ltssm_clear(struct switchtec_dev *dev, int port)
+{
+	int ret;
+	struct {
+		uint8_t subcmd;
+		uint8_t port_id;
+		uint16_t reserved;
+	} ltssm_clear;
+
+	ltssm_clear.subcmd = MRPC_LTMON_CLEAR_LOG;
+	ltssm_clear.port_id = port;
+
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_clear,
+			    sizeof(ltssm_clear), NULL, 0);
+	return ret;
+}
+
 int switchtec_tlp_inject(struct switchtec_dev *dev, int port_id, int tlp_type,
 			 int tlp_length, int ecrc, uint32_t *raw_tlp_data)
 {
