@@ -1412,6 +1412,22 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
 
 	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
 }
+/**
+ * @brief Get the status of all stacks of the refclk 
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  stack_info	Pointer to the stack information
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *stack_info)
+{
+	struct switchtec_diag_refclk_ctl_in cmd = {
+		.sub_cmd = MRPC_REFCLK_S_STATUS,
+	};
+
+	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), stack_info, 
+			     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS);
+}
 
 static void switchtec_diag_ltssm_set_log_data(struct switchtec_diag_ltssm_log
 					*log_data,
