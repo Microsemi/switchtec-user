@@ -1412,6 +1412,22 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
 
 	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
 }
+/**
+ * @brief Get the status of all stacks of the refclk 
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  stack_info	Pointer to the stack information
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *stack_info)
+{
+	struct switchtec_diag_refclk_ctl_in cmd = {
+		.sub_cmd = MRPC_REFCLK_S_STATUS,
+	};
+
+	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), stack_info, 
+			     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS);
+}
 
 static void switchtec_diag_ltssm_set_log_data(struct switchtec_diag_ltssm_log
 					*log_data,
@@ -1714,6 +1730,28 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 		ret = switchtec_diag_ltssm_log_gen5(dev, port, log_count, log_data);
 	else
 		ret = switchtec_diag_ltssm_log_gen4(dev, port, log_count, log_data);
+	return ret;
+}
+
+/**
+ * @brief Call the LTSSM clear MRPC command
+ * @param[in]	dev    Switchtec device handle
+ * @param[in]	port   Switchtec Port
+ */
+int switchtec_diag_ltssm_clear(struct switchtec_dev *dev, int port)
+{
+	int ret;
+	struct {
+		uint8_t subcmd;
+		uint8_t port_id;
+		uint16_t reserved;
+	} ltssm_clear;
+
+	ltssm_clear.subcmd = MRPC_LTMON_CLEAR_LOG;
+	ltssm_clear.port_id = port;
+
+	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_clear,
+			    sizeof(ltssm_clear), NULL, 0);
 	return ret;
 }
 
