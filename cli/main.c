@@ -1917,7 +1917,7 @@ static void print_fw_part_line(const char *tag,
 	       inf->redundant ? "  (Redundant)" : "");
 }
 
-static int print_fw_part_info(struct switchtec_dev *dev)
+static int print_fw_part_info_main(struct switchtec_dev *dev)
 {
 	struct switchtec_fw_part_summary *sum;
 	struct switchtec_fw_image_info *inf;
@@ -1953,7 +1953,58 @@ static int print_fw_part_info(struct switchtec_dev *dev)
 	print_fw_part_line("SEE", sum->seeprom.active);
 
 	switchtec_fw_part_summary_free(sum);
+	return 0;
+}
 
+static int print_fw_part_info_bl2_gen6(struct switchtec_dev *dev)
+{
+	struct metadata_gen6 {
+		uint32_t header[7];
+		uint32_t type;
+		uint32_t rsvd;
+		uint32_t version;
+		uint32_t body[11];
+		uint32_t image_crc;
+	};
+
+	struct switchtec_fw_image_info *inf;
+	struct switchtec_fw_image_info *tmp;
+	inf = switchtec_fw_part_data_bl2(dev);
+	if (!inf)
+		return -1;
+	tmp = inf;
+
+	char *types[10] = {
+		"MAP0","MAP1","KMT0","KMT1","BL20",
+		"BL21","CFG0","CFG1","IMG0","IMG1"
+	};
+	struct metadata_gen6* gen6_data;
+
+	printf("Partitions:\n");
+	for (int i = 0; i <= 9; i++)
+	{
+		gen6_data = (struct metadata_gen6*)inf->metadata;
+		char img_type_buf[8];
+		snprintf(img_type_buf, sizeof(img_type_buf), "%s", types[i]);
+		printf("  %s\t", img_type_buf);
+		printf("Version: %s\t", inf->version);
+		printf("CRC: 0x%08x\n", le32toh(gen6_data->image_crc));
+		inf = inf->next;
+	}
+	inf = tmp;
+	switchtec_fw_image_info_free(inf);
+	return 0;
+}
+
+static int print_fw_part_info(struct switchtec_dev *dev)
+{
+	int ret;
+	if(switchtec_is_gen6(dev) && switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
+		ret = print_fw_part_info_bl2_gen6(dev);
+	else
+		ret = print_fw_part_info_main(dev);
+	if(ret)
+		return -1;
 	return 0;
 }
 

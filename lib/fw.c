@@ -1812,6 +1812,53 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 	return nr_info;
 }
 
+/**
+ * @brief Return the firmware image information using supported metadata MRPC commands
+ * for the gen6 BL2 phase.
+ * @param[in]  dev	Switchtec device handle
+ * @return pointer to switchtec_fw_image_info struct on success, NULL on failure
+ */
+struct switchtec_fw_image_info *switchtec_fw_part_data_bl2(struct switchtec_dev *dev)
+{
+	struct switchtec_fw_image_info *inf;
+	struct switchtec_fw_image_info *tmp;
+	int ret;
+	
+	struct switchtec_fw_metadata_gen6 *metadata;
+	
+	struct {
+		uint8_t subcmd;
+		uint8_t part_id;
+	} subcmd = {
+		.subcmd = MRPC_PART_INFO_GET_METADATA_GEN6,
+	};
+	inf = malloc(sizeof(*inf));
+	if (!inf)
+		return NULL;
+	tmp = inf;
+
+	for (int i = 0; i <= 9; i++)
+	{
+		metadata = malloc(sizeof(*metadata));
+		if (!metadata)
+			return NULL;
+		subcmd.part_id = i;
+		ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd, sizeof(subcmd),
+				metadata, sizeof(*metadata));
+		if (ret)
+			return NULL;
+		version_to_string(le32toh(metadata->version), inf->version,
+				sizeof(inf->version));
+		inf->metadata = metadata;
+		inf->next = malloc(sizeof(*inf));
+		if (!inf->next)
+			return NULL;
+		inf = inf->next;
+	}
+	inf = tmp;
+	return inf;
+}
+
 int switchtec_get_device_id_bl2(struct switchtec_dev *dev,
 			        unsigned short *device_id)
 {
@@ -2098,6 +2145,28 @@ void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary)
 		free(summary->all[i].metadata);
 
 	free(summary);
+}
+
+/**
+ * @brief Free a firmware image info data structure
+ * @param[in]  inf	The data structure to free.
+ */
+void switchtec_fw_image_info_free(struct switchtec_fw_image_info *inf)
+{
+	struct switchtec_fw_image_info *tmp;
+	while (1)
+	{
+		if(inf->metadata)
+			free(inf->metadata);
+
+		if(inf->next) {
+			tmp = inf;
+			inf = inf->next;
+			free(tmp);
+		} else {
+			return;
+		}
+	}
 }
 
 /**
