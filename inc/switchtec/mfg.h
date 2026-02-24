@@ -34,6 +34,10 @@
 #define SWITCHTEC_KMSK_NUM_MAX	10
 #define SWITCHTEC_KMSK_NUM_GEN6		12
 #define SWITCHTEC_KMSK_LEN_DWORDS	(SWITCHTEC_KMSK_LEN / 4)
+#define SWITCHTEC_GEN6_TOKEN_LEN	104
+
+#define OTP_MULTI_DWORD_UID_UNIQUEID_DWORDS		16
+#define OTP_MULTI_DWORD_CUSTOMER_PSID0_DWORDS	4
 
 #define SWITCHTEC_SECURITY_SPI_RATE_MAX_NUM	16
 
@@ -208,6 +212,20 @@ struct switchtec_security_cfg_state {
 	struct switchtec_attestation_state attn_state;
 };
 
+/**
+ * @brief Supported KMT Signature Formats. Value stored in KMT Prefix in 4 bit field.
+ */
+enum kmt_signature_types_e
+{
+    KMT_SIG_FORMAT_CRC            = 0,
+    KMT_SIG_FORMAT_RSA3KSHA2      = 1,
+    KMT_SIG_FORMAT_RSA4KSHA2      = 2,
+    KMT_SIG_FORMAT_ECDSAP384SHA2  = 3,
+    KMT_SIG_FORMAT_ECDSAP521SHA2  = 4,
+    KMT_SIG_FORMAT_DILITHIUM5     = 5,
+    KMT_SIG_FORMAT_MAX
+};
+
 enum switchtec_otp_key_status {
 	UNPROGRAMMED = 0x00,
 	PROGRAMMED = 0x01,
@@ -259,6 +277,17 @@ enum switchtec_bl2_recovery_mode {
 	SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM = 3
 };
 
+#define TOKEN_RESOURCE_UNLOCK 0
+#define TOKEN_VERSION_UPDATE 1
+#define GEN6_TOKEN_STATIC    2
+#define GEN6_TOKEN_EPHEMERAL 3
+
+enum secure_token_get_types_e {
+    SECURE_TOKEN_GET_TYPE_STATIC	= 0,
+    SECURE_TOKEN_GET_TYPE_EPHEMERAL = 1,
+    SECURE_TOKEN_GET_TYPE_MAX
+};
+
 struct switchtec_kmsk {
 	uint8_t kmsk[SWITCHTEC_KMSK_LEN];
 };
@@ -270,6 +299,10 @@ struct switchtec_pubkey {
 
 struct switchtec_signature{
 	uint8_t signature[SWITCHTEC_SIG_LEN];
+};
+
+struct switchtec_gen6_token{
+	uint8_t token[SWITCHTEC_GEN6_TOKEN_LEN];
 };
 
 struct switchtec_uds {
@@ -312,12 +345,16 @@ int switchtec_secure_state_set(struct switchtec_dev *dev,
 int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 			 uint32_t ver_sec_unlock,
 			 struct switchtec_pubkey *public_key,
-			 struct switchtec_signature *signature);
+			 struct switchtec_signature *signature,
+			 struct switchtec_gen6_token *token);
 int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 					uint32_t serial,
 					uint32_t ver_sec_unlock,
 					struct switchtec_pubkey *public_key,
 			 		struct switchtec_signature *signature);
+int switchtec_dbg_unlock_get_token_gen6(struct switchtec_dev *dev,
+					struct switchtec_gen6_token *token,
+					int token_type);
 int switchtec_read_sec_cfg_file(struct switchtec_dev *dev,
 				FILE *setting_file,
 				struct switchtec_security_cfg_set *set);
@@ -325,6 +362,7 @@ int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk);
 int switchtec_read_kmsk_file(FILE *kmsk_file, struct switchtec_kmsk *kmsk);
 int switchtec_read_signature_file(FILE *sig_file,
 				  struct switchtec_signature *sigature);
+int switchtec_read_token_file(FILE *tkn_file, struct switchtec_gen6_token *token);
 int switchtec_read_uds_file(FILE *uds_file, struct switchtec_uds *uds);
 int
 switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,

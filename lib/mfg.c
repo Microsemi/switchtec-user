@@ -1189,6 +1189,56 @@ static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
 	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
+static int dbg_unlock_send_pubkey_gen6(struct switchtec_dev *dev,
+					struct switchtec_pubkey *public_key,
+					uint32_t cmd_id)
+{
+	struct public_key_cmd_gen6 {
+		uint8_t subcmd;
+		uint8_t reserved[3];
+		uint32_t  total_len;
+		uint32_t  total_crc;
+		uint32_t  data_len;
+		uint32_t  offset;
+		uint8_t  pub_key[SWITCHTEC_PUB_KEY_LEN];
+	} cmd = {};
+
+	cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_PKEY;
+	memcpy(cmd.pub_key, public_key->pubkey, SWITCHTEC_PUB_KEY_LEN);
+	cmd.total_len = htole32(SWITCHTEC_PUB_KEY_LEN);
+	cmd.total_crc = htole32(crc32(cmd.pub_key, SWITCHTEC_PUB_KEY_LEN, 0, 1, 1));
+	cmd.data_len = htole32(SWITCHTEC_PUB_KEY_LEN);
+	cmd.offset = htole32(0);
+
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
+}
+
+static int dbg_unlock_send_sig_gen6(struct switchtec_dev *dev,
+				struct switchtec_signature *signature,
+				uint32_t cmd_id)
+{
+	struct sig_cmd_gen6 {
+		uint8_t subcmd;
+		uint8_t sig_type;
+		uint8_t reserved[2];
+		uint32_t  total_len;
+		uint32_t  total_crc;
+		uint32_t  data_len;
+		uint32_t  offset;
+		uint8_t  signature[SWITCHTEC_SIG_LEN];
+	} cmd = {};
+
+	cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_SIG;
+	cmd.sig_type = KMT_SIG_FORMAT_RSA4KSHA2;
+	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
+	cmd.total_len = htole32(SWITCHTEC_SIG_LEN);
+	cmd.total_crc = htole32(crc32(cmd.signature, SWITCHTEC_SIG_LEN, 0, 1, 1));
+	cmd.data_len = htole32(SWITCHTEC_SIG_LEN);
+	cmd.offset = htole32(0);
+
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
+}
+
 /**
  * @brief Unlock firmware debug features
  * @param[in]  dev		Switchtec device handle
@@ -1201,9 +1251,36 @@ static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
 int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 			 uint32_t ver_sec_unlock,
 			 struct switchtec_pubkey *public_key,
-			 struct switchtec_signature *signature)
+			 struct switchtec_signature *signature,
+			 struct switchtec_gen6_token *token)
 {
 	int ret;
+
+	if (switchtec_is_gen6(dev))
+	{
+		struct unlock_cmd_gen6 {
+			uint8_t subcmd;
+			uint8_t rsvd[3];
+			uint8_t token[SWITCHTEC_GEN6_TOKEN_LEN];
+		} cmd = {};
+		
+		uint32_t cmd_id;
+		cmd_id = MRPC_DBG_UNLOCK_GEN6;
+
+		ret = dbg_unlock_send_pubkey_gen6(dev, public_key, cmd_id);
+		if (ret)
+			return ret;
+
+		ret = dbg_unlock_send_sig_gen6(dev, signature, cmd_id);
+		if (ret)
+			return ret;
+
+		cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_STATIC;
+		memcpy(cmd.token, token->token, SWITCHTEC_GEN6_TOKEN_LEN);
+		
+		return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
+	}
+
 	struct unlock_cmd {
 		uint8_t subcmd;
 		uint8_t rsvd[3];
@@ -1225,6 +1302,49 @@ int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
 
 	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
+}
+
+/**
+ * @brief Get gen6 token
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  token	pointer to downloaded token
+ * @param[in]  token_type	type of token to download
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_dbg_unlock_get_token_gen6(struct switchtec_dev *dev,
+			struct switchtec_gen6_token *token,
+			int token_type)
+{
+	int ret;
+
+	struct get_unlock_token_cmd_gen6 {
+		uint8_t subcmd;
+		uint8_t token_type;
+		uint8_t rsvd[2];
+	} cmd = {};
+	
+	uint32_t cmd_id;
+	cmd_id = MRPC_DBG_UNLOCK_GEN6;
+
+	struct get_unlock_token_reply_gen6 {
+		uint8_t token[SWITCHTEC_GEN6_TOKEN_LEN];
+	} reply;
+
+	cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_TOKEN_GET;
+	
+	if(token_type == GEN6_TOKEN_STATIC)
+		cmd.token_type = SECURE_TOKEN_GET_TYPE_STATIC;
+	else
+		cmd.token_type = SECURE_TOKEN_GET_TYPE_EPHEMERAL;
+	
+	ret = switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), &reply, 
+				sizeof(reply));
+	if (ret)
+		return ret;
+
+	memcpy(&token->token, &reply, SWITCHTEC_GEN6_TOKEN_LEN);
+	return 0;
 }
 
 /**
@@ -1743,6 +1863,23 @@ int switchtec_read_signature_file(FILE *sig_file,
 	rlen = fread(signature->signature, 1, SWITCHTEC_SIG_LEN, sig_file);
 
 	if (rlen < SWITCHTEC_SIG_LEN)
+		return -EBADF;
+
+	return 0;
+}
+
+/**
+ * @brief Read token data from token file
+ * @param[in]  tkn_file  Token file
+ * @param[out] token Token data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_read_token_file(FILE *tkn_file, struct switchtec_gen6_token *token)
+{
+	ssize_t rlen;
+
+	rlen = fread(token->token, 1, SWITCHTEC_GEN6_TOKEN_LEN, tkn_file);
+	if (rlen < SWITCHTEC_GEN6_TOKEN_LEN)
 		return -EBADF;
 
 	return 0;
