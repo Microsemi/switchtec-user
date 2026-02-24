@@ -2346,6 +2346,7 @@ static int fw_read(int argc, char **argv)
 		int bl2;
 		int key;
 		int pmap;
+		int debug_token;
 		int no_progress_bar;
 	} cfg = {
 		.out_fd = -1
@@ -2364,9 +2365,11 @@ static int fw_read(int argc, char **argv)
 		{"bl2", 'b', "", CFG_NONE, &cfg.bl2, no_argument,
 		 "read the BL2 partiton instead of the main firmware"},
 		{"key", 'k', "", CFG_NONE, &cfg.key, no_argument,
-		 "read the key manifest partiton instead of the main firmware - Gen5 and below only"},
+		 "read the key manifest partiton instead of the main firmware"},
 		{"pmap", 'm', "", CFG_NONE, &cfg.pmap, no_argument, 
 		 "read the partition map instead of the main firmware - Gen6"},
+		{"token", 't', "", CFG_NONE, &cfg.debug_token, no_argument, 
+		 "read the debug token instead of the main firmware - Gen6"},
 		{"no-progress", 'p', "", CFG_NONE, &cfg.no_progress_bar, no_argument,
 		"don't print progress to stdout"},
 		{NULL}};
@@ -2374,11 +2377,14 @@ static int fw_read(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_FW_READ, opts, &cfg, sizeof(cfg));
 
 	if (!switchtec_is_gen6(cfg.dev) && cfg.pmap) {
-		fprintf(stderr, "Getting the parition map is only available on Gen6 Switchtec device!\n");
+		fprintf(stderr, "Getting the parition map is only available \
+				on Gen6 Switchtec device!\n");
 		return -1;
 	}
-	if (switchtec_is_gen6(cfg.dev) && cfg.key) {
-		fprintf(stderr, "Getting the key manifest is not available on Gen6 Switchtec device!\n");
+
+	if (!switchtec_is_gen6(cfg.dev) && cfg.debug_token) {
+		fprintf(stderr, "Getting the debug token is only available \
+				on Gen6 Switchtec device!\n");
 		return -1;
 	}
 
@@ -2405,9 +2411,13 @@ static int fw_read(int argc, char **argv)
 		fw_typ_gen6 = SWITCHTEC_IMG_PART_TYPE_BL2;
 	} else if (cfg.key) {
 		inf = cfg.inactive ? sum->key.inactive : sum->key.active;
+		fw_typ_gen6 = SWITCHTEC_IMG_PART_TYPE_KMT;
 	} else if (cfg.pmap) {
 		inf = cfg.inactive ? sum->map.inactive : sum->map.active;
 		fw_typ_gen6 = SWITCHTEC_IMG_PART_TYPE_MAP;
+	} else if (cfg.debug_token) {
+		inf = cfg.inactive ? sum->token.inactive : sum->token.active;
+		fw_typ_gen6 = SWITCHTEC_IMG_PART_TYPE_DEBUG_TOKEN;
 	} else {
 		inf = cfg.inactive ? sum->img.inactive : sum->img.active;
 		fw_typ_gen6 = SWITCHTEC_IMG_PART_TYPE_FW;
@@ -2446,11 +2456,12 @@ static int fw_read(int argc, char **argv)
 			fw_slot = (fw_slot % 2) ? 0 : 1;
 		progress_start();
 		if (cfg.no_progress_bar)
-			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd, fw_typ_gen6, 
-										fw_slot, NULL);
+			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd, 
+						   fw_typ_gen6, fw_slot, NULL);
 		else
-			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd, fw_typ_gen6, 
-										fw_slot, progress_update);
+			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd, 
+						   fw_typ_gen6, fw_slot, 
+						   progress_update);
 	} else {
 		ret = switchtec_fw_img_write_hdr(cfg.out_fd, inf);
 		if (ret < 0) {
@@ -2460,11 +2471,11 @@ static int fw_read(int argc, char **argv)
 
 		progress_start();
 		if (cfg.no_progress_bar)
-			ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
-											inf, NULL);
+			ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd, 
+							inf, NULL);
 		else
 			ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
-											inf, progress_update);
+							inf, progress_update);
 	}
 	switchtec_fw_part_summary_free(sum);
 	progress_finish(cfg.no_progress_bar);

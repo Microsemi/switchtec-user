@@ -327,7 +327,7 @@ struct switchtec_fw_image_info {
 struct switchtec_fw_part_summary {
 	struct switchtec_fw_part_type {
 		struct switchtec_fw_image_info *active, *inactive;
-	} boot, map, img, cfg, nvlog, seeprom, key, bl2, riot;
+	} boot, map, img, cfg, nvlog, seeprom, key, bl2, riot, token;
 
 	struct switchtec_fw_image_info *mult_cfg;
 
