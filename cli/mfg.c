@@ -511,7 +511,7 @@ static int info(int argc, char **argv)
 		printf("Secure Unlock Version: \t\t\t0x%08x\n", sn_info.ver_sec_unlock);
 	}
 
-	if (phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
+	if (!switchtec_is_gen6(cfg.dev) && phase_id == SWITCHTEC_BOOT_PHASE_BL2) {
 		printf("\nOther secure settings are only shown in the BL1 or Main Firmware phase.\n\n");
 		return 0;
 	}
@@ -1342,6 +1342,7 @@ static int debug_unlock(int argc, char **argv)
 	int ret;
 	struct switchtec_pubkey pubk;
 	struct switchtec_signature sig;
+	struct switchtec_gen6_token token;
 
 	const char *desc = CMD_DESC_DEBUG_UNLOCK "\n\n"
 			   "This command unlocks the EJTAG port, Command Line "
@@ -1355,6 +1356,8 @@ static int debug_unlock(int argc, char **argv)
 		unsigned long serial;
 		FILE *sig_fimg;
 		char *sig_file;
+		FILE *tkn_fimg;
+		char *tkn_file;
 	} cfg = {
 		.unlock_version = 0xffff,
 	};
@@ -1376,6 +1379,10 @@ static int debug_unlock(int argc, char **argv)
 			.value_addr=&cfg.sig_fimg,
 			.argument_type=required_argument,
 			.help="signature file"},
+		{"token_file", 't', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.tkn_fimg,
+			.argument_type=required_argument,
+			.help="token file - Gen6 only"},
 		{NULL}
 	};
 
@@ -1405,6 +1412,18 @@ static int debug_unlock(int argc, char **argv)
 		return -1;
 	}
 
+	if (cfg.tkn_file == NULL && switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr,
+			"Token file must be set for Gen6 devices using this command!\n");
+		return -1;
+	}
+
+	if(cfg.tkn_file != NULL && !switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr,
+			"Ignoring token file parameter, this device is not Gen6!\n");
+		cfg.tkn_file = NULL;
+	}
+
 	ret = switchtec_read_pubk_file(cfg.pubkey_fimg, &pubk);
 	fclose(cfg.pubkey_fimg);
 
@@ -1423,8 +1442,19 @@ static int debug_unlock(int argc, char **argv)
 		return -3;
 	}
 
+	if (switchtec_is_gen6(cfg.dev)) {
+		ret = switchtec_read_token_file(cfg.tkn_fimg, &token);
+		fclose(cfg.tkn_fimg);
+
+		if (ret) {
+			fprintf(stderr, "Invalid token file %s!\n",
+				cfg.tkn_file);
+			return -3;
+		}
+	}
+
 	ret = switchtec_dbg_unlock(cfg.dev, cfg.serial, cfg.unlock_version,
-				   &pubk, &sig);
+				   &pubk, &sig, &token);
 	if (ret)
 		switchtec_perror("mfg dbg-unlock");
 
@@ -1577,6 +1607,10 @@ static int debug_unlock_token(int argc, char **argv)
 		 "Generate token for signature file required for command 'mfg debug-unlock' (default)"},
 		{"UNLOCK_VERSION_UPDATE", TOKEN_VERSION_UPDATE,
 		 "Generate token for signature file required for command 'mfg debug-lock-update'"},
+		{"GEN6_STATIC_TOKEN", GEN6_TOKEN_STATIC,
+		 "Generate static token for signature file required for command 'mfg debug-unlock' on Gen6 devices"},
+		{"GEN6_EPHEMERAL_TOKEN", GEN6_TOKEN_EPHEMERAL,
+		 "Generate ephemeral token for signature file required for command 'mfg debug-unlock' on Gen6 devices"},
 		{}
 	};
 
@@ -1604,30 +1638,64 @@ static int debug_unlock_token(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
-	if (ret) {
-		switchtec_perror("mfg debug unlock token");
-		return ret;
-	}
+	if (switchtec_is_gen6(cfg.dev))
+	{
+		if (cfg.type != GEN6_TOKEN_STATIC &&
+		    cfg.type != GEN6_TOKEN_EPHEMERAL) {
+			fprintf(stderr,
+				"On Gen6 devices, only GEN6_STATIC_TOKEN \
+				and GEN6_EPHEMERAL_TOKEN types are supported.\n");
+			return -1;
+		}
 
-	token.serial = htole32(sn_info.chip_serial);
+		struct switchtec_gen6_token token;
 
-	if (cfg.type == TOKEN_RESOURCE_UNLOCK) {
-		token.id = htole32(1);
-		token.version = htole32(sn_info.ver_sec_unlock);
+		ret = switchtec_dbg_unlock_get_token_gen6(cfg.dev, &token, cfg.type);
+		if (ret) {
+			switchtec_perror("mfg debug unlock token");
+			return ret;
+		}
+
+		ret = write(cfg.out_fd, &token, sizeof(token));
+		if(ret <= 0) {
+			switchtec_perror("mfg debug gen6 unlock token");
+			return ret;
+		}
+
+		fprintf(stderr, "\nToken data saved to %s\n", cfg.out_filename);
+		close(cfg.out_fd);
 	} else {
-		token.id = htole32(2);
-		token.version = htole32(sn_info.ver_sec_unlock) + 1;
-	}
+		if (cfg.type == GEN6_TOKEN_STATIC ||
+		    cfg.type == GEN6_TOKEN_EPHEMERAL) {
+			fprintf(stderr,
+				"Gen6 types are not supported on this device.\n");
+			return -1;
+		}
+		ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
+		if (ret) {
+			switchtec_perror("mfg debug unlock token");
+			return ret;
+		}
 
-	ret = write(cfg.out_fd, &token, sizeof(token));
-	if(ret <= 0) {
-		switchtec_perror("mfg debug unlock token");
-		return ret;
-	}
+		token.serial = htole32(sn_info.chip_serial);
 
-	fprintf(stderr, "\nToken data saved to %s\n", cfg.out_filename);
-	close(cfg.out_fd);
+		if (cfg.type == TOKEN_RESOURCE_UNLOCK) {
+			token.id = htole32(1);
+			token.version = htole32(sn_info.ver_sec_unlock);
+		} else {
+			token.id = htole32(2);
+			token.version = htole32(sn_info.ver_sec_unlock) + 1;
+		}
+
+		ret = write(cfg.out_fd, &token, sizeof(token));
+		if(ret <= 0) {
+			switchtec_perror("mfg debug unlock token");
+			return ret;
+		}
+
+		fprintf(stderr, "\nToken data saved to %s\n", cfg.out_filename);
+		close(cfg.out_fd);
+	}
 
 	return 0;
 }
