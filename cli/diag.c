@@ -2581,8 +2581,9 @@ static int tlp_inject (int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_tlp_inject(cfg.dev, cfg.port_id, cfg.tlp_type, 
+	ret = switchtec_tlp_inject(cfg.dev, cfg.port_id, cfg.tlp_type,
 				   num_dwords, cfg.ecrc, raw_tlp_dwords);
+	free(raw_tlp_dwords);
 	if (ret != 0) {
 		switchtec_perror("tlp_inject");
 		return -1;
@@ -2742,49 +2743,57 @@ static int linkerr_inject(int argc, char ** argv)
 
 	if (cfg.dllp_rate && cfg.tlp_rate) {
 		fprintf(stderr, "Cannot enable both rate configurations.\n");
+		free(dllp_data_dword);
 		return -1;
 	}
 
 	if (cfg.inject_dllp) {
-		ret = switchtec_inject_err_dllp(cfg.dev, cfg.phy_port, 
+		ret = switchtec_inject_err_dllp(cfg.dev, cfg.phy_port,
 						cfg.dllp_data != NULL ? *dllp_data_dword : 0);
 		free(dllp_data_dword);
 	}
 	if (cfg.inject_dllp_crc) {
 		if (cfg.dllp_rate > 4096) {
 			fprintf(stderr, "DLLP CRC rate out of range. Valid range is 0-4095.\n");
+			free(dllp_data_dword);
 			return -1;
 		}
-		ret = switchtec_inject_err_dllp_crc(cfg.dev, cfg.phy_port, 
+		ret = switchtec_inject_err_dllp_crc(cfg.dev, cfg.phy_port,
 						    cfg.enable, cfg.dllp_rate);
 	}
 	if (cfg.inject_tlp_lcrc) {
 		if (cfg.tlp_rate > 7) {
 			fprintf(stderr, "TLP LCRC rate out of range. Valid range is 0-7.\n");
+			free(dllp_data_dword);
 			return -1;
 		}
-		ret = switchtec_inject_err_tlp_lcrc(cfg.dev, cfg.phy_port, 
+		ret = switchtec_inject_err_tlp_lcrc(cfg.dev, cfg.phy_port,
 						    cfg.enable, cfg.tlp_rate);
-		if (ret)
+		if (ret) {
+			free(dllp_data_dword);
 			return -1;
+		}
 	}
 	if (cfg.inject_tlp_seq)
 		ret = switchtec_inject_err_tlp_seq_num(cfg.dev, cfg.phy_port);
 	if (cfg.inject_nack) {
 		if (cfg.seq_num > 4095) {
 			fprintf(stderr, "Sequence number out of range. Valid range is 0-4095).\n");
+			free(dllp_data_dword);
 			return -1;
 		}
 		if (cfg.count > 255) {
 			fprintf(stderr, "Count out of range. Valid range is 0-255\n");
+			free(dllp_data_dword);
 			return -1;
 		}
-		ret = switchtec_inject_err_ack_nack(cfg.dev, cfg.phy_port, 
+		ret = switchtec_inject_err_ack_nack(cfg.dev, cfg.phy_port,
 						    cfg.seq_num, cfg.count);
 	}
 	if (cfg.inject_cto) {
 		if (!switchtec_is_gen5(cfg.dev)) {
 			fprintf(stderr, "Credit timeout error injection is only supported on Gen5.\n");
+			free(dllp_data_dword);
 			return -1;
 		}
 		ret = switchtec_inject_err_cto(cfg.dev, cfg.phy_port);

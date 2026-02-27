@@ -626,6 +626,8 @@ int switchtec_fab_gfms_db_dump_hvd_detail(
 		return ret;
 
 	data = malloc(total_len_dw * 4);
+	if (!data)
+		return -ENOMEM;
 	ret = gfms_dump_get(dev, MRPC_GFMS_DB_DUMP_HVD_DETAIL, total_len_dw,
 			    (uint8_t *)data);
 	if (ret) {
@@ -930,6 +932,10 @@ int switchtec_fab_gfms_db_dump_ep_port(
 		goto exit;
 
 	data = malloc(total_len_dw * 4);
+	if (!data) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 	ret = gfms_ep_port_get(dev, phy_pid, total_len_dw, data);
 	if (ret)
 		goto free_and_exit;
@@ -1023,6 +1029,8 @@ int switchtec_fab_gfms_db_dump_pax_all(
 		return ret;
 
 	data = malloc(total_len_dw * 4);
+	if (!data)
+		return -ENOMEM;
 	ret = gfms_dump_get(dev, MRPC_GFMS_DB_DUMP_PAX_ALL, total_len_dw, data);
 	if (ret) {
 		free(data);

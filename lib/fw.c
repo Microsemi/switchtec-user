@@ -1821,11 +1821,11 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 struct switchtec_fw_image_info *switchtec_fw_part_data_bl2(struct switchtec_dev *dev)
 {
 	struct switchtec_fw_image_info *inf;
-	struct switchtec_fw_image_info *tmp;
+	struct switchtec_fw_image_info *head;
 	int ret;
-	
+
 	struct switchtec_fw_metadata_gen6 *metadata;
-	
+
 	struct {
 		uint8_t subcmd;
 		uint8_t part_id;
@@ -1835,28 +1835,34 @@ struct switchtec_fw_image_info *switchtec_fw_part_data_bl2(struct switchtec_dev 
 	inf = malloc(sizeof(*inf));
 	if (!inf)
 		return NULL;
-	tmp = inf;
+	memset(inf, 0, sizeof(*inf));
+	head = inf;
 
-	for (int i = 0; i <= 9; i++)
-	{
+	for (int i = 0; i <= 9; i++) {
 		metadata = malloc(sizeof(*metadata));
 		if (!metadata)
-			return NULL;
+			goto err_free_list;
 		subcmd.part_id = i;
 		ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd, sizeof(subcmd),
 				metadata, sizeof(*metadata));
-		if (ret)
-			return NULL;
+		if (ret) {
+			free(metadata);
+			goto err_free_list;
+		}
 		version_to_string(le32toh(metadata->version), inf->version,
 				sizeof(inf->version));
 		inf->metadata = metadata;
 		inf->next = malloc(sizeof(*inf));
 		if (!inf->next)
-			return NULL;
+			goto err_free_list;
+		memset(inf->next, 0, sizeof(*inf));
 		inf = inf->next;
 	}
-	inf = tmp;
-	return inf;
+	return head;
+
+err_free_list:
+	switchtec_fw_image_info_free(head);
+	return NULL;
 }
 
 int switchtec_get_device_id_bl2(struct switchtec_dev *dev,
