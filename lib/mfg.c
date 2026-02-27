@@ -2025,7 +2025,14 @@ static int sn_ver_get_gen6(struct switchtec_dev *dev,
 		return ret;
 
 	info->UID = malloc(sizeof(reply.UID));
+	if (!info->UID)
+		return -1;
 	info->PSID0 = malloc(sizeof(reply.PSID0));
+	if (!info->PSID0) {
+		free(info->UID);
+		info->UID = NULL;
+		return -1;
+	}
 	memcpy(info->UID, reply.UID, sizeof(reply.UID));
 	memcpy(info->PSID0, reply.PSID0, sizeof(reply.PSID0));
 	info->PSID_UID_valid_flags = reply.PSID_UID_valid_flags;

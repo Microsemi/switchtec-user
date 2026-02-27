@@ -288,6 +288,8 @@ static uint8_t i2c_gas_data_write(struct switchtec_dev *dev, void __gas *dest,
 
 	/* PEC is the last byte */
 	i2c_data = malloc(sizeof(*i2c_data) + n + PEC_BYTE_COUNT);
+	if (!i2c_data)
+		return -1;
 
 	i2c_data->command_code = CMD_GAS_WRITE;
 	i2c_data->byte_count = (sizeof(i2c_data->tag)
@@ -462,8 +464,14 @@ static uint8_t i2c_gas_data_read(struct switchtec_dev *dev, void *dest,
 	}*read_response;
 
 	read_command = malloc(sizeof(*read_command));
+	if (!read_command)
+		return -1;
 	read_response = malloc(sizeof(*read_response) + n \
 			       + DATA_TAIL_BYTE_COUNT);
+	if (!read_response) {
+		free(read_command);
+		return -1;
+	}
 
 	msgs[0].addr = msgs[1].addr = idev->i2c_addr;
 	msgs[0].flags = 0;
@@ -555,6 +563,8 @@ static ssize_t i2c_write_from_gas(struct switchtec_dev *dev, int fd,
 	void *buf;
 
 	buf = malloc(n);
+	if (!buf)
+		return -1;
 
 	i2c_memcpy_from_gas(dev, buf, src, n);
 

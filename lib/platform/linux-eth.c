@@ -125,6 +125,8 @@ static int send_eth_command(int cmd_fd, int func_type, uint8_t *data,
 
 	packet_len = offsetof(struct eth_packet, body) + data_len;
 	command_p = malloc(packet_len);
+	if (!command_p)
+		return -1;
 
 	command_p->hdr.signature = htonl(ETH_PROT_SIGNATURE);
 	command_p->hdr.version_id = ETH_PROT_VERSION;
@@ -202,6 +204,8 @@ static int switchtec_submit_cmd_eth(struct switchtec_dev *dev, uint32_t cmd,
 
 	body_len = offsetof(struct eth_mrpc_body, data) + payload_len;
 	mrpc_body = malloc(body_len);
+	if (!mrpc_body)
+		return -1;
 	memset(mrpc_body, 0, body_len);
 
 	mrpc_body->command_id = htole32(cmd);
@@ -281,6 +285,8 @@ static int eth_gas_write_exec(int fd, uint32_t offset,
 
 	body_len = offsetof(struct eth_gas_write_body, data) + bytes;
 	gas_write_body = malloc(body_len);
+	if (!gas_write_body)
+		return -1;
 	memset(gas_write_body, 0, body_len);
 
 	gas_write_body->command_id = htole32(ETH_GAS_WRITE_CMD_ID);
@@ -573,6 +579,10 @@ static int open_eth_chan(const char *server_ip, int server_port,
 	len = sizeof(struct eth_header);
 
 	open_p = malloc(sizeof(struct eth_packet));
+	if (!open_p) {
+		close(fd);
+		return -1;
+	}
 
 	open_p->hdr.signature = htonl(ETH_PROT_SIGNATURE);
 	open_p->hdr.version_id = ETH_PROT_VERSION;
