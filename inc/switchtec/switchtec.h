@@ -977,7 +977,7 @@ static inline const char *switchtec_ltssm_str(int ltssm, int show_minor,
 {
 	if (switchtec_is_gen6(dev))
 		return switchtec_ltssm_str_gen6(ltssm);
-	else if(switchtec_is_gen5(dev))
+	else if (switchtec_is_gen5(dev))
 		return switchtec_ltssm_str_gen5(ltssm, show_minor);
 	else
 		return switchtec_ltssm_str_gen4(ltssm, show_minor);

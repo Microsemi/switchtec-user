@@ -337,7 +337,7 @@ int switchtec_fw_set_redundant_flag (struct switchtec_dev *dev, int keyman,
 				     int set)
 {
 	int ret = 0;
-	if(keyman)
+	if (keyman)
 		ret += set_redundant(dev, SWITCHTEC_PART_TYPE_KEYMAN, set);
 	if (riot)
 		ret += set_redundant(dev, SWITCHTEC_PART_TYPE_RC, set);
@@ -400,7 +400,7 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 	ret = switchtec_cmd(dev, MRPC_FW_IMG_GET, &cmd, sizeof(cmd),
 		resp, sizeof(resp));
 
-	if(ret){
+	if (ret) {
 		printf("Error during FW image get\n");
 		return ret;
 	}
@@ -423,13 +423,13 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 		ret = switchtec_cmd(dev, MRPC_FW_IMG_GET, &cmd, sizeof(cmd),
 			resp, sizeof(resp));
 
-		if(ret){
+		if (ret) {
 			printf("Error during FW image get\n");
 			return ret;
 		}
 
-		size_t written = write(fd, (void*)(&fw_img_get_resp->data), fw_img_get_resp->chunk_len);
-		if (written != fw_img_get_resp->chunk_len){
+		size_t written = write(fd, (void *)(&fw_img_get_resp->data), fw_img_get_resp->chunk_len);
+		if (written != fw_img_get_resp->chunk_len) {
 			perror("Error writing to file");
 			return 1;
 		}
@@ -437,7 +437,7 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 		if (progress_callback)
 			progress_callback(fw_img_get_resp->offset, fw_img_get_resp->total_len);
 
-	} while((fw_img_get_resp->offset + fw_img_get_resp->chunk_len) < fw_img_get_resp->total_len);
+	} while ((fw_img_get_resp->offset + fw_img_get_resp->chunk_len) < fw_img_get_resp->total_len);
 
 	return 0;
 }
@@ -757,7 +757,7 @@ void switchtec_fw_perror(const char *s, int ret)
 		return;
 	}
 
-	switch(ret) {
+	switch (ret) {
 	case SWITCHTEC_DLSTAT_HEADER_INCORRECT:
 		msg = "Header incorrect";  break;
 	case SWITCHTEC_DLSTAT_OFFSET_INCORRECT:
@@ -1482,7 +1482,7 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 	struct switchtec_flash_part_info_gen4 *part_info;
 	int ret;
 
-	switch(inf->part_id) {
+	switch (inf->part_id) {
 	case SWITCHTEC_FW_PART_ID_G4_MAP0:
 		part_info = &all->map0;
 		break;
@@ -1555,7 +1555,7 @@ static int switchtec_fw_part_info_gen5(struct switchtec_dev *dev,
 	struct switchtec_flash_part_info_gen4 *part_info;
 	int ret;
 
-	switch(inf->part_id) {
+	switch (inf->part_id) {
 	case SWITCHTEC_FW_PART_ID_G5_MAP0:
 		part_info = &all->map0;
 		break;
@@ -1641,7 +1641,7 @@ static int switchtec_fw_part_info_gen6(struct switchtec_dev *dev,
 	struct switchtec_flash_part_info_gen4 *part_info;
 	int ret;
 
-	switch(inf->part_id) {
+	switch (inf->part_id) {
 	case SWITCHTEC_FW_PART_ID_G6_MAP0:
 		part_info = &all->map0;
 		break;
@@ -2154,12 +2154,11 @@ void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary)
 void switchtec_fw_image_info_free(struct switchtec_fw_image_info *inf)
 {
 	struct switchtec_fw_image_info *tmp;
-	while (1)
-	{
-		if(inf->metadata)
+	while (1) {
+		if (inf->metadata)
 			free(inf->metadata);
 
-		if(inf->next) {
+		if (inf->next) {
 			tmp = inf;
 			inf = inf->next;
 			free(tmp);
@@ -2188,7 +2187,7 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 	unsigned char *cbuf = buf;
 	size_t read = 0;
 
-	while(len) {
+	while (len) {
 		size_t chunk_len = len;
 		if (chunk_len > MRPC_MAX_DATA_LEN-8)
 			chunk_len = MRPC_MAX_DATA_LEN-8;
@@ -2232,7 +2231,7 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	size_t total_wrote;
 	ssize_t wrote;
 
-	while(len) {
+	while (len) {
 		size_t chunk_len = len;
 		if (chunk_len > sizeof(buf))
 			chunk_len = sizeof(buf);

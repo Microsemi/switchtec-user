@@ -1999,11 +1999,11 @@ static int print_fw_part_info_bl2_gen6(struct switchtec_dev *dev)
 static int print_fw_part_info(struct switchtec_dev *dev)
 {
 	int ret;
-	if(switchtec_is_gen6(dev) && switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
+	if (switchtec_is_gen6(dev) && switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
 		ret = print_fw_part_info_bl2_gen6(dev);
 	else
 		ret = print_fw_part_info_main(dev);
-	if(ret)
+	if (ret)
 		return -1;
 	return 0;
 }
@@ -2141,7 +2141,7 @@ static int fw_update(int argc, char **argv)
 		}
 	}
 
-	if(switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
+	if (switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
 		fprintf(stderr, "\n\nWARNING:\n"
 			"Updating this image will IRREVERSIBLY update device %s image\n"
 			"secure version to 0x%08lx!\n\n",
@@ -2388,7 +2388,7 @@ static int fw_read(int argc, char **argv)
 		return -1;
 	}
 
-	if(cfg.out_fd == -1) {
+	if (cfg.out_fd == -1) {
 		if (switchtec_is_gen3(cfg.dev))
 			cfg.out_filename = "image.pmc";
 		else

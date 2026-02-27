@@ -198,7 +198,7 @@ static int ltssm_log(int argc, char **argv) {
 
 		if (switchtec_is_gen6(cfg.dev)) {
 			printf("Idx\tDelta Time\tPCIe Rate\tLink Width\tState\n");
-			for(i = 0; i < log_count ; i++) {
+			for (i = 0; i < log_count ; i++) {
 				printf("%3d\t", i);
 				printf("%09x\t", output[i].timestamp);
 				printf("%.1fG\t\t", output[i].link_rate);
@@ -208,7 +208,7 @@ static int ltssm_log(int argc, char **argv) {
 			}
 		} else {
 			printf("Idx\tDelta Time\tPCIe Rate\tState\n");
-			for(i = 0; i < log_count ; i++) {
+			for (i = 0; i < log_count ; i++) {
 				printf("%3d\t", i);
 				printf("%09x\t", output[i].timestamp);
 				printf("%.1fG\t\t", output[i].link_rate);

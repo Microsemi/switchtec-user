@@ -168,7 +168,7 @@ static int read_resp_line(int fd, char *str)
 	int ret;
 	int cnt = 0;
 
-	while(1) {
+	while (1) {
 		ret = read(fd, str + cnt, sizeof(str));
 		if (ret <= 0)
 			return ret;
@@ -317,8 +317,8 @@ static void uart_memcpy_from_gas(struct switchtec_dev *dev, void *dest,
 {
 	ssize_t cnt;
 
-	while(n) {
-		cnt = n > UART_MAX_READ_BYTES? UART_MAX_READ_BYTES : n;
+	while (n) {
+		cnt = n > UART_MAX_READ_BYTES ? UART_MAX_READ_BYTES : n;
 		uart_gas_read(dev, dest, src, cnt);
 		dest += cnt;
 		src += cnt;
@@ -393,7 +393,7 @@ static void uart_memcpy_to_gas(struct switchtec_dev *dev, void __gas *dest,
 {
 	size_t cnt;
 
-	while(n){
+	while (n) {
 		cnt = n > UART_MAX_WRITE_BYTES ? UART_MAX_WRITE_BYTES : n;
 		uart_gas_write(dev, dest, src, cnt);
 		dest += cnt;

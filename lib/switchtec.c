@@ -461,7 +461,7 @@ static const char *lane_reversal_str(int link_up,
 	if (!link_up)
 		return "N/A";
 
-	switch(lane_reversal) {
+	switch (lane_reversal) {
 	case 0: return "Normal Lane Ordering";
 	case 1: return "x16 (Full) Lane Reversal";
 	case 2: return "x2 Lane Reversal";
@@ -477,7 +477,7 @@ static const char *lane_reversal_str_gen6(int link_up,
 	if (!link_up)
 		return "N/A";
 
-	switch(lane_reversal) {
+	switch (lane_reversal) {
 	case 0: return "Normal Lane Ordering";
 	case 1: return "Lane Reversal in effect";
 	default: return "Unknown Lane Ordering";
@@ -1796,7 +1796,7 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	/* parse each log entry */
 	while (fread(&log_data, sizeof(struct log_a_data), 1,
 		     bin_log_file) == 1) {
-		if(fw_version_log)
+		if (fw_version_log)
 			gen_file = switchtec_fw_version_to_gen(fw_version_log);
 		else
 			gen_file = switchtec_fw_version_to_gen(fw_version_def);

@@ -261,7 +261,7 @@ int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
 
 	*num_phases = out.num_phases;
 
-	for(i = 0; i < out.num_phases; i++)
+	for (i = 0; i < out.num_phases; i++)
 		ber_data[i] = le64toh(out.ber_data[i]) / 281474976710656.;
 
 	return ret;
@@ -1589,7 +1589,7 @@ static int switchtec_diag_ltssm_log_gen5(struct switchtec_dev *dev,
 	log_dump.log_index = 0;
 	log_dump.no_of_logs = *log_count;
 
-	if(log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
+	if (log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
 		/* Single buffer log case */
 		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
 				    sizeof(log_dump), &log_buffer[0],
@@ -1727,7 +1727,7 @@ static int switchtec_diag_ltssm_log_gen6(struct switchtec_dev *dev,
 	log_dump.log_index = 0;
 	log_dump.no_of_logs = *log_count;
 
-	if(log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
+	if (log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
 		/* Single buffer log case */
 		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
 				    sizeof(log_dump), &log_buffer[0],
@@ -1869,7 +1869,7 @@ static int switchtec_diag_ltssm_log_gen4(struct switchtec_dev *dev,
 	log_dump.port = port;
 	log_dump.log_index = 0;
 	log_dump.no_of_logs = *log_count;
-	if(log_dump.no_of_logs <= 126) {
+	if (log_dump.no_of_logs <= 126) {
 		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
 				    sizeof(log_dump), log_dump_out,
 				    8 * log_dump.no_of_logs);

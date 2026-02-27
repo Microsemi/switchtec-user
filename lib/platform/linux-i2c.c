@@ -240,7 +240,7 @@ static uint8_t i2c_gas_cap_get(struct switchtec_dev *dev)
 			break;
 
 		retry_count++;
-	} while(retry_count < MAX_RETRY_COUNT);
+	} while (retry_count < MAX_RETRY_COUNT);
 
 	/* return capability */
 	if (retry_count == MAX_RETRY_COUNT)
@@ -365,7 +365,7 @@ static uint8_t i2c_gas_write_status_get(struct switchtec_dev *dev,
 		/* Extra delay is typically only needed for BL1/2 phase */
 		usleep(2000);
 		retry_count++;
-	} while(retry_count < MAX_STATUS_GET_RETRY);
+	} while (retry_count < MAX_STATUS_GET_RETRY);
 
 	return -1;
 }
@@ -504,7 +504,7 @@ static uint8_t i2c_gas_data_read(struct switchtec_dev *dev, void *dest,
 			break;
 
 		retry_count++;
-	} while(retry_count < MAX_RETRY_COUNT);
+	} while (retry_count < MAX_RETRY_COUNT);
 
 	if (retry_count == MAX_RETRY_COUNT)
 		goto i2c_read_fail;
@@ -535,7 +535,7 @@ static void i2c_gas_read(struct switchtec_dev *dev, void *dest,
 		if (status == 0 || status == GAS_TWI_MRPC_ERR)
 			break;
 		retry_count++;
-	}while(retry_count < MAX_RETRY_COUNT);
+	} while (retry_count < MAX_RETRY_COUNT);
 
 	if (retry_count == MAX_RETRY_COUNT)
 		raise(SIGBUS);

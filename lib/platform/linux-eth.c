@@ -415,7 +415,7 @@ static ssize_t eth_write_from_gas(struct switchtec_dev *dev, int fd,
 	while (n) {
 		cnt = n > ETH_MAX_READ ? ETH_MAX_READ : n;
 		eth_memcpy_from_gas(dev, buf, src, cnt);
-		ret +=write(fd, buf, cnt);
+		ret += write(fd, buf, cnt);
 
 		src += cnt;
 		n -= cnt;

@@ -90,7 +90,7 @@ static int topo_info_dump_data_get(struct switchtec_dev *dev, uint16_t offset,
 
 	buf_len = sizeof(result);
 
-	if(*len < SWITCHTEC_TOPO_INFO_DUMP_DATA_LENGTH_MAX)
+	if (*len < SWITCHTEC_TOPO_INFO_DUMP_DATA_LENGTH_MAX)
 		buf_len = *len + sizeof(result)
 			  - SWITCHTEC_TOPO_INFO_DUMP_DATA_LENGTH_MAX;
 
@@ -562,7 +562,7 @@ static int gfms_dump_get(struct switchtec_dev *dev, uint8_t subcmd,
 
 		cmd.offset_dw += rsp.size_dw;
 
-	} while(total_len_dw > rsp.offset_dw + rsp.size_dw);
+	} while (total_len_dw > rsp.offset_dw + rsp.size_dw);
 
 	return ret;
 }
@@ -786,7 +786,7 @@ static int gfms_ep_port_get(struct switchtec_dev *dev,
 
 		cmd.offset_dw += rsp.size_dw;
 
-	} while(total_len_dw > rsp.offset_dw + rsp.size_dw);
+	} while (total_len_dw > rsp.offset_dw + rsp.size_dw);
 
 	return ret;
 }

@@ -183,7 +183,7 @@ struct get_cfgs_reply_gen6 {
 
 static uint32_t get_dbg_unlock_id(struct switchtec_dev *dev)
 {
-	if(switchtec_is_gen6(dev))
+	if (switchtec_is_gen6(dev))
 		return MRPC_DBG_UNLOCK_GEN6;
 	else if (switchtec_is_gen5(dev))
 		return MRPC_DBG_UNLOCK_GEN5;
@@ -1919,7 +1919,7 @@ switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 {
 	int key_idx;
 
-	for(key_idx = 0; key_idx < state->public_key_num; key_idx++) {
+	for (key_idx = 0; key_idx < state->public_key_num; key_idx++) {
 		if (memcmp(state->public_key[key_idx], kmsk->kmsk,
 			   SWITCHTEC_KMSK_LEN) == 0)
 			return 1;
