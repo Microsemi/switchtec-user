@@ -1148,7 +1148,7 @@ enum RTC_OPERATION {
 	MRPC_RTC_GET,
 };
 
-int switchtec_rtc_counter_reset(struct switchtec_dev *dev, uint64_t *rtc_counter);
+int switchtec_rtc_counter_reset(struct switchtec_dev *dev);
 int switchtec_rtc_counter_set(struct switchtec_dev *dev, uint64_t *rtc_counter);
 int switchtec_rtc_counter_get(struct switchtec_dev *dev, uint64_t *rtc_counter);
 
