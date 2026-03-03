@@ -2976,6 +2976,204 @@ rtc_error:
 	return 1;
 }
 
+static int twi_parse_data(const char *data_str, int num_bytes, uint32_t *input)
+{
+	/* Parse and pack write data */
+	int data_count = 0;
+	const char *p = data_str;
+	char *endptr;
+
+	while (*p && data_count < 253) {
+		/* Skip whitespace and delimiters */
+		while (*p && (*p == ' ' || *p == ',' || *p == '\t'))
+			p++;
+
+		if (!*p)
+			break;
+
+		/* Parse hex value */
+		unsigned long val = strtoul(p, &endptr, 0);
+		if (p == endptr) {
+			fprintf(stderr, "Error: Invalid data format at: %s\n", p);
+			return -1;
+		}
+
+		/* Pack as bytes into uint32_t array */
+		int dw_idx = data_count / 4;
+		int byte_pos = data_count % 4;
+		input[dw_idx] |= ((val & 0xFF) << (byte_pos * 8));
+
+		data_count++;
+		p = endptr;
+	}
+
+	if (num_bytes && data_count != num_bytes) {
+		fprintf(stderr, "Warning: Provided %d bytes of data, but num_bytes is %d\n",
+			data_count, num_bytes);
+	}
+
+	return 0;
+}
+
+static void twi_print_data_array(int num_bytes, uint32_t *buffer)
+{
+	if (num_bytes > 0) {
+		for (int i = 0; i < num_bytes && i < 1020; i++) {
+			int dw_idx = i / 4;
+			int byte_pos = i % 4;
+			uint8_t byte_val = (buffer[dw_idx] >> (byte_pos * 8)) & 0xFF;
+			printf("0x%02X ", byte_val);
+		}
+		printf("\n");
+	}
+}
+
+#define CMD_DESC_TWI "perform a TWI (Two-Wire Interface) operation (read/write/reset)"
+
+static int twi(int argc, char **argv)
+{
+	int ret;
+	uint32_t input[256] = {0};
+	uint32_t output[256] = {0};
+
+	static struct {
+		struct switchtec_dev *dev;
+		int slave_addr;
+		int twi_port;
+		int offset;
+		int offset_size;
+		int slave_addr_size;
+		int num_bytes;
+		int do_write;
+		int do_reset;
+		int master_recov;
+		int duration_ms;
+		const char *data_str;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"slave_addr", 'a', "ADDR", CFG_NONNEGATIVE, &cfg.slave_addr,
+		 required_argument, "Slave Address (7 or 10 bit address)"},
+		{"twi_port", 'p', "PORT", CFG_NONNEGATIVE, &cfg.twi_port,
+		 required_argument, "TWI Port number (0-7)"},
+		{"write", 'w', "", CFG_NONE, &cfg.do_write,
+		 no_argument, "Perform a TWI write operation"},
+		{"reset", 'r', "", CFG_NONE, &cfg.do_reset,
+		 no_argument, "Perform a TWI reset operation"},
+		{"master_recov", 'm', "", CFG_NONE, &cfg.master_recov,
+		 no_argument, "Flag to indicate master recovery (reset only)"},
+		{"duration", 't', "mS", CFG_NONNEGATIVE, &cfg.duration_ms,
+		 required_argument, "Duration in ms that the master asserts the reset pin (reset only)"},
+		{"offset", 'o', "OFFSET", CFG_NONNEGATIVE, &cfg.offset,
+		 required_argument, "Offset address"},
+		{"offset_size", 's', "SIZE", CFG_NONNEGATIVE, &cfg.offset_size,
+		 required_argument, "Offset Size: 0 (no offset), 1 (8 bits), 2(16 bits), 4(32 bits)"},
+		{"slave_addr_size", 'S', "SIZE", CFG_NONE, &cfg.slave_addr_size,
+		 no_argument, "Slave Address Size Flag: Disabled (7bit) or Enabled (10bit) address sizes"},
+		{"num_bytes", 'n', "NUM", CFG_NONNEGATIVE, &cfg.num_bytes,
+		 required_argument, "Number of bytes to read/write (0-1012)"},
+		{"data", 'd', "HEX", CFG_STRING, &cfg.data_str,
+		 required_argument, "Data to write. Comma Seperated, no spaces (e.g., \"0x12,0x34\" or \"12,34\")"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_TWI, opts, &cfg, sizeof(cfg));
+
+	if (cfg.do_write && cfg.do_reset) {
+		fprintf(stderr, "Error: Cannot specify both --write and --reset\n");
+		return 1;
+	}
+	if ((cfg.master_recov || cfg.duration_ms) && !cfg.do_reset) {
+		fprintf(stderr, "Error: Cannot set reset specific flags --duration \
+			or --master_recov in a non-reset configuration\n");
+		return 1;
+	}
+
+	if (cfg.twi_port > 7) {
+		fprintf(stderr, "Error: TWI Port must be 0-7\n");
+		return 1;
+	}
+	if (cfg.offset_size > 4 || cfg.offset_size == 3) {
+		fprintf(stderr, "Error: Offset Size must be 0, 1, 2 or 4\n");
+		return 1;
+	}
+	if (cfg.slave_addr_size > 1) {
+		fprintf(stderr, "Error: Slave Address Size must be 0 or 1\n");
+		return 1;
+	}
+	if (cfg.num_bytes > 1012) {
+		fprintf(stderr, "Error: Number of Bytes must be 0-1012\n");
+		return 1;
+	}
+	if (cfg.slave_addr > 1023) {
+		fprintf(stderr, "Error: Slave address must be 0-1023\n");
+		return 1;
+	}
+
+	const char *op_name = (!cfg.do_reset && !cfg.do_write) ? "Read" :
+			      (cfg.do_write) ? "Write" : "Reset";
+	printf("Preforming TWI %s Operation:\n", op_name);
+	
+	if (cfg.do_reset) {
+		printf("  TWI Port:\t\t%d\n", cfg.twi_port);
+		printf("  Master Recov Flag:\t%d\n", cfg.master_recov);
+		printf("  Duration (ms):\t%d\n", cfg.duration_ms);
+	} else {
+		printf("  Slave Address:\t0x%02X (%d)\n", cfg.slave_addr, cfg.slave_addr);
+		printf("  TWI Port:\t\t%d\n", cfg.twi_port);
+		printf("  Offset:\t\t0x%08X (%d)\n", cfg.offset, cfg.offset);
+		printf("  Offset Size:\t\t%d byte(s)\n", cfg.offset_size);
+		printf("  Slave Addr Size:\t%s\n", cfg.slave_addr_size ? "10-bit" : "7-bit");
+		printf("  Number of Bytes:\t%d\n", cfg.num_bytes);
+	}
+	printf("\n");
+
+	if (cfg.do_write) {
+		if (cfg.data_str) {
+			ret = twi_parse_data(cfg.data_str, cfg.num_bytes, input);
+			if (ret)
+				return ret;
+			printf("Write Data:\t\t");
+			twi_print_data_array(cfg.num_bytes, input);
+			
+			ret = switchtec_twi_access_write(cfg.dev, cfg.twi_port, 
+							cfg.slave_addr, cfg.offset, 
+							cfg.offset_size, 
+							cfg.slave_addr_size, 
+							cfg.num_bytes, input);	
+			if (ret)
+				goto twi_error;
+		} else {
+			fprintf(stderr, "Error: Write operation requires --data argument\n");
+			return 1;
+		}
+	}
+	else if (cfg.do_reset) {
+		ret = switchtec_twi_access_reset(cfg.dev, cfg.master_recov, 
+						cfg.twi_port, cfg.duration_ms);
+		if (ret)
+			goto twi_error;
+	}
+	else {
+		ret = switchtec_twi_access_read(cfg.dev, cfg.twi_port, cfg.slave_addr, 
+						cfg.offset, cfg.offset_size, 
+						cfg.slave_addr_size, cfg.num_bytes, 
+						output);
+		if (ret)
+			goto twi_error;
+		printf("Output Data: \n");
+		twi_print_data_array(cfg.num_bytes, output);
+	}
+	printf("TWI %s operation successful.\n", op_name);
+
+	return 0;
+
+twi_error:
+	perror("twi");
+	return 1;
+}
+
 static const struct cmd commands[] = {
 	CMD(list, CMD_DESC_LIST),
 	CMD(info, CMD_DESC_INFO),
@@ -3007,6 +3205,7 @@ static const struct cmd commands[] = {
 	CMD(evcntr_del, CMD_DESC_EVCNTR_DEL),
 	CMD(evcntr_wait, CMD_DESC_EVCNTR_WAIT),
 	CMD(rtc, CMD_DESC_RTC),
+	CMD(twi, CMD_DESC_TWI),
 	{},
 };
 
