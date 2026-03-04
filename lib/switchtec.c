@@ -2566,17 +2566,16 @@ int switchtec_get_all_pin_sts(struct switchtec_dev *dev, uint32_t *values)
  * @param[in] dev	  Switchtec device handle
  * @return 0 on success, or a negative value on failure	
  */
-int switchtec_rtc_counter_reset(struct switchtec_dev *dev, uint64_t *rtc_counter)
+int switchtec_rtc_counter_reset(struct switchtec_dev *dev)
 {
 	int ret;
 	struct switchtec_rtc in, out;
 	in.sub_cmd = MRPC_RTC_RESET;
+	in.rtc_counter = 0;
 	
 	ret = switchtec_cmd(dev, MRPC_RTC, &in, sizeof(in), &out, sizeof(out));
 	if (ret)
 		return ret;
-	
-	*rtc_counter = out.rtc_counter;
 
 	return 0;
 	
