@@ -151,9 +151,9 @@ static int ltssm_log(int argc, char **argv) {
 	};
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, 
+		DEVICE_OPTION,
 		{"clear", 'c', "", CFG_NONE, &cfg.clear, no_argument,
-		 "clear the LTSSM log at the specified port"}, PORT_OPTION, 
+		 "clear the LTSSM log at the specified port"}, PORT_OPTION,
 		{NULL}
 	};
 
@@ -172,7 +172,7 @@ static int ltssm_log(int argc, char **argv) {
 	int log_count = 512;
 	if (switchtec_is_gen4(cfg.dev))
 		log_count = 128;
-	
+
 	struct switchtec_diag_ltssm_log output[log_count];
 
 	if (switchtec_is_gen3(cfg.dev)) {
@@ -1275,7 +1275,7 @@ static double *eye_observe_dev(struct switchtec_dev *dev, int port_id,
 		goto out_err;
 	}
 
-	ret = switchtec_diag_eye_start(dev, lane_mask, X, Y, interval, 
+	ret = switchtec_diag_eye_start(dev, lane_mask, X, Y, interval,
 				       0, 0, 0, 0, 0, 0, 0, 0);
 	if (ret) {
 		switchtec_perror("eye_start");
@@ -1383,8 +1383,8 @@ static int eye_graph(enum output_format fmt, struct range *X, struct range *Y,
 
 static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 				    int port_id, int lane_id, int num_lanes,
-				    int capture_depth, int* num_phases, int* gen, 
-				    int sar_sel, int intleav_sel, int hstep, 
+				    int capture_depth, int* num_phases, int* gen,
+				    int sar_sel, int intleav_sel, int hstep,
 				    int data_mode, int eye_mode, uint64_t refclk,
 				    int vstep)
 {
@@ -1401,7 +1401,7 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 		return NULL;
 	}
 
-	ret = switchtec_diag_eye_start(dev, lane_mask, NULL, NULL, 0, 
+	ret = switchtec_diag_eye_start(dev, lane_mask, NULL, NULL, 0,
 				       capture_depth, sar_sel, intleav_sel, hstep,
 				       data_mode, eye_mode, refclk, vstep);
 	if (ret) {
@@ -1412,7 +1412,7 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 	first_lane = switchtec_calc_lane_id(dev, port_id, lane_id, NULL);
 	for (j = 0; j < num_lanes; j++) {
 		for (bin = 0; bin < 64; bin++) {
-			ret = switchtec_diag_eye_read(dev, first_lane + j, bin, 
+			ret = switchtec_diag_eye_read(dev, first_lane + j, bin,
 						      &num_phases_l, tmp);
 			if (ret) {
 				switchtec_perror("eye_read");
@@ -1423,7 +1423,7 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 
 			if (!ber_data) {
 				stride = 64 * num_phases_l;
-				ber_data = calloc(num_lanes * stride, 
+				ber_data = calloc(num_lanes * stride,
 						  sizeof(double));
 				if (!ber_data) {
 					perror("allocating BER data");
@@ -1431,7 +1431,7 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 				}
 			}
 
-			memcpy(&ber_data[(j * stride) + (bin * num_phases_l)], 
+			memcpy(&ber_data[(j * stride) + (bin * num_phases_l)],
 			       tmp, num_phases_l * sizeof(double));
 		}
 	}
@@ -1534,7 +1534,7 @@ static int eye(int argc, char **argv)
 		{"capture-depth", 'd', "NUM", CFG_POSITIVE, &cfg.capture_depth,
 		 required_argument, "capture depth (6 to 40; default: 24)"},
 		{"h-step", 'H', "NUM", CFG_CHOICES, &cfg.hstep,
-		 required_argument, "Granularity of the X-axis Gen 6 only", 
+		 required_argument, "Granularity of the X-axis Gen 6 only",
 		 .choices=hstep_choices},
 		{"sar-sel", 'e', "NUM", CFG_NONNEGATIVE, &cfg.sar_sel,
 		 required_argument, "Eye scan for a particular slice (10 to 15) Gen 6 only"},
@@ -1552,7 +1552,7 @@ static int eye(int argc, char **argv)
 		cfg.y_range.end = 63;
 		cfg.y_range.step = 1;
 	}
-	
+
 	if (cfg.crosshair_file) {
 		if (switchtec_is_gen5(cfg.dev)) {
 			fprintf(stderr, "Crosshair superimpose not suppored in Gen 5\n");
@@ -1568,7 +1568,7 @@ static int eye(int argc, char **argv)
 
 		ch_ptr = &ch;
 	}
-	
+
 	if (cfg.plot_file) {
 		pixels = load_eye_csv(cfg.plot_file, &cfg.x_range,
 				      &cfg.y_range, subtitle, sizeof(subtitle),
@@ -1629,9 +1629,9 @@ static int eye(int argc, char **argv)
 
 	if (!pixels) {
 		if (switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) {
-			pixels = eye_capture_dev_gen5(cfg.dev, cfg.port_id, 
-						      cfg.lane_id, cfg.num_lanes, 
-						      cfg.capture_depth, 
+			pixels = eye_capture_dev_gen5(cfg.dev, cfg.port_id,
+						      cfg.lane_id, cfg.num_lanes,
+						      cfg.capture_depth,
 						      &num_phases, &gen, cfg.sar_sel,
 						      cfg.intleav_sel, cfg.hstep,
 						      cfg.data_mode, cfg.eye_modes_gen6,
@@ -1642,10 +1642,10 @@ static int eye(int argc, char **argv)
 			cfg.x_range.end = num_phases - 1;
 		}
 		else {
-			pixels = eye_observe_dev(cfg.dev, cfg.port_id, 
-						 cfg.lane_id, cfg.num_lanes, 
-						 cfg.mode, cfg.step_interval, 
-						 &cfg.x_range, &cfg.y_range, 
+			pixels = eye_observe_dev(cfg.dev, cfg.port_id,
+						 cfg.lane_id, cfg.num_lanes,
+						 cfg.mode, cfg.step_interval,
+						 &cfg.x_range, &cfg.y_range,
 						 &gen);
 			if (!pixels)
 				return -1;
@@ -1757,24 +1757,24 @@ static int loopback(int argc, char **argv)
 		 "Disable all loopback modes"},
 		{"ltssm", 'l', "", CFG_NONE, &cfg.enable_ltssm, no_argument,
 		 "Enable LTSSM loopback mode (Gen 4 / Gen 5)"},
-		{"rx-to-tx", 'r', "", CFG_NONE, &cfg.enable_rx_to_tx, 
+		{"rx-to-tx", 'r', "", CFG_NONE, &cfg.enable_rx_to_tx,
 		 no_argument, "Enable RX->TX loopback mode (Gen 4)"},
-		{"tx-to-rx", 't', "", CFG_NONE, &cfg.enable_tx_to_rx, 
+		{"tx-to-rx", 't', "", CFG_NONE, &cfg.enable_tx_to_rx,
 		 no_argument, "Enable TX->RX loopback mode (Gen 4)"},
-		{"parallel", 'P', "", CFG_NONE, &cfg.enable_parallel, 
+		{"parallel", 'P', "", CFG_NONE, &cfg.enable_parallel,
 		 no_argument, "Enable parallel datapath loopback mode in SERDES digital layer (Gen 5)"},
-		{"external", 'e', "", CFG_NONE, &cfg.enable_external, 
+		{"external", 'e', "", CFG_NONE, &cfg.enable_external,
 		 no_argument, "Enable external datapath loopback mode in physical layer (Gen 5)"},
 		{"pipe", 'c', "", CFG_NONE, &cfg.enable_pipe,
 		 no_argument, "Enable parallel loopback within Controller (PIPE Tx->Rx) (Gen 6)"},
-		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed, 
+		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed,
 		 required_argument, "LTSSM Speed (if enabling the LTSSM loopback mode), default: GEN4",
 		 .choices = loopback_ltssm_speeds},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_LOOPBACK, opts, &cfg, sizeof(cfg));
 
-	if ((cfg.enable_external || cfg.enable_parallel) && 
+	if ((cfg.enable_external || cfg.enable_parallel) &&
 	    (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx)) {
 		fprintf(stderr, "Cannot enable both Gen4 and Gen5 loopback settings. Use \'--help\' to see full list and support for each.\n");
 		return -1;
@@ -1816,7 +1816,7 @@ static int loopback(int argc, char **argv)
 			}
 		}
 		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id, enable,
-						  cfg.enable_parallel, 
+						  cfg.enable_parallel,
 						  cfg.enable_external,
 						  cfg.enable_pipe,
 						  cfg.enable_ltssm, cfg.speed);
@@ -1934,7 +1934,7 @@ static int print_pattern_mode(struct switchtec_dev *dev,
 		err = 1;
 	}
 
-	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat, 
+	ret = switchtec_diag_pattern_mon_get(dev, port_id, 0, &mon_pat,
 					     &err_cnt);
 	mon_pat_gen5 = mon_pat;
 	mon_pat_gen6 = mon_pat;
@@ -1974,13 +1974,13 @@ static int print_pattern_mode(struct switchtec_dev *dev,
 			ret = switchtec_diag_pattern_mon_get(dev, port_id,
 					lane_id, NULL, &err_cnt);
 			if (ret == 0x70b02) {
-				printf("    Lane %d has the pattern monitor disabled.\n", 
+				printf("    Lane %d has the pattern monitor disabled.\n",
 				       lane_id);
 			} else if (ret) {
 				switchtec_perror("pattern_mon_get");
 				return -1;
 			} else {
-				printf("    Lane %-2d    Errors: 0x%llx\n", 
+				printf("    Lane %-2d    Errors: 0x%llx\n",
 				       lane_id, err_cnt);
 			}
 		}
@@ -2029,7 +2029,7 @@ static int pattern(int argc, char **argv)
 		 "pattern to generate or monitor for (default: PRBS7)",
 		 .choices = all_pattern_types},
 		{"speed", 's', "SPEED", CFG_CHOICES, &cfg.link_speed,
-		 required_argument, 
+		 required_argument,
 		 "link speed that applies to the pattern generator (default: GEN1)",
 		 .choices = pat_gen_link_speeds},
 		{NULL}};
@@ -2061,7 +2061,7 @@ static int pattern(int argc, char **argv)
 		fprintf(stderr, "Cannot set PRBS 20 pattern for non Gen6 Switchtec device.\n");
 		return -1;
 	}
-	
+
 	if (!cfg.link_speed) {
 		if (switchtec_is_gen5(cfg.dev))
 			cfg.link_speed = SWITCHTEC_DIAG_PAT_LINK_GEN1;
@@ -2073,7 +2073,7 @@ static int pattern(int argc, char **argv)
 		fprintf(stderr, "Must specify -p / --port_id\n");
 		return -1;
 	}
-	
+
 	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
 	if (ret)
 		return ret;
@@ -2101,10 +2101,10 @@ static int pattern(int argc, char **argv)
 				cfg.port_id);
 		} else {
 			if (switchtec_is_gen6(cfg.dev))
-				printf("Pattern monitor set for port %d with pattern type %s\n", 
+				printf("Pattern monitor set for port %d with pattern type %s\n",
 					cfg.port_id, pattern_to_str_gen6(cfg.pattern));
 			else
-				printf("Pattern monitor set for port %d with pattern type %s\n", 
+				printf("Pattern monitor set for port %d with pattern type %s\n",
 					cfg.port_id, pattern_to_str(cfg.pattern));
 		}
 	}
@@ -2120,8 +2120,8 @@ static int pattern(int argc, char **argv)
 			printf("Disabled pattern generator on port %d\n",
 				cfg.port_id);
 		else
-			printf("Pattern generator set for port %d with pattern type %s at %s\n", 
-				cfg.port_id, pattern_to_str(cfg.pattern), 
+			printf("Pattern generator set for port %d with pattern type %s at %s\n",
+				cfg.port_id, pattern_to_str(cfg.pattern),
 				link_speed_to_str(cfg.link_speed));
 	}
 
@@ -2191,7 +2191,7 @@ static int port_eq_txcoeff(int argc, char **argv)
 	int i, ret;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, 
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION,
 		PREV_SPEED_OPTION, {}
 	};
 
@@ -2237,7 +2237,7 @@ static int port_eq_txfslf(int argc, char **argv)
 	int i, ret, lnk_width;
 
 	const struct argconfig_options opts[] = {
-		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION, 
+		DEVICE_OPTION, FAR_END_OPTION, PORT_OPTION, PREV_OPTION,
 		PREV_SPEED_OPTION, {}
 	};
 
@@ -2261,7 +2261,7 @@ static int port_eq_txfslf(int argc, char **argv)
 
 	if (switchtec_is_gen5(cfg.dev))
 		lnk_width = cfg.port.cfg_lnk_width;
-	else 
+	else
 		lnk_width = cfg.port.neg_lnk_width;
 
 	for (i = 0; i < lnk_width; i++) {
@@ -2312,15 +2312,15 @@ static int port_eq_txtable(int argc, char **argv)
 
 	printf("Far End TX Equalization Table for physical port %d, lane %d %s\n\n",
 	       cfg.port_id, table.lane_id, cfg.prev ? "(Previous Link-Up)" : "");
-	printf("%s\n", switchtec_is_gen5(cfg.dev) ? 
-	       "Step  Pre-Cursor  Post-Cursor  Error  Active  Speed" : 
+	printf("%s\n", switchtec_is_gen5(cfg.dev) ?
+	       "Step  Pre-Cursor  Post-Cursor  Error  Active  Speed" :
 	       "Step  Pre-Cursor  Post-Cursor  FOM  Pre-Up  Post-Up  Error  Active  Speed");
-	
+
 	if (switchtec_is_gen5(cfg.dev)) {
 		for (i = 0; i < table.step_cnt; i++) {
 			printf("%4d  %10d  %11d  %5d  %6d  %5d\n",
 				i, table.steps[i].pre_cursor, table.steps[i].post_cursor,
-				table.steps[i].error_status, table.steps[i].active_status, 
+				table.steps[i].error_status, table.steps[i].active_status,
 				table.steps[i].speed);
 		}
 	} else {
@@ -2417,7 +2417,7 @@ static int refclk(int argc, char **argv)
 {
 	int ret;
 	uint8_t stack_info[SWITCHTEC_MAX_STACKS];
-	
+
 	static struct {
 		struct switchtec_dev *dev;
 		int stack_id;
@@ -2442,7 +2442,7 @@ static int refclk(int argc, char **argv)
 
 	if (!cfg.enable && !cfg.disable && cfg.stack_id == -1)
 		goto print_stack_info;
-	
+
 	if (!cfg.enable && !cfg.disable) {
 		fprintf(stderr, "Must set either --enable or --disable\n");
 		return -1;
@@ -2466,7 +2466,7 @@ static int refclk(int argc, char **argv)
 
 	printf("REFCLK Output %s for Stack %d\n",
 	       cfg.enable ? "Enabled" : "Disabled", cfg.stack_id);
-	
+
 print_stack_info:
 	printf("REFCLK Status:\n");
 	ret = switchtec_diag_refclk_status(cfg.dev, stack_info);
@@ -2479,14 +2479,14 @@ print_stack_info:
 		if (stack_info[i] == 0xFF)
 			printf("Reserved\t0xff(unavailable)\n");
 		else
-			printf("%d\t\t%s\n", i, 
+			printf("%d\t\t%s\n", i,
 				stack_info[i] ? "Enabled" : "Disabled");
 	}
 
 	return 0;
 }
 
-static int convert_hex_str(char *str, uint32_t **output, int *num_hex_words, 
+static int convert_hex_str(char *str, uint32_t **output, int *num_hex_words,
 			   int hex_len_max)
 {
 	*num_hex_words = 0;
@@ -2549,14 +2549,14 @@ static int tlp_inject (int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id, 
+		{"port", 'p', "PORT_ID", CFG_NONNEGATIVE, &cfg.port_id,
 			required_argument, "destination port ID"},
-		{"tlp_type", 't', "TYPE", CFG_NONNEGATIVE, &cfg.tlp_type, 
+		{"tlp_type", 't', "TYPE", CFG_NONNEGATIVE, &cfg.tlp_type,
 			required_argument, "tlp type:\n0: P  - Posted\n1: NP - Non-posted\n2: CP - Completion\n(default 0)"},
-		{"enable_ecrc", 'e', "", CFG_NONE, &cfg.ecrc, no_argument, 
+		{"enable_ecrc", 'e', "", CFG_NONE, &cfg.ecrc, no_argument,
 			"Enable the ecrc to be included at the end of the input data (Default: disabled)"},
-		{"tlp_data", 'd', "\"DW0 DW1 ... DW131\"", CFG_STRING, 
-			&cfg.raw_tlp_data, required_argument, 
+		{"tlp_data", 'd', "\"DW0 DW1 ... DW131\"", CFG_STRING,
+			&cfg.raw_tlp_data, required_argument,
 			"DWs to be sent as part of the raw TLP (Maximum 132 DWs)"\
 			", surrounded by quotations. Every DW must start with \'0x\'\nEx. -d \"0x1 0x2 0x3\""},
 		{NULL}
@@ -2568,14 +2568,14 @@ static int tlp_inject (int argc, char **argv)
 		fprintf(stderr, "Must set tlp data --tlp_data -d \n");
 		return -1;
 	}
-	ret = convert_hex_str(cfg.raw_tlp_data, &raw_tlp_dwords, 
+	ret = convert_hex_str(cfg.raw_tlp_data, &raw_tlp_dwords,
 			      &num_dwords, 8);
 	if (ret) {
 		fprintf(stderr, "Error with tlp data provided \n");
 		return -1;
 	}
 	if (num_dwords > SWITCHTEC_DIAG_MAX_TLP_DWORDS) {
-		fprintf(stderr, "TLP data cannot exceed %d dwords \n", 
+		fprintf(stderr, "TLP data cannot exceed %d dwords \n",
 			SWITCHTEC_DIAG_MAX_TLP_DWORDS);
 		free(raw_tlp_dwords);
 		return -1;
@@ -2600,7 +2600,7 @@ static int convert_bitfield(char * bits)
 	while (sep_bits != NULL) {
 		total += 0x1 << atoi(sep_bits);
 		sep_bits = strtok(NULL, ",");
-    	}
+	}
 	return total;
 }
 
@@ -2618,19 +2618,19 @@ static int aer_event_gen(int argc, char **argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port_id, 
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.port_id,
 		 required_argument, "port ID"},
-		{"ce_event", 'e', "", CFG_STRING, &cfg.aer_error_id, 
+		{"ce_event", 'e', "", CFG_STRING, &cfg.aer_error_id,
 		 required_argument, "aer CE event - 0,6,7,8,12,14,15"},
-		{"trigger", 't', "", CFG_NONNEGATIVE, &cfg.trigger_event, 
+		{"trigger", 't', "", CFG_NONNEGATIVE, &cfg.trigger_event,
 		 required_argument, "trigger event (only CE events supported-0x1)"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg, 
+	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg,
 			sizeof(cfg));
 	aer_bitfield = convert_bitfield(cfg.aer_error_id);
 
-	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, aer_bitfield, 
+	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, aer_bitfield,
 				      cfg.trigger_event);
 
 	if (ret != 0) {
@@ -2667,36 +2667,36 @@ static int linkerr_inject(int argc, char ** argv)
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"dllp", 'd', "", CFG_NONE, &cfg.inject_dllp, 
+		{"dllp", 'd', "", CFG_NONE, &cfg.inject_dllp,
 		 no_argument, "Inject a DLLP"},
-		{"dllp-crc", 'D', "", CFG_NONE, &cfg.inject_dllp_crc, 
+		{"dllp-crc", 'D', "", CFG_NONE, &cfg.inject_dllp_crc,
 		 no_argument, "Inject a DLLP CRC error"},
-		{"tlp-lcrc", 'l', "", CFG_NONE, &cfg.inject_tlp_lcrc, 
+		{"tlp-lcrc", 'l', "", CFG_NONE, &cfg.inject_tlp_lcrc,
 		 no_argument, "Inject a TLP LCRC error"},
-		{"tlp-seq", 's', "", CFG_NONE, &cfg.inject_tlp_seq, 
+		{"tlp-seq", 's', "", CFG_NONE, &cfg.inject_tlp_seq,
 		 no_argument, "Inject a TLP Sequence Number error"},
 		{"nack", 'n', "", CFG_NONE, &cfg.inject_nack, no_argument,
 		 "Inject an ACK to NACK error"},
 		{"cto", 't', "", CFG_NONE, &cfg.inject_cto, no_argument,
 		 "Inject a TLP Credit Timeout"},
-		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.phy_port, 
+		{"port", 'p', "", CFG_NONNEGATIVE, &cfg.phy_port,
 		 required_argument, "physical port ID, default: port 0"},
-		{"enable", 'e', "", CFG_NONNEGATIVE, &cfg.enable, 
+		{"enable", 'e', "", CFG_NONNEGATIVE, &cfg.enable,
 		 required_argument, "enable DLLP CRC Error Injection or TLP LCRC Error Injection, default: 0"},
 		{"data", 'i', "", CFG_STRING, &cfg.dllp_data, required_argument,
 		 "DLLP data to inject, a single dword in hex prefixed with \"0x\""},
-		{"seq_num", 'S', "", CFG_NONNEGATIVE, &cfg.seq_num, 
+		{"seq_num", 'S', "", CFG_NONNEGATIVE, &cfg.seq_num,
 		 required_argument, "sequence number of ACK to be replaced by NACK (0-4095)"},
-		{"count", 'c', "", CFG_NONNEGATIVE, &cfg.count, 
+		{"count", 'c', "", CFG_NONNEGATIVE, &cfg.count,
 		 required_argument, "number of times to replace ACK with NACK (0-255)"},
-		{"dllp-crc-rate", 'r', "", CFG_NONNEGATIVE, &cfg.dllp_rate, 
+		{"dllp-crc-rate", 'r', "", CFG_NONNEGATIVE, &cfg.dllp_rate,
 		 required_argument, "valid range (0-4096). errors are injected at intervals of rate x 256 x clk "},
-		{"tlp-lcrc-rate", 'R', "", CFG_NONNEGATIVE, &cfg.tlp_rate, 
+		{"tlp-lcrc-rate", 'R', "", CFG_NONNEGATIVE, &cfg.tlp_rate,
 		 required_argument, "valid range (0-7). Ex. rate = 1 -> every other TLP has an error"},
 		{NULL}
 	};
 
-	argconfig_parse(argc, argv, CMD_DESC_LNKERR_INJECT, opts, &cfg, 
+	argconfig_parse(argc, argv, CMD_DESC_LNKERR_INJECT, opts, &cfg,
 			sizeof(cfg));
 
 	uint8_t *ptr = (uint8_t *)&cfg + 5;
@@ -2728,8 +2728,8 @@ static int linkerr_inject(int argc, char ** argv)
 	if (!cfg.inject_dllp && cfg.dllp_data) {
 		printf("Ignoring -i flag, not valid for the currently selected command.\n");
 	} else if (cfg.inject_dllp && cfg.dllp_data) {
-		ret = convert_hex_str(cfg.dllp_data, &dllp_data_dword, 
-				    	    &num_dwords, 8);
+		ret = convert_hex_str(cfg.dllp_data, &dllp_data_dword,
+				      &num_dwords, 8);
 		if (ret) {
 			fprintf(stderr, "Error with DLLP data provided\n");
 			return -1;
@@ -2832,11 +2832,11 @@ static int osa(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		OSA_STACK_ID_OPTION,
-		{"operation", 'o', "0/1/2/3/4/5", CFG_INT, &cfg.operation, 
+		{"operation", 'o', "0/1/2/3/4/5", CFG_INT, &cfg.operation,
 		required_argument,"operations:\n- stop:0\n- start:1\n- trigger:2\n- reset:3\n- release:4\n- status:5"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg, 
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg,
 			sizeof(cfg));
 
 	ret = stack_id_check(cfg.dev, cfg.stack_id);
@@ -2877,27 +2877,27 @@ static int osa_config_type(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		OSA_STACK_ID_OPTION,
-		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask, 
+		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask,
 		required_argument,
 		"16 bit lane mask, 1 enables the triggering for that specified lane. " \
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
-		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction, 
+		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction,
 		required_argument,
 		"3 bit mask for the direction, 1 enables the correisponding direction. " \
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
-		{"link_rate", 'r', "LINK_RATE", CFG_STRING, &cfg.link_rate, 
+		{"link_rate", 'r', "LINK_RATE", CFG_STRING, &cfg.link_rate,
 		required_argument,
 		"6 bit mask for link rate, 1 enables the corrisponding link rate. " \
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with " \
 		"0x\nBit 0 : Gen1\nBit 1 : Gen2\nBit 2 : Gen3\nBit 3 : Gen4\nBit 4 : Gen5\nBit 5 : Gen6"},
-		{"os_types", 't', "OS_TYPES", CFG_STRING, &cfg.os_types, 
+		{"os_types", 't', "OS_TYPES", CFG_STRING, &cfg.os_types,
 		required_argument,
 		"4 bit mask for OS types, 5 bit mask Gen6 only. 1 enables the corrisponding OS type. "\
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x."\
 		"\n\t\tGen5\tGen6\nBit 0\tTS1\tTS0\nBit 1\tTS2\tTS1\nBit 2\tFTS\tTS2\nBit 3\tCTL_SKP\tFTS\nBit 4\t----\tCTL_SKP"},
 		{NULL}};
-	
-	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CONF, opts, &cfg, 
+
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CONF, opts, &cfg,
 			sizeof(cfg));
 
 	ret = stack_id_check(cfg.dev, cfg.stack_id);
@@ -2912,7 +2912,7 @@ static int osa_config_type(int argc, char **argv)
 		}
 	}
 	if (cfg.direction) {
-		ret = convert_hex_str(cfg.direction, &direction_mask, 
+		ret = convert_hex_str(cfg.direction, &direction_mask,
 				      &num_dwords, 1);
 		if (ret) {
 			fprintf(stderr, "Error with direction mask.\n");
@@ -2926,7 +2926,7 @@ static int osa_config_type(int argc, char **argv)
 		}
 	}
 	if (cfg.link_rate) {
-		ret = convert_hex_str(cfg.link_rate, &link_rate_mask, 
+		ret = convert_hex_str(cfg.link_rate, &link_rate_mask,
 				      &num_dwords, 2);
 		if (ret) {
 			fprintf(stderr, "Error with link rate mask.\n");
@@ -2947,7 +2947,7 @@ static int osa_config_type(int argc, char **argv)
 		}
 	}
 	if (cfg.os_types) {
-		ret = convert_hex_str(cfg.os_types, &os_type_mask, 
+		ret = convert_hex_str(cfg.os_types, &os_type_mask,
 				      &num_dwords, 1);
 		if (ret) {
 			fprintf(stderr, "Error with OS type mask.\n");
@@ -2958,10 +2958,10 @@ static int osa_config_type(int argc, char **argv)
 		}
 	}
 
-	ret = switchtec_osa_config_type(cfg.dev, cfg.stack_id, 
-					direction_mask != NULL ? *direction_mask : 0, 
-					lane_mask != NULL ? *lane_mask : 0, 
-					link_rate_mask != NULL ? *link_rate_mask : 0, 
+	ret = switchtec_osa_config_type(cfg.dev, cfg.stack_id,
+					direction_mask != NULL ? *direction_mask : 0,
+					lane_mask != NULL ? *lane_mask : 0,
+					link_rate_mask != NULL ? *link_rate_mask : 0,
 					os_type_mask != NULL ? *os_type_mask : 0);
 	free(lane_mask);
 	free(direction_mask);
@@ -2998,34 +2998,34 @@ static int osa_config_pat(int argc, char **argv)
 	} cfg;
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"stack_id", 's', "STACK_ID", CFG_NONNEGATIVE, &cfg.stack_id, 
+		{"stack_id", 's', "STACK_ID", CFG_NONNEGATIVE, &cfg.stack_id,
 		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
-		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask, 
+		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask,
 		required_argument,
 		"16 bit lane mask, 1 enables the triggering for that specified lane. "\
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
-		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction, 
+		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction,
 		required_argument,
 		"3 bit mask for the direction, 1 enables the correisponding direction. "\
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
-		{"link_rate", 'r', "LINK_RATE", CFG_STRING, &cfg.link_rate, 
+		{"link_rate", 'r', "LINK_RATE", CFG_STRING, &cfg.link_rate,
 		required_argument,
 		"6 bit mask for link rate, 1 enables the corrisponding link rate. "\
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value "\
 		"prefixed with 0x\nBit 0 : Gen1\nBit 1 : Gen2\nBit 2 : Gen3\nBit 3 : Gen4\nBit 4 : Gen5\nBit 5 : Gen6"},
-		{"dwords_value", 'V', "\"val_dword0 val_dword1 etc.\"", CFG_STRING, 
-		&cfg.value_dwords, required_argument, 
+		{"dwords_value", 'V', "\"val_dword0 val_dword1 etc.\"", CFG_STRING,
+		&cfg.value_dwords, required_argument,
 		"(Maximum 4 DWs) Dwords should be surrounded by quotations, each "\
 		"dword must begine with \"0x\" and each dword must have a space between them."},
-		{"dwords_mask", 'M', "\"val_dword0 val_dword1 etc.\"", CFG_STRING, 
-		&cfg.mask_dwords, required_argument, 
+		{"dwords_mask", 'M', "\"val_dword0 val_dword1 etc.\"", CFG_STRING,
+		&cfg.mask_dwords, required_argument,
 		"(Maximum 4 DWs) Dwords should be surrounded by quotations, and "\
 		"each dword must begine with \"0x\" and each dword must have a space between them."},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CONF, opts, &cfg, 
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CONF, opts, &cfg,
 			sizeof(cfg));
-	
+
 	ret = stack_id_check(cfg.dev, cfg.stack_id);
 	if (ret)
 		return ret;
@@ -3038,7 +3038,7 @@ static int osa_config_pat(int argc, char **argv)
 		}
 	}
 	if (cfg.direction) {
-		ret = convert_hex_str(cfg.direction, &direction_mask, 
+		ret = convert_hex_str(cfg.direction, &direction_mask,
 				      &num_dwords, 1);
 		if (ret) {
 			fprintf(stderr, "Error with direction mask.\n");
@@ -3052,7 +3052,7 @@ static int osa_config_pat(int argc, char **argv)
 		}
 	}
 	if (cfg.link_rate) {
-		ret = convert_hex_str(cfg.link_rate, &link_rate_mask, 
+		ret = convert_hex_str(cfg.link_rate, &link_rate_mask,
 				      &num_dwords, 2);
 		if (ret) {
 			fprintf(stderr, "Error with link rate mask.\n");
@@ -3081,7 +3081,7 @@ static int osa_config_pat(int argc, char **argv)
 		fprintf(stderr, "Must set mask dword data --dwords_mask -M \n");
 		return -1;
 	}
-	ret = convert_hex_str(cfg.value_dwords, &value_dwords_arr, 
+	ret = convert_hex_str(cfg.value_dwords, &value_dwords_arr,
 			      &num_dwords, 8);
 	if (ret) {
 		fprintf(stderr, "Error with data provided \n");
@@ -3089,7 +3089,7 @@ static int osa_config_pat(int argc, char **argv)
 	}
 	total_dwords += num_dwords;
 	num_dwords = 0;
-	ret = convert_hex_str(cfg.mask_dwords, &mask_dwords_arr, 
+	ret = convert_hex_str(cfg.mask_dwords, &mask_dwords_arr,
 				    &num_dwords, 8);
 	total_dwords += num_dwords;
 	if (ret) {
@@ -3103,10 +3103,10 @@ static int osa_config_pat(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_osa_config_pattern(cfg.dev, cfg.stack_id, 
-					   direction_mask != NULL ? *direction_mask : 0, 
-					   lane_mask != NULL ? *lane_mask : 0, 
-					   link_rate_mask != NULL ? *link_rate_mask : 0, 
+	ret = switchtec_osa_config_pattern(cfg.dev, cfg.stack_id,
+					   direction_mask != NULL ? *direction_mask : 0,
+					   lane_mask != NULL ? *lane_mask : 0,
+					   link_rate_mask != NULL ? *link_rate_mask : 0,
 					   value_dwords_arr, mask_dwords_arr);
 	free(lane_mask);
 	free(direction_mask);
@@ -3139,10 +3139,10 @@ static int osa_config_misc(int argc, char **argv)
 		required_argument,
 		"3 bit mask for trigger enable, 1 enables the correisponding trigger. "\
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal "\
-		"value prefixed with 0x\nBit 0 : LTMON/other hardware blocks\nBit 1 : Reserved\nBit 2 : General purpose input"}, 
+		"value prefixed with 0x\nBit 0 : LTMON/other hardware blocks\nBit 1 : Reserved\nBit 2 : General purpose input"},
 		{NULL}};
-	
-	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_MISC_CONF, 
+
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_MISC_CONF,
 			opts, &cfg, sizeof(cfg));
 
 	ret = stack_id_check(cfg.dev, cfg.stack_id);
@@ -3150,7 +3150,7 @@ static int osa_config_misc(int argc, char **argv)
 		return ret;
 
 	if (cfg.trigger_en) {
-		ret = convert_hex_str(cfg.trigger_en, &trigger_mask, 
+		ret = convert_hex_str(cfg.trigger_en, &trigger_mask,
 				      &num_dwords, 1);
 		if (ret) {
 			fprintf(stderr, "Error with trigger mask \n");
@@ -3162,7 +3162,7 @@ static int osa_config_misc(int argc, char **argv)
 			return -1;
 		}
 	}
-	ret = switchtec_osa_config_misc(cfg.dev, cfg.stack_id, 
+	ret = switchtec_osa_config_misc(cfg.dev, cfg.stack_id,
 					trigger_mask != NULL ? *trigger_mask : 0);
 	free(trigger_mask);
 	if (ret) {
@@ -3201,36 +3201,36 @@ static int osa_capture_control(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		OSA_STACK_ID_OPTION,
-		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask, 
+		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask,
 		required_argument,
 		"16 bit lane mask, 1 enables the triggering for that specified lane. "\
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
-		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction, 
+		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction,
 		required_argument,
 		"2 bit mask for the direction, 1 enables the correisponding direction. "\
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
-		{"drop_single_os", 'o', "", CFG_NONE, &cfg.drop_single_os, 
-		no_argument, 
+		{"drop_single_os", 'o', "", CFG_NONE, &cfg.drop_single_os,
+		no_argument,
 		"When set to 1, the single TS0(Gen6), TS1, TS2, FTS, and CTL_SKP OS's are excluded from the capture."},
-		{"stop_mode", 'S', "", CFG_NONE, &cfg.stop_mode, 
-		no_argument, 
+		{"stop_mode", 'S', "", CFG_NONE, &cfg.stop_mode,
+		no_argument,
 		"Controls when the OSA stops capturing. disabled: any lane has stopped, enabled: all lanes have stopped. (Default: disabled)"},
-		{"snapshot_mode", 's', "", CFG_NONE, &cfg.snapshot_mode, 
-		no_argument, 
+		{"snapshot_mode", 's', "", CFG_NONE, &cfg.snapshot_mode,
+		no_argument,
 		"Enable the snapshot mode setting. When enabled, OS's are captured until the RAM is full. "\
 		"If disabled the OS's captured is dictated by the number of Post-Trigger Entries. (default disabled)"},
-		{"post_trig_entries", 'p', "POST_TRIG_ENTRIES", CFG_INT, &cfg.post_trig_entries, 
-		required_argument, 
+		{"post_trig_entries", 'p', "POST_TRIG_ENTRIES", CFG_INT, &cfg.post_trig_entries,
+		required_argument,
 		"Number of post trigger OS entries to be captured. Not valid if snapshot_mode is enabled. "\
 		"Max 256 entries.\n(Required if disabling --snapshot_mode -s)"},
-		{"os_types", 't', "OS_TYPES", CFG_STRING, &cfg.os_types, 
+		{"os_types", 't', "OS_TYPES", CFG_STRING, &cfg.os_types,
 		required_argument,
 		"4 bit mask for OS types, 5 bit mask Gen6 only. 1 enables the corrisponding OS type. "\
 		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x."\
 		"\n\t\tGen5\tGen6\nBit 0\tTS1\tTS0\nBit 1\tTS2\tTS1\nBit 2\tFTS\tTS2\nBit 3\tCTL_SKP\tFTS\n" \
 		"Bit 4\tSKP\tCTL_SKP\nBit 5\tEIEOS\tSKP\nBit 6\tEIOS\tEIEOS\nBit 7\tERR_OS\tEIOS\nBit 8\t----\tERR_OS"},
 		{NULL}};
-	
+
 	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CAP_CTRL, opts, &cfg, sizeof(cfg));
 
 	ret = stack_id_check(cfg.dev, cfg.stack_id);
@@ -3251,7 +3251,7 @@ static int osa_capture_control(int argc, char **argv)
 		}
 	}
 	if (cfg.direction) {
-		ret = convert_hex_str(cfg.direction, &direction_mask, 
+		ret = convert_hex_str(cfg.direction, &direction_mask,
 				      &num_dwords, 1);
 		if (ret) {
 			fprintf(stderr, "Error with direction mask.\n");
@@ -3265,7 +3265,7 @@ static int osa_capture_control(int argc, char **argv)
 		}
 	}
 	if (cfg.os_types) {
-		ret = convert_hex_str(cfg.os_types, &os_type_mask, 
+		ret = convert_hex_str(cfg.os_types, &os_type_mask,
 				      &num_dwords, 2);
 		if (ret) {
 			fprintf(stderr, "Error with OS type mask.\n");
@@ -3275,11 +3275,11 @@ static int osa_capture_control(int argc, char **argv)
 		}
 	}
 
-	ret = switchtec_osa_capture_control(cfg.dev, cfg.stack_id, 
-					    lane_mask != NULL ? *lane_mask : 0, 
+	ret = switchtec_osa_capture_control(cfg.dev, cfg.stack_id,
+					    lane_mask != NULL ? *lane_mask : 0,
 					    direction_mask != NULL ? *direction_mask : 0,
-					    cfg.drop_single_os, cfg.stop_mode, 
-					    cfg.snapshot_mode, cfg.post_trig_entries, 
+					    cfg.drop_single_os, cfg.stop_mode,
+					    cfg.snapshot_mode, cfg.post_trig_entries,
 					    os_type_mask != NULL ? *os_type_mask : 0);
 	free(os_type_mask);
 	free(lane_mask);
@@ -3307,7 +3307,7 @@ static int osa_dump_config(int argc, char **argv)
 		OSA_STACK_ID_OPTION,
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg, 
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg,
 			sizeof(cfg));
 
 	ret = stack_id_check(cfg.dev, cfg.stack_id);
@@ -3336,15 +3336,15 @@ static int osa_dump_data(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		OSA_STACK_ID_OPTION,
-		{"lane", 'l', "lane", CFG_INT, &cfg.lane, 
+		{"lane", 'l', "lane", CFG_INT, &cfg.lane,
 		required_argument,"lane ID"},
-		{"direction", 'd', "0/1", CFG_INT, &cfg.direction, 
+		{"direction", 'd', "0/1", CFG_INT, &cfg.direction,
 		required_argument,"direction tx: 0 rx: 1"},
 		{NULL}};
 
-	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg, 
+	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg,
 			sizeof(cfg));
-	
+
 	ret = stack_id_check(cfg.dev, cfg.stack_id);
 	if (ret)
 		return ret;
@@ -3353,8 +3353,8 @@ static int osa_dump_data(int argc, char **argv)
 		fprintf(stderr, "Direction must be either 0 or 1\n");
 		return -1;
 	}
-	
-	ret = switchtec_osa_capture_data(cfg.dev, cfg.stack_id, cfg.lane, 
+
+	ret = switchtec_osa_capture_data(cfg.dev, cfg.stack_id, cfg.lane,
 					 cfg.direction);
 	if (ret) {
 		switchtec_perror("osa_dump_data");

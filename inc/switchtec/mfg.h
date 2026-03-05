@@ -202,7 +202,7 @@ struct switchtec_security_cfg_state {
 
 	uint8_t secsc;
 	uint16_t i2c_rcvry_address_ocp;
-    uint32_t otp_key_hash[SWITCHTEC_KMSK_NUM_GEN6][SWITCHTEC_KMSK_LEN_DWORDS];
+	uint32_t otp_key_hash[SWITCHTEC_KMSK_NUM_GEN6][SWITCHTEC_KMSK_LEN_DWORDS];
 
 	bool otp_valid;
 	bool use_otp_ext;
@@ -215,15 +215,14 @@ struct switchtec_security_cfg_state {
 /**
  * @brief Supported KMT Signature Formats. Value stored in KMT Prefix in 4 bit field.
  */
-enum kmt_signature_types_e
-{
-    KMT_SIG_FORMAT_CRC            = 0,
-    KMT_SIG_FORMAT_RSA3KSHA2      = 1,
-    KMT_SIG_FORMAT_RSA4KSHA2      = 2,
-    KMT_SIG_FORMAT_ECDSAP384SHA2  = 3,
-    KMT_SIG_FORMAT_ECDSAP521SHA2  = 4,
-    KMT_SIG_FORMAT_DILITHIUM5     = 5,
-    KMT_SIG_FORMAT_MAX
+enum kmt_signature_types_e {
+	KMT_SIG_FORMAT_CRC            = 0,
+	KMT_SIG_FORMAT_RSA3KSHA2      = 1,
+	KMT_SIG_FORMAT_RSA4KSHA2      = 2,
+	KMT_SIG_FORMAT_ECDSAP384SHA2  = 3,
+	KMT_SIG_FORMAT_ECDSAP521SHA2  = 4,
+	KMT_SIG_FORMAT_DILITHIUM5     = 5,
+	KMT_SIG_FORMAT_MAX
 };
 
 enum switchtec_otp_key_status {
@@ -283,9 +282,9 @@ enum switchtec_bl2_recovery_mode {
 #define GEN6_TOKEN_EPHEMERAL 3
 
 enum secure_token_get_types_e {
-    SECURE_TOKEN_GET_TYPE_STATIC	= 0,
-    SECURE_TOKEN_GET_TYPE_EPHEMERAL = 1,
-    SECURE_TOKEN_GET_TYPE_MAX
+	SECURE_TOKEN_GET_TYPE_STATIC    = 0,
+	SECURE_TOKEN_GET_TYPE_EPHEMERAL = 1,
+	SECURE_TOKEN_GET_TYPE_MAX
 };
 
 struct switchtec_kmsk {
@@ -315,9 +314,9 @@ struct switchtec_security_spi_avail_rate {
 };
 
 struct sec_cfg_get_struct {
-    uint32_t subcmd;
-    uint32_t OTP_dword_offset;
-    uint32_t read_dwords;
+	uint32_t subcmd;
+	uint32_t OTP_dword_offset;
+	uint32_t read_dwords;
 };
 
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
@@ -351,7 +350,7 @@ int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 					uint32_t serial,
 					uint32_t ver_sec_unlock,
 					struct switchtec_pubkey *public_key,
-			 		struct switchtec_signature *signature);
+					struct switchtec_signature *signature);
 int switchtec_dbg_unlock_get_token_gen6(struct switchtec_dev *dev,
 					struct switchtec_gen6_token *token,
 					int token_type);

@@ -97,7 +97,7 @@ struct argconfig_options {
 	const char *help;
 	int (*custom_handler)(const char *optarg, void *value_addr,
 			      const struct argconfig_options *opt);
-       	const char *force_default;
+	const char *force_default;
 	const char *complete;
 	const struct argconfig_choice *choices;
 	int require_in_usage;

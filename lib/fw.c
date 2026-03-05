@@ -198,12 +198,11 @@ struct switchtec_fw_image_header_gen3 {
 	uint32_t image_crc;
 };
 
-typedef enum
-{
-    MRPC_FW_IMG_GET_CMD_START = 0,
-    MRPC_FW_IMG_GET_CMD_NEXT = 1,
+typedef enum {
+	MRPC_FW_IMG_GET_CMD_START = 0,
+	MRPC_FW_IMG_GET_CMD_NEXT = 1,
 
-    MRPC_FW_IMG_GET_CMD_MAX
+	MRPC_FW_IMG_GET_CMD_MAX
 } mrpc_fw_img_get_cmd_e;
 
 struct cmd_fwget {
@@ -219,7 +218,7 @@ static uint32_t get_fw_tx_id(struct switchtec_dev *dev)
 		return MRPC_FW_TX_GEN6;
 	if (switchtec_is_gen5(dev))
 		return MRPC_FW_TX_GEN5;
-	
+
 	return MRPC_FW_TX;
 }
 
@@ -311,16 +310,16 @@ static int set_redundant(struct switchtec_dev *dev, int type, int set)
 	else
 		cmd.part_type = type;
 
-	printf("%s redundant flag \t(%s)\n", set ? "Checking" : "Un-checking", 
+	printf("%s redundant flag \t(%s)\n", set ? "Checking" : "Un-checking",
 	       part_types[type-1]);
 	ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd), NULL, 0);
 	if (ret) {
-		fprintf(stderr, "Error: setting redudant flag \t(%s)\n", 
+		fprintf(stderr, "Error: setting redudant flag \t(%s)\n",
 			part_types[type-1]);
 		return 1;
 	}
 	else {
-		printf("Success: set redundant flag \t(%s)\n", 
+		printf("Success: set redundant flag \t(%s)\n",
 		       part_types[type-1]);
 	}
 	return 0;
@@ -332,8 +331,8 @@ static int set_redundant(struct switchtec_dev *dev, int type, int set)
  * @param[in] toggle_arr Pointer to the array of togglable image types
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_set_redundant_flag (struct switchtec_dev *dev, int keyman, 
-				     int riot, int bl2, int cfg, int fw, 
+int switchtec_fw_set_redundant_flag (struct switchtec_dev *dev, int keyman,
+				     int riot, int bl2, int cfg, int fw,
 				     int set)
 {
 	int ret = 0;
@@ -362,14 +361,14 @@ int switchtec_fw_set_redundant_flag (struct switchtec_dev *dev, int keyman,
  * 	indicate the progress.
  * @return 0 on success, error code on failure
  *
- * The fw_img_get command will download the firmware image corresponding to fw type and slot 
+ * The fw_img_get command will download the firmware image corresponding to fw type and slot
  * from the device to the file descriptor provided.
  */
-int switchtec_fw_img_get(struct switchtec_dev *dev, int fd, 
-						enum switchtec_fw_type_gen6 fw_type, int fw_slot, 
-						void (*progress_callback)(int cur, int tot))
+int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
+			 enum switchtec_fw_type_gen6 fw_type, int fw_slot,
+			 void (*progress_callback)(int cur, int tot))
 {
-  	struct cmd_fwget cmd = {0};
+	struct cmd_fwget cmd = {0};
 
 	struct fw_img_get_resp_t {
 		uint8_t status;
@@ -488,10 +487,10 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 		ret = switchtec_cmd(dev, cmd_id, &cmd, cmd_size, NULL, 0);
 		if (ret)
 			return ret;
-		
+
 		return 0;
 	}
-	
+
 	cmd_id = MRPC_FWDNLD;
 	cmd.subcmd = MRPC_FWDNLD_TOGGLE;
 	cmd.toggle_bl2 = !!toggle_bl2;
@@ -1075,7 +1074,7 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	} else if (!strncmp(magic, "MSCC", sizeof(magic))) {
 		return switchtec_fw_file_info_gen45(fd, info);
 	} else if (!strncmp(magic, "DCBI", sizeof(magic))) {
-		return 1;	
+		return 1;
 	} else {
 		errno = ENOEXEC;
 		return -1;
@@ -1470,8 +1469,8 @@ struct switchtec_flash_info_gen6 {
 	uint8_t img_redundant_flag;
 	uint8_t rsvd3[2];
 	uint32_t rsvd4[9];
-	struct switchtec_flash_part_info_gen4 map0, map1, keyman0, keyman1, bl20, 
-						bl21, cfg0, cfg1, img0, img1, 
+	struct switchtec_flash_part_info_gen4 map0, map1, keyman0, keyman1, bl20,
+						bl21, cfg0, cfg1, img0, img1,
 						nvlog, vendor[8];
 };
 
