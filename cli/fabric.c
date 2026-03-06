@@ -447,14 +447,14 @@ static int portcfg_show(int argc, char **argv)
 	}
 
 	port_type = port_info.port_type;
-	if(port_type >= SWITCHTEC_FAB_PORT_TYPE_INVALID)
+	if (port_type >= SWITCHTEC_FAB_PORT_TYPE_INVALID)
 		port_type = SWITCHTEC_FAB_PORT_TYPE_INVALID;
 
 	printf("Port Type:    %s \n", port_type_strs[port_type]);
 	printf("Clock Source: %d\n", port_info.clock_source);
 
 	clock_sris = port_info.clock_sris;
-	if(clock_sris >= SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID)
+	if (clock_sris >= SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID)
 		clock_sris = SWITCHTEC_FAB_PORT_CLOCK_SRIS_INVALID;
 
 	printf("Clock SRIS:   %s\n", clock_sris_strs[clock_sris]);
@@ -484,7 +484,7 @@ static int topo_info(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_TOPO_INFO, opts, &cfg, sizeof(cfg));
 
-	for(i = 0; i < SWITCHTEC_MAX_PORTS; i++)
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++)
 		topo_info.port_info_list[i].phys_port_id = 0xff;
 
 	ret = switchtec_topo_info_dump(cfg.dev, &topo_info);
@@ -494,13 +494,13 @@ static int topo_info(int argc, char **argv)
 	}
 
 	printf("Active Physical Ports:\n");
-	for(i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
 		port_info = &topo_info.port_info_list[i];
-		if(port_info->phys_port_id == 0xff)
+		if (port_info->phys_port_id == 0xff)
 			break;
 
 		port_type = port_info->port_type;
-		if(port_type >= SWITCHTEC_FAB_PORT_TYPE_INVALID)
+		if (port_type >= SWITCHTEC_FAB_PORT_TYPE_INVALID)
 			port_type = SWITCHTEC_FAB_PORT_TYPE_INVALID;
 
 		printf("    Physical Port ID %d (%s):\n",
@@ -865,10 +865,10 @@ static int ep_port_func_type(uint8_t sriov_cap_pf, char *func_type, size_t len)
 	if (sriov_cap_pf == 0x3) {
 		strncpy(func_type, "SRIOV-PF", len);
 		func_type[len - 1] = '\0';
-	} else if(sriov_cap_pf == 0x1) {
+	} else if (sriov_cap_pf == 0x1) {
 		strncpy(func_type, "PF", len);
 		func_type[len - 1] = '\0';
-	} else if(sriov_cap_pf == 0x0) {
+	} else if (sriov_cap_pf == 0x0) {
 		strncpy(func_type, "SRIOV-VF", len);
 		func_type[len - 1] = '\0';
 	} else {
@@ -1213,7 +1213,7 @@ static int route(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_ROUTE, opts, &cfg, sizeof(cfg));
 
-	for(i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
+	for (i = 0; i < SWITCHTEC_MAX_PORTS; i++) {
 		topo_info.port_info_list[i].phys_port_id = 0xff;
 	}
 
@@ -1451,7 +1451,7 @@ static int string_to_dword_data(char *str, unsigned int *dw_data,
 	memset(dw_data, 0, max_len);
 
 	p = strtok((char *)str, " ");
-	while(p) {
+	while (p) {
 		num = strtoul(p, &tmp, 0);
 
 		if (*tmp != '\0')
@@ -1460,7 +1460,7 @@ static int string_to_dword_data(char *str, unsigned int *dw_data,
 		dw_data[raw_data_len] = num;
 
 		raw_data_len++;
-		if(raw_data_len >= max_len)
+		if (raw_data_len >= max_len)
 			return 1;
 
 		p = strtok(NULL, " ");
@@ -1527,9 +1527,9 @@ static int device_manage(int argc, char **argv)
 	}
 
 	printf("rsp length is %d, data is:\n", rsp.hdr.rsp_len);
-	for(i = 0; i < (rsp.hdr.rsp_len + 3) / 4; i++) {
+	for (i = 0; i < (rsp.hdr.rsp_len + 3) / 4; i++) {
 		printf("0x%08x ", *((int *)rsp.rsp_data + i));
-		if(i % 8 == 7)
+		if (i % 8 == 7)
 			printf("\n");
 	}
 	printf("\n");

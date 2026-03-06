@@ -599,7 +599,7 @@ static int cfg_file_handler(const char *optarg, void *value_addr,
 			    const struct argconfig_options *opt)
 {
 	const char *fopts = "";
-	switch(opt->cfg_type) {
+	switch (opt->cfg_type) {
 	case CFG_FILE_A: fopts = "ab"; break;
 	case CFG_FILE_R: fopts = "rb"; break;
 	case CFG_FILE_W: fopts = "wb"; break;
@@ -643,7 +643,7 @@ static int cfg_fd_handler(const char *optarg, void *value_addr,
 		return 0;
 	}
 
-	switch(opt->cfg_type) {
+	switch (opt->cfg_type) {
 	case CFG_FD_WR: flags = O_CREAT | O_TRUNC | O_WRONLY | O_BINARY; break;
 	case CFG_FD_RD: flags = O_RDONLY | O_BINARY; break;
 	default: return 1;
@@ -714,7 +714,7 @@ static int cfg_mask_handler(const char *optarg, void *value_addr,
 		if (nums[i] < 0)
 			goto range_error;
 
-		switch(opt->cfg_type) {
+		switch (opt->cfg_type) {
 		case CFG_MASK_64:
 			if (nums[i] >= sizeof(uint64_t) * 8)
 				goto range_error;
@@ -849,8 +849,8 @@ find_option(char *arg, const struct argconfig_options *options)
 {
 	const struct argconfig_options *s;
 
-	while(arg[0]=='-') arg++;
-	while(arg[strlen(arg)-1] == '=') arg[strlen(arg)-1] = 0;
+	while (arg[0] == '-') arg++;
+	while (arg[strlen(arg)-1] == '=') arg[strlen(arg)-1] = 0;
 
 	for (s = options; s->option; s++) {
 		if (strcmp(s->option, arg) == 0)
@@ -871,7 +871,7 @@ static void print_option_completions(const struct argconfig_options *s)
 	if (is_file_option(s))
 		exit(2);
 
-	switch(s->cfg_type) {
+	switch (s->cfg_type) {
 	case CFG_CHOICES:
 	case CFG_MULT_CHOICES:
 		if (!s->choices)
@@ -943,7 +943,7 @@ static void print_completions(int argc, char *argv[],
 		if (s->env && getenv(s->env))
 			continue;
 
-		if(pos_args-- > 0)
+		if (pos_args-- > 0)
 			continue;
 
 		if (s->complete)

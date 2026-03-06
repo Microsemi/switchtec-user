@@ -121,7 +121,7 @@ static void gui_signals(void)
 	setup_sigusr1();
 }
 
-  /* Generate a port based string for the port windows */
+/* Generate a port based string for the port windows */
 
 static void portid_str(char *str, struct switchtec_port_id *port_id)
 {
@@ -130,8 +130,8 @@ static void portid_str(char *str, struct switchtec_port_id *port_id)
 		port_id->stk_id);
 }
 
-  /* Determine positioning for the port windows. Upstream ports at the
-   * top, down-stream ports at the bottom. */
+/* Determine positioning for the port windows. Upstream ports at the
+ * top, down-stream ports at the bottom. */
 
 static void get_portlocs(struct portloc *portlocs, unsigned all_ports,
 			 struct switchtec_status *status, int numports)
@@ -201,7 +201,7 @@ static void gui_portcalc(struct switchtec_bwcntr_res *after,
 	stats->bw_rate_egress = egress_tot / (this.time_us * 1e-6);
 }
 
-  /* Draw a window for the port. */
+/* Draw a window for the port. */
 
 static WINDOW *gui_portwin(struct portloc *portlocs,
 			   struct switchtec_status *s, struct portstats *stats)
@@ -392,7 +392,7 @@ static unsigned gui_keypress(void)
 	return 0;
 }
 
-  /* Main GUI window. */
+/* Main GUI window. */
 
 int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
 	     unsigned refresh, int duration, enum switchtec_bw_type bw_type)

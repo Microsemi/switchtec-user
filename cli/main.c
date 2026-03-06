@@ -1702,20 +1702,20 @@ static int gpio(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"get_dir_config", 'd', "", CFG_NONE, &cfg.get_dir_cfg, 
-			no_argument, "get the direction configuration of the specified GPIO pin"},
-		{"get_pol_config", 'P', "", CFG_NONE, &cfg.get_pol_config, 
-			no_argument, "get the polarity configuration of the specified GPIO pin"},
-		{"en_gpio_int", 'i', "", CFG_NONNEGATIVE, &cfg.en_gpio_int, 
-			required_argument, "enable/disable the gpio interrupt on the specified GPIO pin,\n0 - disable\n1 - enable"},
+		{"get_dir_config", 'd', "", CFG_NONE, &cfg.get_dir_cfg,
+		 no_argument, "get the direction configuration of the specified GPIO pin"},
+		{"get_pol_config", 'P', "", CFG_NONE, &cfg.get_pol_config,
+		 no_argument, "get the polarity configuration of the specified GPIO pin"},
+		{"en_gpio_int", 'i', "", CFG_NONNEGATIVE, &cfg.en_gpio_int,
+		 required_argument, "enable/disable the gpio interrupt on the specified GPIO pin,\n0 - disable\n1 - enable"},
 		{"get_pin_sts", 's', "", CFG_NONE, &cfg.get_pin_sts, no_argument,
-			"get the GPIO pin status of all GPIO pins"},
-		{"gpio_pin_value", 'v', "", CFG_NONNEGATIVE, &cfg.pin_val, 
-			required_argument, "GPIO pin value, used to set the specified logical GPIO pin ID to this value,\n0 - Low\n1 - High"},
-		{"logical_gpio_pin", 'p', "", CFG_NONNEGATIVE, &cfg.log_pin_id, 
-			required_argument,
-			"logical GPIO pin ID, this arguement used on its own will read the specified GPIO pin."\
-			" Required for all other operations EXCEPT when using the -s --get_pin_sts for reading all GPIO pins"},
+		 "get the GPIO pin status of all GPIO pins"},
+		{"gpio_pin_value", 'v', "", CFG_NONNEGATIVE, &cfg.pin_val,
+		 required_argument, "GPIO pin value, used to set the specified logical GPIO pin ID to this value,\n0 - Low\n1 - High"},
+		{"logical_gpio_pin", 'p', "", CFG_NONNEGATIVE, &cfg.log_pin_id,
+		 required_argument,
+		 "logical GPIO pin ID, this arguement used on its own will read the specified GPIO pin."\
+		 " Required for all other operations EXCEPT when using the -s --get_pin_sts for reading all GPIO pins"},
 		{NULL}
 	};
 
@@ -1733,37 +1733,37 @@ static int gpio(int argc, char **argv)
 		return -1;
 	}
 
-	if ((cfg.get_dir_cfg || cfg.get_pol_config 
+	if ((cfg.get_dir_cfg || cfg.get_pol_config
 	     || cfg.get_pin_sts || cfg.en_gpio_int) && cfg.pin_val) {
 		printf("Cannot set pin value for the selected sub-command(s), ignoring -v --gpio_pin_value..\n");
 	}
 
 	if (cfg.get_dir_cfg) {
-		ret = switchtec_get_gpio_direction_cfg(cfg.dev, cfg.log_pin_id, 
+		ret = switchtec_get_gpio_direction_cfg(cfg.dev, cfg.log_pin_id,
 						       &direction);
 		if (ret) {
 			switchtec_perror("switchtec_get_gpio");
 			return 1;
 		}
-		printf("Direction configuration of GPIO logical pin %d is %s\n", 
+		printf("Direction configuration of GPIO logical pin %d is %s\n",
 		       cfg.log_pin_id, direction ? "Input" : "Output");
 	} else if (cfg.get_pol_config) {
-		ret = switchtec_get_gpio_polarity_cfg(cfg.dev, cfg.log_pin_id, 
+		ret = switchtec_get_gpio_polarity_cfg(cfg.dev, cfg.log_pin_id,
 						      &polarity);
 		if (ret) {
 			switchtec_perror("switchtec_get_gpio");
 			return 1;
 		}
-		printf("Polarity configuration of GPIO logical pin %d is %s\n", 
+		printf("Polarity configuration of GPIO logical pin %d is %s\n",
 		       cfg.log_pin_id, polarity ? "Inverted" : "Non-Inverted");
 	} else if (cfg.en_gpio_int) {
-		ret = switchtec_en_dis_interrupt(cfg.dev, cfg.log_pin_id, 
+		ret = switchtec_en_dis_interrupt(cfg.dev, cfg.log_pin_id,
 						 cfg.en_gpio_int);
 		if (ret) {
 			switchtec_perror("switchtec_get_gpio");
 			return 1;
 		}
-		printf("%s the interrupt at GPIO logical pin %d\n", 
+		printf("%s the interrupt at GPIO logical pin %d\n",
 		       cfg.en_gpio_int ? "Enabled" : "Disabled", cfg.log_pin_id);
 	} else if (cfg.get_pin_sts) {
 		ret = switchtec_get_all_pin_sts(cfg.dev, values);
@@ -1776,7 +1776,7 @@ static int gpio(int argc, char **argv)
 		for (int i = 0; i < SWITCHTEC_MAX_GPIO_PIN_VALS; i++)
 			printf("%d\t0x%08x\n", i, values[i]);
 	} else if (cfg.pin_val) {
-		printf("Setting value of logical GPIO pin %d to: %d\n", 
+		printf("Setting value of logical GPIO pin %d to: %d\n",
 			cfg.log_pin_id, cfg.pin_val);
 		ret = switchtec_set_gpio(cfg.dev, cfg.log_pin_id, cfg.pin_val);
 		if (ret) {
@@ -1789,10 +1789,10 @@ static int gpio(int argc, char **argv)
 			switchtec_perror("switchtec_get_gpio");
 			return 1;
 		}
-		printf("Value of GPIO logical pin %d: %d\n", cfg.log_pin_id, 
+		printf("Value of GPIO logical pin %d: %d\n", cfg.log_pin_id,
 			gpio_val);
 	}
-	
+
 	printf("\nGPIO operation successful.\n");
 	return 0;
 }
@@ -1999,11 +1999,11 @@ static int print_fw_part_info_bl2_gen6(struct switchtec_dev *dev)
 static int print_fw_part_info(struct switchtec_dev *dev)
 {
 	int ret;
-	if(switchtec_is_gen6(dev) && switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
+	if (switchtec_is_gen6(dev) && switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
 		ret = print_fw_part_info_bl2_gen6(dev);
 	else
 		ret = print_fw_part_info_main(dev);
-	if(ret)
+	if (ret)
 		return -1;
 	return 0;
 }
@@ -2078,8 +2078,8 @@ static int fw_update(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"img_file", .cfg_type=CFG_FILE_R, .value_addr=&cfg.fimg,
-		  .argument_type=required_positional,
-		  .help="image file to upload"},
+		 .argument_type=required_positional,
+		 .help="image file to upload"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{"dont-activate", 'A', "", CFG_NONE, &cfg.dont_activate, no_argument,
@@ -2091,7 +2091,7 @@ static int fw_update(int argc, char **argv)
 		{"set-boot-rw", 'W', "", CFG_NONE, &cfg.set_boot_rw, no_argument,
 		 "set the bootloader and map partition as RW (only valid for BOOT and MAP images)"},
 		{"no-progress", 'p', "", CFG_NONE, &cfg.no_progress_bar, no_argument,
-		"don't print progress to stdout"},
+		 "don't print progress to stdout"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -2141,7 +2141,7 @@ static int fw_update(int argc, char **argv)
 		}
 	}
 
-	if(switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
+	if (switchtec_fw_file_secure_version_newer(cfg.dev, fileno(cfg.fimg))) {
 		fprintf(stderr, "\n\nWARNING:\n"
 			"Updating this image will IRREVERSIBLY update device %s image\n"
 			"secure version to 0x%08lx!\n\n",
@@ -2289,7 +2289,7 @@ static int fw_redundant(int argc, char **argv)
 		 "Set redundancy flag for data CFG partition"},
 		{"riotcore", 'r', "", CFG_NONE, &cfg.riotcore, no_argument,
 		 "Set redundancy flag for RIOTCORE partition"},
-		{"redundant", 'R', "unset - 0 / set - 1", CFG_INT, &cfg.redundant, required_argument, 
+		{"redundant", 'R', "unset - 0 / set - 1", CFG_INT, &cfg.redundant, required_argument,
 		 "Set the redundant flag for the selected image type(s). If left blank will set (1)"},
 		{NULL}};
 
@@ -2312,13 +2312,13 @@ static int fw_redundant(int argc, char **argv)
 		return 1;
 	}
 
-	ret = switchtec_fw_set_redundant_flag(cfg.dev, cfg.key, 
-					      cfg.riotcore, cfg.bl2, 
-					      cfg.config, cfg.firmware, 
+	ret = switchtec_fw_set_redundant_flag(cfg.dev, cfg.key,
+					      cfg.riotcore, cfg.bl2,
+					      cfg.config, cfg.firmware,
 					      cfg.redundant);
 	if (ret)
 		switchtec_perror("set redundant flag");
-	
+
 	ret = print_fw_part_info(cfg.dev);
 	if (ret)
 		switchtec_perror("print fw info");
@@ -2366,9 +2366,9 @@ static int fw_read(int argc, char **argv)
 		 "read the BL2 partiton instead of the main firmware"},
 		{"key", 'k', "", CFG_NONE, &cfg.key, no_argument,
 		 "read the key manifest partiton instead of the main firmware"},
-		{"pmap", 'm', "", CFG_NONE, &cfg.pmap, no_argument, 
+		{"pmap", 'm', "", CFG_NONE, &cfg.pmap, no_argument,
 		 "read the partition map instead of the main firmware - Gen6"},
-		{"token", 't', "", CFG_NONE, &cfg.debug_token, no_argument, 
+		{"token", 't', "", CFG_NONE, &cfg.debug_token, no_argument,
 		 "read the debug token instead of the main firmware - Gen6"},
 		{"no-progress", 'p', "", CFG_NONE, &cfg.no_progress_bar, no_argument,
 		"don't print progress to stdout"},
@@ -2388,7 +2388,7 @@ static int fw_read(int argc, char **argv)
 		return -1;
 	}
 
-	if(cfg.out_fd == -1) {
+	if (cfg.out_fd == -1) {
 		if (switchtec_is_gen3(cfg.dev))
 			cfg.out_filename = "image.pmc";
 		else
@@ -2456,11 +2456,11 @@ static int fw_read(int argc, char **argv)
 			fw_slot = (fw_slot % 2) ? 0 : 1;
 		progress_start();
 		if (cfg.no_progress_bar)
-			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd, 
+			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd,
 						   fw_typ_gen6, fw_slot, NULL);
 		else
-			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd, 
-						   fw_typ_gen6, fw_slot, 
+			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd,
+						   fw_typ_gen6, fw_slot,
 						   progress_update);
 	} else {
 		ret = switchtec_fw_img_write_hdr(cfg.out_fd, inf);
@@ -2471,7 +2471,7 @@ static int fw_read(int argc, char **argv)
 
 		progress_start();
 		if (cfg.no_progress_bar)
-			ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd, 
+			ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
 							inf, NULL);
 		else
 			ret = switchtec_fw_body_read_fd(cfg.dev, cfg.out_fd,
@@ -2483,7 +2483,7 @@ static int fw_read(int argc, char **argv)
 	if (ret) {
 		switchtec_perror("fw_read");
 		goto close_and_exit;
-	}	
+	}
 
 	fprintf(stderr, "\nFirmware read to %s.\n", cfg.out_filename);
 
@@ -2967,7 +2967,7 @@ static int rtc(int argc, char **argv)
 	ret = switchtec_rtc_counter_get(cfg.dev, &rtc_counter);
 	if (ret)
 		goto rtc_error;
-	
+
 	printf("RTC Counter: %ld microseconds, %ld seconds\n", rtc_counter, rtc_counter / 1000000);
 	return 0;
 

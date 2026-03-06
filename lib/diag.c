@@ -240,7 +240,7 @@ int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
  * @return 0 on success, error code on failure
  */
 int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
-		      	    int bin, int* num_phases, double* ber_data)
+			    int bin, int *num_phases, double *ber_data)
 {
 	if (dev) {
 		fprintf(stderr, "Eye read not supported on Gen 4 switches.\n");
@@ -261,7 +261,7 @@ int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
 
 	*num_phases = out.num_phases;
 
-	for(i = 0; i < out.num_phases; i++)
+	for (i = 0; i < out.num_phases; i++)
 		ber_data[i] = le64toh(out.ber_data[i]) / 281474976710656.;
 
 	return ret;
@@ -282,7 +282,7 @@ int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
 int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 			     struct range *x_range, struct range *y_range,
 			     int step_interval, int capture_depth, int sar_sel,
-			     int intleav_sel, int hstep, int data_mode, 
+			     int intleav_sel, int hstep, int data_mode,
 			     int eye_mode, uint64_t refclk, int vstep)
 {
 	int err, ret;
@@ -472,8 +472,8 @@ static int switchtec_diag_loopback_set_gen56(struct switchtec_dev *dev,
 	if (enable_ltssm && !(enable_external || enable_parallel)) {
 		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
 				    sizeof(ltssm_in), NULL, 0);
-      		if (ret)
-	       		return ret;
+		if (ret)
+			return ret;
 	} else {
 		int_in.type = DIAG_LOOPBACK_PARALEL_DATAPATH;
 		int_in.enable = enable_parallel;
@@ -499,8 +499,8 @@ static int switchtec_diag_loopback_set_gen56(struct switchtec_dev *dev,
 		ltssm_in.enable = enable_ltssm;
 		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
 				    sizeof(ltssm_in), NULL, 0);
-      		if (ret)
-	       		return ret;
+		if (ret)
+			return ret;
 	}
 	return 0;
 }
@@ -862,11 +862,11 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on success, error code on failure
  */
-static int switchtec_gen5_diag_port_eq_tx_coeff(struct switchtec_dev *dev, 
+static int switchtec_gen5_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
 						int port_id, int prev_speed,
-					 	enum switchtec_diag_end end, 
-					 	enum switchtec_diag_link link,
-					 	struct switchtec_port_eq_coeff 
+						enum switchtec_diag_end end,
+						enum switchtec_diag_link link,
+						struct switchtec_port_eq_coeff
 						*res)
 {
 	struct switchtec_port_eq_coeff *loc_out;
@@ -1034,8 +1034,8 @@ static int switchtec_gen4_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id, 
-				    int prev_speed, enum switchtec_diag_end end, 
+int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
+				    int prev_speed, enum switchtec_diag_end end,
 				    enum switchtec_diag_link link,
 				    struct switchtec_port_eq_coeff *res)
 {
@@ -1059,7 +1059,7 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on success, error code on failure
  */
-static int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev, 
+static int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev,
 						int port_id, int prev_speed,
 						enum switchtec_diag_link link,
 						struct switchtec_port_eq_table
@@ -1183,8 +1183,8 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id, int 
 	int ret = -1;
 
 	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id, 
-							   prev_speed, link, 
+		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id,
+							   prev_speed, link,
 							   res);
 	else if (switchtec_is_gen4(dev))
 		ret = switchtec_gen4_diag_port_eq_tx_table(dev, port_id, link,
@@ -1203,11 +1203,11 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id, int 
  *
  * @return 0 on success, error code on failure
  */
-static int switchtec_gen5_diag_port_eq_tx_fslf(struct switchtec_dev *dev, 
-					       int port_id, int prev_speed, 
-					       int lane_id, 
+static int switchtec_gen5_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
+					       int port_id, int prev_speed,
+					       int lane_id,
 					       enum switchtec_diag_end end,
-				   	       enum switchtec_diag_link link,
+					       enum switchtec_diag_link link,
 					       struct switchtec_port_eq_tx_fslf
 					       *res)
 {
@@ -1326,8 +1326,8 @@ static int switchtec_gen4_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id, 
-				   int prev_speed, int lane_id, 
+int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
+				   int prev_speed, int lane_id,
 				   enum switchtec_diag_end end,
 				   enum switchtec_diag_link link,
 				   struct switchtec_port_eq_tx_fslf *res)
@@ -1335,8 +1335,8 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 	int ret = -1;
 
 	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_fslf(dev, port_id, 
-							  prev_speed, lane_id, 
+		ret = switchtec_gen5_diag_port_eq_tx_fslf(dev, port_id,
+							  prev_speed, lane_id,
 							  end, link, res);
 	else if (switchtec_is_gen4(dev))
 		ret = switchtec_gen4_diag_port_eq_tx_fslf(dev, port_id,
@@ -1448,7 +1448,7 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
 	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
 }
 /**
- * @brief Get the status of all stacks of the refclk 
+ * @brief Get the status of all stacks of the refclk
  * @param[in]  dev		Switchtec device handle
  * @param[in]  stack_info	Pointer to the stack information
  *
@@ -1460,7 +1460,7 @@ int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *stack_info)
 		.sub_cmd = MRPC_REFCLK_S_STATUS,
 	};
 
-	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), stack_info, 
+	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), stack_info,
 			     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS);
 }
 
@@ -1589,7 +1589,7 @@ static int switchtec_diag_ltssm_log_gen5(struct switchtec_dev *dev,
 	log_dump.log_index = 0;
 	log_dump.no_of_logs = *log_count;
 
-	if(log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
+	if (log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
 		/* Single buffer log case */
 		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
 				    sizeof(log_dump), &log_buffer[0],
@@ -1727,7 +1727,7 @@ static int switchtec_diag_ltssm_log_gen6(struct switchtec_dev *dev,
 	log_dump.log_index = 0;
 	log_dump.no_of_logs = *log_count;
 
-	if(log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
+	if (log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
 		/* Single buffer log case */
 		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
 				    sizeof(log_dump), &log_buffer[0],
@@ -1869,7 +1869,7 @@ static int switchtec_diag_ltssm_log_gen4(struct switchtec_dev *dev,
 	log_dump.port = port;
 	log_dump.log_index = 0;
 	log_dump.no_of_logs = *log_count;
-	if(log_dump.no_of_logs <= 126) {
+	if (log_dump.no_of_logs <= 126) {
 		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
 				    sizeof(log_dump), log_dump_out,
 				    8 * log_dump.no_of_logs);
@@ -1930,9 +1930,9 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 	if (switchtec_is_gen6(dev))
 		ret = switchtec_diag_ltssm_log_gen6(dev, port, log_count, log_data);
 	else if (switchtec_is_gen5(dev))
- 		ret = switchtec_diag_ltssm_log_gen5(dev, port, log_count, log_data);
- 	else
- 		ret = switchtec_diag_ltssm_log_gen4(dev, port, log_count, log_data);
+		ret = switchtec_diag_ltssm_log_gen5(dev, port, log_count, log_data);
+	else
+		ret = switchtec_diag_ltssm_log_gen4(dev, port, log_count, log_data);
 	return ret;
 }
 
@@ -2284,12 +2284,12 @@ int switchtec_osa_capture_data(struct switchtec_dev *dev, int stack_id,
 				timestamp_lower = (osa_data_read_out.entry_dwords[i] >> 22) & 0x3FF;
 				timestamp_upper = (osa_data_read_out.entry_dwords[i+1] & 0x1A);
 				timestamp = timestamp_upper | timestamp_lower;
-				
+
 				link_rate = osa_data_read_out.entry_dwords[i] & 0x3;
 				counter = (osa_data_read_out.entry_dwords[i] >> 3) & 0x12;
 				trigger	= (osa_data_read_out.entry_dwords[i+1] >> 28) & 0x1;
 				os_droppped = (osa_data_read_out.entry_dwords[i+1] >> 29) & 0x1;
-				
+
 				printf("%d\t", total_entries);
 				printf("%ld\t\t", timestamp);
 				printf("%s\t\t", link_rate_str[link_rate]);
@@ -2520,7 +2520,7 @@ int switchtec_osa_dump_conf(struct switchtec_dev *dev, int stack_id)
 		printf("%s", (osa_dmp_out.os_type_trig_os_types >> 2) & 1 ? "FTS," : "");
 		printf("%s\n", (osa_dmp_out.os_type_trig_os_types >> 3) & 1 ? "CTL_SKP" : "");
 	}
-	
+
 	printf("------- OS Pattern ---------------------\n");
 	printf("lanes: \t\t\t%s", osa_dmp_out.os_pat_trig_lane_mask & 1 ? "0," : "");
 	for (int i = 1; i < 16; i++) {
@@ -2542,14 +2542,14 @@ int switchtec_osa_dump_conf(struct switchtec_dev *dev, int stack_id)
 	printf("%s\n", (osa_dmp_out.os_pat_trig_link_rate >> 4) & 1 ? "GEN5" : "");
 	if (switchtec_is_gen6(dev))
 		printf("%s\n", (osa_dmp_out.os_type_trig_link_rate >> 5) & 1 ? "GEN6" : "");
-	
+
 	printf("patttern: \t\t0x%08x %08x %08x %08x\n", osa_dmp_out.os_pat_trig_val_dw0,
 	       osa_dmp_out.os_pat_trig_val_dw1, osa_dmp_out.os_pat_trig_val_dw2,
 	       osa_dmp_out.os_pat_trig_val_dw3);
 	printf("mask: \t\t\t0x%08x %08x %08x %08x\n", osa_dmp_out.os_pat_trig_mask_dw0,
 	       osa_dmp_out.os_pat_trig_mask_dw1, osa_dmp_out.os_pat_trig_mask_dw2,
 	       osa_dmp_out.os_pat_trig_mask_dw3);
-	
+
 	printf("------- Misc ---------------------------\n");
 	if (osa_dmp_out.misc_trig_en == 2 || osa_dmp_out.misc_trig_en == 0)
 		printf("Misc trigger disabled");
@@ -2573,23 +2573,23 @@ int switchtec_osa_dump_conf(struct switchtec_dev *dev, int stack_id)
 	printf("%s\n", (osa_dmp_out.capture_dir >> 1) & 1 ? "TX" : "");
 
 	if (switchtec_is_gen6(dev))
-		printf("drop single os: \t%d: Single TS0, TS1, TS2, FTS and CTL_SKP OS's %s in the capture\n", 
-			osa_dmp_out.capture_drop_os, 
+		printf("drop single os: \t%d: Single TS0, TS1, TS2, FTS and CTL_SKP OS's %s in the capture\n",
+			osa_dmp_out.capture_drop_os,
 			osa_dmp_out.capture_drop_os ? " excluded" : "included");
 	else
-		printf("drop single os: \t%d: Single TS1, TS2, FTS and CTL_SKP OS's %s in the capture\n", 
-			osa_dmp_out.capture_drop_os, 
+		printf("drop single os: \t%d: Single TS1, TS2, FTS and CTL_SKP OS's %s in the capture\n",
+			osa_dmp_out.capture_drop_os,
 			osa_dmp_out.capture_drop_os ? " excluded" : "included");
 
-	printf("stop mode: \t\t%d: OSA will stop capturing after %s lane has stopped writing into %s allocated RAMs\n", 
+	printf("stop mode: \t\t%d: OSA will stop capturing after %s lane has stopped writing into %s allocated RAMs\n",
 		osa_dmp_out.capture_stop_mode,
 		osa_dmp_out.capture_stop_mode ? "all" : "any",
 		osa_dmp_out.capture_stop_mode ? "their" : "its");
-	printf("snaphot mode: \t\t%d: OSes are captured %s\n", 
-		osa_dmp_out.capture_snap_mode, 
+	printf("snaphot mode: \t\t%d: OSes are captured %s\n",
+		osa_dmp_out.capture_snap_mode,
 		osa_dmp_out.capture_snap_mode ? "until the RAM is full" : "according to the Post-Trigger Entries value");
 	printf("post-trigger entries: \t%d\n", osa_dmp_out.capture_post_trig_entries);
-	
+
 	printf("os types: \t\t");
 	if (switchtec_is_gen6(dev)) {
 		printf("%s", (osa_dmp_out.capture_os_types & 1) ? "TS0," : "");

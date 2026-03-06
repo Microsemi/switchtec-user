@@ -461,7 +461,7 @@ static const char *lane_reversal_str(int link_up,
 	if (!link_up)
 		return "N/A";
 
-	switch(lane_reversal) {
+	switch (lane_reversal) {
 	case 0: return "Normal Lane Ordering";
 	case 1: return "x16 (Full) Lane Reversal";
 	case 2: return "x2 Lane Reversal";
@@ -477,7 +477,7 @@ static const char *lane_reversal_str_gen6(int link_up,
 	if (!link_up)
 		return "N/A";
 
-	switch(lane_reversal) {
+	switch (lane_reversal) {
 	case 0: return "Normal Lane Ordering";
 	case 1: return "Lane Reversal in effect";
 	default: return "Unknown Lane Ordering";
@@ -591,7 +591,7 @@ static int switchtec_status_gen345(struct switchtec_dev *dev,
 	return nr_ports;
 }
 
-static int switchtec_status_gen6(struct switchtec_dev *dev, 
+static int switchtec_status_gen6(struct switchtec_dev *dev,
 				struct switchtec_status **status)
 {
 	struct {
@@ -987,7 +987,7 @@ static bool parse_int(char *str, int *val)
 	*val = strtol(str, &endptr, 0);
 
 	if ((endptr == str) || (*endptr != '\0') || (errno != 0))
-	    return false;
+		return false;
 
 	return true;
 }
@@ -1199,10 +1199,10 @@ static int write_parsed_log(struct log_a_data log_data[],
 	if (entry_idx == 0) {
 		if (log_type == SWITCHTEC_LOG_PARSE_TYPE_APP || log_type == SWITCHTEC_LOG_PARSE_TYPE_FTDC)
 			fputs("   #|Timestamp                |Module       |Severity |Event ID |Event\n",
-		      	      log_file);
+			      log_file);
 		else
 			fputs("   #|Timestamp                |Source |Event ID |Event\n",
-		      	      log_file);
+			      log_file);
 	}
 
 	for (i = 0; i < count; i ++) {
@@ -1297,8 +1297,8 @@ static int write_parsed_log(struct log_a_data log_data[],
 		}
 
 		/* print the log entry */
-	  	if (fprintf(log_file, mod_defs->entries[entry_num],
-	  		    log_data[i].data[3], log_data[i].data[4],
+		if (fprintf(log_file, mod_defs->entries[entry_num],
+			    log_data[i].data[3], log_data[i].data[4],
 			    log_data[i].data[5], log_data[i].data[6],
 			    log_data[i].data[7]) < 0)
 			goto ret_print_error;
@@ -1581,7 +1581,7 @@ static int log_d_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 
 	cmd.req_seq = 0;
 	res.data[1] = 0;
-	
+
 	while ( !(res.data[1]) ) {
 		ret = switchtec_cmd(dev, MRPC_FTDC_LOG_DUMP, &cmd, sizeof(cmd),
 				    &res, sizeof(res));
@@ -1594,7 +1594,6 @@ static int log_d_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 
 		read += length;
 		cmd.req_seq++;
-	
 	}
 
 	return 0;
@@ -1744,7 +1743,7 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 
 	if ((log_type != SWITCHTEC_LOG_PARSE_TYPE_APP) &&
 	    (log_type != SWITCHTEC_LOG_PARSE_TYPE_MAILBOX) &&
-		(log_type != SWITCHTEC_LOG_PARSE_TYPE_FTDC)) {
+	    (log_type != SWITCHTEC_LOG_PARSE_TYPE_FTDC)) {
 		errno = EINVAL;
 		return -errno;
 	}
@@ -1796,7 +1795,7 @@ int switchtec_parse_log(FILE *bin_log_file, FILE *log_def_file,
 	/* parse each log entry */
 	while (fread(&log_data, sizeof(struct log_a_data), 1,
 		     bin_log_file) == 1) {
-		if(fw_version_log)
+		if (fw_version_log)
 			gen_file = switchtec_fw_version_to_gen(fw_version_log);
 		else
 			gen_file = switchtec_fw_version_to_gen(fw_version_def);
@@ -2514,7 +2513,7 @@ int switchtec_get_gpio_polarity_cfg(struct switchtec_dev *dev, int pin_id,
 		return ret;
 
 	*polarity = out.data;
-	
+
 	return 0;
 }
 
@@ -2555,7 +2554,7 @@ int switchtec_get_all_pin_sts(struct switchtec_dev *dev, uint32_t *values)
 	ret = switchtec_cmd(dev, MRPC_VGPIO, &in, sizeof(in), &out, sizeof(out));
 	if (ret)
 		return ret;
-	
+
 	memcpy(values, out.pin_values, sizeof(out.pin_values));
 
 	return 0;
@@ -2564,7 +2563,7 @@ int switchtec_get_all_pin_sts(struct switchtec_dev *dev, uint32_t *values)
 /**
  * @brief Perform a reset operation on the RTC counter
  * @param[in] dev	  Switchtec device handle
- * @return 0 on success, or a negative value on failure	
+ * @return 0 on success, or a negative value on failure
  */
 int switchtec_rtc_counter_reset(struct switchtec_dev *dev)
 {
@@ -2572,20 +2571,19 @@ int switchtec_rtc_counter_reset(struct switchtec_dev *dev)
 	struct switchtec_rtc in, out;
 	in.sub_cmd = MRPC_RTC_RESET;
 	in.rtc_counter = 0;
-	
+
 	ret = switchtec_cmd(dev, MRPC_RTC, &in, sizeof(in), &out, sizeof(out));
 	if (ret)
 		return ret;
 
 	return 0;
-	
 }
 
 /**
  * @brief Set the RTC counter
  * @param[in] dev	  Switchtec device handle
  * @param[in] rtc_counter Pointer to store the RTC counter value
- * @return 0 on success, or a negative value on failure	
+ * @return 0 on success, or a negative value on failure
  */
 int switchtec_rtc_counter_set(struct switchtec_dev *dev, uint64_t *rtc_counter)
 {
@@ -2594,20 +2592,19 @@ int switchtec_rtc_counter_set(struct switchtec_dev *dev, uint64_t *rtc_counter)
 
 	in.sub_cmd = MRPC_RTC_SET;
 	in.rtc_counter = *rtc_counter;
-	
+
 	ret = switchtec_cmd(dev, MRPC_RTC, &in, sizeof(in), &out, sizeof(out));
 	if (ret)
 		return ret;
 
 	return 0;
-	
 }
 
 /**
  * @brief Get the RTC counter
  * @param[in] dev	  Switchtec device handle
  * @param[in] rtc_counter Pointer to store the RTC counter value
- * @return 0 on success, or a negative value on failure	
+ * @return 0 on success, or a negative value on failure
  */
 int switchtec_rtc_counter_get(struct switchtec_dev *dev, uint64_t *rtc_counter)
 {
@@ -2615,15 +2612,14 @@ int switchtec_rtc_counter_get(struct switchtec_dev *dev, uint64_t *rtc_counter)
 	struct switchtec_rtc in, out;
 
 	in.sub_cmd = MRPC_RTC_GET;
-	
+
 	ret = switchtec_cmd(dev, MRPC_RTC, &in, sizeof(in), &out, sizeof(out));
 	if (ret)
 		return ret;
-	
+
 	*rtc_counter = out.rtc_counter;
 
 	return 0;
-	
 }
 
 /**@}*/

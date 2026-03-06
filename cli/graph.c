@@ -391,8 +391,8 @@ void graph_init(void)
 #endif /* defined(HAVE_LIBCURSES) || defined(HAVE_LIBNCURSES) */
 
 int graph_draw_win_no_invert(struct range *X, struct range *Y, int *data,
-		   	     int *shades, const char *title, char x_title, 
-			     char y_title, char *status, graph_anim_fn *anim, 
+			     int *shades, const char *title, char x_title,
+			     char y_title, char *status, graph_anim_fn *anim,
 			     void *opaque)
 {
 	graph_draw_text_no_invert(X, Y, data, title, x_title, y_title);
@@ -439,7 +439,7 @@ void graph_draw_text(struct range *X, struct range *Y, int *data,
 	}
 }
 
-void graph_draw_text_no_invert(struct range *X, struct range *Y, int *data, 
+void graph_draw_text_no_invert(struct range *X, struct range *Y, int *data,
 			       const char *title, char x_title, char y_title)
 {
 	int stride = RANGE_CNT(X);

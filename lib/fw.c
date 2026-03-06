@@ -198,12 +198,11 @@ struct switchtec_fw_image_header_gen3 {
 	uint32_t image_crc;
 };
 
-typedef enum
-{
-    MRPC_FW_IMG_GET_CMD_START = 0,
-    MRPC_FW_IMG_GET_CMD_NEXT = 1,
+typedef enum {
+	MRPC_FW_IMG_GET_CMD_START = 0,
+	MRPC_FW_IMG_GET_CMD_NEXT = 1,
 
-    MRPC_FW_IMG_GET_CMD_MAX
+	MRPC_FW_IMG_GET_CMD_MAX
 } mrpc_fw_img_get_cmd_e;
 
 struct cmd_fwget {
@@ -219,7 +218,7 @@ static uint32_t get_fw_tx_id(struct switchtec_dev *dev)
 		return MRPC_FW_TX_GEN6;
 	if (switchtec_is_gen5(dev))
 		return MRPC_FW_TX_GEN5;
-	
+
 	return MRPC_FW_TX;
 }
 
@@ -311,16 +310,16 @@ static int set_redundant(struct switchtec_dev *dev, int type, int set)
 	else
 		cmd.part_type = type;
 
-	printf("%s redundant flag \t(%s)\n", set ? "Checking" : "Un-checking", 
+	printf("%s redundant flag \t(%s)\n", set ? "Checking" : "Un-checking",
 	       part_types[type-1]);
 	ret = switchtec_cmd(dev, MRPC_FWDNLD, &cmd, sizeof(cmd), NULL, 0);
 	if (ret) {
-		fprintf(stderr, "Error: setting redudant flag \t(%s)\n", 
+		fprintf(stderr, "Error: setting redudant flag \t(%s)\n",
 			part_types[type-1]);
 		return 1;
 	}
 	else {
-		printf("Success: set redundant flag \t(%s)\n", 
+		printf("Success: set redundant flag \t(%s)\n",
 		       part_types[type-1]);
 	}
 	return 0;
@@ -332,12 +331,12 @@ static int set_redundant(struct switchtec_dev *dev, int type, int set)
  * @param[in] toggle_arr Pointer to the array of togglable image types
  * @return 0 on success, error code on failure
  */
-int switchtec_fw_set_redundant_flag (struct switchtec_dev *dev, int keyman, 
-				     int riot, int bl2, int cfg, int fw, 
+int switchtec_fw_set_redundant_flag (struct switchtec_dev *dev, int keyman,
+				     int riot, int bl2, int cfg, int fw,
 				     int set)
 {
 	int ret = 0;
-	if(keyman)
+	if (keyman)
 		ret += set_redundant(dev, SWITCHTEC_PART_TYPE_KEYMAN, set);
 	if (riot)
 		ret += set_redundant(dev, SWITCHTEC_PART_TYPE_RC, set);
@@ -362,14 +361,14 @@ int switchtec_fw_set_redundant_flag (struct switchtec_dev *dev, int keyman,
  * 	indicate the progress.
  * @return 0 on success, error code on failure
  *
- * The fw_img_get command will download the firmware image corresponding to fw type and slot 
+ * The fw_img_get command will download the firmware image corresponding to fw type and slot
  * from the device to the file descriptor provided.
  */
-int switchtec_fw_img_get(struct switchtec_dev *dev, int fd, 
-						enum switchtec_fw_type_gen6 fw_type, int fw_slot, 
-						void (*progress_callback)(int cur, int tot))
+int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
+			 enum switchtec_fw_type_gen6 fw_type, int fw_slot,
+			 void (*progress_callback)(int cur, int tot))
 {
-  	struct cmd_fwget cmd = {0};
+	struct cmd_fwget cmd = {0};
 
 	struct fw_img_get_resp_t {
 		uint8_t status;
@@ -400,7 +399,7 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 	ret = switchtec_cmd(dev, MRPC_FW_IMG_GET, &cmd, sizeof(cmd),
 		resp, sizeof(resp));
 
-	if(ret){
+	if (ret) {
 		printf("Error during FW image get\n");
 		return ret;
 	}
@@ -423,13 +422,13 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 		ret = switchtec_cmd(dev, MRPC_FW_IMG_GET, &cmd, sizeof(cmd),
 			resp, sizeof(resp));
 
-		if(ret){
+		if (ret) {
 			printf("Error during FW image get\n");
 			return ret;
 		}
 
-		size_t written = write(fd, (void*)(&fw_img_get_resp->data), fw_img_get_resp->chunk_len);
-		if (written != fw_img_get_resp->chunk_len){
+		size_t written = write(fd, (void *)(&fw_img_get_resp->data), fw_img_get_resp->chunk_len);
+		if (written != fw_img_get_resp->chunk_len) {
 			perror("Error writing to file");
 			return 1;
 		}
@@ -437,7 +436,7 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 		if (progress_callback)
 			progress_callback(fw_img_get_resp->offset, fw_img_get_resp->total_len);
 
-	} while((fw_img_get_resp->offset + fw_img_get_resp->chunk_len) < fw_img_get_resp->total_len);
+	} while ((fw_img_get_resp->offset + fw_img_get_resp->chunk_len) < fw_img_get_resp->total_len);
 
 	return 0;
 }
@@ -488,10 +487,10 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 		ret = switchtec_cmd(dev, cmd_id, &cmd, cmd_size, NULL, 0);
 		if (ret)
 			return ret;
-		
+
 		return 0;
 	}
-	
+
 	cmd_id = MRPC_FWDNLD;
 	cmd.subcmd = MRPC_FWDNLD_TOGGLE;
 	cmd.toggle_bl2 = !!toggle_bl2;
@@ -757,7 +756,7 @@ void switchtec_fw_perror(const char *s, int ret)
 		return;
 	}
 
-	switch(ret) {
+	switch (ret) {
 	case SWITCHTEC_DLSTAT_HEADER_INCORRECT:
 		msg = "Header incorrect";  break;
 	case SWITCHTEC_DLSTAT_OFFSET_INCORRECT:
@@ -1075,7 +1074,7 @@ int switchtec_fw_file_info(int fd, struct switchtec_fw_image_info *info)
 	} else if (!strncmp(magic, "MSCC", sizeof(magic))) {
 		return switchtec_fw_file_info_gen45(fd, info);
 	} else if (!strncmp(magic, "DCBI", sizeof(magic))) {
-		return 1;	
+		return 1;
 	} else {
 		errno = ENOEXEC;
 		return -1;
@@ -1470,8 +1469,8 @@ struct switchtec_flash_info_gen6 {
 	uint8_t img_redundant_flag;
 	uint8_t rsvd3[2];
 	uint32_t rsvd4[9];
-	struct switchtec_flash_part_info_gen4 map0, map1, keyman0, keyman1, bl20, 
-						bl21, cfg0, cfg1, img0, img1, 
+	struct switchtec_flash_part_info_gen4 map0, map1, keyman0, keyman1, bl20,
+						bl21, cfg0, cfg1, img0, img1,
 						nvlog, vendor[8];
 };
 
@@ -1482,7 +1481,7 @@ static int switchtec_fw_part_info_gen4(struct switchtec_dev *dev,
 	struct switchtec_flash_part_info_gen4 *part_info;
 	int ret;
 
-	switch(inf->part_id) {
+	switch (inf->part_id) {
 	case SWITCHTEC_FW_PART_ID_G4_MAP0:
 		part_info = &all->map0;
 		break;
@@ -1555,7 +1554,7 @@ static int switchtec_fw_part_info_gen5(struct switchtec_dev *dev,
 	struct switchtec_flash_part_info_gen4 *part_info;
 	int ret;
 
-	switch(inf->part_id) {
+	switch (inf->part_id) {
 	case SWITCHTEC_FW_PART_ID_G5_MAP0:
 		part_info = &all->map0;
 		break;
@@ -1641,7 +1640,7 @@ static int switchtec_fw_part_info_gen6(struct switchtec_dev *dev,
 	struct switchtec_flash_part_info_gen4 *part_info;
 	int ret;
 
-	switch(inf->part_id) {
+	switch (inf->part_id) {
 	case SWITCHTEC_FW_PART_ID_G6_MAP0:
 		part_info = &all->map0;
 		break;
@@ -1821,11 +1820,11 @@ static int switchtec_fw_part_info(struct switchtec_dev *dev, int nr_info,
 struct switchtec_fw_image_info *switchtec_fw_part_data_bl2(struct switchtec_dev *dev)
 {
 	struct switchtec_fw_image_info *inf;
-	struct switchtec_fw_image_info *tmp;
+	struct switchtec_fw_image_info *head;
 	int ret;
-	
+
 	struct switchtec_fw_metadata_gen6 *metadata;
-	
+
 	struct {
 		uint8_t subcmd;
 		uint8_t part_id;
@@ -1835,28 +1834,34 @@ struct switchtec_fw_image_info *switchtec_fw_part_data_bl2(struct switchtec_dev 
 	inf = malloc(sizeof(*inf));
 	if (!inf)
 		return NULL;
-	tmp = inf;
+	memset(inf, 0, sizeof(*inf));
+	head = inf;
 
-	for (int i = 0; i <= 9; i++)
-	{
+	for (int i = 0; i <= 9; i++) {
 		metadata = malloc(sizeof(*metadata));
 		if (!metadata)
-			return NULL;
+			goto err_free_list;
 		subcmd.part_id = i;
 		ret = switchtec_cmd(dev, MRPC_PART_INFO, &subcmd, sizeof(subcmd),
 				metadata, sizeof(*metadata));
-		if (ret)
-			return NULL;
+		if (ret) {
+			free(metadata);
+			goto err_free_list;
+		}
 		version_to_string(le32toh(metadata->version), inf->version,
 				sizeof(inf->version));
 		inf->metadata = metadata;
 		inf->next = malloc(sizeof(*inf));
 		if (!inf->next)
-			return NULL;
+			goto err_free_list;
+		memset(inf->next, 0, sizeof(*inf));
 		inf = inf->next;
 	}
-	inf = tmp;
-	return inf;
+	return head;
+
+err_free_list:
+	switchtec_fw_image_info_free(head);
+	return NULL;
 }
 
 int switchtec_get_device_id_bl2(struct switchtec_dev *dev,
@@ -2154,12 +2159,11 @@ void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary)
 void switchtec_fw_image_info_free(struct switchtec_fw_image_info *inf)
 {
 	struct switchtec_fw_image_info *tmp;
-	while (1)
-	{
-		if(inf->metadata)
+	while (1) {
+		if (inf->metadata)
 			free(inf->metadata);
 
-		if(inf->next) {
+		if (inf->next) {
 			tmp = inf;
 			inf = inf->next;
 			free(tmp);
@@ -2188,7 +2192,7 @@ int switchtec_fw_read(struct switchtec_dev *dev, unsigned long addr,
 	unsigned char *cbuf = buf;
 	size_t read = 0;
 
-	while(len) {
+	while (len) {
 		size_t chunk_len = len;
 		if (chunk_len > MRPC_MAX_DATA_LEN-8)
 			chunk_len = MRPC_MAX_DATA_LEN-8;
@@ -2232,7 +2236,7 @@ int switchtec_fw_read_fd(struct switchtec_dev *dev, int fd,
 	size_t total_wrote;
 	ssize_t wrote;
 
-	while(len) {
+	while (len) {
 		size_t chunk_len = len;
 		if (chunk_len > sizeof(buf))
 			chunk_len = sizeof(buf);
