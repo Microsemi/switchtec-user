@@ -2622,4 +2622,122 @@ int switchtec_rtc_counter_get(struct switchtec_dev *dev, uint64_t *rtc_counter)
 	return 0;
 }
 
+/**
+ * @brief Write to the TWI bus using TWI Access MRPC
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  twi_port		TWI port number (0-7)
+ * @param[in]  slave_addr		Slave device address
+ * @param[in]  offset		Offset address
+ * @param[in]  offset_size		Offset size in bytes (0, 1, 2, or 4)
+ * @param[in]  slave_addr_size	Slave address size (0 for 7-bit, 1 for 10-bit)
+ * @param[in]  num_bytes		Number of bytes to write
+ * @param[in]  data		Data buffer to write
+ * @return 0 on success, error code on failure
+ */
+int switchtec_twi_access_write(struct switchtec_dev *dev, uint8_t twi_port,
+				uint16_t slave_addr, uint32_t offset,
+				uint8_t offset_size, uint8_t slave_addr_size,
+				uint16_t num_bytes, uint32_t *data)
+{
+	int ret;
+	struct switchtec_twi_access_rdwr input;
+
+	memset(&input, 0, sizeof(input));
+	input.sub_cmd = TWI_ACCESS_WRITE;
+	input.twi_port = twi_port;
+	input.slave_addr = slave_addr;
+	input.offset = offset;
+	input.offset_size = offset_size;
+	input.slave_addr_size = slave_addr_size;
+	input.num_of_bytes = num_bytes;
+
+	if (data && num_bytes > 0) {
+		int num_dwords = (num_bytes + 3) / 4;
+		if (num_dwords > 253)
+			num_dwords = 253;
+		memcpy(input.data, data, num_dwords * sizeof(uint32_t));
+	}
+
+	ret = switchtec_cmd(dev, MRPC_TWI, &input, sizeof(input), NULL, 0);
+
+	if (ret) {
+		switchtec_perror("twi_write");
+		return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Read from the TWI bus using TWI Access MRPC
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  twi_port		TWI port number (0-7)
+ * @param[in]  slave_addr		Slave device address
+ * @param[in]  offset		Offset address
+ * @param[in]  offset_size		Offset size in bytes (0, 1, 2, or 4)
+ * @param[in]  slave_addr_size	Slave address size (0 for 7-bit, 1 for 10-bit)
+ * @param[in]  num_bytes		Number of bytes to read
+ * @param[out] output		Output buffer to store read data
+ * @return 0 on success, error code on failure
+ */
+int switchtec_twi_access_read(struct switchtec_dev *dev, uint8_t twi_port,
+			       uint16_t slave_addr, uint32_t offset,
+			       uint8_t offset_size, uint8_t slave_addr_size,
+			       uint16_t num_bytes, uint32_t *output)
+{
+	int ret;
+	struct switchtec_twi_access_rdwr input;
+	uint32_t output_buf[256] = {0};
+
+	memset(&input, 0, sizeof(input));
+	input.sub_cmd = TWI_ACCESS_READ;
+	input.twi_port = twi_port;
+	input.slave_addr = slave_addr;
+	input.offset = offset;
+	input.offset_size = offset_size;
+	input.slave_addr_size = slave_addr_size;
+	input.num_of_bytes = num_bytes;
+
+	ret = switchtec_cmd(dev, MRPC_TWI, &input, sizeof(input),
+			    output_buf, sizeof(output_buf));
+
+	if (ret) {
+		switchtec_perror("twi_read");
+		return ret;
+	}
+
+	if (output) {
+		memcpy(output, output_buf, sizeof(output_buf));
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Reset the TWI bus using TWI Access MRPC
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  master_recov	Master recovery flag
+ * @param[in]  twi_port		TWI port number (0-7)
+ * @param[in]  duration_ms	Duration in micro-seconds
+ * @return 0 on success, error code on failure
+ */
+int switchtec_twi_access_reset(struct switchtec_dev *dev, uint8_t master_recov,
+				uint8_t twi_port, uint32_t duration_ms)
+{
+	int ret;
+	struct switchtec_twi_access_reset input;
+	input.duration_ms = duration_ms;
+	input.master_recov = master_recov;
+	input.twi_port = twi_port;
+	input.sub_cmd = TWI_ACCESS_RESET;
+	
+	ret = switchtec_cmd(dev, MRPC_TWI, &input, sizeof(input), NULL, 0);
+
+	if (ret) {
+		switchtec_perror("twi_reset");
+		return ret;
+	}
+	return 0;
+}
+
 /**@}*/
