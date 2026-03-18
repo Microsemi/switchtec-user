@@ -1655,6 +1655,72 @@ struct switchtec_diag_ltssm_log {
 	int rx_minor_state;
 };
 
+/**
+ * @brief OSA status query result
+ */
+struct switchtec_osa_status {
+	uint8_t state;
+	uint8_t trigger_lane;
+	uint8_t trigger_dir;
+	uint16_t trigger_reason;
+};
+
+/**
+ * @brief OSA configuration dump result
+ */
+struct switchtec_osa_config {
+	/* OS Type Trigger */
+	uint16_t os_type_lane_mask;
+	uint8_t os_type_direction;
+	uint8_t os_type_link_rate;
+	uint8_t os_type_os_types;
+
+	/* OS Pattern Trigger */
+	uint16_t os_pat_lane_mask;
+	uint8_t os_pat_direction;
+	uint8_t os_pat_link_rate;
+	uint32_t os_pat_value[4];
+	uint32_t os_pat_mask[4];
+
+	/* Misc Trigger */
+	uint8_t misc_trig_enable;
+
+	/* Capture Config */
+	uint16_t capture_lane_mask;
+	uint8_t capture_direction;
+	uint8_t capture_drop_single_os;
+	uint8_t capture_stop_mode;
+	uint8_t capture_snapshot_mode;
+	uint16_t capture_post_trig_entries;
+	uint8_t capture_os_types;
+};
+
+/**
+ * @brief OSA capture data entry
+ */
+struct switchtec_osa_capture_entry {
+	uint64_t timestamp;
+	uint8_t link_rate;
+	uint32_t counter;
+	uint8_t trigger_indication;
+	uint8_t os_dropped;
+	uint32_t osa_data[4];
+};
+
+/**
+ * @brief OSA capture data collection
+ */
+#define SWITCHTEC_OSA_MAX_ENTRIES 1024
+struct switchtec_osa_capture_data {
+	uint8_t stack_id;
+	uint8_t lane;
+	uint8_t direction;
+	uint16_t total_entries;
+	uint8_t wrap_occurred;
+	uint16_t entry_count;
+	struct switchtec_osa_capture_entry entries[SWITCHTEC_OSA_MAX_ENTRIES];
+};
+
 int switchtec_diag_cross_hair_enable(struct switchtec_dev *dev, int lane_id);
 int switchtec_diag_cross_hair_disable(struct switchtec_dev *dev);
 int switchtec_diag_cross_hair_get(struct switchtec_dev *dev, int start_lane_id,
@@ -1729,7 +1795,8 @@ int switchtec_tlp_inject(struct switchtec_dev * dev, int port_id, int tlp_type,
 			 int tlp_length, int ecrc, uint32_t * raw_tlp_data);
 int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 			    int aer_error_id, int trigger_event);
-int switchtec_osa(struct switchtec_dev * dev, int stack_id, int operation);
+int switchtec_osa(struct switchtec_dev * dev, int stack_id, int operation,
+		  struct switchtec_osa_status *status);
 int switchtec_osa_config_type(struct switchtec_dev * dev, int stack_id,
 			      int direction, int lane_mask, int link_rate,
 			      int os_types);
@@ -1740,12 +1807,14 @@ int switchtec_osa_capture_control(struct switchtec_dev * dev, int stack_id,
 				  int drop_single_os, int stop_mode,
 				  int snapshot_mode, int post_trigger,
 				  int os_types);
-int switchtec_osa_dump_conf(struct switchtec_dev * dev, int stack_id);
+int switchtec_osa_dump_conf(struct switchtec_dev * dev, int stack_id,
+			    struct switchtec_osa_config *config);
 int switchtec_osa_config_pattern(struct switchtec_dev * dev, int stack_id,
 				 int direction, int lane_mask,int link_rate,
 				 uint32_t * value_data, uint32_t * mask_data);
 int switchtec_osa_capture_data(struct switchtec_dev * dev, int stack_id,
-			       int lane, int direction);
+			       int lane, int direction,
+			       struct switchtec_osa_capture_data *data);
 #ifdef __cplusplus
 }
 #endif

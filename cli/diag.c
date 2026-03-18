@@ -2824,6 +2824,7 @@ invalid_stack:
 static int osa(int argc, char **argv)
 {
 	int ret = 0;
+	struct switchtec_osa_status status;
 	static struct {
 		struct switchtec_dev *dev;
 		int stack_id;
@@ -2835,6 +2836,15 @@ static int osa(int argc, char **argv)
 		{"operation", 'o', "0/1/2/3/4/5", CFG_INT, &cfg.operation,
 		required_argument,"operations:\n- stop:0\n- start:1\n- trigger:2\n- reset:3\n- release:4\n- status:5"},
 		{NULL}};
+
+	const char *valid_ops[6] = {"stop", "start", "trigger", "reset",
+				    "release", "status"};
+	const char *states[5] = {"Deactivated (not armed)",
+				 "Started (armed), not triggered",
+				 "Started (armted), triggered",
+				 "Stopped, not triggered",
+				 "Stopped, triggered"};
+	const char *directions[2] = {"TX", "RX"};
 
 	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER, opts, &cfg,
 			sizeof(cfg));
@@ -2848,11 +2858,25 @@ static int osa(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_osa(cfg.dev, cfg.stack_id, cfg.operation);
+	printf("Attempting %s operation...\n", valid_ops[cfg.operation]);
+
+	ret = switchtec_osa(cfg.dev, cfg.stack_id, cfg.operation,
+			    cfg.operation == 5 ? &status : NULL);
 	if (ret) {
 		switchtec_perror("osa");
 		return -1;
 	}
+
+	if (cfg.operation == 5) {
+		printf("Status of stack %d\n", cfg.stack_id);
+		printf("STATE: %s\n", states[status.state]);
+		printf("TRIGGER_LANE: %d\n", status.trigger_lane);
+		printf("TRIGGER_DIR: %s\n", directions[status.trigger_dir]);
+		printf("REASON_BITMASK: %d\n", status.trigger_reason);
+	} else {
+		printf("Successful %s operation!\n", valid_ops[cfg.operation]);
+	}
+
 	return 0;
 }
 
@@ -2972,6 +2996,8 @@ static int osa_config_type(int argc, char **argv)
 		switchtec_perror("osa_config_type");
 		return -1;
 	}
+
+	printf("OSA: Enabled type triggering config on stack %d\n", cfg.stack_id);
 	return 0;
 }
 
@@ -3117,6 +3143,8 @@ static int osa_config_pat(int argc, char **argv)
 		switchtec_perror("osa_config_pat");
 		return -1;
 	}
+
+	printf("OSA: Enabled pattern triggering config on stack %d\n", cfg.stack_id);
 	return 0;
 }
 
@@ -3169,6 +3197,8 @@ static int osa_config_misc(int argc, char **argv)
 		switchtec_perror("osa_config_misc");
 		return -1;
 	}
+
+	printf("OSA: Enabled misc triggering config on stack %d\n", cfg.stack_id);
 	return 0;
 }
 
@@ -3288,6 +3318,8 @@ static int osa_capture_control(int argc, char **argv)
 		switchtec_perror("osa_capture_control");
 		return -1;
 	}
+
+	printf("OSA: Configuring capture control on stack %d\n", cfg.stack_id);
 	return 0;
 }
 
@@ -3296,6 +3328,9 @@ static int osa_capture_control(int argc, char **argv)
 static int osa_dump_config(int argc, char **argv)
 {
 	int ret = 0;
+	struct switchtec_osa_config config;
+	char lane[5];
+	int i;
 	static struct {
 		struct switchtec_dev *dev;
 		int stack_id;
@@ -3314,11 +3349,142 @@ static int osa_dump_config(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	ret = switchtec_osa_dump_conf(cfg.dev, cfg.stack_id);
+	ret = switchtec_osa_dump_conf(cfg.dev, cfg.stack_id, &config);
 	if (ret) {
 		switchtec_perror("osa_dump_config");
 		return -1;
 	}
+
+	/* Print OSA configuration dump */
+	printf("Config dump \n");
+	printf("------- OS Type ------------------------\n");
+	printf("lanes: \t\t\t%s", config.os_type_lane_mask & 1 ? "0," : "");
+	for (i = 1; i < 16; i++) {
+		if (i == 15)
+			sprintf(lane, "%d", i);
+		else
+			sprintf(lane, "%d,", i);
+		printf("%s", (config.os_type_lane_mask >> i) & 1 ? lane : "");
+	}
+	printf("\n");
+
+	printf("direciton: \t\t%s", config.os_type_direction & 1 ? "RX," : "");
+	printf("%s\n", (config.os_type_direction >> 1) & 1 ? "TX" : "");
+
+	printf("link rate: \t\t%s", config.os_type_link_rate & 1 ? "GEN1," : "");
+	printf("%s", (config.os_type_link_rate >> 1) & 1 ? "GEN2," : "");
+	printf("%s", (config.os_type_link_rate >> 2) & 1 ? "GEN3," : "");
+	printf("%s", (config.os_type_link_rate >> 3) & 1 ? "GEN4," : "");
+	printf("%s\n", (config.os_type_link_rate >> 4) & 1 ? "GEN5" : "");
+	if (switchtec_is_gen6(cfg.dev))
+		printf("%s\n", (config.os_type_link_rate >> 5) & 1 ? "GEN6" : "");
+
+	printf("os types: \t\t");
+	if (switchtec_is_gen6(cfg.dev)) {
+		printf("%s", config.os_type_os_types & 1 ? "TS0," : "");
+		printf("%s", (config.os_type_os_types >> 1) & 1 ? "TS1," : "");
+		printf("%s", (config.os_type_os_types >> 2) & 1 ? "TS2," : "");
+		printf("%s\n", (config.os_type_os_types >> 3) & 1 ? "FTS" : "");
+		printf("%s\n", (config.os_type_os_types >> 4) & 1 ? "CTL_SKP" : "");
+	} else {
+		printf("%s", config.os_type_os_types & 1 ? "TS1," : "");
+		printf("%s", (config.os_type_os_types >> 1) & 1 ? "TS2," : "");
+		printf("%s", (config.os_type_os_types >> 2) & 1 ? "FTS," : "");
+		printf("%s\n", (config.os_type_os_types >> 3) & 1 ? "CTL_SKP" : "");
+	}
+
+	printf("------- OS Pattern ---------------------\n");
+	printf("lanes: \t\t\t%s", config.os_pat_lane_mask & 1 ? "0," : "");
+	for (i = 1; i < 16; i++) {
+		if (i == 15)
+			sprintf(lane, "%d", i);
+		else
+			sprintf(lane, "%d,", i);
+		printf("%s", (config.os_pat_lane_mask >> i) & 1 ? lane : "");
+	}
+	printf("\n");
+
+	printf("direciton: \t\t%s", config.os_pat_direction & 1 ? "RX," : "");
+	printf("%s\n", (config.os_pat_direction >> 1) & 1 ? "TX" : "");
+
+	printf("link rate: \t\t%s", config.os_pat_link_rate && 1 ? "GEN1," : "");
+	printf("%s", (config.os_pat_link_rate >> 1) & 1 ? "GEN2," : "");
+	printf("%s", (config.os_pat_link_rate >> 2) & 1 ? "GEN3," : "");
+	printf("%s", (config.os_pat_link_rate >> 3) & 1 ? "GEN4," : "");
+	printf("%s\n", (config.os_pat_link_rate >> 4) & 1 ? "GEN5" : "");
+	if (switchtec_is_gen6(cfg.dev))
+		printf("%s\n", (config.os_type_link_rate >> 5) & 1 ? "GEN6" : "");
+
+	printf("patttern: \t\t0x%08x %08x %08x %08x\n", config.os_pat_value[0],
+	       config.os_pat_value[1], config.os_pat_value[2],
+	       config.os_pat_value[3]);
+	printf("mask: \t\t\t0x%08x %08x %08x %08x\n", config.os_pat_mask[0],
+	       config.os_pat_mask[1], config.os_pat_mask[2],
+	       config.os_pat_mask[3]);
+
+	printf("------- Misc ---------------------------\n");
+	if (config.misc_trig_enable == 2 || config.misc_trig_enable == 0)
+		printf("Misc trigger disabled");
+	else
+		printf("Misc trigger enabled: \t");
+	printf("%s", (config.misc_trig_enable - 2) & 1 ? "LTMON/other HW blk, " : "");
+	printf("%s\n", ((config.misc_trig_enable - 2) >> 2) & 1 ? "General purpose input" : "");
+
+	printf("------- Capture ------------------------\n");
+	printf("lanes: \t\t\t%s", config.capture_lane_mask & 1 ? "0," : "");
+	for (i = 1; i < 16; i++) {
+		if (i == 15)
+			sprintf(lane, "%d", i);
+		else
+			sprintf(lane, "%d,", i);
+		printf("%s", (config.capture_lane_mask >> i) & 1 ? lane : "");
+	}
+	printf("\n");
+
+	printf("direciton: \t\t%s", config.capture_direction & 1 ? "RX," : "");
+	printf("%s\n", (config.capture_direction >> 1) & 1 ? "TX" : "");
+
+	if (switchtec_is_gen6(cfg.dev))
+		printf("drop single os: \t%d: Single TS0, TS1, TS2, FTS and CTL_SKP OS's %s in the capture\n",
+		       config.capture_drop_single_os,
+		       config.capture_drop_single_os ? " excluded" : "included");
+	else
+		printf("drop single os: \t%d: Single TS1, TS2, FTS and CTL_SKP OS's %s in the capture\n",
+		       config.capture_drop_single_os,
+		       config.capture_drop_single_os ? " excluded" : "included");
+
+	printf("stop mode: \t\t%d: OSA will stop capturing after %s lane has stopped writing into %s allocated RAMs\n",
+	       config.capture_stop_mode,
+	       config.capture_stop_mode ? "all" : "any",
+	       config.capture_stop_mode ? "their" : "its");
+	printf("snaphot mode: \t\t%d: OSes are captured %s\n",
+	       config.capture_snapshot_mode,
+	       config.capture_snapshot_mode ? "until the RAM is full" : "according to the Post-Trigger Entries value");
+	printf("post-trigger entries: \t%d\n", config.capture_post_trig_entries);
+
+	printf("os types: \t\t");
+	if (switchtec_is_gen6(cfg.dev)) {
+		printf("%s", (config.capture_os_types & 1) ? "TS0," : "");
+		printf("%s", (config.capture_os_types >> 1) & 1 ? "TS2," : "");
+		printf("%s", (config.capture_os_types >> 2) & 1 ? "TS2," : "");
+		printf("%s", (config.capture_os_types >> 3) & 1 ? "FTS," : "");
+		printf("%s", (config.capture_os_types >> 4) & 1 ? "CTL_SKP," : "");
+		printf("%s", (config.capture_os_types >> 5) & 1 ? "SKP," : "");
+		printf("%s", (config.capture_os_types >> 6) & 1 ? "EIEOS," : "");
+		printf("%s", (config.capture_os_types >> 7) & 1 ? "EIOS," : "");
+		printf("%s", (config.capture_os_types >> 8) & 1 ? "ERR_OS," : "");
+	} else {
+		printf("%s", (config.capture_os_types & 1) ? "TS1," : "");
+		printf("%s", (config.capture_os_types >> 1) & 1 ? "TS2," : "");
+		printf("%s", (config.capture_os_types >> 2) & 1 ? "FTS," : "");
+		printf("%s", (config.capture_os_types >> 3) & 1 ? "CTL_SKP," : "");
+		printf("%s", (config.capture_os_types >> 4) & 1 ? "SKP," : "");
+		printf("%s", (config.capture_os_types >> 5) & 1 ? "EIEOS," : "");
+		printf("%s", (config.capture_os_types >> 6) & 1 ? "EIOS," : "");
+		printf("%s", (config.capture_os_types >> 7) & 1 ? "ERR_OS," : "");
+	}
+	printf("\n");
+
 	return 0;
 }
 
@@ -3327,6 +3493,10 @@ static int osa_dump_config(int argc, char **argv)
 static int osa_dump_data(int argc, char **argv)
 {
 	int ret = 0;
+	int i;
+	struct switchtec_osa_capture_data *data;
+	const char *link_rate_str[] = {"UNKNOWN", "Gen1", "Gen2", "Gen3",
+				       "Gen4", "Gen5", "Gen6"};
 	static struct {
 		struct switchtec_dev *dev;
 		int stack_id;
@@ -3354,12 +3524,40 @@ static int osa_dump_data(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_osa_capture_data(cfg.dev, cfg.stack_id, cfg.lane,
-					 cfg.direction);
-	if (ret) {
-		switchtec_perror("osa_dump_data");
+	/* Allocate data structure on heap - it's large (~50KB) */
+	data = calloc(1, sizeof(*data));
+	if (!data) {
+		fprintf(stderr, "Failed to allocate memory for OSA capture data\n");
 		return -1;
 	}
+
+	ret = switchtec_osa_capture_data(cfg.dev, cfg.stack_id, cfg.lane,
+					 cfg.direction, data);
+	if (ret) {
+		switchtec_perror("osa_dump_data");
+		free(data);
+		return -1;
+	}
+
+	/* Print captured data */
+	printf("OSA: Captured Data:\n");
+	printf("Entry\tTimestamp\tLink Rate\tCounter\t\tTrigger Indication\tOS Dropped?\tOSA Data\n");
+
+	for (i = 0; i < data->entry_count; i++) {
+		printf("%d\t", i);
+		printf("%ld\t\t", (long)data->entries[i].timestamp);
+		printf("%s\t\t", link_rate_str[data->entries[i].link_rate]);
+		printf("%d\t\t", data->entries[i].counter);
+		printf("%s\t\t", data->entries[i].trigger_indication ? "Pre-Trigger" : "Post-Trigger");
+		printf("%s\t\t", data->entries[i].os_dropped ? "Yes" : "No");
+		printf("0x%08x 0x%08x 0x%08x 0x%08x\n",
+		       data->entries[i].osa_data[0],
+		       data->entries[i].osa_data[1],
+		       data->entries[i].osa_data[2],
+		       data->entries[i].osa_data[3]);
+	}
+
+	free(data);
 	return 0;
 }
 
