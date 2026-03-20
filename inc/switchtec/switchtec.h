@@ -1152,6 +1152,44 @@ int switchtec_rtc_counter_reset(struct switchtec_dev *dev);
 int switchtec_rtc_counter_set(struct switchtec_dev *dev, uint64_t *rtc_counter);
 int switchtec_rtc_counter_get(struct switchtec_dev *dev, uint64_t *rtc_counter);
 
+/******** TWI ACCESS *************/
+
+struct switchtec_twi_access_rdwr {
+	uint8_t sub_cmd;
+	uint8_t twi_port;
+	uint16_t slave_addr;
+	uint32_t offset;
+	uint16_t num_of_bytes;
+	uint8_t slave_addr_size;
+	uint8_t offset_size;
+	uint32_t data[253];
+};
+
+struct switchtec_twi_access_reset {
+	uint8_t sub_cmd;
+	uint8_t twi_port;
+	uint8_t master_recov;
+	uint8_t reserved;
+	uint32_t duration_ms;
+};
+
+enum TWI_ACCESS_OP {
+	TWI_ACCESS_READ = 0,
+	TWI_ACCESS_WRITE,
+	TWI_ACCESS_RESET,
+};
+
+int switchtec_twi_access_write(struct switchtec_dev *dev, uint8_t twi_port,
+				uint16_t slave_addr, uint32_t offset,
+				uint8_t offset_size, uint8_t slave_addr_size,
+				uint16_t num_bytes, uint32_t *data);
+int switchtec_twi_access_read(struct switchtec_dev *dev, uint8_t twi_port,
+			       uint16_t slave_addr, uint32_t offset,
+			       uint8_t offset_size, uint8_t slave_addr_size,
+			       uint16_t num_bytes, uint32_t *output);
+int switchtec_twi_access_reset(struct switchtec_dev *dev, uint8_t master_recov,
+				uint8_t twi_port, uint32_t duration_ms);
+
 /******** GPIO Management ********/
 
 struct switchtec_gpio {
