@@ -242,8 +242,8 @@ int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
 int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
 			    int bin, int *num_phases, double *ber_data)
 {
-	if (dev) {
-		fprintf(stderr, "Eye read not supported on Gen 4 switches.\n");
+	if (!switchtec_is_gen5(dev)) {
+		fprintf(stderr, "Gen5 Eye read not supported on Gen 4 switches.\n");
 		return -1;
 	}
 	struct switchtec_gen5_diag_eye_read_in in = {
