@@ -101,6 +101,160 @@ enum switchtec_ops_flags {
 	SWITCHTEC_OPS_FLAG_NO_MFG = (1 << 0),
 };
 
+/**
+ * @brief Generation-specific operations vtable
+ *
+ * This structure contains function pointers for operations that
+ * differ between switch generations (Gen4, Gen5, Gen6).
+ */
+struct switchtec_gen_ops {
+	/* Diagnostics */
+	int (*diag_cross_hair_enable)(struct switchtec_dev *dev, int lane_id);
+	int (*diag_cross_hair_disable)(struct switchtec_dev *dev);
+	int (*diag_cross_hair_get)(struct switchtec_dev *dev, int start_lane_id,
+				   int num_lanes, void *res);
+
+	int (*diag_eye_set_mode)(struct switchtec_dev *dev, int mode);
+	int (*diag_eye_start)(struct switchtec_dev *dev, int lane_mask[4],
+			      void *x_range, void *y_range,
+			      int step_interval, int capture_depth, int sar_sel,
+			      int intleav_sel, int hstep, int data_mode,
+			      int eye_mode, uint64_t refclk, int vstep);
+	int (*diag_eye_fetch)(struct switchtec_dev *dev, double *pixels,
+			      size_t pixel_cnt, int *lane_id);
+	int (*diag_eye_cancel)(struct switchtec_dev *dev);
+	int (*diag_eye_read)(struct switchtec_dev *dev, int lane_id,
+		      	    int bin, int* num_phases, double* ber_data);
+
+	int (*diag_loopback_set)(struct switchtec_dev *dev, int port_id,
+				 int enable, int enable_parallel,
+				 int enable_external, int enable_ltssm,
+				 int enable_pipe, int ltssm_speed);
+	int (*diag_loopback_get)(struct switchtec_dev *dev, int port_id,
+				 int *enabled, int *ltssm_speed);
+
+	int (*diag_pattern_gen_set)(struct switchtec_dev *dev, int port_id,
+				    int type, int link_speed);
+	int (*diag_pattern_gen_get)(struct switchtec_dev *dev, int port_id,
+				    int *type);
+	int (*diag_pattern_mon_set)(struct switchtec_dev *dev, int port_id,
+				    int type);
+	int (*diag_pattern_mon_get)(struct switchtec_dev *dev, int port_id,
+				    int lane_id, int *type,
+				    unsigned long long *err_cnt);
+	int (*diag_pattern_inject)(struct switchtec_dev *dev, int port_id,
+				   int err_cnt);
+
+	int (*diag_ltssm_log)(struct switchtec_dev *dev, int port,
+			      int *log_count, void *log_data);
+	int (*diag_ltssm_log_set)(struct switchtec_dev *dev, int port, int mode,
+				  int trigger_link_rate);
+
+	int (*diag_port_eq_tx_coeff)(struct switchtec_dev *dev, int port_id,
+				     int prev_speed, int end, int link,
+				     void *res);
+	int (*diag_port_eq_tx_table)(struct switchtec_dev *dev, int port_id,
+				     int prev_speed, int link, void *res);
+	int (*diag_port_eq_tx_fslf)(struct switchtec_dev *dev, int port_id,
+				    int prev_speed, int lane_id, int end,
+				    int link, void *res);
+
+	int (*diag_rcvr_obj)(struct switchtec_dev *dev, int port_id, int lane_id,
+			     int link, void *res);
+	int (*diag_rcvr_ext)(struct switchtec_dev *dev, int port_id, int lane_id,
+			     int link, void *res);
+
+	int (*diag_refclk_ctl)(struct switchtec_dev *dev, int stack_id,
+			       int enable);
+
+	int (*inject_err_tlp_lcrc)(struct switchtec_dev *dev, int phys_port,
+				   int enable, uint8_t rate);
+	int (*inject_err_tlp_seqnum)(struct switchtec_dev *dev, int phys_port);
+	int (*inject_err_tlp_ecrc)(struct switchtec_dev *dev, int phys_port,
+				   int enable, uint8_t rate);
+	int (*inject_err_dllp_crc)(struct switchtec_dev *dev, int phys_port,
+				   int enable, uint16_t rate);
+	int (*inject_err_dllp)(struct switchtec_dev *dev, int phys_port_id,
+				int data);
+	int (*inject_err_dup_tlp)(struct switchtec_dev *dev, int phys_port,
+				  int enable, uint8_t rate);
+	int (*inject_err_cto)(struct switchtec_dev *dev, int phys_port_id);
+	int (*inject_err_ack_nack)(struct switchtec_dev *dev, int phys_port_id,
+					uint16_t seq_num, uint8_t count);
+
+	/* Manufacturing */
+	int (*security_config_get)(struct switchtec_dev *dev, void *state);
+	int (*security_config_set)(struct switchtec_dev *dev, void *setting);
+	int (*mailbox_to_file)(struct switchtec_dev *dev, int fd);
+	int (*active_image_index_get)(struct switchtec_dev *dev, void *index);
+	int (*active_image_index_set)(struct switchtec_dev *dev, void *index);
+	int (*fw_exec)(struct switchtec_dev *dev, int bl2);
+	int (*boot_resume)(struct switchtec_dev *dev);
+	int (*sn_ver_get)(struct switchtec_dev *dev, void *info);
+	int (*secure_state_set)(struct switchtec_dev *dev, int state);
+	int (*kmsk_set)(struct switchtec_dev *dev, void *public_key,
+			void *signature, void *kmsk);
+	int (*debug_unlock)(struct switchtec_dev *dev, uint32_t serial,
+			    uint32_t ver_sec_unlock, void *public_key,
+			    void *signature, void *token);
+	int (*debug_lock_update)(struct switchtec_dev *dev, uint32_t serial,
+				 uint32_t ver_sec_unlock, void *public_key,
+				 void *signature);
+	int (*security_settings_get)(struct switchtec_dev *dev, void *state);
+	int (*debug_token_unlock_get_token)(struct switchtec_dev *dev, void *token, int token_type);
+	int (*security_state_has_kmsk)(void *state, void *kmsk);
+	int (*read_uds_file)(FILE *uds_file, void *uds);
+	int (*read_sec_cfg_file)(struct switchtec_dev *dev, FILE *setting_file,
+				 void *set);
+	int (*read_pubk_file)(FILE *pubk_file, void *pubk);
+	int (*read_kmsk_file)(FILE *kmsk_file, void *kmsk);
+	int (*read_signature_file)(FILE *sig_file, void *signature);
+	int (*read_token_file)(FILE *tkn_file, void *token);
+	int (*dbg_unlock_version_update)(struct switchtec_dev *dev,
+					 uint32_t serial,
+					 uint32_t ver_sec_unlock,
+					 void *public_key,
+					 void *signature);
+	/* Firmware */
+	int (*fw_part_id_to_type)(int part_id);
+	int (*fw_type_to_part_id)(int type);
+	const char *(*fw_part_id_to_str)(int part_id);
+	int (*fw_img_write_hdr)(int fd, struct switchtec_fw_image_info *info);
+	struct switchtec_fw_part_summary *(*fw_part_summary)(struct switchtec_dev *dev);
+	int (*fw_file_info)(int fd, struct switchtec_fw_image_info *info);
+	int (*get_device_id_bl2)(struct switchtec_dev *dev,
+				 unsigned short *device_id);
+	struct switchtec_fw_image_info *
+	(*fw_part_data_bl2)(struct switchtec_dev *dev);
+	int (*fw_set_redundant_flag)(struct switchtec_dev *dev, int keyman,
+				     int riot, int bl2, int cfg, int fw,
+				     int set);
+	int (*fw_toggle_active_partition)(struct switchtec_dev *dev,
+					  int toggle_bl2, int toggle_key,
+					  int toggle_fw, int toggle_cfg,
+					  int toggle_riotcore);
+	int (*fw_img_get)(struct switchtec_dev *dev, int fd,
+			  enum switchtec_fw_type_gen6 fw_type, int fw_slot,
+			  void (*progress_callback)(int cur, int tot));
+	int (*fw_write_file)(struct switchtec_dev *dev, FILE *fimg,
+			    int dont_activate, int force,
+			    void (*progress_callback)(int cur, int tot));
+	int (*fw_read)(struct switchtec_dev *dev, unsigned long addr, size_t len, void *buf);
+	int (*fw_read_fd)(struct switchtec_dev *dev, int fd, unsigned long addr, 
+			      size_t len, void (*progress_callback)(int cur, int tot));
+	int (*fw_body_read_fd)(struct switchtec_dev *dev, int fd,
+			      struct switchtec_fw_image_info *info,
+			      void (*progress_callback)(int cur, int tot));
+	int (*fw_is_boot_ro) (struct switchtec_dev *dev);
+	int (*fw_set_boot_ro) (struct switchtec_dev *dev, enum switchtec_fw_ro ro);
+};
+
+/* Generation ops table indexed by switchtec_gen enum */
+extern const struct switchtec_gen_ops *switchtec_gen_ops[];
+
+/* Helper macro to call generation-specific operations */
+#define GEN_OPS(dev) (switchtec_gen_ops[switchtec_gen(dev)])
+
 struct switchtec_ops {
 	int flags;
 
