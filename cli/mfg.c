@@ -517,7 +517,7 @@ static int info(int argc, char **argv)
 	}
 
 	if (switchtec_is_gen6(cfg.dev) && (phase_id == SWITCHTEC_BOOT_PHASE_BL1)) {
-		ret = security_settings_get_gen6(cfg.dev, &state);
+		ret = switchtec_security_settings_get(cfg.dev, &state);
 		if (ret) {
 			switchtec_perror("mfg info");
 			return ret;
@@ -1650,7 +1650,7 @@ static int debug_unlock_token(int argc, char **argv)
 
 		struct switchtec_gen6_token token;
 
-		ret = switchtec_dbg_unlock_get_token_gen6(cfg.dev, &token, cfg.type);
+		ret = switchtec_dbg_unlock_get_token(cfg.dev, &token, cfg.type);
 		if (ret) {
 			switchtec_perror("mfg debug unlock token");
 			return ret;
