@@ -27,4 +27,19 @@
 
 #include "../switchtec_priv.h"
 
+int switchtec_fw_img_write_hdr_gen5(int fd, struct switchtec_fw_image_info *info);
+int switchtec_fw_part_info_gen5(struct switchtec_dev *dev, int nr_info,
+				struct switchtec_fw_image_info *info);
+struct switchtec_fw_part_summary *switchtec_fw_part_summary_gen5(struct switchtec_dev *dev);
+int switchtec_fw_file_info_gen5(int fd, struct switchtec_fw_image_info *info);
+int switchtec_get_device_id_bl2_gen5(struct switchtec_dev *dev,
+				     unsigned short *device_id);
+int switchtec_fw_set_redundant_flag_gen5(struct switchtec_dev *dev, int keyman,
+					 int riot, int bl2, int cfg, int fw,
+					 int set);
+int switchtec_fw_toggle_active_partition_gen5(struct switchtec_dev *dev,
+					      int toggle_bl2, int toggle_key,
+					      int toggle_fw, int toggle_cfg,
+					      int toggle_riotcore);
+
 #endif
