@@ -27,4 +27,75 @@
 
 #include "../switchtec_priv.h"
 
+int switchtec_diag_ltssm_log_gen5(struct switchtec_dev *dev,
+				 int port, int *log_count, void *log_data);
+
+int switchtec_diag_port_eq_tx_coeff_gen5(struct switchtec_dev *dev,
+					 int port_id, int prev_speed,
+					 int end, int link, void *res);
+
+int switchtec_diag_port_eq_tx_table_gen5(struct switchtec_dev *dev,
+					 int port_id, int prev_speed,
+					 int link, void *res);
+
+int switchtec_diag_port_eq_tx_fslf_gen5(struct switchtec_dev *dev,
+					int port_id, int prev_speed,
+					int lane_id, int end, int link,
+					void *res);
+
+int switchtec_diag_loopback_set_gen5(struct switchtec_dev *dev,
+				     int port_id, int enable,
+				     int enable_parallel,
+				     int enable_external,
+				     int enable_ltssm, int enable_pipe,
+				     int ltssm_speed);
+
+int switchtec_diag_loopback_get_gen5(struct switchtec_dev *dev,
+				     int port_id, int *enabled,
+				     int *ltssm_speed);
+
+int switchtec_diag_eye_start_gen5(struct switchtec_dev *dev, int lane_mask[4],
+				  void *x_range, void *y_range,
+				  int step_interval, int capture_depth,
+				  int sar_sel, int intleav_sel, int hstep,
+				  int data_mode, int eye_mode,
+				  uint64_t refclk, int vstep);
+
+int switchtec_diag_eye_read_gen5(struct switchtec_dev *dev, int lane_id,
+				 int bin, int *num_phases, double *ber_data);
+
+int switchtec_diag_pattern_gen_set_gen5(struct switchtec_dev *dev,
+					int port_id, int type,
+					int link_speed);
+
+int switchtec_inject_err_tlp_lcrc_gen5(struct switchtec_dev *dev,
+				       int phys_port_id, int enable,
+				       uint8_t rate);
+
+int switchtec_inject_err_cto_gen5(struct switchtec_dev *dev,
+				  int phys_port_id);
+
+int switchtec_osa_capture_data_gen5(struct switchtec_dev *dev, int stack_id, 
+   					int lane, int direction, void *data);
+
+int switchtec_osa_capture_control_gen5(struct switchtec_dev *dev, int stack_id,
+					int lane_mask, int direction,
+					int drop_single_os, int stop_mode,
+					int snapshot_mode, int post_trigger,
+					int os_types);
+
+int switchtec_osa_config_misc_gen5(struct switchtec_dev *dev, int stack_id,
+				int trigger_en);
+
+int switchtec_osa_config_pattern_gen5(struct switchtec_dev *dev, int stack_id,
+				 int direction, int lane_mask, int link_rate,
+				 uint32_t *value_data, uint32_t *mask_data);
+
+int switchtec_osa_config_type_gen5(struct switchtec_dev *dev, int stack_id,
+				int direction, int lane_mask, int link_rate, int os_types);
+
+int switchtec_osa_dump_conf_gen5(struct switchtec_dev *dev, int stack_id, void *config);
+
+int switchtec_osa_gen5(struct switchtec_dev *dev, int stack_id, int operation, void *status);
+
 #endif

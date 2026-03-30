@@ -28,7 +28,6 @@
  */
 
 #define SWITCHTEC_LIB_CORE
-#define SWITCHTEC_LTSSM_MAX_LOGS 61
 
 #include "switchtec_priv.h"
 #include "switchtec/diag.h"
@@ -52,13 +51,10 @@
  */
 int switchtec_diag_cross_hair_enable(struct switchtec_dev *dev, int lane_id)
 {
-	struct switchtec_diag_cross_hair_in in = {
-		.sub_cmd = MRPC_CROSS_HAIR_ENABLE,
-		.lane_id = lane_id,
-		.all_lanes = lane_id == SWITCHTEC_DIAG_CROSS_HAIR_ALL_LANES,
-	};
-
-	return switchtec_cmd(dev, MRPC_CROSS_HAIR, &in, sizeof(in), NULL, 0);
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_cross_hair_enable)
+		return GEN_OPS(dev)->diag_cross_hair_enable(dev, lane_id);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -69,15 +65,14 @@ int switchtec_diag_cross_hair_enable(struct switchtec_dev *dev, int lane_id)
  */
 int switchtec_diag_cross_hair_disable(struct switchtec_dev *dev)
 {
-	struct switchtec_diag_cross_hair_in in = {
-		.sub_cmd = MRPC_CROSS_HAIR_DISABLE,
-	};
-
-	return switchtec_cmd(dev, MRPC_CROSS_HAIR, &in, sizeof(in), NULL, 0);
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_cross_hair_disable)
+		return GEN_OPS(dev)->diag_cross_hair_disable(dev);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
- * @brief Disable active cross hair
+ * @brief Get cross hair data
  * @param[in]  dev		Switchtec device handle
  * @param[in]  start_lane_id	Start lane ID to get
  * @param[in]  num_lanes	Number of lanes to get
@@ -88,127 +83,11 @@ int switchtec_diag_cross_hair_disable(struct switchtec_dev *dev)
 int switchtec_diag_cross_hair_get(struct switchtec_dev *dev, int start_lane_id,
 		int num_lanes, struct switchtec_diag_cross_hair *res)
 {
-	struct switchtec_diag_cross_hair_in in = {
-		.sub_cmd = MRPC_CROSS_HAIR_GET,
-		.lane_id = start_lane_id,
-		.num_lanes = num_lanes,
-	};
-	struct switchtec_diag_cross_hair_get out[num_lanes];
-	int i, ret;
-
-	ret = switchtec_cmd(dev, MRPC_CROSS_HAIR, &in, sizeof(in), &out,
-			    sizeof(out));
-	if (ret)
-		return ret;
-
-	for (i = 0; i < num_lanes; i++) {
-		memset(&res[i], 0, sizeof(res[i]));
-		res[i].state = out[i].state;
-		res[i].lane_id = out[i].lane_id;
-
-		if (out[i].state <= SWITCHTEC_DIAG_CROSS_HAIR_WAITING) {
-			continue;
-		} else if (out[i].state < SWITCHTEC_DIAG_CROSS_HAIR_DONE) {
-			res[i].x_pos = out[i].x_pos;
-			res[i].y_pos = out[i].y_pos;
-		} else if (out[i].state == SWITCHTEC_DIAG_CROSS_HAIR_DONE) {
-			res[i].eye_left_lim = out[i].eye_left_lim;
-			res[i].eye_right_lim = out[i].eye_right_lim;
-			res[i].eye_bot_left_lim = out[i].eye_bot_left_lim;
-			res[i].eye_bot_right_lim = out[i].eye_bot_right_lim;
-			res[i].eye_top_left_lim = out[i].eye_top_left_lim;
-			res[i].eye_top_right_lim = out[i].eye_top_right_lim;
-		} else if (out[i].state == SWITCHTEC_DIAG_CROSS_HAIR_ERROR) {
-			res[i].x_pos = out[i].x_pos;
-			res[i].y_pos = out[i].y_pos;
-			res[i].prev_state = out[i].prev_state;
-		}
-	}
-
-	return 0;
-}
-
-static int switchtec_diag_eye_status_gen5(struct switchtec_dev *dev)
-{
-	int ret;
-	int eye_status;
-
-	struct switchtec_gen5_diag_eye_status_in in = {
-		.sub_cmd = MRPC_EYE_CAP_STATUS_GEN5,
-	};
-	struct switchtec_gen5_diag_eye_status_out out;
-
-	do {
-		ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
-				    &out, sizeof(out));
-		if (ret) {
-			switchtec_perror("eye_status");
-			return -1;
-		}
-		eye_status = out.status;
-		usleep(200000);
-	} while (eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_IN_PROGRESS ||
-		 eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING);
-
-	switch (eye_status) {
-		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_IDLE:
-			switchtec_perror("Eye capture idle");
-		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE:
-			return 0;
-		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT:
-			switchtec_perror("Eye capture timeout");
-		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR:
-			switchtec_perror("Eye capture error");
-		return -1;
-	}
-	switchtec_perror("Unknown eye capture state");
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_cross_hair_get)
+		return GEN_OPS(dev)->diag_cross_hair_get(dev, start_lane_id,
+							 num_lanes, res);
+	errno = ENOTSUP;
 	return -1;
-}
-
-static int switchtec_diag_eye_status(int status)
-{
-	switch (status) {
-	case 0: return 0;
-	case 2:
-		errno = EINVAL;
-		return -1;
-	case 3:
-		errno = EBUSY;
-		return -1;
-	default:
-		errno = EPROTO;
-		return -1;
-	}
-}
-
-static int switchtec_diag_eye_cmd_gen5(struct switchtec_dev *dev, void *in,
-				       size_t size)
-{
-	int ret;
-
-	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, in, size,
-			    NULL, 0);
-	if (ret)
-		return ret;
-
-	usleep(200000);
-
-	return switchtec_diag_eye_status_gen5(dev);
-}
-
-static int switchtec_diag_eye_cmd_gen4(struct switchtec_dev *dev, void *in,
-				       size_t size)
-{
-	struct switchtec_diag_port_eye_cmd out;
-	int ret;
-
-	ret = switchtec_cmd(dev, MRPC_EYE_OBSERVE, in, size, &out,
-			    sizeof(out));
-
-	if (ret)
-		return ret;
-
-	return switchtec_diag_eye_status(out.status);
 }
 
 /**
@@ -221,12 +100,10 @@ static int switchtec_diag_eye_cmd_gen4(struct switchtec_dev *dev, void *in,
 int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
 				enum switchtec_diag_eye_data_mode mode)
 {
-	struct switchtec_diag_port_eye_cmd in = {
-		.sub_cmd = MRPC_EYE_OBSERVE_SET_DATA_MODE,
-		.data_mode = mode,
-	};
-
-	return switchtec_diag_eye_cmd_gen4(dev, &in, sizeof(in));
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_eye_set_mode)
+		return GEN_OPS(dev)->diag_eye_set_mode(dev, mode);
+	errno = ENOTSUP;
+	return -1;	
 }
 
 /**
@@ -240,31 +117,12 @@ int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
  * @return 0 on success, error code on failure
  */
 int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
-			    int bin, int *num_phases, double *ber_data)
+		      	    int bin, int* num_phases, double* ber_data)
 {
-	if (dev) {
-		fprintf(stderr, "Eye read not supported on Gen 4 switches.\n");
-		return -1;
-	}
-	struct switchtec_gen5_diag_eye_read_in in = {
-		.sub_cmd = MRPC_EYE_CAP_READ_GEN5,
-		.lane_id = lane_id,
-		.bin = bin,
-	};
-	struct switchtec_gen5_diag_eye_read_out out;
-	int i, ret;
-
-	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
-			    &out, sizeof(out));
-	if (ret)
-		return ret;
-
-	*num_phases = out.num_phases;
-
-	for (i = 0; i < out.num_phases; i++)
-		ber_data[i] = le64toh(out.ber_data[i]) / 281474976710656.;
-
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_eye_read)
+		return GEN_OPS(dev)->diag_eye_read(dev, lane_id, bin, num_phases, ber_data);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -282,81 +140,17 @@ int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
 int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 			     struct range *x_range, struct range *y_range,
 			     int step_interval, int capture_depth, int sar_sel,
-			     int intleav_sel, int hstep, int data_mode,
+			     int intleav_sel, int hstep, int data_mode, 
 			     int eye_mode, uint64_t refclk, int vstep)
 {
-	int err, ret;
-	if (switchtec_is_gen5(dev)) {
-		struct switchtec_gen5_diag_eye_run_in in = {
-			.sub_cmd = MRPC_EYE_CAP_RUN_GEN5,
-			.capture_depth = capture_depth,
-			.timeout_disable = 1,
-			.lane_mask[0] = lane_mask[0],
-			.lane_mask[1] = lane_mask[1],
-			.lane_mask[2] = lane_mask[2],
-			.lane_mask[3] = lane_mask[3],
-		};
-
-		ret = switchtec_diag_eye_cmd_gen5(dev, &in, sizeof(in));
-		err = errno;
-		errno = err;
-		return ret;
-	} else if (switchtec_is_gen6(dev)) {
-		struct switchtec_gen6_diag_eye_run_in in = {
-			.sub_cmd = MRPC_EYE_CAP_RUN_GEN6,
-			.timeout_disable = 1,
-			.lane_mask[0] = lane_mask[0],
-			.lane_mask[1] = lane_mask[1],
-			.lane_mask[2] = lane_mask[2],
-			.lane_mask[3] = lane_mask[3],
-			.sar_sel = sar_sel,
-			.intleav_sel = intleav_sel,
-			.vstep = vstep,
-			.data_mode = data_mode,
-			.eye_mode = eye_mode,
-			.ref_timer_lwr = refclk & 0xFFFFFFFF,
-			.ref_timer_upp = refclk >> 32,
-		};
-
-		ret = switchtec_diag_eye_cmd_gen5(dev, &in, sizeof(in));
-		err = errno;
-		errno = err;
-		return ret;
-	} else {
-		struct switchtec_diag_port_eye_start in = {
-			.sub_cmd = MRPC_EYE_OBSERVE_START,
-			.lane_mask[0] = lane_mask[0],
-			.lane_mask[1] = lane_mask[1],
-			.lane_mask[2] = lane_mask[2],
-			.lane_mask[3] = lane_mask[3],
-			.x_start = x_range->start,
-			.y_start = y_range->start,
-			.x_end = x_range->end,
-			.y_end = y_range->end,
-			.x_step = x_range->step,
-			.y_step = y_range->step,
-			.step_interval = step_interval,
-		};
-
-		ret = switchtec_diag_eye_cmd_gen4(dev, &in, sizeof(in));
-		/* Add delay so hardware has enough time to start */
-		err = errno;
-		usleep(200000);
-		errno = err;
-		return ret;
-	}
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_eye_start)
+		return GEN_OPS(dev)->diag_eye_start(dev, lane_mask, x_range, 
+						y_range, step_interval, 
+						capture_depth, sar_sel, 
+						intleav_sel, hstep, data_mode, 
+						eye_mode, refclk, vstep);
+	errno = ENOTSUP;
 	return -1;
-}
-
-static uint64_t hi_lo_to_uint64(uint32_t lo, uint32_t hi)
-{
-	uint64_t ret;
-
-	ret = le32toh(hi);
-	ret <<= 32;
-	ret |= le32toh(lo);
-
-	return ret;
 }
 
 /**
@@ -375,55 +169,10 @@ static uint64_t hi_lo_to_uint64(uint32_t lo, uint32_t hi)
 int switchtec_diag_eye_fetch(struct switchtec_dev *dev, double *pixels,
 			     size_t pixel_cnt, int *lane_id)
 {
-	struct switchtec_diag_port_eye_cmd in = {
-		.sub_cmd = MRPC_EYE_OBSERVE_FETCH,
-	};
-	struct switchtec_diag_port_eye_fetch out;
-	uint64_t samples, errors;
-	int i, ret, data_count;
-
-retry:
-	ret = switchtec_cmd(dev, MRPC_EYE_OBSERVE, &in, sizeof(in), &out,
-			    sizeof(out));
-	if (ret)
-		return ret;
-
-	if (out.status == 1) {
-		usleep(5000);
-		goto retry;
-	}
-
-	ret = switchtec_diag_eye_status(out.status);
-	if (ret)
-		return ret;
-
-	for (i = 0; i < 4; i++) {
-		*lane_id = ffs(out.lane_mask[i]);
-		if (*lane_id)
-			break;
-	}
-
-	data_count = out.data_count_lo | ((int)out.data_count_hi << 8);
-
-	for (i = 0; i < data_count && i < pixel_cnt; i++) {
-		switch (out.data_mode) {
-		case SWITCHTEC_DIAG_EYE_RAW:
-			errors = hi_lo_to_uint64(out.raw[i].error_cnt_lo,
-						 out.raw[i].error_cnt_hi);
-			samples = hi_lo_to_uint64(out.raw[i].sample_cnt_lo,
-						  out.raw[i].sample_cnt_hi);
-			if (samples)
-				pixels[i] = (double)errors / samples;
-			else
-				pixels[i] = nan("");
-			break;
-		case SWITCHTEC_DIAG_EYE_RATIO:
-			pixels[i] = le32toh(out.ratio[i].ratio) / 65536.;
-			break;
-		}
-	}
-
-	return data_count;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_eye_fetch)
+		return GEN_OPS(dev)->diag_eye_fetch(dev, pixels, pixel_cnt, lane_id);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -434,117 +183,10 @@ retry:
  */
 int switchtec_diag_eye_cancel(struct switchtec_dev *dev)
 {
-	int ret;
-	int err;
-	struct switchtec_diag_port_eye_cmd in = {
-		.sub_cmd = MRPC_EYE_OBSERVE_CANCEL,
-	};
-
-	ret = switchtec_diag_eye_cmd_gen4(dev, &in, sizeof(in));
-
-	/* Add delay so hardware can stop completely */
-	err = errno;
-	usleep(200000);
-	errno = err;
-
-	return ret;
-}
-
-static int switchtec_diag_loopback_set_gen56(struct switchtec_dev *dev,
-					int port_id, int enable_parallel,
-					int enable_external,
-					int enable_ltssm, int enable_pipe,
-					enum switchtec_diag_ltssm_speed	ltssm_speed)
-{
-	struct switchtec_diag_loopback_in int_in = {
-		.sub_cmd = MRPC_LOOPBACK_SET_INT_LOOPBACK,
-		.port_id = port_id,
-		.enable = 1,
-	};
-	struct switchtec_diag_loopback_ltssm_in ltssm_in = {
-		.sub_cmd = MRPC_LOOPBACK_SET_LTSSM_LOOPBACK,
-		.port_id = port_id,
-		.enable = enable_ltssm,
-		.speed = ltssm_speed,
-	};
-	int ret;
-
-	if (enable_ltssm && !(enable_external || enable_parallel)) {
-		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
-				    sizeof(ltssm_in), NULL, 0);
-		if (ret)
-			return ret;
-	} else {
-		int_in.type = DIAG_LOOPBACK_PARALEL_DATAPATH;
-		int_in.enable = enable_parallel;
-		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-				    sizeof(int_in), NULL, 0);
-		if (ret)
-			return ret;
-		if (!enable_parallel) {
-			int_in.type = DIAG_LOOPBACK_EXTERNAL_DATAPATH;
-			int_in.enable = enable_external;
-			ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-					    sizeof(int_in), NULL, 0);
-			if (ret)
-				return ret;
-		}
-		int_in.type = DIAG_LOOPBACK_PIPE_DATAPATH;
-		int_in.enable = enable_pipe;
-		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-				    sizeof(int_in), NULL, 0);
-		if (ret)
-			return ret;
-
-		ltssm_in.enable = enable_ltssm;
-		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
-				    sizeof(ltssm_in), NULL, 0);
-		if (ret)
-			return ret;
-	}
-	return 0;
-}
-
-static int switchtec_diag_loopback_set_gen4(struct switchtec_dev *dev,
-					    int port_id, int enable,
-					    enum switchtec_diag_ltssm_speed
-					    ltssm_speed)
-{
-	struct switchtec_diag_loopback_in int_in = {
-		.sub_cmd = MRPC_LOOPBACK_SET_INT_LOOPBACK,
-		.port_id = port_id,
-		.enable = enable,
-	};
-	struct switchtec_diag_loopback_ltssm_in ltssm_in = {
-		.sub_cmd = MRPC_LOOPBACK_SET_LTSSM_LOOPBACK,
-		.port_id = port_id,
-		.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM),
-		.speed = ltssm_speed,
-	};
-	int ret;
-
-	int_in.type = DIAG_LOOPBACK_RX_TO_TX;
-	int_in.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX);
-
-	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-			    sizeof(int_in), NULL, 0);
-	if (ret)
-		return ret;
-
-	int_in.type = DIAG_LOOPBACK_TX_TO_RX;
-	int_in.enable = !!(enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX);
-
-	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-			    sizeof(int_in), NULL, 0);
-	if (ret)
-		return ret;
-
-	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
-			    sizeof(ltssm_in), NULL, 0);
-	if (ret)
-		return ret;
-
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_eye_cancel)
+		return GEN_OPS(dev)->diag_eye_cancel(dev);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -565,25 +207,18 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 				int enable_pipe,
 				enum switchtec_diag_ltssm_speed ltssm_speed)
 {
-	int ret = 0;
-	if (switchtec_is_gen5(dev)) {
-		ret = switchtec_diag_loopback_set_gen56(dev, port_id, enable_parallel,
-							enable_external, enable_ltssm,
-							enable_pipe, ltssm_speed);
-		if (ret)
-			return ret;
-	}
-	else {
-		ret = switchtec_diag_loopback_set_gen4(dev, port_id, enable,
-						       ltssm_speed);
-		if (ret)
-			return ret;
-	}
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_loopback_set)
+		return GEN_OPS(dev)->diag_loopback_set(dev, port_id, enable,
+						       enable_parallel,
+						       enable_external,
+						       enable_ltssm,
+						       enable_pipe, ltssm_speed);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
- * @brief Setup Loopback Mode
+ * @brief Get Loopback Mode
  * @param[in]  dev	     Switchtec device handle
  * @param[in]  port_id	     Physical port ID
  * @param[out] enabled       Set of enum switchtec_diag_loopback_enable
@@ -596,59 +231,11 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev,
 				int port_id, int *enabled,
 				enum switchtec_diag_ltssm_speed *ltssm_speed)
 {
-	struct switchtec_diag_loopback_in int_in = {
-		.sub_cmd = MRPC_LOOPBACK_GET_INT_LOOPBACK,
-		.port_id = port_id,
-	};
-	struct switchtec_diag_loopback_ltssm_in lt_in = {
-		.sub_cmd = MRPC_LOOPBACK_GET_LTSSM_LOOPBACK,
-		.port_id = port_id,
-	};
-	struct switchtec_diag_loopback_out int_out;
-	struct switchtec_diag_loopback_ltssm_out lt_out;
-	int ret, en = 0;
-
-	if (switchtec_is_gen5(dev))
-		int_in.type = DIAG_LOOPBACK_PARALEL_DATAPATH;
-	else
-		int_in.type = DIAG_LOOPBACK_RX_TO_TX;
-
-	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in, sizeof(int_in),
-			    &int_out, sizeof(int_out));
-	if (ret)
-		return ret;
-
-	if (int_out.enabled)
-		en |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
-
-	if (switchtec_is_gen5(dev))
-		int_in.type = DIAG_LOOPBACK_EXTERNAL_DATAPATH;
-	else
-		int_in.type = DIAG_LOOPBACK_TX_TO_RX;
-
-	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in, sizeof(int_in),
-			    &int_out, sizeof(int_out));
-	if (ret)
-		return ret;
-
-	if (int_out.enabled)
-		en |= SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX;
-
-	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &lt_in, sizeof(lt_in),
-			    &lt_out, sizeof(lt_out));
-	if (ret)
-		return ret;
-
-	if (lt_out.enabled)
-		en |= SWITCHTEC_DIAG_LOOPBACK_LTSSM;
-
-	if (enabled)
-		*enabled = en;
-
-	if (ltssm_speed)
-		*ltssm_speed = lt_out.speed;
-
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_loopback_get)
+		return GEN_OPS(dev)->diag_loopback_get(dev, port_id, enabled,
+						       (int *)ltssm_speed);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -663,18 +250,11 @@ int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
 				   enum switchtec_diag_pattern type,
 				   enum switchtec_diag_pattern_link_rate link_speed)
 {
-	struct switchtec_diag_pat_gen_in in = {
-		.sub_cmd = MRPC_PAT_GEN_SET_GEN,
-		.port_id = port_id,
-		.pattern_type = type,
-		.lane_id = link_speed
-	};
-	if (switchtec_is_gen5(dev))
-		in.sub_cmd = MRPC_PAT_GEN_SET_GEN_GEN5;
-	if (switchtec_is_gen6(dev))
-		in.sub_cmd = MRPC_PAT_GEN_SET_GEN_GEN6;
-
-	return switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), NULL, 0);
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_pattern_gen_set)
+		return GEN_OPS(dev)->diag_pattern_gen_set(dev, port_id, type,
+							  link_speed);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -688,24 +268,11 @@ int switchtec_diag_pattern_gen_set(struct switchtec_dev *dev, int port_id,
 int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
 				   enum switchtec_diag_pattern *type)
 {
-	struct switchtec_diag_pat_gen_in in = {
-		.sub_cmd = MRPC_PAT_GEN_GET_GEN,
-		.port_id = port_id,
-	};
-	if (switchtec_is_gen6(dev))
-		in.sub_cmd = MRPC_PAT_GEN_GET_GEN_GEN6;
-	struct switchtec_diag_pat_gen_out out;
-	int ret;
-
-	ret = switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), &out,
-			    sizeof(out));
-	if (ret)
-		return ret;
-
-	if (type)
-		*type = out.pattern_type;
-
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_pattern_gen_get)
+		return GEN_OPS(dev)->diag_pattern_gen_get(dev, port_id,
+							  (int *)type);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -719,15 +286,10 @@ int switchtec_diag_pattern_gen_get(struct switchtec_dev *dev, int port_id,
 int switchtec_diag_pattern_mon_set(struct switchtec_dev *dev, int port_id,
 				   enum switchtec_diag_pattern type)
 {
-	struct switchtec_diag_pat_gen_in in = {
-		.sub_cmd = MRPC_PAT_GEN_SET_MON,
-		.port_id = port_id,
-		.pattern_type = type,
-	};
-	if (switchtec_is_gen6(dev))
-		in.sub_cmd = MRPC_PAT_GEN_SET_MON_GEN6;
-
-	return switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), NULL, 0);
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_pattern_mon_set)
+		return GEN_OPS(dev)->diag_pattern_mon_set(dev, port_id, type);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -743,29 +305,11 @@ int switchtec_diag_pattern_mon_get(struct switchtec_dev *dev, int port_id,
 				   int lane_id, enum switchtec_diag_pattern *type,
 				   unsigned long long *err_cnt)
 {
-	struct switchtec_diag_pat_gen_in in = {
-		.sub_cmd = MRPC_PAT_GEN_GET_MON,
-		.port_id = port_id,
-		.lane_id = lane_id,
-	};
-	if (switchtec_is_gen6(dev))
-		in.sub_cmd = MRPC_PAT_GEN_GET_MON_GEN6;
-	struct switchtec_diag_pat_gen_out out;
-	int ret;
-
-	ret = switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), &out,
-			    sizeof(out));
-	if (ret)
-		return ret;
-
-	if (type)
-		*type = out.pattern_type;
-
-	if (err_cnt)
-		*err_cnt = (htole32(out.err_cnt_lo) |
-			    ((uint64_t)htole32(out.err_cnt_hi) << 32));
-
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_pattern_mon_get)
+		return GEN_OPS(dev)->diag_pattern_mon_get(dev, port_id, lane_id,
+							  (int *)type, err_cnt);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -783,18 +327,10 @@ int switchtec_diag_pattern_mon_get(struct switchtec_dev *dev, int port_id,
 int switchtec_diag_pattern_inject(struct switchtec_dev *dev, int port_id,
 				  unsigned int err_cnt)
 {
-	struct switchtec_diag_pat_gen_inject in = {
-		.sub_cmd = MRPC_PAT_GEN_INJ_ERR,
-		.port_id = port_id,
-		.err_cnt = err_cnt,
-	};
-	int ret;
-
-	ret = switchtec_cmd(dev, MRPC_PAT_GEN, &in, sizeof(in), NULL, 0);
-	if (ret)
-		return ret;
-
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_pattern_inject)
+		return GEN_OPS(dev)->diag_pattern_inject(dev, port_id, err_cnt);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -811,46 +347,11 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
 		int lane_id, enum switchtec_diag_link link,
 		struct switchtec_rcvr_obj *res)
 {
-	struct switchtec_diag_rcvr_obj_dump_out out = {};
-	struct switchtec_diag_rcvr_obj_dump_in in = {
-		.port_id = port_id,
-		.lane_id = lane_id,
-	};
-	struct switchtec_diag_ext_recv_obj_dump_in ext_in = {
-		.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_PREV,
-		.port_id = port_id,
-		.lane_id = lane_id,
-	};
-	int i, ret;
-
-	if (!res) {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
-		ret = switchtec_cmd(dev, MRPC_RCVR_OBJ_DUMP, &in, sizeof(in),
-				    &out, sizeof(out));
-	} else if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
-		ret = switchtec_cmd(dev, MRPC_EXT_RCVR_OBJ_DUMP, &ext_in,
-				    sizeof(ext_in), &out, sizeof(out));
-	} else {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (ret)
-		return -1;
-
-	res->port_id = out.port_id;
-	res->lane_id = out.lane_id;
-	res->ctle = out.ctle;
-	res->target_amplitude = out.target_amplitude;
-	res->speculative_dfe = out.speculative_dfe;
-	for (i = 0; i < ARRAY_SIZE(res->dynamic_dfe); i++)
-		res->dynamic_dfe[i] = out.dynamic_dfe[i];
-
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_rcvr_obj)
+		return GEN_OPS(dev)->diag_rcvr_obj(dev, port_id, lane_id,
+						   link, res);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -862,169 +363,6 @@ int switchtec_diag_rcvr_obj(struct switchtec_dev *dev, int port_id,
  *
  * @return 0 on success, error code on failure
  */
-static int switchtec_gen5_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
-						int port_id, int prev_speed,
-						enum switchtec_diag_end end,
-						enum switchtec_diag_link link,
-						struct switchtec_port_eq_coeff
-						*res)
-{
-	struct switchtec_port_eq_coeff *loc_out;
-	struct switchtec_rem_port_eq_coeff *rem_out;
-	struct switchtec_port_eq_coeff_in *in;
-	uint8_t *buf;
-	uint32_t buf_size;
-	uint32_t in_size = sizeof(struct switchtec_port_eq_coeff_in);
-	uint32_t out_size = 0;
-	int ret = 0;
-	int i;
-
-	if (!res) {
-		fprintf(stderr, "Error inval output buffer\n");
-		errno = -EINVAL;
-		return -1;
-	}
-
-	buf_size = in_size;
-	if (end == SWITCHTEC_DIAG_LOCAL) {
-		buf_size += sizeof(struct switchtec_port_eq_coeff);
-		out_size = sizeof(struct switchtec_port_eq_coeff);
-	} else if (end == SWITCHTEC_DIAG_FAR_END) {
-		buf_size += sizeof(struct switchtec_rem_port_eq_coeff);
-		out_size = sizeof(struct switchtec_rem_port_eq_coeff);
-	} else {
-		fprintf(stderr, "Error inval end option\n");
-		errno = -EINVAL;
-	}
-	buf = (uint8_t *)malloc(buf_size);
-	if (!buf) {
-		fprintf(stderr, "Error in buffer alloc\n");
-		errno = -ENOMEM;
-		return -1;
-	}
-
-	in = (struct switchtec_port_eq_coeff_in *)buf;
-	in->op_type = DIAG_PORT_EQ_STATUS_OP_PER_PORT;
-	in->phys_port_id = port_id;
-	in->lane_id = 0;
-	in->dump_type = LANE_EQ_DUMP_TYPE_CURR;
-
-	if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
-		in->dump_type = LANE_EQ_DUMP_TYPE_PREV;
-		in->prev_rate = prev_speed;
-	}
-
-	if (end == SWITCHTEC_DIAG_LOCAL) {
-		in->cmd = MRPC_GEN5_PORT_EQ_LOCAL_TX_COEFF_DUMP;
-		loc_out = (struct switchtec_port_eq_coeff *)&buf[in_size];
-		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, in, in_size,
-				    loc_out, out_size);
-		if (ret) {
-			fprintf(stderr, "Error in switchtec cmd:%d\n", ret);
-			goto end;
-		}
-	} else if (end == SWITCHTEC_DIAG_FAR_END) {
-		in->cmd = MRPC_GEN5_PORT_EQ_FAR_END_TX_COEFF_DUMP;
-		rem_out = (struct switchtec_rem_port_eq_coeff *)&buf[in_size];
-		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, in, in_size,
-				    rem_out, out_size);
-		if (ret) {
-			fprintf(stderr, "Error in switchtec cmd:%d\n", ret);
-			goto end;
-		}
-	} else {
-		fprintf(stderr, "Error inval end request\n");
-		errno = -EINVAL;
-		goto end;
-	}
-
-	if (end == SWITCHTEC_DIAG_LOCAL) {
-		res->lane_cnt = loc_out->lane_cnt + 1;
-		for (i = 0; i < res->lane_cnt; i++) {
-			res->cursors[i].pre = loc_out->cursors[i].pre;
-			res->cursors[i].post = loc_out->cursors[i].post;
-		}
-	} else {
-		res->lane_cnt = rem_out->lane_cnt + 1;
-		for (i = 0; i < res->lane_cnt; i++) {
-			res->cursors[i].pre = rem_out->cursors[i].pre;
-			res->cursors[i].post = rem_out->cursors[i].post;
-		}
-	}
-
-end:
-	if (buf)
-		free(buf);
-
-	return ret;
-}
-
-/**
- * @brief Get the Gen4 port equalization TX coefficients
- * @param[in]  dev	Switchtec device handle
- * @param[in]  port_id	Physical port ID
- * @param[in]  end      Get coefficents for the Local or the Far End
- * @param[out] res      Resulting port equalization coefficients
- *
- * @return 0 on success, error code on failure
- */
-static int switchtec_gen4_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
-						int port_id,
-						enum switchtec_diag_end end,
-						enum switchtec_diag_link link,
-						struct switchtec_port_eq_coeff
-						*res)
-{
-	struct switchtec_diag_port_eq_status_out out = {};
-	struct switchtec_diag_port_eq_status_in in = {
-		.op_type = DIAG_PORT_EQ_STATUS_OP_PER_PORT,
-		.port_id = port_id,
-	};
-	struct switchtec_diag_ext_dump_coeff_prev_in in_prev = {
-		.op_type = DIAG_PORT_EQ_STATUS_OP_PER_PORT,
-		.port_id = port_id,
-	};
-	int ret, i;
-
-	if (!res) {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (end == SWITCHTEC_DIAG_LOCAL) {
-		in.sub_cmd = MRPC_PORT_EQ_LOCAL_TX_COEFF_DUMP;
-		in_prev.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_LOCAL_TX_COEFF_PREV;
-	} else if (end == SWITCHTEC_DIAG_FAR_END) {
-		in.sub_cmd = MRPC_PORT_EQ_FAR_END_TX_COEFF_DUMP;
-		in_prev.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_FAR_END_TX_COEFF_PREV;
-	} else {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
-		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in, sizeof(in),
-				    &out, sizeof(out));
-	} else if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
-		ret = switchtec_cmd(dev, MRPC_EXT_RCVR_OBJ_DUMP, &in_prev,
-				    sizeof(in_prev), &out, sizeof(out));
-	} else {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (ret)
-		return -1;
-
-	res->lane_cnt = out.lane_id + 1;
-	for (i = 0; i < res->lane_cnt; i++) {
-		res->cursors[i].pre = out.cursors[i].pre;
-		res->cursors[i].post = out.cursors[i].post;
-	}
-
-	return 0;
-}
-
 /**
  * @brief Get the port equalization TX coefficients
  * @param[in]  dev	Switchtec device handle
@@ -1039,133 +377,12 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 				    enum switchtec_diag_link link,
 				    struct switchtec_port_eq_coeff *res)
 {
-	int ret = -1;
-
-	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_coeff(dev, port_id, prev_speed, end,
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_port_eq_tx_coeff)
+		return GEN_OPS(dev)->diag_port_eq_tx_coeff(dev, port_id, 
+							   prev_speed, end, 
 							   link, res);
-	else if (switchtec_is_gen4(dev))
-		ret = switchtec_gen4_diag_port_eq_tx_coeff(dev, port_id, end,
-							   link, res);
-
-	return ret;
-}
-
-/**
- * @brief Get the Gen5 far end TX equalization table
- * @param[in]  dev	Switchtec device handle
- * @param[in]  port_id	Physical port ID
- * @param[out] res      Resulting port equalization table
- *
- * @return 0 on success, error code on failure
- */
-static int switchtec_gen5_diag_port_eq_tx_table(struct switchtec_dev *dev,
-						int port_id, int prev_speed,
-						enum switchtec_diag_link link,
-						struct switchtec_port_eq_table
-						*res)
-{
-	struct switchtec_gen5_port_eq_table out = {};
-	struct switchtec_port_eq_table_in in = {
-		.sub_cmd = MRPC_GEN5_PORT_EQ_FAR_END_TX_EQ_TABLE_DUMP,
-		.port_id = port_id,
-	};
-	int ret, i;
-
-	if (!res) {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	in.dump_type = LANE_EQ_DUMP_TYPE_CURR;
-	in.prev_rate = 0;
-
-	if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
-		in.dump_type = LANE_EQ_DUMP_TYPE_PREV;
-		in.prev_rate = prev_speed;
-	}
-
-	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in,
-			    sizeof(struct switchtec_port_eq_table_in),
-			    &out, sizeof(struct switchtec_gen5_port_eq_table));
-	if (ret)
-		return -1;
-
-	res->lane_id = out.lane_id;
-	res->step_cnt = out.step_cnt;
-
-	for (i = 0; i < res->step_cnt; i++) {
-		res->steps[i].pre_cursor = out.steps[i].pre_cursor;
-		res->steps[i].post_cursor = out.steps[i].post_cursor;
-		res->steps[i].fom = 0;
-		res->steps[i].pre_cursor_up = 0;
-		res->steps[i].post_cursor_up = 0;
-		res->steps[i].error_status = out.steps[i].error_status;
-		res->steps[i].active_status = out.steps[i].active_status;
-		res->steps[i].speed = out.steps[i].speed;
-	}
-
-	return 0;
-}
-
-/**
- * @brief Get the Gen4 far end TX equalization table
- * @param[in]  dev	Switchtec device handle
- * @param[in]  port_id	Physical port ID
- * @param[out] res      Resulting port equalization table
- *
- * @return 0 on success, error code on failure
- */
-static int switchtec_gen4_diag_port_eq_tx_table(struct switchtec_dev *dev,
-						int port_id,
-						enum switchtec_diag_link link,
-						struct switchtec_port_eq_table
-						*res)
-{
-	struct switchtec_diag_port_eq_table_out out = {};
-	struct switchtec_diag_port_eq_status_in2 in = {
-		.sub_cmd = MRPC_PORT_EQ_FAR_END_TX_EQ_TABLE_DUMP,
-		.port_id = port_id,
-	};
-	struct switchtec_diag_port_eq_status_in2 in_prev = {
-		.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_EQ_TX_TABLE_PREV,
-		.port_id = port_id,
-	};
-	int ret, i;
-
-	if (!res) {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
-		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in, sizeof(in),
-				    &out, sizeof(out));
-	} else if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
-		ret = switchtec_cmd(dev, MRPC_EXT_RCVR_OBJ_DUMP, &in_prev,
-				    sizeof(in_prev), &out, sizeof(out));
-	} else {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (ret)
-		return -1;
-
-	res->lane_id = out.lane_id;
-	res->step_cnt = out.step_cnt;
-	for (i = 0; i < res->step_cnt; i++) {
-		res->steps[i].pre_cursor = out.steps[i].pre_cursor;
-		res->steps[i].post_cursor = out.steps[i].post_cursor;
-		res->steps[i].fom = out.steps[i].fom;
-		res->steps[i].pre_cursor_up = out.steps[i].pre_cursor_up;
-		res->steps[i].post_cursor_up = out.steps[i].post_cursor_up;
-		res->steps[i].error_status = out.steps[i].error_status;
-		res->steps[i].active_status = out.steps[i].active_status;
-		res->steps[i].speed = out.steps[i].speed;
-	}
-
-	return 0;
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -1176,144 +393,16 @@ static int switchtec_gen4_diag_port_eq_tx_table(struct switchtec_dev *dev,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id, int prev_speed,
-				    enum switchtec_diag_link link,
+int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id,
+				    int prev_speed, enum switchtec_diag_link link,
 				    struct switchtec_port_eq_table *res)
 {
-	int ret = -1;
-
-	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id,
-							   prev_speed, link,
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_port_eq_tx_table)
+		return GEN_OPS(dev)->diag_port_eq_tx_table(dev, port_id, 
+							   prev_speed, link, 
 							   res);
-	else if (switchtec_is_gen4(dev))
-		ret = switchtec_gen4_diag_port_eq_tx_table(dev, port_id, link,
-							   res);
-
-	return ret;
-}
-
-/**
- * @brief Get the Gen5 equalization FS/LF
- * @param[in]  dev	Switchtec device handle
- * @param[in]  port_id	Physical port ID
- * @param[in]  lane_id	Physical port ID
- * @param[in]  end      Get coefficents for the Local or the Far End
- * @param[out] res      Resulting FS/LF values
- *
- * @return 0 on success, error code on failure
- */
-static int switchtec_gen5_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
-					       int port_id, int prev_speed,
-					       int lane_id,
-					       enum switchtec_diag_end end,
-					       enum switchtec_diag_link link,
-					       struct switchtec_port_eq_tx_fslf
-					       *res)
-{
-	struct switchtec_port_eq_tx_fslf_in in = {};
-	struct switchtec_port_eq_tx_fslf_out out = {};
-	int ret;
-
-	if (!res) {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	in.port_id = port_id;
-	in.lane_id = lane_id;
-
-
-	if (end == SWITCHTEC_DIAG_LOCAL) {
-		in.sub_cmd = MRPC_GEN5_PORT_EQ_LOCAL_TX_FSLF_DUMP;
-	} else if (end == SWITCHTEC_DIAG_FAR_END) {
-		in.sub_cmd = MRPC_GEN5_PORT_EQ_FAR_END_TX_FSLF_DUMP;
-	} else {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
-		in.dump_type = LANE_EQ_DUMP_TYPE_CURR;
-	} else {
-		in.dump_type = LANE_EQ_DUMP_TYPE_PREV;
-		in.prev_rate = prev_speed;
-	}
-
-	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in,
-			    sizeof(struct switchtec_port_eq_tx_fslf_in), &out,
-			    sizeof(struct switchtec_port_eq_tx_fslf_out));
-	if (ret)
-		return -1;
-
-	res->fs = out.fs;
-	res->lf = out.lf;
-
-	return 0;
-}
-
-/**
- * @brief Get the Gen4 equalization FS/LF
- * @param[in]  dev	Switchtec device handle
- * @param[in]  port_id	Physical port ID
- * @param[in]  lane_id	Physical port ID
- * @param[in]  end      Get coefficents for the Local or the Far End
- * @param[out] res      Resulting FS/LF values
- *
- * @return 0 on success, error code on failure
- */
-static int switchtec_gen4_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
-					       int port_id, int lane_id,
-					       enum switchtec_diag_end end,
-					       enum switchtec_diag_link link,
-					       struct switchtec_port_eq_tx_fslf
-					       *res)
-{
-	struct switchtec_diag_port_eq_tx_fslf_out out = {};
-	struct switchtec_diag_port_eq_status_in2 in = {
-		.port_id = port_id,
-		.lane_id = lane_id,
-	};
-	struct switchtec_diag_ext_recv_obj_dump_in in_prev = {
-		.port_id = port_id,
-		.lane_id = lane_id,
-	};
-	int ret;
-
-	if (!res) {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (end == SWITCHTEC_DIAG_LOCAL) {
-		in.sub_cmd = MRPC_PORT_EQ_LOCAL_TX_FSLF_DUMP;
-		in_prev.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_LOCAL_TX_FSLF_PREV;
-	} else if (end == SWITCHTEC_DIAG_FAR_END) {
-		in.sub_cmd = MRPC_PORT_EQ_FAR_END_TX_FSLF_DUMP;
-		in_prev.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_FAR_END_TX_FSLF_PREV;
-	} else {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
-		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in, sizeof(in),
-				    &out, sizeof(out));
-	} else if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
-		ret = switchtec_cmd(dev, MRPC_EXT_RCVR_OBJ_DUMP, &in_prev,
-				    sizeof(in_prev), &out, sizeof(out));
-	} else {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (ret)
-		return -1;
-
-	res->fs = out.fs;
-	res->lf = out.lf;
-
-	return 0;
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -1332,18 +421,12 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 				   enum switchtec_diag_link link,
 				   struct switchtec_port_eq_tx_fslf *res)
 {
-	int ret = -1;
-
-	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_fslf(dev, port_id,
-							  prev_speed, lane_id,
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_port_eq_tx_fslf)
+		return GEN_OPS(dev)->diag_port_eq_tx_fslf(dev, port_id, 
+							  prev_speed, lane_id, 
 							  end, link, res);
-	else if (switchtec_is_gen4(dev))
-		ret = switchtec_gen4_diag_port_eq_tx_fslf(dev, port_id,
-							  lane_id, end,
-							  link, res);
-
-	return ret;
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -1448,7 +531,7 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
 	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
 }
 /**
- * @brief Get the status of all stacks of the refclk
+ * @brief Get the status of all stacks of the refclk 
  * @param[in]  dev		Switchtec device handle
  * @param[in]  stack_info	Pointer to the stack information
  *
@@ -1460,459 +543,8 @@ int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *stack_info)
 		.sub_cmd = MRPC_REFCLK_S_STATUS,
 	};
 
-	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), stack_info,
+	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), stack_info, 
 			     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS);
-}
-
-static void switchtec_diag_ltssm_set_log_data_gen5(struct switchtec_diag_ltssm_log
-					*log_data,
-					struct switchtec_diag_ltssm_log_dmp_out
-					*log_dump_out_ptr,
-					int curr_idx, uint16_t num_of_logs)
-{
-	uint32_t dw0;
-	uint32_t timestamp;
-
-	int major;
-	int minor;
-	int rate;
-
-	for (int j = 0; j < num_of_logs; j++) {
-		dw0 = log_dump_out_ptr[j].dw0;
-		timestamp = log_dump_out_ptr[j].ram_timestamp;
-
-		rate = (dw0 >> 13) & 0x7;
-		major = (dw0 >> 7) & 0x3f;
-		minor = (dw0 >> 3) & 0xf;
-
-		log_data[curr_idx + j].timestamp = timestamp;
-		log_data[curr_idx + j].link_rate = switchtec_gen_transfers[rate+1];
-		log_data[curr_idx + j].link_state = major | (minor << 8);
-	}
-}
-
-static void switchtec_diag_ltssm_set_log_data_gen6(struct switchtec_diag_ltssm_log
-					*log_data,
-					struct switchtec_diag_ltssm_log_dmp_out
-					*log_dump_out_ptr,
-					int curr_idx, uint16_t num_of_logs)
-{
-	uint32_t dw0;
-	uint32_t timestamp;
-
-	int major;
-	int rate;
-	int link_width;
-
-	for (int j = 0; j < num_of_logs; j++) {
-		dw0 = log_dump_out_ptr[j].dw0;
-		timestamp = log_dump_out_ptr[j].ram_timestamp;
-
-		link_width = (dw0 >> 16) & 0x3f;
-		rate = (dw0 >> 12) & 0x7;
-		major = (dw0 >> 6) & 0x3f;
-
-		log_data[curr_idx + j].timestamp = timestamp;
-		log_data[curr_idx + j].link_rate = switchtec_gen_transfers[rate+1];
-		log_data[curr_idx + j].link_state = major;
-		log_data[curr_idx + j].link_width = link_width;
-	}
-}
-
-/**
- * @brief Get the LTSSM log of a port on a gen5 switchtec device
- * @param[in]	dev    Switchtec device handle
- * @param[in]	port   Switchtec Port
- * @param[inout] log_count number of log entries
- * @param[out] log    A pointer to an array containing the log
- */
-static int switchtec_diag_ltssm_log_gen5(struct switchtec_dev *dev,
-				 int port, int *log_count,
-				 struct switchtec_diag_ltssm_log *log_data)
-{
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-		uint8_t freeze;
-		uint8_t unused;
-	} ltssm_freeze;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-	} status;
-
-	struct {
-		uint16_t log_count;
-		uint16_t w0_trigger_count;
-		uint16_t w1_trigger_count;
-	} status_output;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-		uint16_t log_index;
-		uint16_t no_of_logs;
-	} log_dump;
-
-	uint8_t log_buffer[1024];
-
-	struct switchtec_diag_ltssm_log_dmp_out *log_dump_out_ptr = NULL;
-
-	int ret;
-	int log_dmp_size = sizeof(struct switchtec_diag_ltssm_log_dmp_out);
-
-	/* freeze logs */
-	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
-	ltssm_freeze.port = port;
-	ltssm_freeze.freeze = 1;
-
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
-			    sizeof(ltssm_freeze), NULL, 0);
-	if (ret)
-		return ret;
-
-	/* get number of entries */
-	status.sub_cmd = MRPC_LTMON_GET_STATUS_GEN5;
-	status.port = port;
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &status,
-			    sizeof(status), &status_output,
-			    sizeof(status_output));
-	if (ret)
-		return ret;
-
-	*log_count = status_output.log_count;
-
-	/* get log data */
-	log_dump.sub_cmd = MRPC_LTMON_LOG_DUMP_GEN5;
-	log_dump.port = port;
-	log_dump.log_index = 0;
-	log_dump.no_of_logs = *log_count;
-
-	if (log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
-		/* Single buffer log case */
-		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
-				    sizeof(log_dump), &log_buffer[0],
-				    log_dump.no_of_logs * log_dmp_size + 4);
-		if (ret)
-			return ret;
-		log_dump_out_ptr =
-			(struct switchtec_diag_ltssm_log_dmp_out *)
-			&(log_buffer[4]);
-
-		switchtec_diag_ltssm_set_log_data_gen5(log_data,
-						  log_dump_out_ptr,
-						  0, log_dump.no_of_logs);
-	} else {
-		/* Multiple buffer log case */
-		int buff_count = log_dump.no_of_logs / SWITCHTEC_LTSSM_MAX_LOGS;
-		int curr_idx = 0;
-		int buffer_size = SWITCHTEC_LTSSM_MAX_LOGS * log_dmp_size + 4;
-
-		for (int i = 0; i < buff_count; i++) {
-			log_dump.no_of_logs = SWITCHTEC_LTSSM_MAX_LOGS;
-			ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG,
-					    &log_dump, sizeof(log_dump),
-					    &log_buffer[0], buffer_size);
-			if (ret)
-				return ret;
-			log_dump_out_ptr =
-				(struct switchtec_diag_ltssm_log_dmp_out *)
-				&(log_buffer[4]);
-
-			switchtec_diag_ltssm_set_log_data_gen5(log_data,
-							  log_dump_out_ptr,
-							  curr_idx,
-							  log_dump.no_of_logs);
-			curr_idx += SWITCHTEC_LTSSM_MAX_LOGS;
-			log_dump.log_index = curr_idx;
-		}
-		if (*log_count % SWITCHTEC_LTSSM_MAX_LOGS) {
-			log_dump.no_of_logs = *log_count - curr_idx;
-			buffer_size = log_dump.no_of_logs * log_dmp_size + 4;
-			ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG,
-					    &log_dump, sizeof(log_dump),
-					    &log_buffer[0], buffer_size);
-			if (ret)
-				return ret;
-			log_dump_out_ptr =
-				(struct switchtec_diag_ltssm_log_dmp_out *)
-				&(log_buffer[4]);
-
-			switchtec_diag_ltssm_set_log_data_gen5(log_data,
-							  log_dump_out_ptr,
-							  curr_idx,
-							  log_dump.no_of_logs);
-		}
-	}
-
-	/* unfreeze logs */
-	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
-	ltssm_freeze.port = port;
-	ltssm_freeze.freeze = 0;
-
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
-			    sizeof(ltssm_freeze), NULL, 0);
-
-	return ret;
-}
-
-/**
- * @brief Get the LTSSM log of a port on a gen6 switchtec device
- * @param[in]	dev    Switchtec device handle
- * @param[in]	port   Switchtec Port
- * @param[inout] log_count number of log entries
- * @param[out] log    A pointer to an array containing the log
- */
-static int switchtec_diag_ltssm_log_gen6(struct switchtec_dev *dev,
-				 int port, int *log_count,
-				 struct switchtec_diag_ltssm_log *log_data)
-{
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-		uint8_t freeze;
-		uint8_t unused;
-	} ltssm_freeze;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-	} status;
-
-	struct {
-		uint16_t log_count;
-		uint16_t w0_trigger_count;
-		uint16_t w1_trigger_count;
-	} status_output;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-		uint16_t log_index;
-		uint16_t no_of_logs;
-	} log_dump;
-
-	uint8_t log_buffer[1024];
-
-	struct switchtec_diag_ltssm_log_dmp_out *log_dump_out_ptr = NULL;
-
-	int ret;
-	int log_dmp_size = sizeof(struct switchtec_diag_ltssm_log_dmp_out);
-
-	/* freeze logs */
-	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
-	ltssm_freeze.port = port;
-	ltssm_freeze.freeze = 1;
-
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
-			    sizeof(ltssm_freeze), NULL, 0);
-	if (ret)
-		return ret;
-
-	/* get number of entries */
-	status.sub_cmd = MRPC_LTMON_GET_STATUS_GEN5;
-	status.port = port;
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &status,
-			    sizeof(status), &status_output,
-			    sizeof(status_output));
-	if (ret)
-		return ret;
-
-	*log_count = status_output.log_count;
-
-	/* get log data */
-	log_dump.sub_cmd = MRPC_LTMON_LOG_DUMP_GEN5;
-	log_dump.port = port;
-	log_dump.log_index = 0;
-	log_dump.no_of_logs = *log_count;
-
-	if (log_dump.no_of_logs <= SWITCHTEC_LTSSM_MAX_LOGS) {
-		/* Single buffer log case */
-		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
-				    sizeof(log_dump), &log_buffer[0],
-				    log_dump.no_of_logs * log_dmp_size + 4);
-		if (ret)
-			return ret;
-		log_dump_out_ptr =
-			(struct switchtec_diag_ltssm_log_dmp_out *)
-			&(log_buffer[4]);
-
-		switchtec_diag_ltssm_set_log_data_gen6(log_data,
-						  log_dump_out_ptr,
-						  0, log_dump.no_of_logs);
-	} else {
-		/* Multiple buffer log case */
-		int buff_count = log_dump.no_of_logs / SWITCHTEC_LTSSM_MAX_LOGS;
-		int curr_idx = 0;
-		int buffer_size = SWITCHTEC_LTSSM_MAX_LOGS * log_dmp_size + 4;
-
-		for (int i = 0; i < buff_count; i++) {
-			log_dump.no_of_logs = SWITCHTEC_LTSSM_MAX_LOGS;
-			ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG,
-					    &log_dump, sizeof(log_dump),
-					    &log_buffer[0], buffer_size);
-			if (ret)
-				return ret;
-			log_dump_out_ptr =
-				(struct switchtec_diag_ltssm_log_dmp_out *)
-				&(log_buffer[4]);
-
-			switchtec_diag_ltssm_set_log_data_gen6(log_data,
-							  log_dump_out_ptr,
-							  curr_idx,
-							  log_dump.no_of_logs);
-			curr_idx += SWITCHTEC_LTSSM_MAX_LOGS;
-			log_dump.log_index = curr_idx;
-		}
-		if (*log_count % SWITCHTEC_LTSSM_MAX_LOGS) {
-			log_dump.no_of_logs = *log_count - curr_idx;
-			buffer_size = log_dump.no_of_logs * log_dmp_size + 4;
-			ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG,
-					    &log_dump, sizeof(log_dump),
-					    &log_buffer[0], buffer_size);
-			if (ret)
-				return ret;
-			log_dump_out_ptr =
-				(struct switchtec_diag_ltssm_log_dmp_out *)
-				&(log_buffer[4]);
-
-			switchtec_diag_ltssm_set_log_data_gen6(log_data,
-							  log_dump_out_ptr,
-							  curr_idx,
-							  log_dump.no_of_logs);
-		}
-	}
-
-	/* unfreeze logs */
-	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
-	ltssm_freeze.port = port;
-	ltssm_freeze.freeze = 0;
-
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
-			    sizeof(ltssm_freeze), NULL, 0);
-
-	return ret;
-}
-
-/**
- * @brief Get the LTSSM log of a port on a gen4 switchtec device
- * @param[in]	dev    Switchtec device handle
- * @param[in]	port   Switchtec Port
- * @param[inout] log_count number of log entries
- * @param[out] log    A pointer to an array containing the log
- */
-static int switchtec_diag_ltssm_log_gen4(struct switchtec_dev *dev,
-				 int port, int *log_count,
-				 struct switchtec_diag_ltssm_log *log_data)
-{
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-		uint8_t freeze;
-		uint8_t unused;
-	} ltssm_freeze;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-	} status;
-	struct {
-		uint32_t w0_trigger_count;
-		uint32_t w1_trigger_count;
-		uint8_t log_num;
-	} status_output;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t port;
-		uint8_t log_index;
-		uint8_t no_of_logs;
-	} log_dump;
-	struct {
-		uint32_t dw0;
-		uint32_t dw1;
-	} log_dump_out[256];
-
-	uint32_t dw1;
-	uint32_t dw0;
-	int major;
-	int minor;
-	int rate;
-	int ret;
-	int i;
-
-	/* freeze logs */
-	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
-	ltssm_freeze.port = port;
-	ltssm_freeze.freeze = 1;
-
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
-			    sizeof(ltssm_freeze), NULL, 0);
-	if (ret)
-		return ret;
-
-	/* get number of entries */
-	status.sub_cmd = MRPC_LTMON_GET_STATUS_GEN4;
-	status.port = port;
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &status,
-			    sizeof(status), &status_output,
-			    sizeof(status_output));
-	if (ret)
-		return ret;
-
-	if (status_output.log_num < *log_count)
-		*log_count = status_output.log_num;
-
-	/* get log data */
-	log_dump.sub_cmd = MRPC_LTMON_LOG_DUMP_GEN4;
-	log_dump.port = port;
-	log_dump.log_index = 0;
-	log_dump.no_of_logs = *log_count;
-	if (log_dump.no_of_logs <= 126) {
-		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
-				    sizeof(log_dump), log_dump_out,
-				    8 * log_dump.no_of_logs);
-		if (ret)
-			return ret;
-	} else {
-		log_dump.no_of_logs = 126;
-		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
-				    sizeof(log_dump), log_dump_out,
-				    8 * log_dump.no_of_logs);
-		if (ret)
-			return ret;
-
-		log_dump.log_index = 126;
-		log_dump.no_of_logs = *log_count - 126;
-
-		ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &log_dump,
-				    sizeof(log_dump), log_dump_out + 126,
-				    8 * log_dump.no_of_logs);
-		if (ret)
-			return ret;
-	}
-	for (i = 0; i < *log_count; i++) {
-		dw1 = log_dump_out[i].dw1;
-		dw0 = log_dump_out[i].dw0;
-		rate = (dw0 >> 13) & 0x3;
-		major = (dw0 >> 7) & 0xf;
-		minor = (dw0 >> 3) & 0xf;
-
-		log_data[i].timestamp = dw1 & 0x3ffffff;
-		log_data[i].link_rate = switchtec_gen_transfers[rate + 1];
-		log_data[i].link_state = major | (minor << 8);
-	}
-
-	/* unfreeze logs */
-	ltssm_freeze.sub_cmd = MRPC_LTMON_FREEZE;
-	ltssm_freeze.port = port;
-	ltssm_freeze.freeze = 0;
-
-	ret = switchtec_cmd(dev, MRPC_DIAG_PORT_LTSSM_LOG, &ltssm_freeze,
-			    sizeof(ltssm_freeze), NULL, 0);
-
-	return ret;
 }
 
 /**
@@ -1926,14 +558,10 @@ int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 			    int port, int *log_count,
 			    struct switchtec_diag_ltssm_log *log_data)
 {
-	int ret;
-	if (switchtec_is_gen6(dev))
-		ret = switchtec_diag_ltssm_log_gen6(dev, port, log_count, log_data);
-	else if (switchtec_is_gen5(dev))
-		ret = switchtec_diag_ltssm_log_gen5(dev, port, log_count, log_data);
-	else
-		ret = switchtec_diag_ltssm_log_gen4(dev, port, log_count, log_data);
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_ltssm_log)
+		return GEN_OPS(dev)->diag_ltssm_log(dev, port, log_count, log_data);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -2017,16 +645,10 @@ int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 int switchtec_inject_err_dllp(struct switchtec_dev *dev, int phys_port_id,
 			      int data)
 {
-	uint32_t output;
-
-	struct switchtec_lnkerr_dllp_in cmd = {
-		.subcmd = MRPC_ERR_INJ_DLLP,
-		.phys_port_id = phys_port_id,
-		.data = data,
-	};
-
-	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			     sizeof(cmd), &output, sizeof(output));
+	if (GEN_OPS(dev) && GEN_OPS(dev)->inject_err_dllp)
+		return GEN_OPS(dev)->inject_err_dllp(dev, phys_port_id, data);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -2041,52 +663,11 @@ int switchtec_inject_err_dllp_crc(struct switchtec_dev *dev,
 				  int phys_port_id, int enable,
 				  uint16_t rate)
 {
-	uint32_t output;
-
-	struct switchtec_lnkerr_dllp_crc_in cmd = {
-		.subcmd = MRPC_ERR_INJ_DLLP_CRC,
-		.phys_port_id = phys_port_id,
-		.enable = enable,
-		.rate = rate,
-	};
-
-	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			     sizeof(cmd), &output, sizeof(output));
-}
-
-static int switchtec_inject_err_tlp_lcrc_gen4(struct switchtec_dev *dev,
-					      int phys_port_id, int enable,
-					      uint8_t rate)
-{
-	uint32_t output;
-
-	struct switchtec_lnkerr_tlp_lcrc_gen4_in cmd = {
-		.subcmd = MRPC_ERR_INJ_TLP_LCRC,
-		.phys_port_id = phys_port_id,
-		.enable = enable,
-		.rate = rate,
-	};
-	printf("enable: %d\n", enable);
-
-	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			     sizeof(cmd), &output, sizeof(output));
-}
-
-static int switchtec_inject_err_tlp_lcrc_gen5(struct switchtec_dev *dev,
-					      int phys_port_id, int enable,
-					      uint8_t rate)
-{
-	uint32_t output;
-
-	struct switchtec_lnkerr_tlp_lcrc_gen5_in cmd = {
-		.subcmd = MRPC_ERR_INJ_TLP_LCRC,
-		.phys_port_id = phys_port_id,
-		.enable = enable,
-		.rate = rate,
-	};
-
-	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			     sizeof(cmd), &output, sizeof(output));
+	if (GEN_OPS(dev) && GEN_OPS(dev)->inject_err_dllp_crc)
+		return GEN_OPS(dev)->inject_err_dllp_crc(dev, phys_port_id,
+							 enable, rate);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -2099,15 +680,10 @@ static int switchtec_inject_err_tlp_lcrc_gen5(struct switchtec_dev *dev,
 int switchtec_inject_err_tlp_lcrc(struct switchtec_dev *dev, int phy_port,
 				  int enable, uint8_t rate)
 {
-	int ret;
-	if (switchtec_is_gen4(dev)) {
-		ret = switchtec_inject_err_tlp_lcrc_gen4(dev, phy_port, enable, rate);
-		return ret;
-	} else if (switchtec_is_gen5(dev)) {
-		ret = switchtec_inject_err_tlp_lcrc_gen5(dev, phy_port, enable, rate);
-		return ret;
-	}
-	fprintf(stderr, "The TLP LCRC is not supported for Gen3 switches.\n");
+	if (GEN_OPS(dev) && GEN_OPS(dev)->inject_err_tlp_lcrc)
+		return GEN_OPS(dev)->inject_err_tlp_lcrc(dev, phy_port,
+							 enable, rate);
+	errno = ENOTSUP;
 	return -1;
 }
 
@@ -2119,15 +695,10 @@ int switchtec_inject_err_tlp_lcrc(struct switchtec_dev *dev, int phy_port,
  */
 int switchtec_inject_err_tlp_seq_num(struct switchtec_dev *dev, int phys_port_id)
 {
-	uint32_t output;
-
-	struct switchtec_lnkerr_tlp_seqn_in cmd = {
-		.subcmd = MRPC_ERR_INJ_TLP_SEQ,
-		.phys_port_id = phys_port_id,
-	};
-
-	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			     sizeof(cmd), &output, sizeof(output));
+	if (GEN_OPS(dev) && GEN_OPS(dev)->inject_err_tlp_seqnum)
+		return GEN_OPS(dev)->inject_err_tlp_seqnum(dev, phys_port_id);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -2141,17 +712,10 @@ int switchtec_inject_err_tlp_seq_num(struct switchtec_dev *dev, int phys_port_id
 int switchtec_inject_err_ack_nack(struct switchtec_dev *dev, int phys_port_id,
 				  uint16_t seq_num, uint8_t count)
 {
-	uint32_t output;
-
-	struct switchtec_lnkerr_ack_nack_in cmd = {
-		.subcmd = MRPC_ERR_INJ_ACK_NACK,
-		.phys_port_id = phys_port_id,
-		.seq_num = seq_num,
-		.count = count,
-	};
-
-	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			     sizeof(cmd), &output, sizeof(output));
+	if (GEN_OPS(dev) && GEN_OPS(dev)->inject_err_ack_nack)
+		return GEN_OPS(dev)->inject_err_ack_nack(dev, phys_port_id, seq_num, count);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -2162,167 +726,20 @@ int switchtec_inject_err_ack_nack(struct switchtec_dev *dev, int phys_port_id,
  */
 int switchtec_inject_err_cto(struct switchtec_dev *dev, int phys_port_id)
 {
-	uint32_t output;
-
-	struct switchtec_lnkerr_cto_in cmd = {
-		.subcmd = MRPC_ERR_INJ_CTO,
-		.phys_port_id = phys_port_id,
-	};
-
-	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
-			     sizeof(cmd), &output, sizeof(output));
+	if (GEN_OPS(dev) && GEN_OPS(dev)->inject_err_cto)
+		return GEN_OPS(dev)->inject_err_cto(dev, phys_port_id);
+	errno = ENOTSUP;
+	return -1;
 }
 
 int switchtec_osa_capture_data(struct switchtec_dev *dev, int stack_id,
 			       int lane, int direction,
 			       struct switchtec_osa_capture_data *data)
 {
-	int ret = 0;
-	struct {
-		uint8_t sub_cmd;
-		uint8_t stack_id;
-		uint8_t lane;
-		uint8_t direction;
-		uint16_t start_entry;
-		uint8_t num_entries;
-		uint8_t reserved;
-	} osa_data_read_in;
-
-	struct {
-		uint8_t entries_read;
-		uint8_t stack_id;
-		uint8_t lane;
-		uint8_t direction;
-		uint16_t next_entry;
-		uint16_t entries_remaining;
-		uint16_t wrap;
-		uint16_t reserved;
-	} osa_data_entries_out;
-
-	osa_data_read_in.sub_cmd = MRPC_OSA_DATA_READ;
-	osa_data_read_in.stack_id = stack_id;
-	osa_data_read_in.lane = lane;
-	osa_data_read_in.direction = direction;
-
-	osa_data_read_in.start_entry = 0;
-	osa_data_read_in.num_entries = 0;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t stack_id;
-		uint16_t reserved;
-	} osa_status_query_in;
-
-	struct {
-		uint8_t state;
-		uint8_t trigger_lane;
-		uint8_t trigger_dir;
-		uint8_t reserved;
-		uint16_t trigger_reason;
-		uint16_t reserved2;
-	} osa_status_query_out;
-
-	osa_status_query_in.sub_cmd = MRPC_OSA_STATUS_QUERY;
-	if (switchtec_is_gen6(dev))
-		osa_status_query_in.sub_cmd = MRPC_OSA_STATUS_QUERY_GEN6;
-	osa_status_query_in.stack_id = stack_id;
-
-	ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER, &osa_status_query_in,
-			    sizeof(osa_status_query_in), &osa_status_query_out,
-			    sizeof(osa_status_query_out));
-
-	ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER, &osa_data_read_in,
-			    sizeof(osa_data_read_in), &osa_data_entries_out,
-			    sizeof(osa_data_entries_out));
-	if (ret) {
-		switchtec_perror("OSA data dump");
-		return ret;
-	}
-
-	struct {
-		uint8_t entries_read;
-		uint8_t stack_id;
-		uint8_t lane;
-		uint8_t direction;
-		uint16_t next_entry;
-		uint16_t entries_remaining;
-		uint16_t wrap;
-		uint16_t reserved;
-		uint32_t entry_dwords[osa_data_entries_out.entries_remaining * 6];
-	} osa_data_read_out;
-
-	osa_data_read_out.entries_remaining = osa_data_entries_out.entries_remaining;
-	osa_data_read_out.next_entry = osa_data_entries_out.next_entry;
-
-	if (data) {
-		data->stack_id = stack_id;
-		data->lane = lane;
-		data->direction = direction;
-		data->total_entries = osa_data_entries_out.entries_remaining;
-		data->wrap_occurred = osa_data_entries_out.wrap;
-		data->entry_count = 0;
-	}
-
-	int total_dword = 0;
-	int total_entries = 0;
-	int curr_entry_dword = 0;
-	uint64_t timestamp;
-	uint32_t timestamp_lower, timestamp_upper, counter;
-	uint8_t link_rate, trigger, os_droppped;
-	uint32_t osa_data_dwords[4];
-	int osa_data_idx = 0;
-
-	while (osa_data_read_out.entries_remaining != 0) {
-		if (data && total_entries >= SWITCHTEC_OSA_MAX_ENTRIES)
-			break;
-
-		osa_data_read_in.num_entries = osa_data_read_out.entries_remaining;
-		osa_data_read_in.start_entry = osa_data_read_out.next_entry;
-
-		ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER,
-				    &osa_data_read_in, sizeof(osa_data_read_in),
-				    &osa_data_read_out, sizeof(osa_data_read_out));
-		if (ret)
-			return -1;
-
-		for (int i = total_dword; i < total_dword + (osa_data_read_out.entries_read * 6); i++) {
-			if (curr_entry_dword < 4) {
-				osa_data_dwords[osa_data_idx++] = osa_data_read_out.entry_dwords[i];
-			} else if (curr_entry_dword == 4) {
-				timestamp_lower = (osa_data_read_out.entry_dwords[i] >> 22) & 0x3FF;
-				timestamp_upper = (osa_data_read_out.entry_dwords[i+1] & 0x1A);
-				timestamp = timestamp_upper | timestamp_lower;
-
-				link_rate = osa_data_read_out.entry_dwords[i] & 0x3;
-				counter = (osa_data_read_out.entry_dwords[i] >> 3) & 0x12;
-				trigger	= (osa_data_read_out.entry_dwords[i+1] >> 28) & 0x1;
-				os_droppped = (osa_data_read_out.entry_dwords[i+1] >> 29) & 0x1;
-
-				if (data && total_entries < SWITCHTEC_OSA_MAX_ENTRIES) {
-					data->entries[total_entries].timestamp = timestamp;
-					data->entries[total_entries].link_rate = link_rate;
-					data->entries[total_entries].counter = counter;
-					data->entries[total_entries].trigger_indication = trigger;
-					data->entries[total_entries].os_dropped = os_droppped;
-					data->entries[total_entries].osa_data[0] = osa_data_dwords[0];
-					data->entries[total_entries].osa_data[1] = osa_data_dwords[1];
-					data->entries[total_entries].osa_data[2] = osa_data_dwords[2];
-					data->entries[total_entries].osa_data[3] = osa_data_dwords[3];
-					data->entry_count++;
-				}
-
-				osa_data_idx = 0;
-				total_entries++;
-			}
-			curr_entry_dword++;
-			if (i != 0 && i % 5 == 0) {
-				curr_entry_dword = 0;
-			}
-		}
-		total_dword += osa_data_read_out.entries_read;
-	}
-
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->osa_capture_data)
+		return GEN_OPS(dev)->osa_capture_data(dev, stack_id, lane, direction, data);
+	errno = ENOTSUP;
+	return -1;
 }
 
 int switchtec_osa_capture_control(struct switchtec_dev *dev, int stack_id,
@@ -2331,275 +748,63 @@ int switchtec_osa_capture_control(struct switchtec_dev *dev, int stack_id,
 				  int snapshot_mode, int post_trigger,
 				  int os_types)
 {
-	int ret = 0;
-
-	struct osa_capture_ctrl_in osa_capture_ctrl_in = {0};
-
-	osa_capture_ctrl_in.sub_cmd = MRPC_OSA_CAPTURE_CTRL;
-	if (switchtec_is_gen6(dev))
-		osa_capture_ctrl_in.sub_cmd = MRPC_OSA_CAPTURE_CTRL_GEN6;
-	osa_capture_ctrl_in.stack_id = stack_id;
-	osa_capture_ctrl_in.lane_mask = lane_mask;
-	osa_capture_ctrl_in.direction = direction;
-	osa_capture_ctrl_in.drop_single_os = drop_single_os;
-	osa_capture_ctrl_in.stop_mode = stop_mode;
-	osa_capture_ctrl_in.snapshot_mode = snapshot_mode;
-	osa_capture_ctrl_in.post_trig_entries = post_trigger;
-	osa_capture_ctrl_in.os_types = os_types;
-
-	ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER, &osa_capture_ctrl_in,
-			    sizeof(osa_capture_ctrl_in), NULL, 0);
-	if (ret)
-		switchtec_perror("OSA capture control");
-
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->osa_capture_control)
+		return GEN_OPS(dev)->osa_capture_control(dev, stack_id, lane_mask, 
+							 direction, drop_single_os, 
+							 stop_mode, snapshot_mode, 
+							 post_trigger, os_types);
+	errno = ENOTSUP;
+	return -1;
 }
 
 int switchtec_osa_config_misc(struct switchtec_dev *dev, int stack_id,
 			      int trigger_en)
 {
-	int ret = 0;
-	struct {
-		uint8_t sub_cmd;
-		uint8_t stack_id;
-		uint16_t reserved;
-		uint8_t trigger_en;
-		uint8_t reserved2;
-		uint16_t reserved3;
-	} osa_misc_config_in;
-
-	osa_misc_config_in.sub_cmd = MRPC_OSA_MISC_TRIG_CONFIG;
-	osa_misc_config_in.stack_id = stack_id;
-	osa_misc_config_in.trigger_en = trigger_en;
-
-	ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER, &osa_misc_config_in,
-			    sizeof(osa_misc_config_in), NULL, 0);
-	if (ret)
-		switchtec_perror("OSA misc config");
-
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->osa_config_misc)
+		return GEN_OPS(dev)->osa_config_misc(dev, stack_id, trigger_en);
+	errno = ENOTSUP;
+	return -1;
 }
 
 int switchtec_osa_config_pattern(struct switchtec_dev *dev, int stack_id,
 				 int direction, int lane_mask, int link_rate,
 				 uint32_t *value_data, uint32_t *mask_data)
 {
-	int ret = 1;
-
-	struct osa_pattern_config_in osa_pattern_config_in = {0};
-	osa_pattern_config_in.sub_cmd = MRPC_OSA_PAT_TRIG_CONFIG;
-	osa_pattern_config_in.stack_id = stack_id;
-	osa_pattern_config_in.direction = direction;
-	osa_pattern_config_in.lane_mask = lane_mask;
-	osa_pattern_config_in.link_rate = link_rate;
-	osa_pattern_config_in.pat_val_dword0 = value_data[0];
-	osa_pattern_config_in.pat_val_dword1 = value_data[1];
-	osa_pattern_config_in.pat_val_dword2 = value_data[2];
-	osa_pattern_config_in.pat_val_dword3 = value_data[3];
-	osa_pattern_config_in.pat_mask_dword0 = mask_data[0];
-	osa_pattern_config_in.pat_mask_dword1 = mask_data[1];
-	osa_pattern_config_in.pat_mask_dword2 = mask_data[2];
-	osa_pattern_config_in.pat_mask_dword3 = mask_data[3];
-
-	ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER,
-			    &osa_pattern_config_in,
-			    sizeof(osa_pattern_config_in), NULL, 0);
-	if (ret)
-		switchtec_perror("OSA pattern config");
-
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->osa_config_pattern)
+		return GEN_OPS(dev)->osa_config_pattern(dev, stack_id, direction, 
+							lane_mask, link_rate, 
+							value_data, mask_data);
+	errno = ENOTSUP;
+	return -1;
 }
 
 int switchtec_osa_config_type(struct switchtec_dev *dev, int stack_id,
 		int direction, int lane_mask, int link_rate, int os_types)
 {
-	int ret = 1;
-
-	struct osa_type_config_in osa_type_config_in = {0};
-
-	osa_type_config_in.sub_cmd = MRPC_OSA_TYPE_TRIG_CONFIG;
-	if (switchtec_is_gen6(dev))
-		osa_type_config_in.sub_cmd = MRPC_OSA_TYPE_TRIG_CONFIG_GEN6;
-	osa_type_config_in.stack_id = stack_id;
-	osa_type_config_in.lane_mask = lane_mask;
-	osa_type_config_in.direction = direction;
-	osa_type_config_in.link_rate = link_rate;
-	osa_type_config_in.os_types = os_types;
-
-	ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER, &osa_type_config_in,
-			    sizeof(osa_type_config_in), NULL, 0);
-	if (ret)
-		switchtec_perror("OSA type config");
-
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->osa_config_type)
+		return GEN_OPS(dev)->osa_config_type(dev, stack_id, direction, 
+						     lane_mask, link_rate, 
+						     os_types);
+	errno = ENOTSUP;
+	return -1;
 }
 
 int switchtec_osa_dump_conf(struct switchtec_dev *dev, int stack_id,
 			    struct switchtec_osa_config *config)
 {
-	int ret = 0;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t stack_id;
-		uint16_t reserved;
-	} osa_dmp_in;
-
-	struct {
-		int16_t os_type_trig_lane_mask;
-		uint8_t os_type_trig_dir;
-		uint8_t os_type_trig_link_rate;
-		uint8_t os_type_trig_os_types;
-		uint8_t reserved;
-		uint16_t reserved2;
-		uint16_t os_pat_trig_lane_mask;
-		uint8_t os_pat_trig_dir;
-		uint8_t os_pat_trig_link_rate;
-		uint32_t os_pat_trig_val_dw0;
-		uint32_t os_pat_trig_val_dw1;
-		uint32_t os_pat_trig_val_dw2;
-		uint32_t os_pat_trig_val_dw3;
-		uint32_t os_pat_trig_mask_dw0;
-		uint32_t os_pat_trig_mask_dw1;
-		uint32_t os_pat_trig_mask_dw2;
-		uint32_t os_pat_trig_mask_dw3;
-		uint8_t misc_trig_en;
-		uint8_t reserved3;
-		uint16_t reserved4;
-		uint16_t capture_lane_mask;
-		uint8_t capture_dir;
-		uint8_t capture_drop_os;
-		uint8_t capture_stop_mode;
-		uint8_t capture_snap_mode;
-		uint16_t capture_post_trig_entries;
-		uint8_t capture_os_types;
-		uint8_t reserved5;
-		uint16_t reserved6;
-	} osa_dmp_out;
-
-	osa_dmp_in.stack_id = stack_id;
-	osa_dmp_in.sub_cmd = MRPC_OSA_CONFIG_DMP;
-	if (switchtec_is_gen6(dev))
-		osa_dmp_in.sub_cmd = MRPC_OSA_CONFIG_DMP_GEN6;
-
-	ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER, &osa_dmp_in,
-			    sizeof(osa_dmp_in), &osa_dmp_out,
-			    sizeof(osa_dmp_out));
-	if (ret) {
-		switchtec_perror("OSA config dump");
-		return ret;
-	}
-
-	if (config) {
-		/* OS Type Trigger */
-		config->os_type_lane_mask = osa_dmp_out.os_type_trig_lane_mask;
-		config->os_type_direction = osa_dmp_out.os_type_trig_dir;
-		config->os_type_link_rate = osa_dmp_out.os_type_trig_link_rate;
-		config->os_type_os_types = osa_dmp_out.os_type_trig_os_types;
-
-		/* OS Pattern Trigger */
-		config->os_pat_lane_mask = osa_dmp_out.os_pat_trig_lane_mask;
-		config->os_pat_direction = osa_dmp_out.os_pat_trig_dir;
-		config->os_pat_link_rate = osa_dmp_out.os_pat_trig_link_rate;
-		config->os_pat_value[0] = osa_dmp_out.os_pat_trig_val_dw0;
-		config->os_pat_value[1] = osa_dmp_out.os_pat_trig_val_dw1;
-		config->os_pat_value[2] = osa_dmp_out.os_pat_trig_val_dw2;
-		config->os_pat_value[3] = osa_dmp_out.os_pat_trig_val_dw3;
-		config->os_pat_mask[0] = osa_dmp_out.os_pat_trig_mask_dw0;
-		config->os_pat_mask[1] = osa_dmp_out.os_pat_trig_mask_dw1;
-		config->os_pat_mask[2] = osa_dmp_out.os_pat_trig_mask_dw2;
-		config->os_pat_mask[3] = osa_dmp_out.os_pat_trig_mask_dw3;
-
-		/* Misc Trigger */
-		config->misc_trig_enable = osa_dmp_out.misc_trig_en;
-
-		/* Capture Config */
-		config->capture_lane_mask = osa_dmp_out.capture_lane_mask;
-		config->capture_direction = osa_dmp_out.capture_dir;
-		config->capture_drop_single_os = osa_dmp_out.capture_drop_os;
-		config->capture_stop_mode = osa_dmp_out.capture_stop_mode;
-		config->capture_snapshot_mode = osa_dmp_out.capture_snap_mode;
-		config->capture_post_trig_entries = osa_dmp_out.capture_post_trig_entries;
-		config->capture_os_types = osa_dmp_out.capture_os_types;
-	}
-
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->osa_dump_conf)
+		return GEN_OPS(dev)->osa_dump_conf(dev, stack_id, config);
+	errno = ENOTSUP;
+	return -1;	
 }
 
 int switchtec_osa(struct switchtec_dev *dev, int stack_id, int operation,
 		  struct switchtec_osa_status *status)
 {
-	int ret = 0;
-	struct {
-		uint8_t sub_cmd;
-		uint8_t stack_id;
-		uint16_t reserved;
-	} osa_rel_access_perm_in;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t stack_id;
-		uint16_t reserved;
-	} osa_status_query_in;
-
-	struct {
-		uint8_t state;
-		uint8_t trigger_lane;
-		uint8_t trigger_dir;
-		uint8_t reserved;
-		uint16_t trigger_reason;
-		uint16_t reserved2;
-	} osa_status_query_out;
-
-	struct {
-		uint8_t sub_cmd;
-		uint8_t stack_id;
-		uint8_t operation;
-		uint8_t reserved;
-	} osa_op_in;
-
-	if (operation == 4) {
-		osa_rel_access_perm_in.sub_cmd = MRPC_OSA_REL_ACCESS_PERM;
-		osa_rel_access_perm_in.stack_id = stack_id;
-
-		ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER,
-				    &osa_rel_access_perm_in,
-				    sizeof(osa_rel_access_perm_in), NULL, 0);
-	}
-	else if (operation == 5) {
-		osa_status_query_in.sub_cmd = MRPC_OSA_STATUS_QUERY;
-		if (switchtec_is_gen6(dev))
-			osa_status_query_in.sub_cmd = MRPC_OSA_STATUS_QUERY_GEN6;
-		osa_status_query_in.stack_id = stack_id;
-
-		ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER,
-			&osa_status_query_in, sizeof(osa_status_query_in),
-			&osa_status_query_out, sizeof(osa_status_query_out));
-		if (ret) {
-			switchtec_perror("OSA operation");
-			return ret;
-		}
-
-		if (status) {
-			status->state = osa_status_query_out.state;
-			status->trigger_lane = osa_status_query_out.trigger_lane;
-			status->trigger_dir = osa_status_query_out.trigger_dir;
-			status->trigger_reason = osa_status_query_out.trigger_reason;
-		}
-	}
-	else {
-		osa_op_in.sub_cmd = MRPC_OSA_ANALYZER_OP;
-		osa_op_in.stack_id = stack_id;
-		osa_op_in.operation = operation;
-
-		ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER, &osa_op_in,
-				    sizeof(osa_op_in), NULL, 0);
-	}
-
-	if (ret)
-		switchtec_perror("OSA operation");
-
-	return ret;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->osa)
+		return GEN_OPS(dev)->osa(dev, stack_id, operation, status);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**@}*/

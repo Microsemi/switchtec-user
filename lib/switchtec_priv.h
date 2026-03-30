@@ -181,6 +181,21 @@ struct switchtec_gen_ops {
 	int (*inject_err_cto)(struct switchtec_dev *dev, int phys_port_id);
 	int (*inject_err_ack_nack)(struct switchtec_dev *dev, int phys_port_id,
 					uint16_t seq_num, uint8_t count);
+	int (*osa_capture_data)(struct switchtec_dev *dev, int stack_id, int lane, int direction, void *data);
+	int (*osa_capture_control)(struct switchtec_dev *dev, int stack_id,
+						int lane_mask, int direction,
+						int drop_single_os, int stop_mode,
+						int snapshot_mode, int post_trigger,
+						int os_types);
+	int (*osa_config_misc)(struct switchtec_dev *dev, int stack_id,
+					int trigger_en);
+	int (*osa_config_pattern)(struct switchtec_dev *dev, int stack_id,
+					int direction, int lane_mask, int link_rate,
+					uint32_t *value_data, uint32_t *mask_data);
+	int (*osa_config_type)(struct switchtec_dev *dev, int stack_id,
+					int direction, int lane_mask, int link_rate, int os_types);
+	int (*osa_dump_conf)(struct switchtec_dev *dev, int stack_id, void *config);
+	int (*osa)(struct switchtec_dev *dev, int stack_id, int operation, void *status);
 
 	/* Manufacturing */
 	int (*security_config_get)(struct switchtec_dev *dev, void *state);

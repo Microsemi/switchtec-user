@@ -73,6 +73,8 @@ struct switchtec_dev;
 
 #define SWITCHTEC_MAX_GPIO_PIN_VALS 30
 
+#define SWITCHTEC_LTSSM_MAX_LOGS 61
+
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
 #else

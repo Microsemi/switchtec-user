@@ -27,4 +27,42 @@
 
 #include "../switchtec_priv.h"
 
+int switchtec_diag_ltssm_log_gen6(struct switchtec_dev *dev,
+				 int port, int *log_count, void *log_data);
+
+int switchtec_diag_eye_start_gen6(struct switchtec_dev *dev, int lane_mask[4],
+				  void *x_range, void *y_range,
+				  int step_interval, int capture_depth,
+				  int sar_sel, int intleav_sel, int hstep,
+				  int data_mode, int eye_mode,
+				  uint64_t refclk, int vstep);
+
+int switchtec_diag_pattern_gen_set_gen6(struct switchtec_dev *dev,
+					int port_id, int type,
+					int link_speed);
+
+int switchtec_diag_pattern_gen_get_gen6(struct switchtec_dev *dev,
+					int port_id, int *type);
+
+int switchtec_diag_pattern_mon_set_gen6(struct switchtec_dev *dev,
+					int port_id, int type);
+
+int switchtec_diag_pattern_mon_get_gen6(struct switchtec_dev *dev,
+					int port_id, int lane_id,
+					int *type,
+					unsigned long long *err_cnt);
+
+int switchtec_osa_capture_data_gen6(struct switchtec_dev *dev, int stack_id, 
+   					int lane, int direction, void *data);
+
+int switchtec_osa_capture_control_gen6(struct switchtec_dev *dev, int stack_id,
+					int lane_mask, int direction,
+					int drop_single_os, int stop_mode,
+					int snapshot_mode, int post_trigger,
+					int os_types);
+
+int switchtec_osa_dump_conf_gen6(struct switchtec_dev *dev, int stack_id, void *config);
+
+int switchtec_osa_gen6(struct switchtec_dev *dev, int stack_id, int operation, void *status);
+
 #endif
