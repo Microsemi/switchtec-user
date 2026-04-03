@@ -1,5 +1,5 @@
 /*
- * Microsemi Switchtec(tm) PCIe Management Library
+* Microsemi Switchtec(tm) PCIe Management Library
  * Copyright (c) 2017, Microsemi Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -22,39 +22,26 @@
  *
  */
 
-#ifndef LIBSWITCHTEC_DIAG_GEN4_H
-#define LIBSWITCHTEC_DIAG_GEN4_H
+#ifndef LIBSWITCHTEC_FW_GEN3_H
+#define LIBSWITCHTEC_FW_GEN3_H
 
 #include "../switchtec_priv.h"
 
-int switchtec_diag_ltssm_log_gen4(struct switchtec_dev *dev,
-				 int port, int *log_count, void *log_data);
+int switchtec_fw_read_gen3(struct switchtec_dev *dev, unsigned long addr, 
+                           size_t len, void *buf);
 
-int switchtec_diag_cross_hair_enable_gen4(struct switchtec_dev *dev,
-					  int lane_id);
+int switchtec_fw_is_boot_ro_gen3(struct switchtec_dev *dev);
 
-int switchtec_diag_cross_hair_disable_gen4(struct switchtec_dev *dev);
+int switchtec_fw_set_boot_ro_gen3(struct switchtec_dev *dev, 
+                                  enum switchtec_fw_ro ro);
 
-int switchtec_diag_cross_hair_get_gen4(struct switchtec_dev *dev,
-				       int start_lane_id, int num_lanes,
-				       void *res);
+int switchtec_fw_img_write_hdr_gen3(int fd, struct switchtec_fw_image_info *info);
 
-int switchtec_inject_err_tlp_lcrc_gen4(struct switchtec_dev *dev,
-				       int phys_port_id, int enable,
-				       uint8_t rate);
+int switchtec_fw_part_info_gen3(struct switchtec_dev *dev, int nr_info, 
+                                struct switchtec_fw_image_info *info);
 
-int switchtec_inject_err_tlp_seqnum_gen4(struct switchtec_dev *dev,
-					 int phys_port_id);
+struct switchtec_fw_part_summary *switchtec_fw_part_summary_gen3(struct switchtec_dev *dev);
 
-int switchtec_inject_err_dllp_gen4(struct switchtec_dev *dev,
-				   int phys_port_id, int data);
-
-int switchtec_inject_err_dllp_crc_gen4(struct switchtec_dev *dev,
-				       int phys_port_id, int enable,
-				       uint16_t rate);
-
-int switchtec_inject_err_ack_nack_gen4(struct switchtec_dev *dev,
-				       int phys_port_id, uint16_t seq_num,
-				       uint8_t count);
+int switchtec_fw_file_info_gen3(int fd, struct switchtec_fw_image_info *info);
 
 #endif

@@ -443,38 +443,11 @@ int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
 			    int lane_id, enum switchtec_diag_link link,
 			    struct switchtec_rcvr_ext *res)
 {
-	struct switchtec_diag_rcvr_ext_out out = {};
-	struct switchtec_diag_ext_recv_obj_dump_in in = {
-		.port_id = port_id,
-		.lane_id = lane_id,
-	};
-	int ret;
-
-	if (!res) {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
-		in.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_RCVR_EXT;
-	} else if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
-		in.sub_cmd = MRPC_EXT_RCVR_OBJ_DUMP_RCVR_EXT_PREV;
-	} else {
-		errno = -EINVAL;
-		return -1;
-	}
-
-	ret = switchtec_cmd(dev, MRPC_EXT_RCVR_OBJ_DUMP, &in, sizeof(in),
-			    &out, sizeof(out));
-	if (ret)
-		return -1;
-
-	res->ctle2_rx_mode = out.ctle2_rx_mode;
-	res->dtclk_9 = out.dtclk_9;
-	res->dtclk_8_6 = out.dtclk_8_6;
-	res->dtclk_5 = out.dtclk_5;
-
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_rcvr_ext)
+		return GEN_OPS(dev)->diag_rcvr_ext(dev, port_id, lane_id, link,
+						   res);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -487,30 +460,10 @@ int switchtec_diag_rcvr_ext(struct switchtec_dev *dev, int port_id,
 int switchtec_diag_perm_table(struct switchtec_dev *dev,
 			      struct switchtec_mrpc table[MRPC_MAX_ID])
 {
-	uint32_t perms[(MRPC_MAX_ID + 31) / 32];
-	int i, ret;
-
-	ret = switchtec_cmd(dev, MRPC_MRPC_PERM_TABLE_GET, NULL, 0,
-			    perms, sizeof(perms));
-	if (ret)
-		return -1;
-
-	for (i = 0; i < MRPC_MAX_ID; i++) {
-		if (perms[i >> 5] & (1 << (i & 0x1f))) {
-			if (switchtec_mrpc_table[i].tag) {
-				table[i] = switchtec_mrpc_table[i];
-			} else {
-				table[i].tag = "UNKNOWN";
-				table[i].desc = "Unknown MRPC Command";
-				table[i].reserved = true;
-			}
-		} else {
-			table[i].tag = NULL;
-			table[i].desc = NULL;
-		}
-	}
-
-	return 0;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_perm_table)
+		return GEN_OPS(dev)->diag_perm_table(dev, table);
+	errno = ENOTSUP;
+	return -1;	
 }
 
 /**
@@ -523,12 +476,10 @@ int switchtec_diag_perm_table(struct switchtec_dev *dev,
  */
 int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
 {
-	struct switchtec_diag_refclk_ctl_in cmd = {
-		.sub_cmd = en ? MRPC_REFCLK_S_ENABLE : MRPC_REFCLK_S_DISABLE,
-		.stack_id = stack_id,
-	};
-
-	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_refclk_ctl)
+		return GEN_OPS(dev)->diag_refclk_ctl(dev, stack_id, en);
+	errno = ENOTSUP;
+	return -1;
 }
 /**
  * @brief Get the status of all stacks of the refclk 
@@ -539,12 +490,10 @@ int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
  */
 int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *stack_info)
 {
-	struct switchtec_diag_refclk_ctl_in cmd = {
-		.sub_cmd = MRPC_REFCLK_S_STATUS,
-	};
-
-	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), stack_info, 
-			     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS);
+	if (GEN_OPS(dev) && GEN_OPS(dev)->diag_refclk_status)
+		return GEN_OPS(dev)->diag_refclk_status(dev, stack_info);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**
@@ -617,22 +566,10 @@ int switchtec_tlp_inject(struct switchtec_dev *dev, int port_id, int tlp_type,
 int switchtec_aer_event_gen(struct switchtec_dev *dev, int port_id,
 			    int aer_error_id, int trigger_event)
 {
-	uint32_t output;
-	int ret_val;
-
-	struct switchtec_aer_event_gen_in sub_cmd_id = {
-		.sub_cmd = trigger_event,
-		.phys_port_id = port_id,
-		.err_mask = aer_error_id,
-		.hdr_log[0] = 0,
-		.hdr_log[1] = 0,
-		.hdr_log[2] = 0,
-		.hdr_log[3] = 0
-	};
-
-	ret_val = switchtec_cmd(dev, MRPC_AER_GEN, &sub_cmd_id,
-				sizeof(sub_cmd_id), &output, sizeof(output));
-	return ret_val;
+	if (GEN_OPS(dev) && GEN_OPS(dev)->aer_event_gen)
+		return GEN_OPS(dev)->aer_event_gen(dev, port_id, aer_error_id, trigger_event);
+	errno = ENOTSUP;
+	return -1;
 }
 
 /**

@@ -47,7 +47,7 @@ LDLIBS=@LIBS@ -lm
 override LDFLAGS+=@LDFLAGS@
 
 LIB_SRCS=$(wildcard lib/*.c) $(wildcard lib/platform/*.c) \
-	 $(wildcard lib/gen4/*.c) $(wildcard lib/gen5/*.c) $(wildcard lib/gen6/*.c)
+	 $(wildcard lib/gen3/*.c) $(wildcard lib/gen4/*.c) $(wildcard lib/gen5/*.c) $(wildcard lib/gen6/*.c)
 CLI_SRCS=$(wildcard cli/*.c)
 
 LIB_OBJS=$(addprefix $(OBJDIR)/, $(patsubst %.c,%.o, $(LIB_SRCS)))
@@ -111,7 +111,7 @@ $(OBJDIR)/version.h $(OBJDIR)/version.mk: FORCE $(OBJDIR)
 
 $(OBJDIR):
 	$(Q)mkdir -p $(OBJDIR)/cli $(OBJDIR)/lib $(OBJDIR)/lib/platform \
-		$(OBJDIR)/lib/gen4 $(OBJDIR)/lib/gen5 $(OBJDIR)/lib/gen6
+		$(OBJDIR)/lib/gen3 $(OBJDIR)/lib/gen4 $(OBJDIR)/lib/gen5 $(OBJDIR)/lib/gen6
 
 $(OBJDIR)/%.o: %.c | $(OBJDIR)
 	@$(NQ) echo "  CC    $<"

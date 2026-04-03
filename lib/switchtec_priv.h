@@ -162,11 +162,14 @@ struct switchtec_gen_ops {
 	int (*diag_rcvr_obj)(struct switchtec_dev *dev, int port_id, int lane_id,
 			     int link, void *res);
 	int (*diag_rcvr_ext)(struct switchtec_dev *dev, int port_id, int lane_id,
-			     int link, void *res);
+			     enum switchtec_diag_link link, void *res);
 
 	int (*diag_refclk_ctl)(struct switchtec_dev *dev, int stack_id,
-			       int enable);
-
+			       bool enable);
+	int (*diag_refclk_status)(struct switchtec_dev *dev, uint8_t *stack_info);
+	int (*diag_perm_table)(struct switchtec_dev *dev, struct switchtec_mrpc table[MRPC_MAX_ID]);
+	int (*aer_event_gen)(struct switchtec_dev *dev, int port_id,
+			     int aer_error_id, int trigger_event);
 	int (*inject_err_tlp_lcrc)(struct switchtec_dev *dev, int phys_port,
 				   int enable, uint8_t rate);
 	int (*inject_err_tlp_seqnum)(struct switchtec_dev *dev, int phys_port);
