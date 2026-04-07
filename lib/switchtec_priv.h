@@ -147,9 +147,6 @@ struct switchtec_gen_ops {
 
 	int (*diag_ltssm_log)(struct switchtec_dev *dev, int port,
 			      int *log_count, void *log_data);
-	int (*diag_ltssm_log_set)(struct switchtec_dev *dev, int port, int mode,
-				  int trigger_link_rate);
-
 	int (*diag_port_eq_tx_coeff)(struct switchtec_dev *dev, int port_id,
 				     int prev_speed, int end, int link,
 				     void *res);
@@ -163,7 +160,6 @@ struct switchtec_gen_ops {
 			     int link, void *res);
 	int (*diag_rcvr_ext)(struct switchtec_dev *dev, int port_id, int lane_id,
 			     enum switchtec_diag_link link, void *res);
-
 	int (*diag_refclk_ctl)(struct switchtec_dev *dev, int stack_id,
 			       bool enable);
 	int (*diag_refclk_status)(struct switchtec_dev *dev, uint8_t *stack_info);
@@ -173,14 +169,10 @@ struct switchtec_gen_ops {
 	int (*inject_err_tlp_lcrc)(struct switchtec_dev *dev, int phys_port,
 				   int enable, uint8_t rate);
 	int (*inject_err_tlp_seqnum)(struct switchtec_dev *dev, int phys_port);
-	int (*inject_err_tlp_ecrc)(struct switchtec_dev *dev, int phys_port,
-				   int enable, uint8_t rate);
 	int (*inject_err_dllp_crc)(struct switchtec_dev *dev, int phys_port,
 				   int enable, uint16_t rate);
 	int (*inject_err_dllp)(struct switchtec_dev *dev, int phys_port_id,
 				int data);
-	int (*inject_err_dup_tlp)(struct switchtec_dev *dev, int phys_port,
-				  int enable, uint8_t rate);
 	int (*inject_err_cto)(struct switchtec_dev *dev, int phys_port_id);
 	int (*inject_err_ack_nack)(struct switchtec_dev *dev, int phys_port_id,
 					uint16_t seq_num, uint8_t count);
@@ -234,9 +226,6 @@ struct switchtec_gen_ops {
 					 void *public_key,
 					 void *signature);
 	/* Firmware */
-	int (*fw_part_id_to_type)(int part_id);
-	int (*fw_type_to_part_id)(int type);
-	const char *(*fw_part_id_to_str)(int part_id);
 	int (*fw_img_write_hdr)(int fd, struct switchtec_fw_image_info *info);
 	struct switchtec_fw_part_summary *(*fw_part_summary)(struct switchtec_dev *dev);
 	int (*fw_file_info)(int fd, struct switchtec_fw_image_info *info);
