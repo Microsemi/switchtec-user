@@ -55,6 +55,7 @@ static const struct argconfig_choice port_eq_prev_speeds[] = {
 	{"GEN3", PCIE_LINK_RATE_GEN3, "GEN3 Previous Speed"},
 	{"GEN4", PCIE_LINK_RATE_GEN4, "GEN4 Previous Speed"},
 	{"GEN5", PCIE_LINK_RATE_GEN5, "GEN5 Previous Speed"},
+	{"GEN6", PCIE_LINK_RATE_GEN6, "GEN6 Previous Speed"},
 	{}
 };
 
@@ -2200,11 +2201,13 @@ static int port_eq_txcoeff(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
-		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+	if (!switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev) &&
+	    cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on this device.\n");
 		return -1;
-	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
-		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+	} else if ((switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) &&
+		   cfg.prev && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 and above switchtec devices.\n");
 		return -1;
 	}
 
@@ -2246,11 +2249,13 @@ static int port_eq_txfslf(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
-		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+	if (!switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev) &&
+	    cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on this device.\n");
 		return -1;
-	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
-		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+	} else if ((switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) &&
+		   cfg.prev && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 and above switchtec devices.\n");
 		return -1;
 	}
 
@@ -2259,7 +2264,7 @@ static int port_eq_txfslf(int argc, char **argv)
 	       cfg.prev ? "(Previous Link-Up)" : "");
 	printf("Lane    FS    LF\n");
 
-	if (switchtec_is_gen5(cfg.dev))
+	if (switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev))
 		lnk_width = cfg.port.cfg_lnk_width;
 	else
 		lnk_width = cfg.port.neg_lnk_width;
@@ -2295,11 +2300,13 @@ static int port_eq_txtable(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
-		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+	if (!switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev) &&
+	    cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on this device.\n");
 		return -1;
-	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
-		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+	} else if ((switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) &&
+		   cfg.prev && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 and above switchtec devices.\n");
 		return -1;
 	}
 
@@ -2312,11 +2319,11 @@ static int port_eq_txtable(int argc, char **argv)
 
 	printf("Far End TX Equalization Table for physical port %d, lane %d %s\n\n",
 	       cfg.port_id, table.lane_id, cfg.prev ? "(Previous Link-Up)" : "");
-	printf("%s\n", switchtec_is_gen5(cfg.dev) ?
+	printf("%s\n", (switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) ?
 	       "Step  Pre-Cursor  Post-Cursor  Error  Active  Speed" :
 	       "Step  Pre-Cursor  Post-Cursor  FOM  Pre-Up  Post-Up  Error  Active  Speed");
 
-	if (switchtec_is_gen5(cfg.dev)) {
+	if (switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) {
 		for (i = 0; i < table.step_cnt; i++) {
 			printf("%4d  %10d  %11d  %5d  %6d  %5d\n",
 				i, table.steps[i].pre_cursor, table.steps[i].post_cursor,

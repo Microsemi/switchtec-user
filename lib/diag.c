@@ -1025,6 +1025,92 @@ static int switchtec_gen4_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
 	return 0;
 }
 
+static int switchtec_gen6_diag_port_eq_tx_coeff(struct switchtec_dev *dev,
+						int port_id, int prev_speed,
+						enum switchtec_diag_end end,
+						enum switchtec_diag_link link,
+						struct switchtec_port_eq_coeff
+						*res)
+{
+	struct switchtec_port_eq_coeff *loc_out;
+	struct switchtec_rem_port_eq_coeff *rem_out;
+	struct switchtec_port_eq_coeff_in *in;
+	uint8_t *buf;
+	uint32_t buf_size;
+	uint32_t in_size = sizeof(struct switchtec_port_eq_coeff_in);
+	uint32_t out_size = 0;
+	int ret = 0;
+	int i;
+
+	if (!res) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	buf_size = in_size;
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		buf_size += sizeof(struct switchtec_port_eq_coeff);
+		out_size = sizeof(struct switchtec_port_eq_coeff);
+	} else if (end == SWITCHTEC_DIAG_FAR_END) {
+		buf_size += sizeof(struct switchtec_rem_port_eq_coeff);
+		out_size = sizeof(struct switchtec_rem_port_eq_coeff);
+	} else {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	buf = (uint8_t *)malloc(buf_size);
+	if (!buf) {
+		errno = -ENOMEM;
+		return -1;
+	}
+
+	in = (struct switchtec_port_eq_coeff_in *)buf;
+	in->op_type = DIAG_PORT_EQ_STATUS_OP_PER_PORT;
+	in->phys_port_id = port_id;
+	in->lane_id = 0;
+	in->dump_type = LANE_EQ_DUMP_TYPE_CURR;
+
+	if (link == SWITCHTEC_DIAG_LINK_PREVIOUS) {
+		in->dump_type = LANE_EQ_DUMP_TYPE_PREV;
+		in->prev_rate = prev_speed;
+	}
+
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		in->cmd = MRPC_GEN6_PORT_EQ_LOCAL_TX_COEFF_DUMP;
+		loc_out = (struct switchtec_port_eq_coeff *)&buf[in_size];
+		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, in, in_size,
+				    loc_out, out_size);
+		if (ret)
+			goto end;
+	} else {
+		in->cmd = MRPC_GEN6_PORT_EQ_FAR_END_TX_COEFF_DUMP;
+		rem_out = (struct switchtec_rem_port_eq_coeff *)&buf[in_size];
+		ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, in, in_size,
+				    rem_out, out_size);
+		if (ret)
+			goto end;
+	}
+
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		res->lane_cnt = loc_out->lane_cnt + 1;
+		for (i = 0; i < res->lane_cnt; i++) {
+			res->cursors[i].pre = loc_out->cursors[i].pre;
+			res->cursors[i].post = loc_out->cursors[i].post;
+		}
+	} else {
+		res->lane_cnt = rem_out->lane_cnt + 1;
+		for (i = 0; i < res->lane_cnt; i++) {
+			res->cursors[i].pre = rem_out->cursors[i].pre;
+			res->cursors[i].post = rem_out->cursors[i].post;
+		}
+	}
+
+end:
+	free(buf);
+	return ret;
+}
+
 /**
  * @brief Get the port equalization TX coefficients
  * @param[in]  dev	Switchtec device handle
@@ -1041,12 +1127,19 @@ int switchtec_diag_port_eq_tx_coeff(struct switchtec_dev *dev, int port_id,
 {
 	int ret = -1;
 
-	if (switchtec_is_gen5(dev))
-		ret = switchtec_gen5_diag_port_eq_tx_coeff(dev, port_id, prev_speed, end,
+	if (switchtec_is_gen6(dev))
+		ret = switchtec_gen6_diag_port_eq_tx_coeff(dev, port_id,
+							   prev_speed, end,
+							   link, res);
+	else if (switchtec_is_gen5(dev))
+		ret = switchtec_gen5_diag_port_eq_tx_coeff(dev, port_id,
+							   prev_speed, end,
 							   link, res);
 	else if (switchtec_is_gen4(dev))
 		ret = switchtec_gen4_diag_port_eq_tx_coeff(dev, port_id, end,
 							   link, res);
+	else
+		errno = EOPNOTSUPP;
 
 	return ret;
 }
@@ -1182,13 +1275,19 @@ int switchtec_diag_port_eq_tx_table(struct switchtec_dev *dev, int port_id, int 
 {
 	int ret = -1;
 
-	if (switchtec_is_gen5(dev))
+	if (switchtec_is_gen6(dev))
+		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id,
+							   prev_speed, link,
+							   res);
+	else if (switchtec_is_gen5(dev))
 		ret = switchtec_gen5_diag_port_eq_tx_table(dev, port_id,
 							   prev_speed, link,
 							   res);
 	else if (switchtec_is_gen4(dev))
 		ret = switchtec_gen4_diag_port_eq_tx_table(dev, port_id, link,
 							   res);
+	else
+		errno = EOPNOTSUPP;
 
 	return ret;
 }
@@ -1316,6 +1415,54 @@ static int switchtec_gen4_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
 	return 0;
 }
 
+static int switchtec_gen6_diag_port_eq_tx_fslf(struct switchtec_dev *dev,
+					       int port_id, int prev_speed,
+					       int lane_id,
+					       enum switchtec_diag_end end,
+					       enum switchtec_diag_link link,
+					       struct switchtec_port_eq_tx_fslf
+					       *res)
+{
+	struct switchtec_port_eq_tx_fslf_in in = {};
+	struct switchtec_port_eq_tx_fslf_out out = {};
+	int ret;
+
+	if (!res) {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	in.port_id = port_id;
+	in.lane_id = lane_id;
+
+	if (end == SWITCHTEC_DIAG_LOCAL) {
+		in.sub_cmd = MRPC_GEN6_PORT_EQ_LOCAL_TX_FSLF_DUMP;
+	} else if (end == SWITCHTEC_DIAG_FAR_END) {
+		in.sub_cmd = MRPC_GEN6_PORT_EQ_FAR_END_TX_FSLF_DUMP;
+	} else {
+		errno = -EINVAL;
+		return -1;
+	}
+
+	if (link == SWITCHTEC_DIAG_LINK_CURRENT) {
+		in.dump_type = LANE_EQ_DUMP_TYPE_CURR;
+	} else {
+		in.dump_type = LANE_EQ_DUMP_TYPE_PREV;
+		in.prev_rate = prev_speed;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_PORT_EQ_STATUS, &in,
+			    sizeof(struct switchtec_port_eq_tx_fslf_in), &out,
+			    sizeof(struct switchtec_port_eq_tx_fslf_out));
+	if (ret)
+		return -1;
+
+	res->fs = out.fs;
+	res->lf = out.lf;
+
+	return 0;
+}
+
 /**
  * @brief Get the equalization FS/LF
  * @param[in]  dev	Switchtec device handle
@@ -1334,7 +1481,11 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 {
 	int ret = -1;
 
-	if (switchtec_is_gen5(dev))
+	if (switchtec_is_gen6(dev))
+		ret = switchtec_gen6_diag_port_eq_tx_fslf(dev, port_id,
+							  prev_speed, lane_id,
+							  end, link, res);
+	else if (switchtec_is_gen5(dev))
 		ret = switchtec_gen5_diag_port_eq_tx_fslf(dev, port_id,
 							  prev_speed, lane_id,
 							  end, link, res);
@@ -1342,6 +1493,8 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 		ret = switchtec_gen4_diag_port_eq_tx_fslf(dev, port_id,
 							  lane_id, end,
 							  link, res);
+	else
+		errno = EOPNOTSUPP;
 
 	return ret;
 }
