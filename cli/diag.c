@@ -2418,37 +2418,45 @@ static int rcvr_extended(int argc, char **argv)
 	return 0;
 }
 
-#define CMD_DESC_REF_CLK "Enable or disable the output reference clock of a stack and print the status"
+#define CMD_DESC_REF_CLK "enable or disable the output reference clock of a stack/CSU and print the status"
 
 static int refclk(int argc, char **argv)
 {
 	int ret;
-	uint8_t stack_info[SWITCHTEC_MAX_STACKS];
+	int is_gen6;
+	int max_entries;
+	uint8_t info[SWITCHTEC_MAX_STACKS];
+	const char *unit;
 
 	static struct {
 		struct switchtec_dev *dev;
-		int stack_id;
+		int id;
 		int enable;
 		int disable;
 		int status;
 	} cfg = {
-		.stack_id = -1,
+		.id = -1,
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
-		 "disable the rfclk output"},
+		 "disable the refclk output"},
 		{"enable", 'e', "", CFG_NONE, &cfg.enable, no_argument,
-		 "enable the rfclk output"},
-		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack_id,
-		required_argument, "stack to operate on\n\n* If all arguements of this command are left blank the status of all stacks will be printed"},
+		 "enable the refclk output"},
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.id,
+		required_argument, "stack/CSU to operate on\n\n* If all arguments of this command are left blank the status will be printed"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_REF_CLK, opts, &cfg,
 			sizeof(cfg));
 
-	if (!cfg.enable && !cfg.disable && cfg.stack_id == -1)
-		goto print_stack_info;
+	is_gen6 = switchtec_is_gen6(cfg.dev);
+	max_entries = is_gen6 ? SWITCHTEC_MAX_STACKS_GEN6 :
+		SWITCHTEC_MAX_STACKS;
+	unit = is_gen6 ? "CSU" : "Stack";
+
+	if (!cfg.enable && !cfg.disable && cfg.id == -1)
+		goto print_info;
 
 	if (!cfg.enable && !cfg.disable) {
 		fprintf(stderr, "Must set either --enable or --disable\n");
@@ -2460,34 +2468,35 @@ static int refclk(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.stack_id == -1) {
-		fprintf(stderr, "Must specify stack ID using --stack or -s\n");
+	if (cfg.id == -1) {
+		fprintf(stderr, "Must specify %s ID using --stack or -s\n",
+			unit);
 		return -1;
 	}
 
-	ret = switchtec_diag_refclk_ctl(cfg.dev, cfg.stack_id, cfg.enable);
+	ret = switchtec_diag_refclk_ctl(cfg.dev, cfg.id, cfg.enable);
 	if (ret) {
 		switchtec_perror("refclk_ctl");
 		return -1;
 	}
 
-	printf("REFCLK Output %s for Stack %d\n",
-	       cfg.enable ? "Enabled" : "Disabled", cfg.stack_id);
+	printf("REFCLK Output %s for %s %d\n",
+	       cfg.enable ? "Enabled" : "Disabled", unit, cfg.id);
 
-print_stack_info:
+print_info:
 	printf("REFCLK Status:\n");
-	ret = switchtec_diag_refclk_status(cfg.dev, stack_info);
+	ret = switchtec_diag_refclk_status(cfg.dev, info);
 	if (ret) {
 		switchtec_perror("refclk_status");
 		return -1;
 	}
-	printf("Stack\t\tStatus\n");
-	for (int i = 0; i < SWITCHTEC_MAX_STACKS; i++) {
-		if (stack_info[i] == 0xFF)
+	printf("%s\t\tStatus\n", unit);
+	for (int i = 0; i < max_entries; i++) {
+		if (info[i] == 0xFF)
 			printf("Reserved\t0xff(unavailable)\n");
 		else
 			printf("%d\t\t%s\n", i,
-				stack_info[i] ? "Enabled" : "Disabled");
+				info[i] ? "Enabled" : "Disabled");
 	}
 
 	return 0;

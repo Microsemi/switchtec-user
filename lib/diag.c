@@ -1584,37 +1584,61 @@ int switchtec_diag_perm_table(struct switchtec_dev *dev,
 }
 
 /**
- * @brief Control the refclk output for a stack
+ * @brief Control the refclk output for a stack or CSU
  * @param[in]  dev	Switchtec device handle
- * @param[in]  stack_id	Stack ID to control the refclk of
+ * @param[in]  id	Stack ID (pre-Gen6) or CSU ID (Gen6)
  * @param[in]  en	Set to true to enable, false to disable
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en)
+int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int id, bool en)
 {
-	struct switchtec_diag_refclk_ctl_in cmd = {
-		.sub_cmd = en ? MRPC_REFCLK_S_ENABLE : MRPC_REFCLK_S_DISABLE,
-		.stack_id = stack_id,
-	};
+	if (switchtec_is_gen6(dev)) {
+		struct switchtec_diag_refclk_ctl_in_gen6 cmd = {
+			.sub_cmd = en ? MRPC_REFCLK_S_ENABLE_GEN6 :
+				MRPC_REFCLK_S_DISABLE_GEN6,
+			.csu_id = id,
+		};
 
-	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), NULL, 0);
+		return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd),
+				     NULL, 0);
+	} else {
+		struct switchtec_diag_refclk_ctl_in cmd = {
+			.sub_cmd = en ? MRPC_REFCLK_S_ENABLE :
+				MRPC_REFCLK_S_DISABLE,
+			.stack_id = id,
+		};
+
+		return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd),
+				     NULL, 0);
+	}
 }
 /**
- * @brief Get the status of all stacks of the refclk
+ * @brief Get the status of all stacks/CSUs of the refclk
  * @param[in]  dev		Switchtec device handle
- * @param[in]  stack_info	Pointer to the stack information
+ * @param[in]  info		Pointer to the status information
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *stack_info)
+int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *info)
 {
-	struct switchtec_diag_refclk_ctl_in cmd = {
-		.sub_cmd = MRPC_REFCLK_S_STATUS,
-	};
+	if (switchtec_is_gen6(dev)) {
+		struct switchtec_diag_refclk_ctl_in_gen6 cmd = {
+			.sub_cmd = MRPC_REFCLK_S_STATUS_GEN6,
+		};
 
-	return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd), stack_info,
-			     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS);
+		return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd),
+				     info,
+				     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS_GEN6);
+	} else {
+		struct switchtec_diag_refclk_ctl_in cmd = {
+			.sub_cmd = MRPC_REFCLK_S_STATUS,
+		};
+
+		return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd),
+				     info,
+				     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS);
+	}
 }
 
 static void switchtec_diag_ltssm_set_log_data_gen5(struct switchtec_diag_ltssm_log

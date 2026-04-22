@@ -54,6 +54,7 @@ struct switchtec_dev;
 #define SWITCHTEC_MAX_LANES  100
 #define SWITCHTEC_MAX_LANES_GEN6 144
 #define SWITCHTEC_MAX_STACKS 8
+#define SWITCHTEC_MAX_STACKS_GEN6 4
 #define SWITCHTEC_PORTS_PER_STACK 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
@@ -1823,8 +1824,8 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 
 int switchtec_diag_perm_table(struct switchtec_dev *dev,
 			      struct switchtec_mrpc table[MRPC_MAX_ID]);
-int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en);
-int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *stack_info);
+int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int id, bool en);
+int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *info);
 int switchtec_diag_ltssm_clear(struct switchtec_dev *dev, int port);
 int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 			     int port, int *log_count,
