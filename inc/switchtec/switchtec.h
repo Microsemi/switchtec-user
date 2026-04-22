@@ -1712,7 +1712,7 @@ struct switchtec_osa_config {
 	uint16_t os_type_lane_mask;
 	uint8_t os_type_direction;
 	uint8_t os_type_link_rate;
-	uint8_t os_type_os_types;
+	uint16_t os_type_os_types;
 
 	/* OS Pattern Trigger */
 	uint16_t os_pat_lane_mask;
@@ -1731,7 +1731,7 @@ struct switchtec_osa_config {
 	uint8_t capture_stop_mode;
 	uint8_t capture_snapshot_mode;
 	uint16_t capture_post_trig_entries;
-	uint8_t capture_os_types;
+	uint16_t capture_os_types;
 };
 
 /**

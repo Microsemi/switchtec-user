@@ -2626,9 +2626,8 @@ int switchtec_osa_dump_conf(struct switchtec_dev *dev, int stack_id,
 		int16_t os_type_trig_lane_mask;
 		uint8_t os_type_trig_dir;
 		uint8_t os_type_trig_link_rate;
-		uint8_t os_type_trig_os_types;
-		uint8_t reserved;
-		uint16_t reserved2;
+		uint16_t os_type_trig_os_types;
+		uint16_t reserved;
 		uint16_t os_pat_trig_lane_mask;
 		uint8_t os_pat_trig_dir;
 		uint8_t os_pat_trig_link_rate;
@@ -2649,9 +2648,8 @@ int switchtec_osa_dump_conf(struct switchtec_dev *dev, int stack_id,
 		uint8_t capture_stop_mode;
 		uint8_t capture_snap_mode;
 		uint16_t capture_post_trig_entries;
-		uint8_t capture_os_types;
-		uint8_t reserved5;
-		uint16_t reserved6;
+		uint16_t capture_os_types;
+		uint16_t reserved5;
 	} osa_dmp_out;
 
 	osa_dmp_in.stack_id = stack_id;

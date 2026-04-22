@@ -3400,14 +3400,23 @@ static int osa_dump_config(int argc, char **argv)
 		printf("%s", config.os_type_os_types & 1 ? "TS0," : "");
 		printf("%s", (config.os_type_os_types >> 1) & 1 ? "TS1," : "");
 		printf("%s", (config.os_type_os_types >> 2) & 1 ? "TS2," : "");
-		printf("%s\n", (config.os_type_os_types >> 3) & 1 ? "FTS" : "");
-		printf("%s\n", (config.os_type_os_types >> 4) & 1 ? "CTL_SKP" : "");
+		printf("%s", (config.os_type_os_types >> 3) & 1 ? "FTS," : "");
+		printf("%s", (config.os_type_os_types >> 4) & 1 ? "CTL_SKP," : "");
+		printf("%s", (config.os_type_os_types >> 5) & 1 ? "SKP," : "");
+		printf("%s", (config.os_type_os_types >> 6) & 1 ? "EIEOS," : "");
+		printf("%s", (config.os_type_os_types >> 7) & 1 ? "EIOS," : "");
+		printf("%s", (config.os_type_os_types >> 8) & 1 ? "ERR_OS," : "");
 	} else {
 		printf("%s", config.os_type_os_types & 1 ? "TS1," : "");
 		printf("%s", (config.os_type_os_types >> 1) & 1 ? "TS2," : "");
 		printf("%s", (config.os_type_os_types >> 2) & 1 ? "FTS," : "");
-		printf("%s\n", (config.os_type_os_types >> 3) & 1 ? "CTL_SKP" : "");
+		printf("%s", (config.os_type_os_types >> 3) & 1 ? "CTL_SKP," : "");
+		printf("%s", (config.os_type_os_types >> 4) & 1 ? "SKP," : "");
+		printf("%s", (config.os_type_os_types >> 5) & 1 ? "EIEOS," : "");
+		printf("%s", (config.os_type_os_types >> 6) & 1 ? "EIOS," : "");
+		printf("%s", (config.os_type_os_types >> 7) & 1 ? "ERR_OS," : "");
 	}
+	printf("\n");
 
 	printf("------- OS Pattern ---------------------\n");
 	printf("lanes: \t\t\t%s", config.os_pat_lane_mask & 1 ? "0," : "");
@@ -3481,7 +3490,7 @@ static int osa_dump_config(int argc, char **argv)
 	printf("os types: \t\t");
 	if (switchtec_is_gen6(cfg.dev)) {
 		printf("%s", (config.capture_os_types & 1) ? "TS0," : "");
-		printf("%s", (config.capture_os_types >> 1) & 1 ? "TS2," : "");
+		printf("%s", (config.capture_os_types >> 1) & 1 ? "TS1," : "");
 		printf("%s", (config.capture_os_types >> 2) & 1 ? "TS2," : "");
 		printf("%s", (config.capture_os_types >> 3) & 1 ? "FTS," : "");
 		printf("%s", (config.capture_os_types >> 4) & 1 ? "CTL_SKP," : "");
