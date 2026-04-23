@@ -2243,8 +2243,6 @@ static int switchtec_inject_err_tlp_lcrc_gen4(struct switchtec_dev *dev,
 		.enable = enable,
 		.rate = rate,
 	};
-	printf("enable: %d\n", enable);
-
 	return switchtec_cmd(dev, MRPC_MRPC_ERR_INJ, &cmd,
 			     sizeof(cmd), &output, sizeof(output));
 }
@@ -2280,11 +2278,11 @@ int switchtec_inject_err_tlp_lcrc(struct switchtec_dev *dev, int phy_port,
 	if (switchtec_is_gen4(dev)) {
 		ret = switchtec_inject_err_tlp_lcrc_gen4(dev, phy_port, enable, rate);
 		return ret;
-	} else if (switchtec_is_gen5(dev)) {
+	} else if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev)) {
 		ret = switchtec_inject_err_tlp_lcrc_gen5(dev, phy_port, enable, rate);
 		return ret;
 	}
-	fprintf(stderr, "The TLP LCRC is not supported for Gen3 switches.\n");
+	fprintf(stderr, "TLP LCRC error injection is not supported on this device.\n");
 	return -1;
 }
 

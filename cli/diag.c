@@ -2715,13 +2715,9 @@ static int linkerr_inject(int argc, char ** argv)
 	argconfig_parse(argc, argv, CMD_DESC_LNKERR_INJECT, opts, &cfg,
 			sizeof(cfg));
 
-	uint8_t *ptr = (uint8_t *)&cfg + 5;
-	int total_en = 0;
-	for (size_t i = 0; i < 6; i++) {
-		ptr += 3;
-		if (ptr[i] == 1)
-			total_en++;
-	}
+	int total_en = cfg.inject_dllp + cfg.inject_dllp_crc +
+		       cfg.inject_tlp_lcrc + cfg.inject_tlp_seq +
+		       cfg.inject_nack + cfg.inject_cto;
 	if (total_en > 1) {
 		fprintf(stderr, "Cannot enable more than one link error injection command at a time.\n");
 		return -1;
@@ -2807,15 +2803,19 @@ static int linkerr_inject(int argc, char ** argv)
 						    cfg.seq_num, cfg.count);
 	}
 	if (cfg.inject_cto) {
-		if (!switchtec_is_gen5(cfg.dev)) {
-			fprintf(stderr, "Credit timeout error injection is only supported on Gen5.\n");
+		if (!switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev)) {
+			fprintf(stderr, "Credit timeout error injection is only supported on Gen5 and Gen6.\n");
 			free(dllp_data_dword);
 			return -1;
 		}
 		ret = switchtec_inject_err_cto(cfg.dev, cfg.phy_port);
 	}
 
-	switchtec_perror("linkerr-inject");
+	if (ret)
+		switchtec_perror("linkerr-inject");
+	else
+		printf("Link error injected successfully.\n");
+
 	return ret;
 }
 
