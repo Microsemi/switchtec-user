@@ -1603,6 +1603,19 @@ struct switchtec_gen5_diag_eye_read_out {
 	uint64_t ber_data[60];
 };
 
+struct switchtec_gen6_diag_eye_read_in {
+	uint8_t sub_cmd;
+	uint8_t lane_id;
+	uint16_t bin_num;
+};
+
+struct switchtec_gen6_diag_eye_read_out {
+	uint8_t num_phases;
+	uint8_t resvd1[3];
+	uint32_t resvd2;
+	uint32_t ndes_data[64];
+};
+
 enum switchtec_diag_loopback_enable {
 	SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX = 1 << 0,
 	SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX = 1 << 1,

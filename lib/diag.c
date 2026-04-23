@@ -151,16 +151,22 @@ static int switchtec_diag_eye_status_gen5(struct switchtec_dev *dev)
 		 eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING);
 
 	switch (eye_status) {
-		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_IDLE:
-			switchtec_perror("Eye capture idle");
-		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE:
-			return 0;
-		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT:
-			switchtec_perror("Eye capture timeout");
-		case SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR:
-			switchtec_perror("Eye capture error");
+	case SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE:
+		return 0;
+	case SWITCHTEC_GEN5_DIAG_EYE_STATUS_IDLE:
+		errno = ENODATA;
+		switchtec_perror("Eye capture idle");
+		return -1;
+	case SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT:
+		errno = ETIMEDOUT;
+		switchtec_perror("Eye capture timeout");
+		return -1;
+	case SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR:
+		errno = EIO;
+		switchtec_perror("Eye capture error");
 		return -1;
 	}
+	errno = EPROTO;
 	switchtec_perror("Unknown eye capture state");
 	return -1;
 }
@@ -242,29 +248,50 @@ int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
 int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
 			    int bin, int *num_phases, double *ber_data)
 {
-	if (dev) {
-		fprintf(stderr, "Eye read not supported on Gen 4 switches.\n");
-		return -1;
-	}
-	struct switchtec_gen5_diag_eye_read_in in = {
-		.sub_cmd = MRPC_EYE_CAP_READ_GEN5,
-		.lane_id = lane_id,
-		.bin = bin,
-	};
-	struct switchtec_gen5_diag_eye_read_out out;
 	int i, ret;
 
-	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
-			    &out, sizeof(out));
-	if (ret)
-		return ret;
+	if (switchtec_is_gen6(dev)) {
+		struct switchtec_gen6_diag_eye_read_in in = {
+			.sub_cmd = MRPC_EYE_CAP_READ_GEN6,
+			.lane_id = lane_id,
+			.bin_num = bin,
+		};
+		struct switchtec_gen6_diag_eye_read_out out;
 
-	*num_phases = out.num_phases;
+		ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in,
+				    sizeof(in), &out, sizeof(out));
+		if (ret)
+			return ret;
 
-	for (i = 0; i < out.num_phases; i++)
-		ber_data[i] = le64toh(out.ber_data[i]) / 281474976710656.;
+		*num_phases = out.num_phases;
 
-	return ret;
+		for (i = 0; i < out.num_phases; i++)
+			ber_data[i] = (double)le32toh(out.ndes_data[i]);
+
+		return 0;
+	} else if (switchtec_is_gen5(dev)) {
+		struct switchtec_gen5_diag_eye_read_in in = {
+			.sub_cmd = MRPC_EYE_CAP_READ_GEN5,
+			.lane_id = lane_id,
+			.bin = bin,
+		};
+		struct switchtec_gen5_diag_eye_read_out out;
+
+		ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in,
+				    sizeof(in), &out, sizeof(out));
+		if (ret)
+			return ret;
+
+		*num_phases = out.num_phases;
+
+		for (i = 0; i < out.num_phases; i++)
+			ber_data[i] = le64toh(out.ber_data[i]) / 281474976710656.;
+
+		return 0;
+	}
+
+	fprintf(stderr, "Eye read not supported on Gen 4 switches.\n");
+	return -1;
 }
 
 /**
@@ -312,6 +339,7 @@ int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 			.sar_sel = sar_sel,
 			.intleav_sel = intleav_sel,
 			.vstep = vstep,
+			.hstep = hstep,
 			.data_mode = data_mode,
 			.eye_mode = eye_mode,
 			.ref_timer_lwr = refclk & 0xFFFFFFFF,

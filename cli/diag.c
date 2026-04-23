@@ -247,6 +247,7 @@ static const struct argconfig_choice hstep_choices[] = {
 	{"fine", SWITCHTEC_DIAG_EYE_FINE, "fine"},
 	{"medium", SWITCHTEC_DIAG_EYE_MEDIUM, "medium"},
 	{"coarse", SWITCHTEC_DIAG_EYE_COARSE, "coarse"},
+	{}
 };
 
 static const struct argconfig_choice eye_modes[] = {
@@ -1392,7 +1393,7 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 	int bin, j, ret, first_lane, num_phases_l, stride;
 	int lane_mask[4] = {};
 	struct switchtec_status sw_status;
-	double tmp[60];
+	double tmp[64];
 	double* ber_data = NULL;
 
 	ret = switchtec_calc_lane_mask(dev, port_id, lane_id, num_lanes,
@@ -1505,10 +1506,10 @@ static int eye(int argc, char **argv)
 		{"mode", 'm', "MODE", CFG_CHOICES, &cfg.mode,
 		 required_argument, "data mode for the capture",
 		 .choices=eye_modes},
-		{"mode-gen6", 'M', "MODE", CFG_CHOICES, &cfg.mode,
+		{"mode-gen6", 'M', "MODE", CFG_CHOICES, &cfg.eye_modes_gen6,
 		 required_argument, "eye mode for the capture for gen6",
 		 .choices=eye_modes_gen6},
-		{"data-mode", 'd', "MODE", CFG_CHOICES, &cfg.data_mode,
+		{"data-mode", 'D', "MODE", CFG_CHOICES, &cfg.data_mode,
 		 required_argument, "data mode for the eye capture gen6",
 		 .choices=data_mode_choices},
 		{"num-lanes", 'n', "NUM", CFG_POSITIVE, &cfg.num_lanes,
