@@ -1838,10 +1838,8 @@ static const struct argconfig_choice all_pattern_types[] = {
 	{"PRBS31",  SWITCHTEC_DIAG_PATTERN_PRBS_31, "PRBS 31"},
 	{"PRBS9",   SWITCHTEC_DIAG_PATTERN_PRBS_9,  "PRBS 9"},
 	{"PRBS15",  SWITCHTEC_DIAG_PATTERN_PRBS_15, "PRBS 15"},
-	{"PRBS5",   SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5,  "PRBS 5 (Gen 5)"},
-	{"PRBS20",  SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20, "PRBS 20 (Gen 5)"},
-	{"PRBS13",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_13, "PRBS 13 (Gen 6)"},
-	{"52UI",    SWITCHTEC_DIAG_GEN_6_PATTERN_PCIE_52_UI_JIT, "PCIe 52UI Jitter (Gen 6)"},
+	{"PRBS5",   SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5,  "PRBS 5 (Gen 5/6)"},
+	{"PRBS20",  SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20, "PRBS 20 (Gen 5/6)"},
 	{}
 };
 
@@ -1859,13 +1857,13 @@ static const struct argconfig_choice pattern_types[] = {
 
 static const struct argconfig_choice pattern_types_gen6[] = {
 	{"PRBS7",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_7,  "PRBS 7"},
-	{"PRBS11",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_9, "PRBS 9"},
-	{"PRBS23",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_11, "PRBS 11"},
-	{"PRBS31",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_13, "PRBS 13"},
-	{"PRBS9",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_15,  "PRBS 15"},
-	{"PRBS15",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_23, "PRBS 23"},
-	{"PRBS5",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_31,  "PRBS 31"},
-	{"PRBS20",  SWITCHTEC_DIAG_GEN_6_PATTERN_PCIE_52_UI_JIT, "PCIe 52UI Jitter"},
+	{"PRBS11",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_11, "PRBS 11"},
+	{"PRBS23",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_23, "PRBS 23"},
+	{"PRBS31",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_31, "PRBS 31"},
+	{"PRBS9",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_9,  "PRBS 9"},
+	{"PRBS15",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_15, "PRBS 15"},
+	{"PRBS5",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_5,  "PRBS 5"},
+	{"PRBS20",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_20, "PRBS 20"},
 	{}
 };
 
@@ -1875,7 +1873,7 @@ static const struct argconfig_choice pat_gen_link_speeds[] = {
 	{"GEN3", SWITCHTEC_DIAG_PAT_LINK_GEN3, "GEN3 Pattern Generator Speed"},
 	{"GEN4", SWITCHTEC_DIAG_PAT_LINK_GEN4, "GEN4 Pattern Generator Speed"},
 	{"GEN5", SWITCHTEC_DIAG_PAT_LINK_GEN5, "GEN5 Pattern Generator Speed"},
-	{"GEN6", SWITCHTEC_DIAG_PAT_LINK_GEN6, "GEN6 Pattern Generator Speed"},
+	{}
 };
 
 static const char *pattern_to_str(enum switchtec_diag_pattern type)
@@ -2044,23 +2042,15 @@ static int pattern(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.pattern == SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_13 && !switchtec_is_gen6(cfg.dev)) {
-		fprintf(stderr, "Cannot set PRBS 13 pattern for non Gen6 Switchtec device.\n");
+	if (cfg.pattern == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5 &&
+	    !switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "Cannot set PRBS 5 pattern for non Gen5/Gen6 Switchtec device.\n");
 		return -1;
 	}
 
-	if (cfg.pattern == SWITCHTEC_DIAG_GEN_6_PATTERN_PCIE_52_UI_JIT && !switchtec_is_gen6(cfg.dev)) {
-		fprintf(stderr, "Cannot set PCIe 52 UI Jitter pattern for non Gen6 Switchtec device.\n");
-		return -1;
-	}
-
-	if (cfg.pattern == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5 && !switchtec_is_gen5(cfg.dev)) {
-		fprintf(stderr, "Cannot set PRBS 5 pattern for non Gen6 Switchtec device.\n");
-		return -1;
-	}
-
-	if (cfg.pattern == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20 && !switchtec_is_gen5(cfg.dev)) {
-		fprintf(stderr, "Cannot set PRBS 20 pattern for non Gen6 Switchtec device.\n");
+	if (cfg.pattern == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20 &&
+	    !switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "Cannot set PRBS 20 pattern for non Gen5/Gen6 Switchtec device.\n");
 		return -1;
 	}
 
@@ -2085,7 +2075,9 @@ static int pattern(int argc, char **argv)
 			cfg.generate = 1;
 			cfg.monitor = 1;
 		}
-		if (switchtec_is_gen5(cfg.dev))
+		if (switchtec_is_gen6(cfg.dev))
+			cfg.pattern = SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_DISABLED;
+		else if (switchtec_is_gen5(cfg.dev))
 			cfg.pattern = SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_DISABLED;
 		else
 			cfg.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED;
