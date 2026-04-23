@@ -2608,13 +2608,24 @@ static int tlp_inject (int argc, char **argv)
 	return 0;
 }
 
-static int convert_bitfield(char * bits)
+static int convert_bitfield(char *bits)
 {
 	int total = 0;
-	char * sep_bits = strtok(bits, ",");
+	int bit;
+	char *sep_bits;
 
+	if (!bits)
+		return -1;
+
+	sep_bits = strtok(bits, ",");
 	while (sep_bits != NULL) {
-		total += 0x1 << atoi(sep_bits);
+		bit = atoi(sep_bits);
+		if (bit < 0 || bit > 31) {
+			fprintf(stderr, "Invalid CE event bit: %s (valid range: 0-31)\n",
+				sep_bits);
+			return -1;
+		}
+		total |= 1u << bit;
 		sep_bits = strtok(NULL, ",");
 	}
 	return total;
@@ -2644,7 +2655,21 @@ static int aer_event_gen(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg,
 			sizeof(cfg));
+
+	if (!cfg.aer_error_id) {
+		fprintf(stderr, "The -e/--ce_event option is required.\n");
+		return 1;
+	}
+
 	aer_bitfield = convert_bitfield(cfg.aer_error_id);
+	if (aer_bitfield < 0)
+		return 1;
+
+	if (cfg.trigger_event != 1) {
+		fprintf(stderr, "Invalid trigger event: %d (only CE trigger 1 is supported).\n",
+			cfg.trigger_event);
+		return 1;
+	}
 
 	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, aer_bitfield,
 				      cfg.trigger_event);
@@ -2654,6 +2679,7 @@ static int aer_event_gen(int argc, char **argv)
 		return 1;
 	}
 
+	printf("AER event generated successfully.\n");
 	return 0;
 }
 
