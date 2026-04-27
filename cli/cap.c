@@ -196,12 +196,13 @@ static int multicast_show(int argc, char **argv)
 	       SWITCHTEC_MC_CAP_MAX_GROUP(mc.cap_ctrl));
 	printf("    MC Control:        0x%04X\n",
 	       SWITCHTEC_MC_CTRL(mc.cap_ctrl));
+	/* Zero indicates 1 group (PCIe spec) add one to display proper number*/
 	printf("      Num Group:       %u\n",
-	       SWITCHTEC_MC_CTRL_NUM_GROUP(mc.cap_ctrl));
+	       SWITCHTEC_MC_CTRL_NUM_GROUP(mc.cap_ctrl)+1);
 	printf("      MC Enable:       %s\n",
 	       SWITCHTEC_MC_CTRL_ENABLE(mc.cap_ctrl) ? "Enabled" : "Disabled");
 	printf("  MC Base Addr (DW2-3):  0x%016llX\n",
-	       (unsigned long long)mc.mc_base_addr);
+	       (unsigned long long)SWITCHTEC_MC_BASE_ADDR(mc.mc_base_addr));
 	printf("    Index Position:    %u\n",
 	       (unsigned)SWITCHTEC_MC_BASE_INDEX_POS(mc.mc_base_addr));
 	printf("  MC Receive (DW4-5):    0x%016llX\n",
@@ -211,7 +212,7 @@ static int multicast_show(int argc, char **argv)
 	printf("  MC Block Untrans (DW8-9): 0x%016llX\n",
 	       (unsigned long long)mc.mc_block_untranslated);
 	printf("  MC Overlay BAR (DW10-11): 0x%016llX\n",
-	       (unsigned long long)mc.mc_overlay_bar);
+	       (unsigned long long)SWITCHTEC_MC_OVERLAY_ADDR(mc.mc_overlay_bar));
 	printf("    Overlay Size:      %u\n",
 	       (unsigned)SWITCHTEC_MC_OVERLAY_SIZE(mc.mc_overlay_bar));
 	ret = 0;
@@ -257,18 +258,19 @@ static int multicast_set_one_port(struct switchtec_dev *dev,
 			printf("  MC Enable: %s -> Disabled\n",
 			       SWITCHTEC_MC_CTRL_ENABLE(mc.cap_ctrl) ?
 			       "Enabled" : "Disabled");
+		/* Zero indicates 1 group (PCIe spec) add one to display proper number*/
 		if (set->num_group >= 0 && set->num_group <= 63)
 			printf("  Num Group: %u -> %d\n",
-			       SWITCHTEC_MC_CTRL_NUM_GROUP(mc.cap_ctrl),
-			       set->num_group);
+			       SWITCHTEC_MC_CTRL_NUM_GROUP(mc.cap_ctrl)+1,
+			       set->num_group+1);
 		if (set->index_pos >= 0 && set->index_pos <= 63)
 			printf("  Index Position: %u -> %d\n",
 			       (unsigned)SWITCHTEC_MC_BASE_INDEX_POS(mc.mc_base_addr),
 			       set->index_pos);
 		if (set->set_base_addr)
 			printf("  MC Base Address: 0x%016llX -> 0x%016llX\n",
-			       (unsigned long long)mc.mc_base_addr,
-			       (unsigned long long)set->base_addr);
+			       (unsigned long long)SWITCHTEC_MC_BASE_ADDR(mc.mc_base_addr),
+			       (unsigned long long)SWITCHTEC_MC_BASE_ADDR(set->base_addr));
 		if (set->set_receive)
 			printf("  MC Receive: 0x%016llX -> 0x%016llX\n",
 			       (unsigned long long)mc.mc_receive,
@@ -281,6 +283,14 @@ static int multicast_set_one_port(struct switchtec_dev *dev,
 			printf("  MC Block Untrans: 0x%016llX -> 0x%016llX\n",
 			       (unsigned long long)mc.mc_block_untranslated,
 			       (unsigned long long)set->block_untranslated);
+		if (set->set_overlay_bar)
+			printf("  MC Overlay BAR: 0x%016llX -> 0x%016llX\n",
+			       (unsigned long long)SWITCHTEC_MC_OVERLAY_ADDR(mc.mc_overlay_bar),
+			       (unsigned long long)SWITCHTEC_MC_OVERLAY_ADDR(set->overlay_bar));
+		if (set->overlay_size >= 0 && set->overlay_size <= 63)
+			printf("  Overlay Size: %u -> %d\n",
+			       (unsigned)SWITCHTEC_MC_OVERLAY_SIZE(mc.mc_overlay_bar),
+			       set->overlay_size);
 
 		ret = ask_if_sure(assume_yes);
 		if (ret)
@@ -319,6 +329,8 @@ static int multicast_set(int argc, char **argv)
 		unsigned long long receive;
 		unsigned long long block_all;
 		unsigned long long block_untrans;
+		unsigned long long overlay_bar;
+		int overlay_size;
 		int assume_yes;
 	} cfg = {
 		.bdf = NULL,
@@ -331,6 +343,8 @@ static int multicast_set(int argc, char **argv)
 		.receive = ADDR_NOT_SET,
 		.block_all = ADDR_NOT_SET,
 		.block_untrans = ADDR_NOT_SET,
+		.overlay_bar = ADDR_NOT_SET,
+		.overlay_size = -1,
 	};
 
 	const struct argconfig_options opts[] = {
@@ -355,6 +369,10 @@ static int multicast_set(int argc, char **argv)
 		 required_argument, "multicast block all mask"},
 		{"block-untrans", 'u', "MASK", CFG_LONG_LONG, &cfg.block_untrans,
 		 required_argument, "multicast block untranslated mask"},
+		{"overlay-bar", 'o', "ADDR", CFG_LONG_LONG, &cfg.overlay_bar,
+		 required_argument, "multicast overlay BAR address"},
+		{"overlay-size", 's', "SIZE", CFG_INT, &cfg.overlay_size,
+		 required_argument, "multicast overlay size (0-63)"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
 		{NULL}
@@ -372,6 +390,22 @@ static int multicast_set(int argc, char **argv)
 		return -1;
 	}
 
+	if (cfg.num_group != -1 && (cfg.num_group < 0 || cfg.num_group > 63)) {
+		fprintf(stderr, "--num-group must be between 0 and 63\n");
+		return -1;
+	}
+
+	if (cfg.index_pos != -1 && (cfg.index_pos < 0 || cfg.index_pos > 63)) {
+		fprintf(stderr, "--index-pos must be between 0 and 63\n");
+		return -1;
+	}
+
+	if (cfg.overlay_size != -1 &&
+	    (cfg.overlay_size < 0 || cfg.overlay_size > 30)) {
+		fprintf(stderr, "--overlay-size must be between 0 and 30\n");
+		return -1;
+	}
+
 	set.enable = cfg.enable;
 	set.disable = cfg.disable;
 	set.num_group = cfg.num_group;
@@ -384,10 +418,14 @@ static int multicast_set(int argc, char **argv)
 	set.set_receive = (cfg.receive != ADDR_NOT_SET);
 	set.set_block_all = (cfg.block_all != ADDR_NOT_SET);
 	set.set_block_untranslated = (cfg.block_untrans != ADDR_NOT_SET);
+	set.overlay_bar = cfg.overlay_bar;
+	set.overlay_size = cfg.overlay_size;
+	set.set_overlay_bar = (cfg.overlay_bar != ADDR_NOT_SET);
 
 	if (!set.enable && !set.disable && set.num_group < 0 &&
 	    set.index_pos < 0 && !set.set_base_addr && !set.set_receive &&
-	    !set.set_block_all && !set.set_block_untranslated) {
+	    !set.set_block_all && !set.set_block_untranslated &&
+	    !set.set_overlay_bar && set.overlay_size < 0) {
 		fprintf(stderr, "No changes specified.\n");
 		return 0;
 	}
@@ -419,7 +457,7 @@ static int multicast_set(int argc, char **argv)
 		printf("  Num Group -> %d\n", set.num_group);
 	if (set.set_base_addr)
 		printf("  MC Base Address -> 0x%016llX\n",
-		       (unsigned long long)set.base_addr);
+		       (unsigned long long)SWITCHTEC_MC_BASE_ADDR(set.base_addr));
 	if (set.set_receive)
 		printf("  MC Receive -> 0x%016llX\n",
 		       (unsigned long long)set.receive);
@@ -429,6 +467,11 @@ static int multicast_set(int argc, char **argv)
 	if (set.set_block_untranslated)
 		printf("  MC Block Untrans -> 0x%016llX\n",
 		       (unsigned long long)set.block_untranslated);
+	if (set.set_overlay_bar)
+		printf("  MC Overlay BAR -> 0x%016llX\n",
+		       (unsigned long long)SWITCHTEC_MC_OVERLAY_ADDR(set.overlay_bar));
+	if (set.overlay_size >= 0 && set.overlay_size <= 63)
+		printf("  Overlay Size -> %d\n", set.overlay_size);
 
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret)

@@ -97,10 +97,13 @@ struct switchtec_multicast_set {
 	uint64_t receive;
 	uint64_t block_all;
 	uint64_t block_untranslated;
+	uint64_t overlay_bar;
+	int overlay_size;
 	int set_base_addr;
 	int set_receive;
 	int set_block_all;
 	int set_block_untranslated;
+	int set_overlay_bar;
 };
 
 enum switchtec_cap_port_type {

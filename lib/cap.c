@@ -166,28 +166,21 @@ int switchtec_multicast_cap_set(struct switchtec_dev *dev, uint32_t gas_base,
 			return ret;
 	}
 
-	if (set->set_base_addr) {
-		uint64_t new_base = set->base_addr;
+	if (set->set_base_addr || set->index_pos >= 0) {
+		uint64_t new_base;
+		uint8_t idx;
 
-		/* Preserve or update index_pos in lower bits */
-		if (set->index_pos >= 0 && set->index_pos <= 63)
-			new_base = (new_base & ~0x3FULL) | (set->index_pos & 0x3F);
-
-		cmd.offset = htole32(addr +
-			offsetof(struct switchtec_multicast_cap, mc_base_addr));
-		cmd.len = htole32(8);
-		*(uint64_t *)cmd.data = htole64(new_base);
-		ret = switchtec_cmd(dev, MRPC_GAS_WRITE, &cmd,
-				    sizeof(cmd.offset) + sizeof(cmd.len) + 8,
-				    NULL, 0);
-		if (ret)
-			return ret;
-	} else if (set->index_pos >= 0) {
-		/* Update only index_pos without changing base_addr */
-		uint64_t new_base = cap.mc_base_addr;
+		if (set->set_base_addr)
+			new_base = set->base_addr & ~0xFFFULL;
+		else
+			new_base = SWITCHTEC_MC_BASE_ADDR(cap.mc_base_addr);
 
 		if (set->index_pos >= 0 && set->index_pos <= 63)
-			new_base = (new_base & ~0x3FULL) | (set->index_pos & 0x3F);
+			idx = set->index_pos & 0x3F;
+		else
+			idx = SWITCHTEC_MC_BASE_INDEX_POS(cap.mc_base_addr);
+
+		new_base |= idx;
 
 		cmd.offset = htole32(addr +
 			offsetof(struct switchtec_multicast_cap, mc_base_addr));
@@ -229,6 +222,43 @@ int switchtec_multicast_cap_set(struct switchtec_dev *dev, uint32_t gas_base,
 			offsetof(struct switchtec_multicast_cap, mc_block_untranslated));
 		cmd.len = htole32(8);
 		*(uint64_t *)cmd.data = htole64(set->block_untranslated);
+		ret = switchtec_cmd(dev, MRPC_GAS_WRITE, &cmd,
+				    sizeof(cmd.offset) + sizeof(cmd.len) + 8,
+				    NULL, 0);
+		if (ret)
+			return ret;
+	}
+
+	if (set->set_overlay_bar) {
+		uint64_t new_overlay;
+		uint8_t size;
+
+		if (set->overlay_size >= 0 && set->overlay_size <= 63)
+			size = set->overlay_size & 0x3F;
+		else
+			size = SWITCHTEC_MC_OVERLAY_SIZE(cap.mc_overlay_bar);
+
+		new_overlay = (set->overlay_bar & ~0x3FULL) | size;
+
+		cmd.offset = htole32(addr +
+			offsetof(struct switchtec_multicast_cap, mc_overlay_bar));
+		cmd.len = htole32(8);
+		*(uint64_t *)cmd.data = htole64(new_overlay);
+		ret = switchtec_cmd(dev, MRPC_GAS_WRITE, &cmd,
+				    sizeof(cmd.offset) + sizeof(cmd.len) + 8,
+				    NULL, 0);
+		if (ret)
+			return ret;
+	} else if (set->overlay_size >= 0) {
+		uint64_t new_overlay = cap.mc_overlay_bar;
+
+		new_overlay = (new_overlay & ~0x3FULL) |
+			      (set->overlay_size & 0x3F);
+
+		cmd.offset = htole32(addr +
+			offsetof(struct switchtec_multicast_cap, mc_overlay_bar));
+		cmd.len = htole32(8);
+		*(uint64_t *)cmd.data = htole64(new_overlay);
 		ret = switchtec_cmd(dev, MRPC_GAS_WRITE, &cmd,
 				    sizeof(cmd.offset) + sizeof(cmd.len) + 8,
 				    NULL, 0);
