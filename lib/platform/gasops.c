@@ -438,6 +438,7 @@ static const struct event_reg {
 	EV_PFF(FORCE_SPEED, force_speed_hdr),
 	EV_PFF(CREDIT_TIMEOUT, credit_timeout_hdr),
 	EV_PFF(LINK_STATE, link_state_hdr),
+	EV_GLB(ASSERT_ERR, sys_reset_event_hdr),
 };
 
 static uint32_t __gas *event_hdr_addr(struct switchtec_dev *dev,

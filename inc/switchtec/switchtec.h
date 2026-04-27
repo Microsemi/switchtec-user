@@ -387,6 +387,7 @@ enum switchtec_event_id {
 	SWITCHTEC_PFF_EVT_FORCE_SPEED,
 	SWITCHTEC_PFF_EVT_CREDIT_TIMEOUT,
 	SWITCHTEC_PFF_EVT_LINK_STATE,
+	SWITCHTEC_GLOBAL_EVT_ASSERT_ERR,
 	SWITCHTEC_MAX_EVENTS,
 };
 
@@ -1030,7 +1031,8 @@ int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 int switchtec_event_summary_test(struct switchtec_event_summary *sum,
 				 enum switchtec_event_id e,
 				 int index);
-int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
+int switchtec_event_summary_iter(struct switchtec_dev *dev,
+				 struct switchtec_event_summary *sum,
 				 enum switchtec_event_id *e,
 				 int *idx);
 enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,

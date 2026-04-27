@@ -104,6 +104,7 @@ static const struct {
 	EV(PFF, FORCE_SPEED, 10, "Force Speed Error"),
 	EV(PFF, CREDIT_TIMEOUT, 11, "Credit Timeout"),
 	EV(PFF, LINK_STATE, 12, "Link State Change Event"),
+	EV(GLOBAL, ASSERT_ERR, 3, "Global Assert Error"),
 };
 
 #define EVBIT(t, n, b)[b] = SWITCHTEC_ ## t ## _EVT_ ## n
@@ -245,7 +246,8 @@ int switchtec_event_summary_test(struct switchtec_event_summary *sum,
  * bit set and returns the corresponding event id and index. It then
  * clears that bit in the structure.
  */
-int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
+int switchtec_event_summary_iter(struct switchtec_dev *dev,
+				 struct switchtec_event_summary *sum,
 				 enum switchtec_event_id *e,
 				 int *idx)
 {
@@ -258,7 +260,10 @@ int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
 
 	bit = ffs(sum->global) - 1;
 	if (bit >= 0) {
-		*e = global_event_bits[bit];
+		if (bit == 3 && dev && switchtec_is_gen6(dev))
+			*e = SWITCHTEC_GLOBAL_EVT_ASSERT_ERR;
+		else
+			*e = global_event_bits[bit];
 		sum->global &= ~(1 << bit);
 		return 1;
 	}

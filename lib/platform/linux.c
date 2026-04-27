@@ -892,6 +892,7 @@ static const int event_map[] = {
 	EV(PFF, FORCE_SPEED),
 	EV(PFF, CREDIT_TIMEOUT),
 	EV(PFF, LINK_STATE),
+	EV(GLOBAL, ASSERT_ERR),
 };
 
 static int linux_event_summary(struct switchtec_dev *dev,
