@@ -35,85 +35,6 @@
 
 #define CMD_DESC_MC_SHOW "show the multicast PCI capability"
 
-static int bdf_match(const char *bdf1, const char *bdf2)
-{
-	unsigned int d1, b1, dv1, f1;
-	unsigned int d2, b2, dv2, f2;
-	int has_domain1, has_domain2;
-
-	has_domain1 = (sscanf(bdf1, "%x:%x:%x.%x", &d1, &b1, &dv1, &f1) == 4);
-	if (!has_domain1) {
-		d1 = 0;
-		if (sscanf(bdf1, "%x:%x.%x", &b1, &dv1, &f1) != 3)
-			return 0;
-	}
-
-	has_domain2 = (sscanf(bdf2, "%x:%x:%x.%x", &d2, &b2, &dv2, &f2) == 4);
-	if (!has_domain2) {
-		d2 = 0;
-		if (sscanf(bdf2, "%x:%x.%x", &b2, &dv2, &f2) != 3)
-			return 0;
-	}
-
-	return (d1 == d2 && b1 == b2 && dv1 == dv2 && f1 == f2);
-}
-
-struct port_info {
-	uint32_t gas_base;
-	enum switchtec_cap_port_type port_type;
-	const char *bdf;
-};
-
-static int find_port_by_bdf(struct switchtec_dev *dev, const char *target_bdf,
-			    struct switchtec_status *status, int nr_ports,
-			    struct port_info *info)
-{
-	int p, usp_idx = 0, dsp_idx = 0;
-	int num_usps = 0;
-	uint32_t dsp_gas_base;
-
-	for (p = 0; p < nr_ports; p++) {
-		if (status[p].port.upstream)
-			num_usps++;
-	}
-
-	/* DSP region starts after USPs + 1 for MGMT */
-	dsp_gas_base = SWITCHTEC_CAP_GAS_BASE +
-		       ((num_usps + 1) * SWITCHTEC_CAP_DEV_STRIDE);
-
-	for (p = 0; p < nr_ports; p++) {
-		struct switchtec_status *s = &status[p];
-
-		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
-			continue;
-
-		if (!s->pci_bdf)
-			continue;
-
-		if (bdf_match(s->pci_bdf, target_bdf)) {
-			info->bdf = s->pci_bdf;
-			if (s->port.upstream) {
-				info->port_type = SWITCHTEC_CAP_PORT_USP;
-				info->gas_base = SWITCHTEC_CAP_GAS_BASE +
-						 (usp_idx * SWITCHTEC_CAP_DEV_STRIDE);
-			} else {
-				info->port_type = SWITCHTEC_CAP_PORT_DSP;
-				info->gas_base = dsp_gas_base +
-						 (dsp_idx * SWITCHTEC_CAP_DEV_STRIDE);
-			}
-			return 0;
-		}
-
-		if (s->port.upstream)
-			usp_idx++;
-		else
-			dsp_idx++;
-	}
-
-	fprintf(stderr, "BDF %s not found in switch ports\n", target_bdf);
-	return -1;
-}
-
 static const char *port_type_str(enum switchtec_cap_port_type type)
 {
 	switch (type) {
@@ -131,9 +52,7 @@ static const char *port_type_str(enum switchtec_cap_port_type type)
 static int multicast_show(int argc, char **argv)
 {
 	struct switchtec_multicast_cap mc;
-	struct switchtec_status *status = NULL;
-	struct port_info pinfo;
-	int nr_ports;
+	struct switchtec_port_info pinfo;
 	int ret;
 
 	static struct {
@@ -157,31 +76,21 @@ static int multicast_show(int argc, char **argv)
 		return -1;
 	}
 
-	nr_ports = switchtec_status(cfg.dev, &status);
-	if (nr_ports < 0) {
-		switchtec_perror("status");
+	ret = switchtec_find_port_by_bdf(cfg.dev, cfg.bdf, &pinfo);
+	if (ret < 0) {
+		switchtec_perror("find_port_by_bdf");
 		return -1;
 	}
-
-	ret = switchtec_get_devices(cfg.dev, status, nr_ports);
-	if (ret < 0) {
-		switchtec_perror("get_devices");
-		goto free_status;
-	}
-
-	ret = find_port_by_bdf(cfg.dev, cfg.bdf, status, nr_ports, &pinfo);
-	if (ret < 0)
-		goto free_status;
 
 	ret = switchtec_multicast_cap_get(cfg.dev, pinfo.gas_base, &mc);
 	if (ret) {
 		switchtec_perror("multicast_cap_get");
-		goto free_status;
+		return -1;
 	}
 
 	printf("Multicast Extended Capability @ 0x%06X (%s, BDF %s):\n",
 	       pinfo.gas_base + SWITCHTEC_CAP_MULTICAST_OFFSET,
-	       port_type_str(pinfo.port_type), pinfo.bdf);
+	       port_type_str(pinfo.port_type), cfg.bdf);
 	printf("  Header (DW0):        0x%08X\n", mc.header);
 	printf("    Capability ID:     0x%04X\n",
 	       SWITCHTEC_MC_HDR_CAP_ID(mc.header));
@@ -215,11 +124,8 @@ static int multicast_show(int argc, char **argv)
 	       (unsigned long long)SWITCHTEC_MC_OVERLAY_ADDR(mc.mc_overlay_bar));
 	printf("    Overlay Size:      %u\n",
 	       (unsigned)SWITCHTEC_MC_OVERLAY_SIZE(mc.mc_overlay_bar));
-	ret = 0;
-
-free_status:
-	switchtec_status_free(status, nr_ports);
-	return ret;
+	
+	return 0;
 }
 
 #define ADDR_NOT_SET	((unsigned long long)-1)
@@ -227,19 +133,19 @@ free_status:
 #define CMD_DESC_MC_SET "set fields in the multicast PCI capability"
 
 static int multicast_set_one_port(struct switchtec_dev *dev,
-				  struct switchtec_status *status,
-				  int nr_ports,
 				  const char *bdf_str,
 				  struct switchtec_multicast_set *set,
 				  int assume_yes, int quiet)
 {
 	struct switchtec_multicast_cap mc;
-	struct port_info pinfo;
+	struct switchtec_port_info pinfo;
 	int ret;
 
-	ret = find_port_by_bdf(dev, bdf_str, status, nr_ports, &pinfo);
-	if (ret < 0)
+	ret = switchtec_find_port_by_bdf(dev, bdf_str, &pinfo);
+	if (ret < 0) {
+		switchtec_perror("find_port_by_bdf");
 		return -1;
+	}
 
 	ret = switchtec_multicast_cap_get(dev, pinfo.gas_base, &mc);
 	if (ret) {
@@ -430,22 +336,9 @@ static int multicast_set(int argc, char **argv)
 		return 0;
 	}
 
-	nr_ports = switchtec_status(cfg.dev, &status);
-	if (nr_ports < 0) {
-		switchtec_perror("status");
-		return -1;
-	}
-
-	ret = switchtec_get_devices(cfg.dev, status, nr_ports);
-	if (ret < 0) {
-		switchtec_perror("get_devices");
-		goto free_status;
-	}
-
 	if (!cfg.all) {
-		ret = multicast_set_one_port(cfg.dev, status, nr_ports,
-					     cfg.bdf, &set, cfg.assume_yes, 0);
-		goto free_status;
+		ret = multicast_set_one_port(cfg.dev, cfg.bdf, &set, cfg.assume_yes, 0);
+		return -1;
 	}
 
 	printf("Setting multicast on all USPs and DSPs:\n");
@@ -475,7 +368,19 @@ static int multicast_set(int argc, char **argv)
 
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret)
+		return -1;
+
+	nr_ports = switchtec_status(cfg.dev, &status);
+	if (nr_ports < 0) {
+		switchtec_perror("status");
+		return -1;
+	}
+
+	ret = switchtec_get_devices(cfg.dev, status, nr_ports);
+	if (ret < 0) {
+		switchtec_perror("get_devices");
 		goto free_status;
+	}
 
 	for (p = 0; p < nr_ports; p++) {
 		struct switchtec_status *s = &status[p];
@@ -490,22 +395,21 @@ static int multicast_set(int argc, char **argv)
 		       s->port.upstream ? "USP" : "DSP", s->pci_bdf);
 		fflush(stdout);
 
-		ret = multicast_set_one_port(cfg.dev, status, nr_ports,
-					     s->pci_bdf, &set, 1, 1);
+		ret = multicast_set_one_port(cfg.dev, s->pci_bdf, &set, 1, 1);
 		if (ret) {
 			printf("FAILED\n");
-			goto free_status;
+			return -1;
 		}
 		printf("OK\n");
 		ports_updated++;
 	}
 
 	printf("Multicast capability updated on %d ports.\n", ports_updated);
-	ret = 0;
+	return 0;
 
 free_status:
 	switchtec_status_free(status, nr_ports);
-	return ret;
+	return -1;
 }
 
 static const struct cmd commands[] = {

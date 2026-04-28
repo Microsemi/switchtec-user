@@ -113,10 +113,18 @@ enum switchtec_cap_port_type {
 	SWITCHTEC_CAP_PORT_MGMT = 2,
 };
 
+struct switchtec_port_info {
+	uint32_t gas_base;
+	enum switchtec_cap_port_type port_type;
+	const char *bdf;
+};
+
 int switchtec_multicast_cap_get(struct switchtec_dev *dev, uint32_t gas_base,
 				struct switchtec_multicast_cap *cap);
 int switchtec_multicast_cap_set(struct switchtec_dev *dev, uint32_t gas_base,
 				struct switchtec_multicast_set *set);
+int switchtec_find_port_by_bdf(struct switchtec_dev *dev, const char *target_bdf,
+			       struct switchtec_port_info *info);
 
 #ifdef __cplusplus
 }

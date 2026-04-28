@@ -269,4 +269,94 @@ int switchtec_multicast_cap_set(struct switchtec_dev *dev, uint32_t gas_base,
 	return 0;
 }
 
+static int bdf_match(const char *bdf1, const char *bdf2)
+{
+	unsigned int d1, b1, dv1, f1;
+	unsigned int d2, b2, dv2, f2;
+	int has_domain1, has_domain2;
+
+	has_domain1 = (sscanf(bdf1, "%x:%x:%x.%x", &d1, &b1, &dv1, &f1) == 4);
+	if (!has_domain1) {
+		d1 = 0;
+		if (sscanf(bdf1, "%x:%x.%x", &b1, &dv1, &f1) != 3)
+			return 0;
+	}
+
+	has_domain2 = (sscanf(bdf2, "%x:%x:%x.%x", &d2, &b2, &dv2, &f2) == 4);
+	if (!has_domain2) {
+		d2 = 0;
+		if (sscanf(bdf2, "%x:%x.%x", &b2, &dv2, &f2) != 3)
+			return 0;
+	}
+
+	return (d1 == d2 && b1 == b2 && dv1 == dv2 && f1 == f2);
+}
+
+int switchtec_find_port_by_bdf(struct switchtec_dev *dev, const char *target_bdf,
+			       struct switchtec_port_info *info)
+{
+	int p, usp_idx = 0, dsp_idx = 0;
+	int num_usps = 0;
+	uint32_t dsp_gas_base;
+	int nr_ports;
+	struct switchtec_status *status;
+	int ret = 0;
+
+	nr_ports = switchtec_status(dev, &status);
+	if (nr_ports < 0) {
+		switchtec_perror("status");
+		return -1;
+	}
+
+	ret = switchtec_get_devices(dev, status, nr_ports);
+	if (ret < 0) {
+		switchtec_perror("get_devices");
+		goto free_status;
+	}
+
+	for (p = 0; p < nr_ports; p++) {
+		if (status[p].port.upstream)
+			num_usps++;
+	}
+
+	/* DSP region starts after USPs + 1 for MGMT */
+	dsp_gas_base = SWITCHTEC_CAP_GAS_BASE +
+		       ((num_usps + 1) * SWITCHTEC_CAP_DEV_STRIDE);
+
+	for (p = 0; p < nr_ports; p++) {
+		struct switchtec_status *s = &status[p];
+
+		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
+			continue;
+
+		if (!s->pci_bdf)
+			continue;
+
+		if (bdf_match(s->pci_bdf, target_bdf)) {
+			info->bdf = s->pci_bdf;
+			if (s->port.upstream) {
+				info->port_type = SWITCHTEC_CAP_PORT_USP;
+				info->gas_base = SWITCHTEC_CAP_GAS_BASE +
+						 (usp_idx * SWITCHTEC_CAP_DEV_STRIDE);
+			} else {
+				info->port_type = SWITCHTEC_CAP_PORT_DSP;
+				info->gas_base = dsp_gas_base +
+						 (dsp_idx * SWITCHTEC_CAP_DEV_STRIDE);
+			}
+			switchtec_status_free(status, nr_ports);
+			return 0;
+		}
+
+		if (s->port.upstream)
+			usp_idx++;
+		else
+			dsp_idx++;
+	}
+
+	fprintf(stderr, "BDF %s not found in switch ports\n", target_bdf);
+free_status:
+	switchtec_status_free(status, nr_ports);
+	return -1;
+}
+
 /**@}*/
