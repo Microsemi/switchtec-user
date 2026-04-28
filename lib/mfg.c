@@ -1151,6 +1151,41 @@ static int secure_state_set_gen5(struct switchtec_dev *dev,
 				 &data, sizeof(data), NULL, 0);
 }
 
+#define GEN6_STATE_SET_SUBCMD_DEBUG_PROTECT  0x0
+#define GEN6_STATE_SET_SUBCMD_STATE_TRANS    0x1
+
+int switchtec_secure_state_set_debug_protect(struct switchtec_dev *dev)
+{
+	uint32_t data;
+
+	if (!switchtec_is_gen6(dev))
+		return ERR_SUBCMD_INVALID;
+
+	data = htole32(GEN6_STATE_SET_SUBCMD_DEBUG_PROTECT);
+
+	return switchtec_mfg_cmd(dev, MRPC_SECURE_STATE_SET_GEN6,
+				 &data, sizeof(data), NULL, 0);
+}
+
+int switchtec_secure_state_set_transition(struct switchtec_dev *dev,
+					  enum switchtec_secure_state state)
+{
+	uint32_t data;
+
+	if (!switchtec_is_gen6(dev))
+		return ERR_SUBCMD_INVALID;
+
+	if ((state != SWITCHTEC_INITIALIZED_UNSECURED)
+	   && (state != SWITCHTEC_INITIALIZED_SECURED)) {
+		return ERR_PARAM_INVALID;
+	}
+
+	data = htole32(GEN6_STATE_SET_SUBCMD_STATE_TRANS | (state << 8));
+
+	return switchtec_mfg_cmd(dev, MRPC_SECURE_STATE_SET_GEN6,
+				 &data, sizeof(data), NULL, 0);
+}
+
 /**
  * @brief Set device secure state
  * @param[in]  dev	Switchtec device handle
@@ -1165,7 +1200,9 @@ int switchtec_secure_state_set(struct switchtec_dev *dev,
 		return ERR_PARAM_INVALID;
 	}
 
-	if (switchtec_is_gen5(dev))
+	if (switchtec_is_gen6(dev))
+		return switchtec_secure_state_set_transition(dev, state);
+	else if (switchtec_is_gen5(dev))
 		return secure_state_set_gen5(dev, state);
 	else
 		return secure_state_set(dev, state);
