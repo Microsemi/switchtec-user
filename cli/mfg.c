@@ -328,21 +328,25 @@ static void print_security_config(struct switchtec_security_cfg_state *state,
 	}
 }
 
-static void print_security_config_gen6(struct switchtec_security_cfg_state *state)
+static void print_security_config_gen6(struct switchtec_security_cfg_state_gen6 *state)
 {
 	printf("----------------- Security Configuration ------------------\n");
-	printf("I2C Bus: \t\t\t\t%d\n", state->i2c_port);
-	printf("I2C Address (7-bits): \t\t\t0x%02X\n", state->i2c_addr);
-	printf("I2C Address (7-bits) OCP: \t\t\t0x%02X\n", state->i2c_rcvry_address_ocp);
-	printf("I2C Command Map: \t\t\t0x%08X\n", state->i2c_cmd_map);
+	printf("I2C Bus: \t\t\t\t%d\n", state->twi_rcvry_bus);
+	printf("I2C Address (7-bits) MRPC: \t\t0x%02X\n",
+	       (state->twi_rcvry_address_mrpc == 0x0) ?
+	       (0xD4 >> 1) : state->twi_rcvry_address_mrpc);
+	printf("I2C Address (7-bits) OCP: \t\t0x%02X\n",
+	       (state->twi_rcvry_address_ocp == 0x0) ?
+	       (0xD2 >> 1) : state->twi_rcvry_address_ocp);
+	printf("I2C Command Map: \t\t\t0x%03X\n",
+	       state->mrpc_command_map & 0xFFF);
 	printf("Device SECSC: \t\t\t\t0x%01x\n", state->secsc);
 
 	/* Print key hashes */
 	uint32_t *state_ptr = (uint32_t *)state;
-	uint32_t dw7 = state_ptr[7];  // read DWORD 7 for keyhashes
+	uint32_t dw7 = state_ptr[7];
 	for (int key = 0; key < SWITCHTEC_KMSK_NUM_GEN6; key++) {
-
-		int shift = 4 + key * 2;      // Start at bit 4, each key uses 2 bits
+		int shift = 4 + key * 2;
 		uint32_t status = (dw7 >> shift) & 0x3;
 
 		printf("OTP Key%d Hash:\t\t\t\t", key + 1);
@@ -370,6 +374,24 @@ static void print_security_config_gen6(struct switchtec_security_cfg_state *stat
 			break;
 		}
 	}
+
+	/* Print MHCP inbuilt key hash status */
+	if (state->rom_key_1_disable)
+		printf("MHCP Inbuilt Key0\t\t\tRevoked\n");
+	else
+		printf("MHCP Inbuilt Key0\t\t\tActive\n");
+	if (state->rom_key_2_disable)
+		printf("MHCP Inbuilt Key1\t\t\tRevoked\n");
+	else
+		printf("MHCP Inbuilt Key1\t\t\tActive\n");
+	if (state->rom_key_3_disable)
+		printf("MHCP Inbuilt Key2\t\t\tRevoked\n");
+	else
+		printf("MHCP Inbuilt Key2\t\t\tActive\n");
+	if (state->rom_key_4_disable)
+		printf("MHCP Inbuilt Key3\t\t\tRevoked\n");
+	else
+		printf("MHCP Inbuilt Key3\t\t\tActive\n");
 }
 
 static void print_security_cfg_set(struct switchtec_security_cfg_set *set)
@@ -455,7 +477,12 @@ static int info(int argc, char **argv)
 		 "print additional chip information"},
 		{NULL}};
 
-	struct switchtec_security_cfg_state state;
+	union {
+		struct switchtec_security_cfg_state state;
+		struct switchtec_security_cfg_state_gen6 state_gen6;
+	} u = {};
+	struct switchtec_security_cfg_state *state = &u.state;
+	struct switchtec_security_cfg_state_gen6 *state_gen6 = &u.state_gen6;
 
 	argconfig_parse(argc, argv, CMD_DESC_INFO, opts, &cfg, sizeof(cfg));
 
@@ -517,43 +544,43 @@ static int info(int argc, char **argv)
 	}
 
 	if (switchtec_is_gen6(cfg.dev) && (phase_id == SWITCHTEC_BOOT_PHASE_BL1)) {
-		ret = security_settings_get_gen6(cfg.dev, &state);
+		ret = security_settings_get_gen6(cfg.dev, state_gen6);
 		if (ret) {
 			switchtec_perror("mfg info");
 			return ret;
 		}
-	} else{
-		ret = switchtec_security_config_get(cfg.dev, &state);
+	} else {
+		ret = switchtec_security_config_get(cfg.dev, &u);
 		if (ret) {
 			switchtec_perror("mfg info");
 			return ret;
 		}
 	}
 
-	if (cfg.verbose)  {
+	if (cfg.verbose) {
 		if (switchtec_is_gen6(cfg.dev))
-			print_security_config_gen6(&state);
+			print_security_config_gen6(state_gen6);
 		else {
-			if (!state.otp_valid) {
-				print_security_config(&state, false);
+			if (!state->otp_valid) {
+				print_security_config(state, false);
 				fprintf(stderr,
 					"\nAdditional (verbose) chip info is not available on this chip!\n\n");
 			} else if (switchtec_gen(cfg.dev) == SWITCHTEC_GEN4 &&
 				phase_id != SWITCHTEC_BOOT_PHASE_FW) {
-				print_security_config(&state, false);
+				print_security_config(state, false);
 				fprintf(stderr,
 					"\nAdditional (verbose) chip info is only available in the Main Firmware phase!\n\n");
 			} else {
-				print_security_config(&state, true);
+				print_security_config(state, true);
 			}
 		}
 		return 0;
 	}
 
 	if (switchtec_is_gen6(cfg.dev))
-		print_security_config_gen6(&state);
+		print_security_config_gen6(state_gen6);
 	else
-		print_security_config(&state, false);
+		print_security_config(state, false);
 
 	return 0;
 }

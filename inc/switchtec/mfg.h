@@ -36,6 +36,9 @@
 #define SWITCHTEC_KMSK_LEN_DWORDS	(SWITCHTEC_KMSK_LEN / 4)
 #define SWITCHTEC_GEN6_TOKEN_LEN	104
 
+#define SWITCHTEC_UID_LEN_DWORDS	16
+#define SWITCHTEC_PSID_LEN_DWORDS	4
+
 #define OTP_MULTI_DWORD_UID_UNIQUEID_DWORDS		16
 #define OTP_MULTI_DWORD_CUSTOMER_PSID0_DWORDS	4
 
@@ -212,6 +215,89 @@ struct switchtec_security_cfg_state {
 	struct switchtec_attestation_state attn_state;
 };
 
+struct switchtec_security_cfg_state_gen6 {
+	/* DWORD 0 */
+	uint32_t twi_rcvry_address_mrpc   :10;
+	uint32_t twi_rcvry_bus            :2;
+	uint32_t twi_address_type         :2;
+	uint32_t twi_rcvry_address_ocp    :10;
+	uint32_t reserved_dw_0_1          :8;
+
+	/* DWORD 1 */
+	uint32_t mrpc_command_map     :12;
+	uint32_t secsc                :1;
+	uint32_t reserved_dw_1_1      :19;
+
+	/* DWORD 2 */
+	uint32_t ap_offset            :20;
+	uint32_t reserved_dw_2_1      :12;
+
+	/* DWORD 3 */
+	uint32_t i3c_pid_high         :32;
+
+	/* DWORD 4 */
+	uint32_t i3c_pid_low          :32;
+
+	/* DWORD 5 */
+	uint32_t i3c_rcvry_address    :7;
+	uint32_t i3c_rcvry_bus        :2;
+	uint32_t reserved_dw_5_1      :23;
+
+	/* DWORD 6 */
+	uint32_t algo_crc_disable             :1;
+	uint32_t algo_ecdsa_p384_disable      :1;
+	uint32_t algo_ecdsa_p521_disable      :1;
+	uint32_t algo_rsa3ksha2_disable       :1;
+	uint32_t algo_rsa4ksha2_disable       :1;
+	uint32_t algo_dilithium5_disable      :1;
+	uint32_t reserved_dw_6_1              :2;
+	uint32_t rom_key_1_disable            :1;
+	uint32_t rom_key_2_disable            :1;
+	uint32_t rom_key_3_disable            :1;
+	uint32_t rom_key_4_disable            :1;
+	uint32_t reserved_dw_6_2              :4;
+	uint32_t boot_from_uart_disable       :1;
+	uint32_t boot_from_smbus_disable      :1;
+	uint32_t boot_from_i3c_disable        :1;
+	uint32_t failover_to_uart_disable     :1;
+	uint32_t failover_to_smbus_disable    :1;
+	uint32_t failover_to_i3c_disable      :1;
+	uint32_t reserved_dw_6_3              :2;
+	uint32_t static_token_disable         :1;
+	uint32_t psid_only_token_disable      :1;
+	uint32_t uid_only_token_disable       :1;
+	uint32_t psid_uid_token_disable       :1;
+	uint32_t reserved_dw_6_4              :4;
+
+	/* DWORD 7 */
+	uint32_t puf_ac_status            :2;
+	uint32_t rsvd_dw_7_0              :2;
+	uint32_t otp_key0_hash_status     :2;
+	uint32_t otp_key1_hash_status     :2;
+	uint32_t otp_key2_hash_status     :2;
+	uint32_t otp_key3_hash_status     :2;
+	uint32_t otp_key4_hash_status     :2;
+	uint32_t otp_key5_hash_status     :2;
+	uint32_t otp_key6_hash_status     :2;
+	uint32_t otp_key7_hash_status     :2;
+	uint32_t otp_key8_hash_status     :2;
+	uint32_t otp_key9_hash_status     :2;
+	uint32_t otp_key10_hash_status    :2;
+	uint32_t otp_key11_hash_status    :2;
+	uint32_t rsvd_dw_7_1              :4;
+
+	/* DWORD 8 */
+	uint32_t rsvd_dw_8_0                  :24;
+	uint32_t has_table_sha2_384_disable   :1;
+	uint32_t has_table_sha2_512_disable   :1;
+	uint32_t has_table_sha3_512_disable   :1;
+	uint32_t has_table_crc32_disable      :1;
+	uint32_t reserved_dw_8_1              :4;
+
+	/* DWORD 9 to ... */
+	uint32_t otp_key_hash[SWITCHTEC_KMSK_NUM_GEN6][SWITCHTEC_KMSK_LEN_DWORDS];
+};
+
 /**
  * @brief Supported KMT Signature Formats. Value stored in KMT Prefix in 4 bit field.
  */
@@ -321,8 +407,7 @@ struct sec_cfg_get_struct {
 
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info);
-int switchtec_security_config_get(struct switchtec_dev *dev,
-			          struct switchtec_security_cfg_state *state);
+int switchtec_security_config_get(struct switchtec_dev *dev, void *state);
 int switchtec_security_spi_avail_rate_get(struct switchtec_dev *dev,
 		struct switchtec_security_spi_avail_rate *rates);
 int switchtec_security_config_set(struct switchtec_dev *dev,
@@ -367,6 +452,6 @@ int
 switchtec_security_state_has_kmsk(struct switchtec_security_cfg_state *state,
 				  struct switchtec_kmsk *kmsk);
 int security_settings_get_gen6(struct switchtec_dev *dev,
-					struct switchtec_security_cfg_state *state);
+					struct switchtec_security_cfg_state_gen6 *state);
 
 #endif // LIBSWITCHTEC_MFG_H
