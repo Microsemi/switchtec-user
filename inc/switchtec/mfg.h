@@ -464,6 +464,8 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 #define DEVICE_CONFIG_SUB_CMD_SET_SECURITY  0x1
 #define DEVICE_CONFIG_SUB_CMD_SET_CUSTOMER  0x2
 #define DEVICE_CONFIG_SUB_CMD_GET           0x3
+#define DEVICE_CONFIG_SUB_CMD_GET_SECURITY  0x4
+#define DEVICE_CONFIG_SUB_CMD_GET_CUSTOMER  0x5
 
 /* Constants for device configuration structures */
 #define DEVICE_CONFIG_CUSTOMER_FIELD_NUM        4
@@ -491,33 +493,22 @@ struct switchtec_device_config_dev_settings {
 };
 
 struct switchtec_device_config_customer_settings {
-	/* DWORD 0-3: PSID0 */
-	uint32_t psid0[SWITCHTEC_PSID_LEN_DWORDS];
-
-	/* DWORD 4 */
-	uint32_t psid0_status                 :2;
-	uint32_t customer_ecc_field_0_status  :2;
-	uint32_t customer_ecc_field_1_status  :2;
-	uint32_t customer_ecc_field_2_status  :2;
-	uint32_t customer_ecc_field_3_status  :2;
-	uint32_t rsvd_0                       :22;
-
-	/* DWORD 5 */
+	/* DWORD 0 */
 	uint32_t device_id                    :16;
 	uint32_t vendor_id                    :16;
 
-	/* DWORD 6 */
+	/* DWORD 1 */
 	uint32_t revision_id                  :16;
 	uint32_t subsystem_id                 :16;
 
-	/* DWORD 7 */
+	/* DWORD 2 */
 	uint32_t subsystem_vendor_id          :16;
-	uint32_t rsvd_1                       :16;
+	uint32_t rsvd_0                       :16;
 
-	/* DWORD 8-11: customer fields */
+	/* DWORD 3-6: customer fields */
 	uint32_t customer_fields[DEVICE_CONFIG_CUSTOMER_FIELD_NUM];
 
-	/* DWORD 12-19: customer ECC fields */
+	/* DWORD 7-14: customer ECC fields */
 	uint32_t customer_ecc_fields[DEVICE_CONFIG_CUSTOMER_ECC_FIELD_NUM]
 				    [DEVICE_CONFIG_CUSTOMER_ECC_FIELD_SIZE];
 };
@@ -525,8 +516,7 @@ struct switchtec_device_config_customer_settings {
 struct switchtec_device_config_key_data {
 	/* DWORD 0 */
 	uint32_t index         :8;
-	uint32_t status        :2;
-	uint32_t rsvd          :22;
+	uint32_t rsvd          :24;
 
 	/* DWORD 1-16: key hash (SHA2-512) */
 	uint32_t hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
@@ -549,30 +539,44 @@ struct switchtec_device_config_secure_settings {
 	uint32_t failover_to_i3c_disable      :1;
 	uint32_t rsvd_2                       :2;
 
-	/* DWORD 1: number of keys to program */
+	/* DWORD 1-4: PSID0 */
+	uint32_t psid0[SWITCHTEC_PSID_LEN_DWORDS];
+
+	/* DWORD 5: number of keys to program */
 	uint32_t key_prog_num;
 
-	/* DWORD 2-...: key data (up to 12 keys, 17 DWORDs each) */
+	/* DWORD 6-...: key data (up to 12 keys, 17 DWORDs each) */
 	struct switchtec_device_config_key_data key_data[DEVICE_CONFIG_MAX_KEY_SLOTS];
 };
 
-struct switchtec_device_config_state {
+struct switchtec_device_config_security_settings_status {
 	/* DWORD 0 */
-	uint32_t dev_config_prog      :1;
-	uint32_t customer_config_prog :1;
-	uint32_t security_config_prog :1;
-	uint32_t rsvd                 :29;
+	uint32_t dok0_status      :2;
+	uint32_t dok1_status      :2;
+	uint32_t dok2_status      :2;
+	uint32_t dok3_status      :2;
+	uint32_t dok4_status      :2;
+	uint32_t dok5_status      :2;
+	uint32_t dok6_status      :2;
+	uint32_t dok7_status      :2;
+	uint32_t dok8_status      :2;
+	uint32_t dok9_status      :2;
+	uint32_t dok10_status     :2;
+	uint32_t dok11_status     :2;
+	uint32_t rsvd             :8;
 };
 
-struct switchtec_device_config_get {
-	struct switchtec_device_config_state config_state;
-	struct switchtec_device_config_dev_settings dev_settings;
-	struct switchtec_device_config_customer_settings customer_settings;
+struct switchtec_device_config_get_sec {
 	struct switchtec_device_config_secure_settings secure_settings;
+	struct switchtec_device_config_security_settings_status secure_settings_status;
 };
 
 int switchtec_device_config_get(struct switchtec_dev *dev,
-				struct switchtec_device_config_get *config);
+				struct switchtec_device_config_dev_settings *settings);
+int switchtec_device_config_get_security(struct switchtec_dev *dev,
+					 struct switchtec_device_config_get_sec *config);
+int switchtec_device_config_get_customer(struct switchtec_dev *dev,
+					 struct switchtec_device_config_customer_settings *settings);
 int switchtec_device_config_set_dev(struct switchtec_dev *dev,
 				    struct switchtec_device_config_dev_settings *settings);
 int switchtec_device_config_set_customer(struct switchtec_dev *dev,

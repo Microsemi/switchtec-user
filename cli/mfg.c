@@ -1727,119 +1727,124 @@ static int debug_unlock_token(int argc, char **argv)
 	return 0;
 }
 
-static const char *status_str(uint32_t status)
+static void print_device_settings_only(struct switchtec_device_config_dev_settings *settings)
 {
-	switch (status) {
-	case PROGRAMMED:
-		return "Programmed";
-	case REVOKED:
-		return "Revoked";
-	case UNPROGRAMMED:
-	default:
-		return "Available";
+	printf("\n--Device Settings--\n");
+	printf("TWI OCP Address (7-bits):\t\t0x%02X\n",
+	       settings->twi_ocp_addr);
+	printf("TWI MRPC Address (7-bits):\t\t0x%02X\n",
+	       settings->twi_mrpc_addr);
+	printf("TWI Recovery Address Type:\t\t%d\n",
+	       settings->twi_rcvry_addr_type);
+	printf("TWI Recovery Bus:\t\t\t%d\n",
+	       settings->twi_rcvry_bus);
+	printf("I3C PID:\t\t\t\t0x%08x%04x\n",
+	       settings->i3c_pid_hi,
+	       settings->i3c_pid_lo);
+	printf("I3C Address (7-bits):\t\t\t0x%02X\n",
+	       settings->i3c_addr_7bit);
+	printf("I3C Recovery Bus:\t\t\t%d\n",
+	       settings->i3c_rcvry_bus);
+}
+
+static void print_customer_settings(struct switchtec_device_config_customer_settings *customer)
+{
+	int i;
+
+	printf("\n--Customer Settings--\n");
+	printf("Device ID:\t\t\t\t0x%04X\n", customer->device_id);
+	printf("Vendor ID:\t\t\t\t0x%04X\n", customer->vendor_id);
+	printf("Revision ID:\t\t\t\t0x%02X\n", customer->revision_id);
+	printf("Subsystem ID:\t\t\t\t0x%04X\n", customer->subsystem_id);
+	printf("Subsystem Vendor ID:\t\t\t0x%04X\n", customer->subsystem_vendor_id);
+
+	for (i = 0; i < DEVICE_CONFIG_CUSTOMER_FIELD_NUM; i++) {
+		printf("Customer Field %d:\t\t\t0x%08X\n",
+		       i, customer->customer_fields[i]);
+	}
+
+	for (i = 0; i < DEVICE_CONFIG_CUSTOMER_ECC_FIELD_NUM; i++) {
+		printf("Customer ECC Field %d:\t\t\t0x%08X%08X\n", i,
+		       customer->customer_ecc_fields[i][1],
+		       customer->customer_ecc_fields[i][0]);
 	}
 }
 
-static void print_device_config(struct switchtec_device_config_get *config)
+static const char *dok_status_to_str(uint32_t status)
+{
+	switch (status) {
+	case 0:
+		return "Empty";
+	case 1:
+		return "Valid";
+	case 2:
+		return "Revoked";
+	default:
+		return "Reserved";
+	}
+}
+
+static void print_security_settings_only(struct switchtec_device_config_get_sec *sec_cfg)
 {
 	int i, j;
-	bool all_zero;
-
-	printf("\n--Device Configuration State--\n");
-	printf("Device Config Programmed:\t\t%s\n",
-	       config->config_state.dev_config_prog ? "Yes" : "No");
-	printf("Customer Config Programmed:\t\t%s\n",
-	       config->config_state.customer_config_prog ? "Yes" : "No");
-	printf("Security Config Programmed:\t\t%s\n",
-	       config->config_state.security_config_prog ? "Yes" : "No");
-
-	printf("\n--Device Settings--\n");
-	printf("TWI OCP Address (7-bits):\t\t0x%02X\n",
-	       config->dev_settings.twi_ocp_addr);
-	printf("TWI MRPC Address (7-bits):\t\t0x%02X\n",
-	       config->dev_settings.twi_mrpc_addr);
-	printf("TWI Recovery Address Type:\t\t%d\n",
-	       config->dev_settings.twi_rcvry_addr_type);
-	printf("TWI Recovery Bus:\t\t\t%d\n",
-	       config->dev_settings.twi_rcvry_bus);
-	printf("I3C PID:\t\t\t\t0x%08x%04x\n",
-	       config->dev_settings.i3c_pid_hi,
-	       config->dev_settings.i3c_pid_lo);
-	printf("I3C Address (7-bits):\t\t\t0x%02X\n",
-	       config->dev_settings.i3c_addr_7bit);
-	printf("I3C Recovery Bus:\t\t\t%d\n",
-	       config->dev_settings.i3c_rcvry_bus);
-
-	printf("\n--Customer Settings--\n");
-	printf("PSID0 Status:\t\t\t\t%s\n",
-	       status_str(config->customer_settings.psid0_status));
-	printf("PSID0:\t\t\t\t\t");
-	all_zero = true;
-	for (i = 0; i < SWITCHTEC_PSID_LEN_DWORDS; i++) {
-		if (config->customer_settings.psid0[i] != 0)
-			all_zero = false;
-	}
-	if (all_zero && config->customer_settings.psid0_status != PROGRAMMED) {
-		printf("Available\n");
-	} else {
-		for (i = 0; i < SWITCHTEC_PSID_LEN_DWORDS; i++)
-			printf("%08x", be32toh(config->customer_settings.psid0[i]));
-		printf("\n");
-	}
-	printf("Device ID:\t\t\t\t0x%04X\n",
-	       config->customer_settings.device_id);
-	printf("Vendor ID:\t\t\t\t0x%04X\n",
-	       config->customer_settings.vendor_id);
-	printf("Revision ID:\t\t\t\t0x%02X\n",
-	       config->customer_settings.revision_id);
-	printf("Subsystem ID:\t\t\t\t0x%04X\n",
-	       config->customer_settings.subsystem_id);
-	printf("Subsystem Vendor ID:\t\t\t0x%04X\n",
-	       config->customer_settings.subsystem_vendor_id);
+	uint32_t dok_status[DEVICE_CONFIG_MAX_KEY_SLOTS] = {
+		sec_cfg->secure_settings_status.dok0_status,
+		sec_cfg->secure_settings_status.dok1_status,
+		sec_cfg->secure_settings_status.dok2_status,
+		sec_cfg->secure_settings_status.dok3_status,
+		sec_cfg->secure_settings_status.dok4_status,
+		sec_cfg->secure_settings_status.dok5_status,
+		sec_cfg->secure_settings_status.dok6_status,
+		sec_cfg->secure_settings_status.dok7_status,
+		sec_cfg->secure_settings_status.dok8_status,
+		sec_cfg->secure_settings_status.dok9_status,
+		sec_cfg->secure_settings_status.dok10_status,
+		sec_cfg->secure_settings_status.dok11_status,
+	};
 
 	printf("\n--Security Settings--\n");
 	printf("Command Map:\t\t\t\t0x%03X\n",
-	       config->secure_settings.command_map & 0xFFF);
+	       sec_cfg->secure_settings.command_map & 0xFFF);
 	printf("Static Token Disable:\t\t\t%s\n",
-	       config->secure_settings.static_token_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.static_token_disable ? "Yes" : "No");
 	printf("PSID Only Token Disable:\t\t%s\n",
-	       config->secure_settings.psid_only_token_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.psid_only_token_disable ? "Yes" : "No");
 	printf("UID Only Token Disable:\t\t\t%s\n",
-	       config->secure_settings.uid_only_token_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.uid_only_token_disable ? "Yes" : "No");
 	printf("PSID+UID Token Disable:\t\t\t%s\n",
-	       config->secure_settings.psid_uid_token_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.psid_uid_token_disable ? "Yes" : "No");
 	printf("Boot from UART Disable:\t\t\t%s\n",
-	       config->secure_settings.boot_from_uart_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.boot_from_uart_disable ? "Yes" : "No");
 	printf("Boot from SMBus Disable:\t\t%s\n",
-	       config->secure_settings.boot_from_smbus_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.boot_from_smbus_disable ? "Yes" : "No");
 	printf("Boot from I3C Disable:\t\t\t%s\n",
-	       config->secure_settings.boot_from_i3c_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.boot_from_i3c_disable ? "Yes" : "No");
 	printf("Failover to UART Disable:\t\t%s\n",
-	       config->secure_settings.failover_to_uart_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.failover_to_uart_disable ? "Yes" : "No");
 	printf("Failover to SMBus Disable:\t\t%s\n",
-	       config->secure_settings.failover_to_smbus_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.failover_to_smbus_disable ? "Yes" : "No");
 	printf("Failover to I3C Disable:\t\t%s\n",
-	       config->secure_settings.failover_to_i3c_disable ? "Yes" : "No");
+	       sec_cfg->secure_settings.failover_to_i3c_disable ? "Yes" : "No");
+	printf("PSID0:\t\t\t\t\t");
+	for (i = 0; i < SWITCHTEC_PSID_LEN_DWORDS; i++)
+		printf("%08x", be32toh(sec_cfg->secure_settings.psid0[i]));
+	printf("\n");
 
-	for (i = 0; i < (int)config->secure_settings.key_prog_num &&
+	for (i = 0; i < (int)sec_cfg->secure_settings.key_prog_num &&
 		    i < DEVICE_CONFIG_MAX_KEY_SLOTS; i++) {
-		uint32_t key_status = config->secure_settings.key_data[i].status;
-
 		printf("OTP Key%d Hash:\t\t\t\t", i + 1);
-
-		if (key_status == PROGRAMMED) {
-			for (j = 0; j < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; j++) {
-				if (j && (j % 8) == 0)
-					printf("\n\t\t\t\t\t");
-				printf("%08x", be32toh(config->secure_settings.key_data[i].hash[j]));
-			}
-			printf("\n");
-		} else if (key_status == REVOKED) {
-			printf("Revoked\n");
-		} else {
-			printf("Available\n");
+		for (j = 0; j < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; j++) {
+			if (j && (j % 8) == 0)
+				printf("\n\t\t\t\t\t");
+			printf("%08x", be32toh(sec_cfg->secure_settings.key_data[i].hash[j]));
 		}
+		printf("\n");
 	}
+
+	printf("\n--DOK Key Status--\n");
+	for (i = 0; i < DEVICE_CONFIG_MAX_KEY_SLOTS; i++)
+		printf("DOK%02d: %s (%u)\n", i,
+		       dok_status_to_str(dok_status[i]), dok_status[i]);
 }
 
 #define CMD_DESC_DEVICE_CONFIG_GET "get device configuration (Gen6 only)"
@@ -1847,21 +1852,35 @@ static void print_device_config(struct switchtec_device_config_get *config)
 static int device_config_get(int argc, char **argv)
 {
 	int ret;
-	struct switchtec_device_config_get config = {};
+	struct switchtec_device_config_dev_settings dev_settings = {};
+	struct switchtec_device_config_get_sec sec_config = {};
+	struct switchtec_device_config_customer_settings customer_settings = {};
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_GET "\n\n"
-			   "This command retrieves the device configuration "
+			   "This command retrieves device configuration sections "
 			   "from Gen6 devices. The device configuration includes:\n"
 			   "  - Device settings (TWI/I3C addresses)\n"
 			   "  - Customer settings (PSID, PCI IDs)\n"
-			   "  - Security settings (token disable, boot modes)\n";
+			   "  - Security settings (token disable, boot modes)\n\n"
+			   "Use -3 to retrieve device settings only (default).\n"
+			   "Use -4 to retrieve security settings only.\n"
+			   "Use -5 to retrieve customer settings only.\n";
 
 	static struct {
 		struct switchtec_dev *dev;
+		int subcmd_get_device;
+		int subcmd_get_security;
+		int subcmd_get_customer;
 	} cfg = {};
 
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_MFG_PCI,
+		{"device-get", '3', "", CFG_NONE, &cfg.subcmd_get_device,
+			no_argument, "get device settings (sub-command 3, default)"},
+		{"security-get", '4', "", CFG_NONE, &cfg.subcmd_get_security,
+			no_argument, "get security settings (sub-command 4)"},
+		{"customer-get", '5', "", CFG_NONE, &cfg.subcmd_get_customer,
+			no_argument, "get customer settings (sub-command 5)"},
 		{NULL}
 	};
 
@@ -1872,13 +1891,38 @@ static int device_config_get(int argc, char **argv)
 		return -1;
 	}
 
-	ret = switchtec_device_config_get(cfg.dev, &config);
-	if (ret) {
-		switchtec_perror("mfg device-config-get");
-		return ret;
+	if (cfg.subcmd_get_device && (cfg.subcmd_get_security || cfg.subcmd_get_customer)) {
+		fprintf(stderr, "-3 cannot be combined with -4 or -5\n");
+		return -1;
 	}
 
-	print_device_config(&config);
+	if (cfg.subcmd_get_security && cfg.subcmd_get_customer) {
+		fprintf(stderr, "-4 and -5 cannot be used together\n");
+		return -1;
+	}
+
+	if (cfg.subcmd_get_security) {
+		ret = switchtec_device_config_get_security(cfg.dev, &sec_config);
+		if (ret) {
+			switchtec_perror("mfg device-config-get -4");
+			return ret;
+		}
+		print_security_settings_only(&sec_config);
+	} else if (cfg.subcmd_get_customer) {
+		ret = switchtec_device_config_get_customer(cfg.dev, &customer_settings);
+		if (ret) {
+			switchtec_perror("mfg device-config-get -5");
+			return ret;
+		}
+		print_customer_settings(&customer_settings);
+	} else {
+		ret = switchtec_device_config_get(cfg.dev, &dev_settings);
+		if (ret) {
+			switchtec_perror("mfg device-config-get -3");
+			return ret;
+		}
+		print_device_settings_only(&dev_settings);
+	}
 
 	return 0;
 }
@@ -2022,11 +2066,6 @@ static int device_config_set_customer(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		const char *input_file;
-		unsigned long psid0_0;
-		unsigned long psid0_1;
-		unsigned long psid0_2;
-		unsigned long psid0_3;
-		unsigned long psid0_status;
 		unsigned long device_id;
 		unsigned long vendor_id;
 		unsigned long revision_id;
@@ -2039,14 +2078,6 @@ static int device_config_set_customer(int argc, char **argv)
 		DEVICE_OPTION_MFG_PCI,
 		{"file", 'f', "", CFG_STRING, &cfg.input_file,
 			required_argument, "binary input file (mutually exclusive with other options)"},
-		{"psid0-0", '0', "", CFG_LONG, &cfg.psid0_0,
-			required_argument, "PSID0 DWORD 0"},
-		{"psid0-1", '1', "", CFG_LONG, &cfg.psid0_1,
-			required_argument, "PSID0 DWORD 1"},
-		{"psid0-2", '2', "", CFG_LONG, &cfg.psid0_2,
-			required_argument, "PSID0 DWORD 2"},
-		{"psid0-3", '3', "", CFG_LONG, &cfg.psid0_3,
-			required_argument, "PSID0 DWORD 3"},
 		{"device-id", 'd', "", CFG_LONG, &cfg.device_id,
 			required_argument, "PCI Device ID"},
 		{"vendor-id", 'v', "", CFG_LONG, &cfg.vendor_id,
@@ -2070,8 +2101,7 @@ static int device_config_set_customer(int argc, char **argv)
 	}
 
 	if (cfg.input_file) {
-		if (cfg.psid0_0 || cfg.psid0_1 || cfg.psid0_2 || cfg.psid0_3 ||
-		    cfg.psid0_status || cfg.device_id || cfg.vendor_id ||
+		if (cfg.device_id || cfg.vendor_id ||
 		    cfg.revision_id || cfg.subsystem_id || cfg.subsystem_vendor_id) {
 			fprintf(stderr, "Error: -f option is mutually exclusive with other setting options\n");
 			return -1;
@@ -2093,11 +2123,6 @@ static int device_config_set_customer(int argc, char **argv)
 		}
 		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
 	} else {
-		settings.psid0[0] = cfg.psid0_0;
-		settings.psid0[1] = cfg.psid0_1;
-		settings.psid0[2] = cfg.psid0_2;
-		settings.psid0[3] = cfg.psid0_3;
-		settings.psid0_status = cfg.psid0_status & 0x3;
 		settings.device_id = cfg.device_id & 0xFFFF;
 		settings.vendor_id = cfg.vendor_id & 0xFFFF;
 		settings.revision_id = cfg.revision_id & 0xFFFF;
@@ -2106,9 +2131,6 @@ static int device_config_set_customer(int argc, char **argv)
 	}
 
 	printf("Setting customer configuration:\n");
-	printf("  PSID0:                0x%08lx%08lx%08lx%08lx (status=%d)\n",
-	       cfg.psid0_3, cfg.psid0_2, cfg.psid0_1, cfg.psid0_0,
-	       settings.psid0_status);
 	printf("  Device ID:            0x%04x\n", settings.device_id);
 	printf("  Vendor ID:            0x%04x\n", settings.vendor_id);
 	printf("  Revision ID:          0x%04x\n", settings.revision_id);
@@ -2168,7 +2190,7 @@ static int device_config_set_security(int argc, char **argv)
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_SECURITY "\n\n"
 			   "Set security settings including command map, token disable flags,\n"
-			   "boot/failover disable flags, and OTP key hashes.\n"
+			   "boot/failover disable flags, PSID0, and OTP key hashes.\n"
 			   "Use -f to load settings from a binary file.\n\n"
 			   "Key hash format: 128 hex characters (512-bit SHA2-512 hash)\n\n"
 			   "WARNING: This operation modifies OTP and may be IRREVERSIBLE!";
@@ -2187,6 +2209,10 @@ static int device_config_set_security(int argc, char **argv)
 		int failover_to_uart_disable;
 		int failover_to_smbus_disable;
 		int failover_to_i3c_disable;
+		unsigned long psid0_0;
+		unsigned long psid0_1;
+		unsigned long psid0_2;
+		unsigned long psid0_3;
 		const char *key1_hash;
 		const char *key2_hash;
 		const char *key3_hash;
@@ -2199,18 +2225,6 @@ static int device_config_set_security(int argc, char **argv)
 		const char *key10_hash;
 		const char *key11_hash;
 		const char *key12_hash;
-		unsigned long key1_status;
-		unsigned long key2_status;
-		unsigned long key3_status;
-		unsigned long key4_status;
-		unsigned long key5_status;
-		unsigned long key6_status;
-		unsigned long key7_status;
-		unsigned long key8_status;
-		unsigned long key9_status;
-		unsigned long key10_status;
-		unsigned long key11_status;
-		unsigned long key12_status;
 		int assume_yes;
 	} cfg = {};
 
@@ -2250,14 +2264,38 @@ static int device_config_set_security(int argc, char **argv)
 		{"failover-i3c-disable", .cfg_type=CFG_NONE,
 			.value_addr=&cfg.failover_to_i3c_disable, .argument_type=no_argument,
 			.help="disable failover to I3C"},
+		{"psid0-0", .cfg_type=CFG_LONG, .value_addr=&cfg.psid0_0,
+			.argument_type=required_argument, .help="PSID0 DWORD 0 (32-bit hex/dec)"},
+		{"psid0-1", .cfg_type=CFG_LONG, .value_addr=&cfg.psid0_1,
+			.argument_type=required_argument, .help="PSID0 DWORD 1 (32-bit hex/dec)"},
+		{"psid0-2", .cfg_type=CFG_LONG, .value_addr=&cfg.psid0_2,
+			.argument_type=required_argument, .help="PSID0 DWORD 2 (32-bit hex/dec)"},
+		{"psid0-3", .cfg_type=CFG_LONG, .value_addr=&cfg.psid0_3,
+			.argument_type=required_argument, .help="PSID0 DWORD 3 (32-bit hex/dec)"},
 		{"key1-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key1_hash,
 			.argument_type=required_argument, .help="Key 1 hash (128 hex chars)"},
-		{"key1-status", .cfg_type=CFG_LONG, .value_addr=&cfg.key1_status,
-			.argument_type=required_argument, .help="Key 1 status (0-3)"},
 		{"key2-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key2_hash,
 			.argument_type=required_argument, .help="Key 2 hash (128 hex chars)"},
-		{"key2-status", .cfg_type=CFG_LONG, .value_addr=&cfg.key2_status,
-			.argument_type=required_argument, .help="Key 2 status (0-3)"},
+		{"key3-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key3_hash,
+			.argument_type=required_argument, .help="Key 3 hash (128 hex chars)"},
+		{"key4-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key4_hash,
+			.argument_type=required_argument, .help="Key 4 hash (128 hex chars)"},
+		{"key5-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key5_hash,
+			.argument_type=required_argument, .help="Key 5 hash (128 hex chars)"},
+		{"key6-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key6_hash,
+			.argument_type=required_argument, .help="Key 6 hash (128 hex chars)"},
+		{"key7-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key7_hash,
+			.argument_type=required_argument, .help="Key 7 hash (128 hex chars)"},
+		{"key8-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key8_hash,
+			.argument_type=required_argument, .help="Key 8 hash (128 hex chars)"},
+		{"key9-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key9_hash,
+			.argument_type=required_argument, .help="Key 9 hash (128 hex chars)"},
+		{"key10-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key10_hash,
+			.argument_type=required_argument, .help="Key 10 hash (128 hex chars)"},
+		{"key11-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key11_hash,
+			.argument_type=required_argument, .help="Key 11 hash (128 hex chars)"},
+		{"key12-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key12_hash,
+			.argument_type=required_argument, .help="Key 12 hash (128 hex chars)"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{NULL}
@@ -2267,11 +2305,6 @@ static int device_config_set_security(int argc, char **argv)
 		&cfg.key1_hash, &cfg.key2_hash, &cfg.key3_hash, &cfg.key4_hash,
 		&cfg.key5_hash, &cfg.key6_hash, &cfg.key7_hash, &cfg.key8_hash,
 		&cfg.key9_hash, &cfg.key10_hash, &cfg.key11_hash, &cfg.key12_hash
-	};
-	unsigned long *key_statuses[12] = {
-		&cfg.key1_status, &cfg.key2_status, &cfg.key3_status, &cfg.key4_status,
-		&cfg.key5_status, &cfg.key6_status, &cfg.key7_status, &cfg.key8_status,
-		&cfg.key9_status, &cfg.key10_status, &cfg.key11_status, &cfg.key12_status
 	};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
@@ -2310,6 +2343,10 @@ static int device_config_set_security(int argc, char **argv)
 		settings.failover_to_uart_disable = cfg.failover_to_uart_disable ? 1 : 0;
 		settings.failover_to_smbus_disable = cfg.failover_to_smbus_disable ? 1 : 0;
 		settings.failover_to_i3c_disable = cfg.failover_to_i3c_disable ? 1 : 0;
+		settings.psid0[0] = cfg.psid0_0;
+		settings.psid0[1] = cfg.psid0_1;
+		settings.psid0[2] = cfg.psid0_2;
+		settings.psid0[3] = cfg.psid0_3;
 
 		for (i = 0; i < 12; i++) {
 			if (*key_hashes[i]) {
@@ -2319,7 +2356,6 @@ static int device_config_set_security(int argc, char **argv)
 					return -1;
 				}
 				settings.key_data[key_count].index = i;
-				settings.key_data[key_count].status = *key_statuses[i] & 0x3;
 				key_count++;
 			}
 		}
@@ -2338,10 +2374,11 @@ static int device_config_set_security(int argc, char **argv)
 	printf("  Failover to UART Disable: %d\n", settings.failover_to_uart_disable);
 	printf("  Failover to SMBus Disable: %d\n", settings.failover_to_smbus_disable);
 	printf("  Failover to I3C Disable:  %d\n", settings.failover_to_i3c_disable);
+	printf("  PSID0:                    %08lx%08lx%08lx%08lx\n",
+	       cfg.psid0_0, cfg.psid0_1, cfg.psid0_2, cfg.psid0_3);
 	printf("  Keys to program:          %d\n", key_count);
 	for (i = 0; i < key_count; i++) {
-		printf("  Key%d (status=%d):         ", settings.key_data[i].index + 1,
-		       settings.key_data[i].status);
+		printf("  Key%d:                     ", settings.key_data[i].index + 1);
 		for (j = 0; j < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; j++) {
 			if (j == 8)
 				printf("\n                            ");

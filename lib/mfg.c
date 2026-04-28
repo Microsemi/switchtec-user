@@ -2029,7 +2029,7 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 }
 
 int switchtec_device_config_get(struct switchtec_dev *dev,
-				struct switchtec_device_config_get *config)
+				struct switchtec_device_config_dev_settings *settings)
 {
 	int ret;
 	uint32_t subcmd = DEVICE_CONFIG_SUB_CMD_GET;
@@ -2040,7 +2040,39 @@ int switchtec_device_config_get(struct switchtec_dev *dev,
 	}
 
 	ret = switchtec_mfg_cmd(dev, MRPC_DEVICE_CONFIG, &subcmd, sizeof(subcmd),
+				settings, sizeof(*settings));
+	return ret;
+}
+
+int switchtec_device_config_get_security(struct switchtec_dev *dev,
+					 struct switchtec_device_config_get_sec *config)
+{
+	int ret;
+	uint32_t subcmd = DEVICE_CONFIG_SUB_CMD_GET_SECURITY;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DEVICE_CONFIG, &subcmd, sizeof(subcmd),
 				config, sizeof(*config));
+	return ret;
+}
+
+int switchtec_device_config_get_customer(struct switchtec_dev *dev,
+					 struct switchtec_device_config_customer_settings *settings)
+{
+	int ret;
+	uint32_t subcmd = DEVICE_CONFIG_SUB_CMD_GET_CUSTOMER;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DEVICE_CONFIG, &subcmd, sizeof(subcmd),
+				settings, sizeof(*settings));
 	return ret;
 }
 
