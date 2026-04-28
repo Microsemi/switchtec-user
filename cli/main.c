@@ -206,14 +206,15 @@ static int print_dev_info(struct switchtec_dev *dev)
 		switchtec_perror("dev info");
 		return ret;
 	}
-	if (switchtec_is_gen5(dev)) {
-		switchtec_get_device_version(dev, &dev_ver);
+	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev)) {
+		ret = switchtec_get_device_version(dev, &dev_ver);
 		if (ret) {
 			switchtec_perror("dev version");
 			return ret;
 		}
 		minor_ver = ((dev_ver >> 0x10) & 0xFF);
-		sprintf(minor_str, ".%d", minor_ver);
+		if (minor_ver)
+			sprintf(minor_str, ".%d", minor_ver);
 	}
 
 	printf("%s (%s):\n", switchtec_name(dev),
