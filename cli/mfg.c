@@ -1842,21 +1842,19 @@ static void print_device_config(struct switchtec_device_config_get *config)
 	}
 }
 
-#define CMD_DESC_DEVICE_CONFIG "get or set device configuration (Gen6 only)"
+#define CMD_DESC_DEVICE_CONFIG_GET "get device configuration (Gen6 only)"
 
-static int device_config(int argc, char **argv)
+static int device_config_get(int argc, char **argv)
 {
 	int ret;
 	struct switchtec_device_config_get config = {};
 
-	const char *desc = CMD_DESC_DEVICE_CONFIG "\n\n"
-			   "This command retrieves or sets the device configuration "
-			   "on Gen6 devices. The device configuration includes:\n"
+	const char *desc = CMD_DESC_DEVICE_CONFIG_GET "\n\n"
+			   "This command retrieves the device configuration "
+			   "from Gen6 devices. The device configuration includes:\n"
 			   "  - Device settings (TWI/I3C addresses)\n"
 			   "  - Customer settings (PSID, PCI IDs)\n"
-			   "  - Security settings (token disable, boot modes)\n\n"
-			   "Currently only 'get' operation is supported via CLI.\n"
-			   "WARNING: Set operations modify OTP and may be IRREVERSIBLE.";
+			   "  - Security settings (token disable, boot modes)\n";
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1876,7 +1874,7 @@ static int device_config(int argc, char **argv)
 
 	ret = switchtec_device_config_get(cfg.dev, &config);
 	if (ret) {
-		switchtec_perror("mfg device-config");
+		switchtec_perror("mfg device-config-get");
 		return ret;
 	}
 
@@ -2473,6 +2471,82 @@ static int parse_hex_string(const char *hex, uint32_t *out, int dwords)
 	return 0;
 }
 
+#if HAVE_LIBCRYPTO
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
+#include <openssl/sha.h>
+
+static int compute_rsa4k_hash(FILE *key_file, uint32_t *hash)
+{
+	EVP_PKEY *pkey = NULL;
+	uint8_t pubkey_data[512] = {0};
+	uint8_t hash_bytes[64];
+	size_t pubkey_len = 0;
+	int ret = -1;
+	BIGNUM *n = NULL;
+
+	pkey = PEM_read_PUBKEY(key_file, NULL, NULL, NULL);
+	if (!pkey) {
+		fseek(key_file, 0L, SEEK_SET);
+		pkey = PEM_read_PrivateKey(key_file, NULL, NULL, NULL);
+		if (!pkey) {
+			fprintf(stderr, "Failed to read PEM key file!\n");
+			return -1;
+		}
+	}
+
+	if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA) {
+		fprintf(stderr, "Key must be RSA! Got key type: %d\n",
+			EVP_PKEY_base_id(pkey));
+		goto cleanup;
+	}
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	EVP_PKEY_get_bn_param(pkey, "n", &n);
+#else
+	{
+		const RSA *rsa = EVP_PKEY_get0_RSA(pkey);
+		if (rsa) {
+			const BIGNUM *n_tmp;
+			RSA_get0_key(rsa, &n_tmp, NULL, NULL);
+			n = BN_dup(n_tmp);
+		}
+	}
+#endif
+	if (!n) {
+		fprintf(stderr, "Failed to extract RSA modulus!\n");
+		goto cleanup;
+	}
+
+	pubkey_len = BN_num_bytes(n);
+
+	if (pubkey_len != 512) {
+		fprintf(stderr, "Key must be RSA 4096-bit! Got %zu-bit key.\n",
+			pubkey_len * 8);
+		BN_free(n);
+		goto cleanup;
+	}
+
+	BN_bn2bin(n, pubkey_data);
+	BN_free(n);
+
+	SHA512(pubkey_data, 512, hash_bytes);
+
+	for (int i = 0; i < 16; i++) {
+		hash[i] = ((uint32_t)hash_bytes[i*4 + 3] << 24) |
+			  ((uint32_t)hash_bytes[i*4 + 2] << 16) |
+			  ((uint32_t)hash_bytes[i*4 + 1] << 8) |
+			  ((uint32_t)hash_bytes[i*4 + 0]);
+	}
+
+	ret = 0;
+
+cleanup:
+	EVP_PKEY_free(pkey);
+	return ret;
+}
+
 #define CMD_DESC_DOK_KEY_ADD "add DOK key entry (Gen6 only)"
 
 static int dok_key_add(int argc, char **argv)
@@ -2481,9 +2555,12 @@ static int dok_key_add(int argc, char **argv)
 	size_t sig_len;
 	struct switchtec_dok_signature sig = {};
 	struct switchtec_dok_key_add key_add = {};
+	uint32_t computed_hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
+	char hash_str[129];
 
 	const char *desc = CMD_DESC_DOK_KEY_ADD "\n\n"
 			   "Add a Device Owner Key (DOK) entry to OTP.\n"
+			   "Requires an RSA 4096-bit key file (PEM format, public or private).\n"
 			   "A signature file is required for authorization.\n\n"
 			   "WARNING: This operation modifies OTP and is IRREVERSIBLE!";
 
@@ -2493,9 +2570,8 @@ static int dok_key_add(int argc, char **argv)
 		unsigned long uid_psid_type;
 		char *uid_hex;
 		char *psid_hex;
-		char *key_hash_hex;
+		FILE *key_fimg;
 		FILE *sig_fimg;
-		char *sig_file;
 		unsigned long sig_type;
 		int assume_yes;
 	} cfg = {};
@@ -2510,8 +2586,10 @@ static int dok_key_add(int argc, char **argv)
 			required_argument, "UID hex string (512-bit, 128 hex chars)"},
 		{"psid", 'p', "", CFG_STRING, &cfg.psid_hex,
 			required_argument, "PSID hex string (128-bit, 32 hex chars)"},
-		{"key-hash", 'h', "", CFG_STRING, &cfg.key_hash_hex,
-			required_argument, "key hash hex string (SHA2-512, 128 hex chars)"},
+		{"key", 'K', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.key_fimg,
+			.argument_type=required_argument,
+			.help="RSA 4096-bit key file (PEM format, public or private)"},
 		{"signature", 's', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.sig_fimg,
 			.argument_type=required_argument,
@@ -2535,8 +2613,8 @@ static int dok_key_add(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.key_hash_hex == NULL) {
-		fprintf(stderr, "Key hash is required!\n");
+	if (cfg.key_fimg == NULL) {
+		fprintf(stderr, "RSA 4096-bit key file is required (--key)!\n");
 		return -1;
 	}
 
@@ -2544,6 +2622,18 @@ static int dok_key_add(int argc, char **argv)
 		fprintf(stderr, "Signature file is required!\n");
 		return -1;
 	}
+
+	/* Compute key hash from RSA 4096-bit key */
+	ret = compute_rsa4k_hash(cfg.key_fimg, computed_hash);
+	fclose(cfg.key_fimg);
+	if (ret)
+		return -2;
+
+	memcpy(key_add.key_hash, computed_hash, sizeof(computed_hash));
+
+	for (int i = 0; i < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; i++)
+		sprintf(hash_str + i * 8, "%08x", be32toh(computed_hash[i]));
+	hash_str[128] = '\0';
 
 	/* Read signature file */
 	sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
@@ -2562,12 +2652,12 @@ static int dok_key_add(int argc, char **argv)
 		parse_hex_string(cfg.uid_hex, key_add.uid, SWITCHTEC_UID_LEN_DWORDS);
 	if (cfg.psid_hex)
 		parse_hex_string(cfg.psid_hex, key_add.psid, SWITCHTEC_PSID_LEN_DWORDS);
-	parse_hex_string(cfg.key_hash_hex, key_add.key_hash, DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS);
 
 	printf("Adding DOK key entry:\n");
 	printf("  Key Slot:        %lu\n", cfg.key_slot);
 	printf("  UID/PSID Type:   %lu\n", cfg.uid_psid_type);
-	printf("  Key Hash:        %s\n", cfg.key_hash_hex);
+	printf("  Key Type:        RSA4K\n");
+	printf("  Key Hash:        %s\n", hash_str);
 	printf("  Signature Size:  %zu bytes\n", sig_len);
 
 	if (!cfg.assume_yes) {
@@ -2602,6 +2692,7 @@ static int dok_key_add(int argc, char **argv)
 	printf("DOK key entry added successfully.\n");
 	return 0;
 }
+#endif /* HAVE_LIBCRYPTO */
 
 #define CMD_DESC_DOK_KEY_REVOKE "revoke DOK key entry (Gen6 only)"
 
@@ -2736,11 +2827,13 @@ static const struct cmd commands[] = {
 	CMD(config_set, CMD_DESC_CONFIG_SET),
 	CMD(kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD),
 	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
-	CMD(device_config, CMD_DESC_DEVICE_CONFIG),
+	CMD(device_config_get, CMD_DESC_DEVICE_CONFIG_GET),
 	CMD(device_config_set_device, CMD_DESC_DEVICE_CONFIG_SET_DEVICE),
 	CMD(device_config_set_customer, CMD_DESC_DEVICE_CONFIG_SET_CUSTOMER),
 	CMD(device_config_set_security, CMD_DESC_DEVICE_CONFIG_SET_SECURITY),
+#if HAVE_LIBCRYPTO
 	CMD(dok_key_add, CMD_DESC_DOK_KEY_ADD),
+#endif
 	CMD(dok_key_revoke, CMD_DESC_DOK_KEY_REVOKE),
 	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
 	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
