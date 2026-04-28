@@ -1727,6 +1727,1002 @@ static int debug_unlock_token(int argc, char **argv)
 	return 0;
 }
 
+static const char *status_str(uint32_t status)
+{
+	switch (status) {
+	case PROGRAMMED:
+		return "Programmed";
+	case REVOKED:
+		return "Revoked";
+	case UNPROGRAMMED:
+	default:
+		return "Available";
+	}
+}
+
+static void print_device_config(struct switchtec_device_config_get *config)
+{
+	int i, j;
+	bool all_zero;
+
+	printf("\n--Device Configuration State--\n");
+	printf("Device Config Programmed:\t\t%s\n",
+	       config->config_state.dev_config_prog ? "Yes" : "No");
+	printf("Customer Config Programmed:\t\t%s\n",
+	       config->config_state.customer_config_prog ? "Yes" : "No");
+	printf("Security Config Programmed:\t\t%s\n",
+	       config->config_state.security_config_prog ? "Yes" : "No");
+
+	printf("\n--Device Settings--\n");
+	printf("TWI OCP Address (7-bits):\t\t0x%02X\n",
+	       config->dev_settings.twi_ocp_addr);
+	printf("TWI MRPC Address (7-bits):\t\t0x%02X\n",
+	       config->dev_settings.twi_mrpc_addr);
+	printf("TWI Recovery Address Type:\t\t%d\n",
+	       config->dev_settings.twi_rcvry_addr_type);
+	printf("TWI Recovery Bus:\t\t\t%d\n",
+	       config->dev_settings.twi_rcvry_bus);
+	printf("I3C PID:\t\t\t\t0x%08x%04x\n",
+	       config->dev_settings.i3c_pid_hi,
+	       config->dev_settings.i3c_pid_lo);
+	printf("I3C Address (7-bits):\t\t\t0x%02X\n",
+	       config->dev_settings.i3c_addr_7bit);
+	printf("I3C Recovery Bus:\t\t\t%d\n",
+	       config->dev_settings.i3c_rcvry_bus);
+
+	printf("\n--Customer Settings--\n");
+	printf("PSID0 Status:\t\t\t\t%s\n",
+	       status_str(config->customer_settings.psid0_status));
+	printf("PSID0:\t\t\t\t\t");
+	all_zero = true;
+	for (i = 0; i < SWITCHTEC_PSID_LEN_DWORDS; i++) {
+		if (config->customer_settings.psid0[i] != 0)
+			all_zero = false;
+	}
+	if (all_zero && config->customer_settings.psid0_status != PROGRAMMED) {
+		printf("Available\n");
+	} else {
+		for (i = 0; i < SWITCHTEC_PSID_LEN_DWORDS; i++)
+			printf("%08x", be32toh(config->customer_settings.psid0[i]));
+		printf("\n");
+	}
+	printf("Device ID:\t\t\t\t0x%04X\n",
+	       config->customer_settings.device_id);
+	printf("Vendor ID:\t\t\t\t0x%04X\n",
+	       config->customer_settings.vendor_id);
+	printf("Revision ID:\t\t\t\t0x%02X\n",
+	       config->customer_settings.revision_id);
+	printf("Subsystem ID:\t\t\t\t0x%04X\n",
+	       config->customer_settings.subsystem_id);
+	printf("Subsystem Vendor ID:\t\t\t0x%04X\n",
+	       config->customer_settings.subsystem_vendor_id);
+
+	printf("\n--Security Settings--\n");
+	printf("Command Map:\t\t\t\t0x%03X\n",
+	       config->secure_settings.command_map & 0xFFF);
+	printf("Static Token Disable:\t\t\t%s\n",
+	       config->secure_settings.static_token_disable ? "Yes" : "No");
+	printf("PSID Only Token Disable:\t\t%s\n",
+	       config->secure_settings.psid_only_token_disable ? "Yes" : "No");
+	printf("UID Only Token Disable:\t\t\t%s\n",
+	       config->secure_settings.uid_only_token_disable ? "Yes" : "No");
+	printf("PSID+UID Token Disable:\t\t\t%s\n",
+	       config->secure_settings.psid_uid_token_disable ? "Yes" : "No");
+	printf("Boot from UART Disable:\t\t\t%s\n",
+	       config->secure_settings.boot_from_uart_disable ? "Yes" : "No");
+	printf("Boot from SMBus Disable:\t\t%s\n",
+	       config->secure_settings.boot_from_smbus_disable ? "Yes" : "No");
+	printf("Boot from I3C Disable:\t\t\t%s\n",
+	       config->secure_settings.boot_from_i3c_disable ? "Yes" : "No");
+	printf("Failover to UART Disable:\t\t%s\n",
+	       config->secure_settings.failover_to_uart_disable ? "Yes" : "No");
+	printf("Failover to SMBus Disable:\t\t%s\n",
+	       config->secure_settings.failover_to_smbus_disable ? "Yes" : "No");
+	printf("Failover to I3C Disable:\t\t%s\n",
+	       config->secure_settings.failover_to_i3c_disable ? "Yes" : "No");
+
+	for (i = 0; i < (int)config->secure_settings.key_prog_num &&
+		    i < DEVICE_CONFIG_MAX_KEY_SLOTS; i++) {
+		uint32_t key_status = config->secure_settings.key_data[i].status;
+
+		printf("OTP Key%d Hash:\t\t\t\t", i + 1);
+
+		if (key_status == PROGRAMMED) {
+			for (j = 0; j < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; j++) {
+				if (j && (j % 8) == 0)
+					printf("\n\t\t\t\t\t");
+				printf("%08x", be32toh(config->secure_settings.key_data[i].hash[j]));
+			}
+			printf("\n");
+		} else if (key_status == REVOKED) {
+			printf("Revoked\n");
+		} else {
+			printf("Available\n");
+		}
+	}
+}
+
+#define CMD_DESC_DEVICE_CONFIG "get or set device configuration (Gen6 only)"
+
+static int device_config(int argc, char **argv)
+{
+	int ret;
+	struct switchtec_device_config_get config = {};
+
+	const char *desc = CMD_DESC_DEVICE_CONFIG "\n\n"
+			   "This command retrieves or sets the device configuration "
+			   "on Gen6 devices. The device configuration includes:\n"
+			   "  - Device settings (TWI/I3C addresses)\n"
+			   "  - Customer settings (PSID, PCI IDs)\n"
+			   "  - Security settings (token disable, boot modes)\n\n"
+			   "Currently only 'get' operation is supported via CLI.\n"
+			   "WARNING: Set operations modify OTP and may be IRREVERSIBLE.";
+
+	static struct {
+		struct switchtec_dev *dev;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG_PCI,
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "This command is only supported on Gen6 devices!\n");
+		return -1;
+	}
+
+	ret = switchtec_device_config_get(cfg.dev, &config);
+	if (ret) {
+		switchtec_perror("mfg device-config");
+		return ret;
+	}
+
+	print_device_config(&config);
+
+	return 0;
+}
+
+#define CMD_DESC_DEVICE_CONFIG_SET_DEVICE "set device settings (Gen6 only)"
+
+static int device_config_set_device(int argc, char **argv)
+{
+	int ret;
+	struct switchtec_device_config_dev_settings settings = {};
+	FILE *fp;
+	size_t nread;
+
+	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_DEVICE "\n\n"
+			   "Set device settings including TWI and I3C addresses.\n"
+			   "Use -f to load settings from a binary file.\n\n"
+			   "WARNING: This operation modifies OTP and may be IRREVERSIBLE!";
+
+	static struct {
+		struct switchtec_dev *dev;
+		const char *input_file;
+		unsigned long twi_ocp_addr;
+		unsigned long twi_mrpc_addr;
+		unsigned long twi_rcvry_addr_type;
+		unsigned long twi_rcvry_bus;
+		unsigned long i3c_pid_hi;
+		unsigned long i3c_pid_lo;
+		unsigned long i3c_addr_7bit;
+		unsigned long i3c_rcvry_bus;
+		int assume_yes;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG_PCI,
+		{"file", 'f', "", CFG_STRING, &cfg.input_file,
+			required_argument, "binary input file (mutually exclusive with other options)"},
+		{"twi-ocp-addr", 'o', "", CFG_LONG, &cfg.twi_ocp_addr,
+			required_argument, "TWI OCP address (10-bit)"},
+		{"twi-mrpc-addr", 'm', "", CFG_LONG, &cfg.twi_mrpc_addr,
+			required_argument, "TWI MRPC address (10-bit)"},
+		{"twi-addr-type", 't', "", CFG_LONG, &cfg.twi_rcvry_addr_type,
+			required_argument, "TWI recovery address type (0-3)"},
+		{"twi-bus", 'b', "", CFG_LONG, &cfg.twi_rcvry_bus,
+			required_argument, "TWI recovery bus (0-3)"},
+		{"i3c-pid-hi", 'H', "", CFG_LONG, &cfg.i3c_pid_hi,
+			required_argument, "I3C PID high bits [47:16]"},
+		{"i3c-pid-lo", 'L', "", CFG_LONG, &cfg.i3c_pid_lo,
+			required_argument, "I3C PID low bits [15:0]"},
+		{"i3c-addr", 'a', "", CFG_LONG, &cfg.i3c_addr_7bit,
+			required_argument, "I3C 7-bit address"},
+		{"i3c-bus", 'i', "", CFG_LONG, &cfg.i3c_rcvry_bus,
+			required_argument, "I3C recovery bus (0-3)"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "This command is only supported on Gen6 devices!\n");
+		return -1;
+	}
+
+	if (cfg.input_file) {
+		if (cfg.twi_ocp_addr || cfg.twi_mrpc_addr || cfg.twi_rcvry_addr_type ||
+		    cfg.twi_rcvry_bus || cfg.i3c_pid_hi || cfg.i3c_pid_lo ||
+		    cfg.i3c_addr_7bit || cfg.i3c_rcvry_bus) {
+			fprintf(stderr, "Error: -f option is mutually exclusive with other setting options\n");
+			return -1;
+		}
+
+		fp = fopen(cfg.input_file, "rb");
+		if (!fp) {
+			perror(cfg.input_file);
+			return -1;
+		}
+
+		nread = fread(&settings, 1, sizeof(settings), fp);
+		fclose(fp);
+
+		if (nread != sizeof(settings)) {
+			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
+				sizeof(settings), nread);
+			return -1;
+		}
+		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+	} else {
+		settings.twi_ocp_addr = cfg.twi_ocp_addr & 0x3FF;
+		settings.twi_mrpc_addr = cfg.twi_mrpc_addr & 0x3FF;
+		settings.twi_rcvry_addr_type = cfg.twi_rcvry_addr_type & 0x3;
+		settings.twi_rcvry_bus = cfg.twi_rcvry_bus & 0x3;
+		settings.i3c_pid_hi = cfg.i3c_pid_hi;
+		settings.i3c_pid_lo = cfg.i3c_pid_lo & 0xFFFF;
+		settings.i3c_addr_7bit = cfg.i3c_addr_7bit & 0x7F;
+		settings.i3c_rcvry_bus = cfg.i3c_rcvry_bus & 0x3;
+	}
+
+	printf("Setting device configuration:\n");
+	printf("  TWI OCP Address:        0x%03x\n", settings.twi_ocp_addr);
+	printf("  TWI MRPC Address:       0x%03x\n", settings.twi_mrpc_addr);
+	printf("  TWI Recovery Addr Type: %d\n", settings.twi_rcvry_addr_type);
+	printf("  TWI Recovery Bus:       %d\n", settings.twi_rcvry_bus);
+	printf("  I3C PID:                0x%08x%04x\n",
+	       settings.i3c_pid_hi, settings.i3c_pid_lo);
+	printf("  I3C 7-bit Address:      0x%02x\n", settings.i3c_addr_7bit);
+	printf("  I3C Recovery Bus:       %d\n", settings.i3c_rcvry_bus);
+
+	if (!cfg.assume_yes) {
+		fprintf(stderr,
+			"\nWARNING: This operation modifies OTP and may be IRREVERSIBLE!\n");
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret)
+			return -2;
+	}
+
+	ret = switchtec_device_config_set_dev(cfg.dev, &settings);
+	if (ret) {
+		switchtec_perror("mfg device-config-set-dev");
+		return ret;
+	}
+
+	printf("Device settings programmed successfully.\n");
+	return 0;
+}
+
+#define CMD_DESC_DEVICE_CONFIG_SET_CUSTOMER "set customer settings (Gen6 only)"
+
+static int device_config_set_customer(int argc, char **argv)
+{
+	int ret;
+	struct switchtec_device_config_customer_settings settings = {};
+	FILE *fp;
+	size_t nread;
+
+	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_CUSTOMER "\n\n"
+			   "Set customer settings including PSID and PCI IDs.\n"
+			   "Use -f to load settings from a binary file.\n\n"
+			   "WARNING: This operation modifies OTP and may be IRREVERSIBLE!";
+
+	static struct {
+		struct switchtec_dev *dev;
+		const char *input_file;
+		unsigned long psid0_0;
+		unsigned long psid0_1;
+		unsigned long psid0_2;
+		unsigned long psid0_3;
+		unsigned long psid0_status;
+		unsigned long device_id;
+		unsigned long vendor_id;
+		unsigned long revision_id;
+		unsigned long subsystem_id;
+		unsigned long subsystem_vendor_id;
+		int assume_yes;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG_PCI,
+		{"file", 'f', "", CFG_STRING, &cfg.input_file,
+			required_argument, "binary input file (mutually exclusive with other options)"},
+		{"psid0-0", '0', "", CFG_LONG, &cfg.psid0_0,
+			required_argument, "PSID0 DWORD 0"},
+		{"psid0-1", '1', "", CFG_LONG, &cfg.psid0_1,
+			required_argument, "PSID0 DWORD 1"},
+		{"psid0-2", '2', "", CFG_LONG, &cfg.psid0_2,
+			required_argument, "PSID0 DWORD 2"},
+		{"psid0-3", '3', "", CFG_LONG, &cfg.psid0_3,
+			required_argument, "PSID0 DWORD 3"},
+		{"device-id", 'd', "", CFG_LONG, &cfg.device_id,
+			required_argument, "PCI Device ID"},
+		{"vendor-id", 'v', "", CFG_LONG, &cfg.vendor_id,
+			required_argument, "PCI Vendor ID"},
+		{"revision-id", 'r', "", CFG_LONG, &cfg.revision_id,
+			required_argument, "PCI Revision ID"},
+		{"subsystem-id", 's', "", CFG_LONG, &cfg.subsystem_id,
+			required_argument, "PCI Subsystem ID"},
+		{"subsystem-vendor-id", 'S', "", CFG_LONG, &cfg.subsystem_vendor_id,
+			required_argument, "PCI Subsystem Vendor ID"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "This command is only supported on Gen6 devices!\n");
+		return -1;
+	}
+
+	if (cfg.input_file) {
+		if (cfg.psid0_0 || cfg.psid0_1 || cfg.psid0_2 || cfg.psid0_3 ||
+		    cfg.psid0_status || cfg.device_id || cfg.vendor_id ||
+		    cfg.revision_id || cfg.subsystem_id || cfg.subsystem_vendor_id) {
+			fprintf(stderr, "Error: -f option is mutually exclusive with other setting options\n");
+			return -1;
+		}
+
+		fp = fopen(cfg.input_file, "rb");
+		if (!fp) {
+			perror(cfg.input_file);
+			return -1;
+		}
+
+		nread = fread(&settings, 1, sizeof(settings), fp);
+		fclose(fp);
+
+		if (nread != sizeof(settings)) {
+			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
+				sizeof(settings), nread);
+			return -1;
+		}
+		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+	} else {
+		settings.psid0[0] = cfg.psid0_0;
+		settings.psid0[1] = cfg.psid0_1;
+		settings.psid0[2] = cfg.psid0_2;
+		settings.psid0[3] = cfg.psid0_3;
+		settings.psid0_status = cfg.psid0_status & 0x3;
+		settings.device_id = cfg.device_id & 0xFFFF;
+		settings.vendor_id = cfg.vendor_id & 0xFFFF;
+		settings.revision_id = cfg.revision_id & 0xFFFF;
+		settings.subsystem_id = cfg.subsystem_id & 0xFFFF;
+		settings.subsystem_vendor_id = cfg.subsystem_vendor_id & 0xFFFF;
+	}
+
+	printf("Setting customer configuration:\n");
+	printf("  PSID0:                0x%08lx%08lx%08lx%08lx (status=%d)\n",
+	       cfg.psid0_3, cfg.psid0_2, cfg.psid0_1, cfg.psid0_0,
+	       settings.psid0_status);
+	printf("  Device ID:            0x%04x\n", settings.device_id);
+	printf("  Vendor ID:            0x%04x\n", settings.vendor_id);
+	printf("  Revision ID:          0x%04x\n", settings.revision_id);
+	printf("  Subsystem ID:         0x%04x\n", settings.subsystem_id);
+	printf("  Subsystem Vendor ID:  0x%04x\n", settings.subsystem_vendor_id);
+
+	if (!cfg.assume_yes) {
+		fprintf(stderr,
+			"\nWARNING: This operation modifies OTP and may be IRREVERSIBLE!\n");
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret)
+			return -2;
+	}
+
+	ret = switchtec_device_config_set_customer(cfg.dev, &settings);
+	if (ret) {
+		switchtec_perror("mfg device-config-set-customer");
+		return ret;
+	}
+
+	printf("Customer settings programmed successfully.\n");
+	return 0;
+}
+
+#define CMD_DESC_DEVICE_CONFIG_SET_SECURITY "set security settings (Gen6 only)"
+
+static int parse_key_hash(const char *hex, uint32_t *out)
+{
+	int i;
+	char buf[9];
+	int len;
+
+	if (!hex || !out)
+		return -1;
+
+	len = strlen(hex);
+	if (len != 128) {
+		fprintf(stderr, "Key hash must be 128 hex characters (512 bits), got %d\n", len);
+		return -1;
+	}
+
+	for (i = 0; i < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; i++) {
+		memcpy(buf, &hex[i * 8], 8);
+		buf[8] = '\0';
+		out[i] = strtoul(buf, NULL, 16);
+	}
+	return 0;
+}
+
+static int device_config_set_security(int argc, char **argv)
+{
+	int ret, i, j;
+	int key_count = 0;
+	struct switchtec_device_config_secure_settings settings = {};
+	FILE *fp;
+	size_t nread;
+
+	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_SECURITY "\n\n"
+			   "Set security settings including command map, token disable flags,\n"
+			   "boot/failover disable flags, and OTP key hashes.\n"
+			   "Use -f to load settings from a binary file.\n\n"
+			   "Key hash format: 128 hex characters (512-bit SHA2-512 hash)\n\n"
+			   "WARNING: This operation modifies OTP and may be IRREVERSIBLE!";
+
+	static struct {
+		struct switchtec_dev *dev;
+		const char *input_file;
+		unsigned long command_map;
+		int static_token_disable;
+		int psid_only_token_disable;
+		int uid_only_token_disable;
+		int psid_uid_token_disable;
+		int boot_from_uart_disable;
+		int boot_from_smbus_disable;
+		int boot_from_i3c_disable;
+		int failover_to_uart_disable;
+		int failover_to_smbus_disable;
+		int failover_to_i3c_disable;
+		const char *key1_hash;
+		const char *key2_hash;
+		const char *key3_hash;
+		const char *key4_hash;
+		const char *key5_hash;
+		const char *key6_hash;
+		const char *key7_hash;
+		const char *key8_hash;
+		const char *key9_hash;
+		const char *key10_hash;
+		const char *key11_hash;
+		const char *key12_hash;
+		unsigned long key1_status;
+		unsigned long key2_status;
+		unsigned long key3_status;
+		unsigned long key4_status;
+		unsigned long key5_status;
+		unsigned long key6_status;
+		unsigned long key7_status;
+		unsigned long key8_status;
+		unsigned long key9_status;
+		unsigned long key10_status;
+		unsigned long key11_status;
+		unsigned long key12_status;
+		int assume_yes;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG_PCI,
+		{"file", 'f', "", CFG_STRING, &cfg.input_file,
+			required_argument, "binary input file (mutually exclusive with other options)"},
+		{"command-map", 'c', "", CFG_LONG, &cfg.command_map,
+			required_argument, "MRPC command map (12-bit)"},
+		{"static-token-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.static_token_disable, .argument_type=no_argument,
+			.help="disable static debug token"},
+		{"psid-only-token-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.psid_only_token_disable, .argument_type=no_argument,
+			.help="disable PSID-only token"},
+		{"uid-only-token-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.uid_only_token_disable, .argument_type=no_argument,
+			.help="disable UID-only token"},
+		{"psid-uid-token-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.psid_uid_token_disable, .argument_type=no_argument,
+			.help="disable PSID+UID token"},
+		{"boot-uart-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.boot_from_uart_disable, .argument_type=no_argument,
+			.help="disable boot from UART"},
+		{"boot-smbus-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.boot_from_smbus_disable, .argument_type=no_argument,
+			.help="disable boot from SMBus"},
+		{"boot-i3c-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.boot_from_i3c_disable, .argument_type=no_argument,
+			.help="disable boot from I3C"},
+		{"failover-uart-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.failover_to_uart_disable, .argument_type=no_argument,
+			.help="disable failover to UART"},
+		{"failover-smbus-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.failover_to_smbus_disable, .argument_type=no_argument,
+			.help="disable failover to SMBus"},
+		{"failover-i3c-disable", .cfg_type=CFG_NONE,
+			.value_addr=&cfg.failover_to_i3c_disable, .argument_type=no_argument,
+			.help="disable failover to I3C"},
+		{"key1-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key1_hash,
+			.argument_type=required_argument, .help="Key 1 hash (128 hex chars)"},
+		{"key1-status", .cfg_type=CFG_LONG, .value_addr=&cfg.key1_status,
+			.argument_type=required_argument, .help="Key 1 status (0-3)"},
+		{"key2-hash", .cfg_type=CFG_STRING, .value_addr=&cfg.key2_hash,
+			.argument_type=required_argument, .help="Key 2 hash (128 hex chars)"},
+		{"key2-status", .cfg_type=CFG_LONG, .value_addr=&cfg.key2_status,
+			.argument_type=required_argument, .help="Key 2 status (0-3)"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}
+	};
+
+	const char **key_hashes[12] = {
+		&cfg.key1_hash, &cfg.key2_hash, &cfg.key3_hash, &cfg.key4_hash,
+		&cfg.key5_hash, &cfg.key6_hash, &cfg.key7_hash, &cfg.key8_hash,
+		&cfg.key9_hash, &cfg.key10_hash, &cfg.key11_hash, &cfg.key12_hash
+	};
+	unsigned long *key_statuses[12] = {
+		&cfg.key1_status, &cfg.key2_status, &cfg.key3_status, &cfg.key4_status,
+		&cfg.key5_status, &cfg.key6_status, &cfg.key7_status, &cfg.key8_status,
+		&cfg.key9_status, &cfg.key10_status, &cfg.key11_status, &cfg.key12_status
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "This command is only supported on Gen6 devices!\n");
+		return -1;
+	}
+
+	if (cfg.input_file) {
+		fp = fopen(cfg.input_file, "rb");
+		if (!fp) {
+			perror(cfg.input_file);
+			return -1;
+		}
+
+		nread = fread(&settings, 1, sizeof(settings), fp);
+		fclose(fp);
+
+		if (nread != sizeof(settings)) {
+			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
+				sizeof(settings), nread);
+			return -1;
+		}
+		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+		key_count = settings.key_prog_num;
+	} else {
+		settings.command_map = cfg.command_map & 0xFFF;
+		settings.static_token_disable = cfg.static_token_disable ? 1 : 0;
+		settings.psid_only_token_disable = cfg.psid_only_token_disable ? 1 : 0;
+		settings.uid_only_token_disable = cfg.uid_only_token_disable ? 1 : 0;
+		settings.psid_uid_token_disable = cfg.psid_uid_token_disable ? 1 : 0;
+		settings.boot_from_uart_disable = cfg.boot_from_uart_disable ? 1 : 0;
+		settings.boot_from_smbus_disable = cfg.boot_from_smbus_disable ? 1 : 0;
+		settings.boot_from_i3c_disable = cfg.boot_from_i3c_disable ? 1 : 0;
+		settings.failover_to_uart_disable = cfg.failover_to_uart_disable ? 1 : 0;
+		settings.failover_to_smbus_disable = cfg.failover_to_smbus_disable ? 1 : 0;
+		settings.failover_to_i3c_disable = cfg.failover_to_i3c_disable ? 1 : 0;
+
+		for (i = 0; i < 12; i++) {
+			if (*key_hashes[i]) {
+				ret = parse_key_hash(*key_hashes[i], settings.key_data[key_count].hash);
+				if (ret) {
+					fprintf(stderr, "Invalid key%d hash\n", i + 1);
+					return -1;
+				}
+				settings.key_data[key_count].index = i;
+				settings.key_data[key_count].status = *key_statuses[i] & 0x3;
+				key_count++;
+			}
+		}
+		settings.key_prog_num = key_count;
+	}
+
+	printf("Setting security configuration:\n");
+	printf("  Command Map:              0x%03x\n", settings.command_map);
+	printf("  Static Token Disable:     %d\n", settings.static_token_disable);
+	printf("  PSID Only Token Disable:  %d\n", settings.psid_only_token_disable);
+	printf("  UID Only Token Disable:   %d\n", settings.uid_only_token_disable);
+	printf("  PSID+UID Token Disable:   %d\n", settings.psid_uid_token_disable);
+	printf("  Boot from UART Disable:   %d\n", settings.boot_from_uart_disable);
+	printf("  Boot from SMBus Disable:  %d\n", settings.boot_from_smbus_disable);
+	printf("  Boot from I3C Disable:    %d\n", settings.boot_from_i3c_disable);
+	printf("  Failover to UART Disable: %d\n", settings.failover_to_uart_disable);
+	printf("  Failover to SMBus Disable: %d\n", settings.failover_to_smbus_disable);
+	printf("  Failover to I3C Disable:  %d\n", settings.failover_to_i3c_disable);
+	printf("  Keys to program:          %d\n", key_count);
+	for (i = 0; i < key_count; i++) {
+		printf("  Key%d (status=%d):         ", settings.key_data[i].index + 1,
+		       settings.key_data[i].status);
+		for (j = 0; j < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; j++) {
+			if (j == 8)
+				printf("\n                            ");
+			printf("%08x", settings.key_data[i].hash[j]);
+		}
+		printf("\n");
+	}
+
+	if (!cfg.assume_yes) {
+		fprintf(stderr,
+			"\nWARNING: This operation modifies OTP and may be IRREVERSIBLE!\n");
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret)
+			return -2;
+	}
+
+	ret = switchtec_device_config_set_security(cfg.dev, &settings);
+	if (ret) {
+		switchtec_perror("mfg device-config-set-security");
+		return ret;
+	}
+
+	printf("Security settings programmed successfully.\n");
+	return 0;
+}
+
+/* PMC CRC32 lookup table - polynomial 0x04C11DB7 (MSB first) */
+static const uint32_t crc32_tab[256] = {
+	0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9,
+	0x130476dc, 0x17c56b6b, 0x1a864db2, 0x1e475005,
+	0x2608edb8, 0x22c9f00f, 0x2f8ad6d6, 0x2b4bcb61,
+	0x350c9b64, 0x31cd86d3, 0x3c8ea00a, 0x384fbdbd,
+	0x4c11db70, 0x48d0c6c7, 0x4593e01e, 0x4152fda9,
+	0x5f15adac, 0x5bd4b01b, 0x569796c2, 0x52568b75,
+	0x6a1936c8, 0x6ed82b7f, 0x639b0da6, 0x675a1011,
+	0x791d4014, 0x7ddc5da3, 0x709f7b7a, 0x745e66cd,
+	0x9823b6e0, 0x9ce2ab57, 0x91a18d8e, 0x95609039,
+	0x8b27c03c, 0x8fe6dd8b, 0x82a5fb52, 0x8664e6e5,
+	0xbe2b5b58, 0xbaea46ef, 0xb7a96036, 0xb3687d81,
+	0xad2f2d84, 0xa9ee3033, 0xa4ad16ea, 0xa06c0b5d,
+	0xd4326d90, 0xd0f37027, 0xddb056fe, 0xd9714b49,
+	0xc7361b4c, 0xc3f706fb, 0xceb42022, 0xca753d95,
+	0xf23a8028, 0xf6fb9d9f, 0xfbb8bb46, 0xff79a6f1,
+	0xe13ef6f4, 0xe5ffeb43, 0xe8bccd9a, 0xec7dd02d,
+	0x34867077, 0x30476dc0, 0x3d044b19, 0x39c556ae,
+	0x278206ab, 0x23431b1c, 0x2e003dc5, 0x2ac12072,
+	0x128e9dcf, 0x164f8078, 0x1b0ca6a1, 0x1fcdbb16,
+	0x018aeb13, 0x054bf6a4, 0x0808d07d, 0x0cc9cdca,
+	0x7897ab07, 0x7c56b6b0, 0x71159069, 0x75d48dde,
+	0x6b93dddb, 0x6f52c06c, 0x6211e6b5, 0x66d0fb02,
+	0x5e9f46bf, 0x5a5e5b08, 0x571d7dd1, 0x53dc6066,
+	0x4d9b3063, 0x495a2dd4, 0x44190b0d, 0x40d816ba,
+	0xaca5c697, 0xa864db20, 0xa527fdf9, 0xa1e6e04e,
+	0xbfa1b04b, 0xbb60adfc, 0xb6238b25, 0xb2e29692,
+	0x8aad2b2f, 0x8e6c3698, 0x832f1041, 0x87ee0df6,
+	0x99a95df3, 0x9d684044, 0x902b669d, 0x94ea7b2a,
+	0xe0b41de7, 0xe4750050, 0xe9362689, 0xedf73b3e,
+	0xf3b06b3b, 0xf771768c, 0xfa325055, 0xfef34de2,
+	0xc6bcf05f, 0xc27dede8, 0xcf3ecb31, 0xcbffd686,
+	0xd5b88683, 0xd1799b34, 0xdc3abded, 0xd8fba05a,
+	0x690ce0ee, 0x6dcdfd59, 0x608edb80, 0x644fc637,
+	0x7a089632, 0x7ec98b85, 0x738aad5c, 0x774bb0eb,
+	0x4f040d56, 0x4bc510e1, 0x46863638, 0x42472b8f,
+	0x5c007b8a, 0x58c1663d, 0x558240e4, 0x51435d53,
+	0x251d3b9e, 0x21dc2629, 0x2c9f00f0, 0x285e1d47,
+	0x36194d42, 0x32d850f5, 0x3f9b762c, 0x3b5a6b9b,
+	0x0315d626, 0x07d4cb91, 0x0a97ed48, 0x0e56f0ff,
+	0x1011a0fa, 0x14d0bd4d, 0x19939b94, 0x1d528623,
+	0xf12f560e, 0xf5ee4bb9, 0xf8ad6d60, 0xfc6c70d7,
+	0xe22b20d2, 0xe6ea3d65, 0xeba91bbc, 0xef68060b,
+	0xd727bbb6, 0xd3e6a601, 0xdea580d8, 0xda649d6f,
+	0xc423cd6a, 0xc0e2d0dd, 0xcda1f604, 0xc960ebb3,
+	0xbd3e8d7e, 0xb9ff90c9, 0xb4bcb610, 0xb07daba7,
+	0xae3afba2, 0xaafbe615, 0xa7b8c0cc, 0xa379dd7b,
+	0x9b3660c6, 0x9ff77d71, 0x92b45ba8, 0x9675461f,
+	0x8832161a, 0x8cf30bad, 0x81b02d74, 0x857130c3,
+	0x5d8a9099, 0x594b8d2e, 0x5408abf7, 0x50c9b640,
+	0x4e8ee645, 0x4a4ffbf2, 0x470cdd2b, 0x43cdc09c,
+	0x7b827d21, 0x7f436096, 0x7200464f, 0x76c15bf8,
+	0x68860bfd, 0x6c47164a, 0x61043093, 0x65c52d24,
+	0x119b4be9, 0x155a565e, 0x18197087, 0x1cd86d30,
+	0x029f3d35, 0x065e2082, 0x0b1d065b, 0x0fdc1bec,
+	0x3793a651, 0x3352bbe6, 0x3e119d3f, 0x3ad08088,
+	0x2497d08d, 0x2056cd3a, 0x2d15ebe3, 0x29d4f654,
+	0xc5a92679, 0xc1683bce, 0xcc2b1d17, 0xc8ea00a0,
+	0xd6ad50a5, 0xd26c4d12, 0xdf2f6bcb, 0xdbee767c,
+	0xe3a1cbc1, 0xe760d676, 0xea23f0af, 0xeee2ed18,
+	0xf0a5bd1d, 0xf464a0aa, 0xf9278673, 0xfde69bc4,
+	0x89b8fd09, 0x8d79e0be, 0x803ac667, 0x84fbdbd0,
+	0x9abc8bd5, 0x9e7d9662, 0x933eb0bb, 0x97ffad0c,
+	0xafb010b1, 0xab710d06, 0xa6322bdf, 0xa2f33668,
+	0xbcb4666d, 0xb8757bda, 0xb5365d03, 0xb1f740b4,
+};
+
+static uint32_t compute_crc32(const uint8_t *data, size_t len)
+{
+	uint32_t crc = 0xFFFFFFFF;
+	size_t i;
+	uint8_t byte;
+
+	for (i = 0; i < len; i++) {
+		byte = (crc >> 24) ^ data[i];
+		crc = crc32_tab[byte] ^ (crc << 8);
+	}
+
+	return crc ^ 0xFFFFFFFF;
+}
+
+static int parse_hex_string(const char *hex, uint32_t *out, int dwords)
+{
+	int i;
+	char buf[9];
+	int len = strlen(hex);
+
+	for (i = 0; i < dwords; i++) {
+		int offset = i * 8;
+		if (offset < len) {
+			int copy_len = (offset + 8 <= len) ? 8 : (len - offset);
+			memset(buf, '0', 8);
+			memcpy(buf, hex + offset, copy_len);
+			buf[8] = '\0';
+			out[i] = strtoul(buf, NULL, 16);
+		} else {
+			out[i] = 0;
+		}
+	}
+	return 0;
+}
+
+#define CMD_DESC_DOK_KEY_ADD "add DOK key entry (Gen6 only)"
+
+static int dok_key_add(int argc, char **argv)
+{
+	int ret;
+	size_t sig_len;
+	struct switchtec_dok_signature sig = {};
+	struct switchtec_dok_key_add key_add = {};
+
+	const char *desc = CMD_DESC_DOK_KEY_ADD "\n\n"
+			   "Add a Device Owner Key (DOK) entry to OTP.\n"
+			   "A signature file is required for authorization.\n\n"
+			   "WARNING: This operation modifies OTP and is IRREVERSIBLE!";
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned long key_slot;
+		unsigned long uid_psid_type;
+		char *uid_hex;
+		char *psid_hex;
+		char *key_hash_hex;
+		FILE *sig_fimg;
+		char *sig_file;
+		unsigned long sig_type;
+		int assume_yes;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG_PCI,
+		{"key-slot", 'k', "", CFG_LONG, &cfg.key_slot,
+			required_argument, "key slot index (0-11)"},
+		{"uid-psid-type", 't', "", CFG_LONG, &cfg.uid_psid_type,
+			required_argument, "UID/PSID type (0=none, 1=UID, 2=PSID, 3=both)"},
+		{"uid", 'u', "", CFG_STRING, &cfg.uid_hex,
+			required_argument, "UID hex string (512-bit, 128 hex chars)"},
+		{"psid", 'p', "", CFG_STRING, &cfg.psid_hex,
+			required_argument, "PSID hex string (128-bit, 32 hex chars)"},
+		{"key-hash", 'h', "", CFG_STRING, &cfg.key_hash_hex,
+			required_argument, "key hash hex string (SHA2-512, 128 hex chars)"},
+		{"signature", 's', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.sig_fimg,
+			.argument_type=required_argument,
+			.help="signature file"},
+		{"sig-type", 'T', "", CFG_LONG, &cfg.sig_type,
+			required_argument, "signature type (default 0)"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "This command is only supported on Gen6 devices!\n");
+		return -1;
+	}
+
+	if (cfg.key_slot > 11) {
+		fprintf(stderr, "Key slot must be 0-11!\n");
+		return -1;
+	}
+
+	if (cfg.key_hash_hex == NULL) {
+		fprintf(stderr, "Key hash is required!\n");
+		return -1;
+	}
+
+	if (cfg.sig_fimg == NULL) {
+		fprintf(stderr, "Signature file is required!\n");
+		return -1;
+	}
+
+	/* Read signature file */
+	sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
+	fclose(cfg.sig_fimg);
+	if (sig_len == 0) {
+		fprintf(stderr, "Failed to read signature file!\n");
+		return -2;
+	}
+
+	/* Build key_add structure */
+	key_add.sub_cmd = DOK_CONFIG_SUB_CMD_KEY_ADD;
+	key_add.key_slot = cfg.key_slot;
+	key_add.uid_psid_type = cfg.uid_psid_type;
+
+	if (cfg.uid_hex)
+		parse_hex_string(cfg.uid_hex, key_add.uid, SWITCHTEC_UID_LEN_DWORDS);
+	if (cfg.psid_hex)
+		parse_hex_string(cfg.psid_hex, key_add.psid, SWITCHTEC_PSID_LEN_DWORDS);
+	parse_hex_string(cfg.key_hash_hex, key_add.key_hash, DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS);
+
+	printf("Adding DOK key entry:\n");
+	printf("  Key Slot:        %lu\n", cfg.key_slot);
+	printf("  UID/PSID Type:   %lu\n", cfg.uid_psid_type);
+	printf("  Key Hash:        %s\n", cfg.key_hash_hex);
+	printf("  Signature Size:  %zu bytes\n", sig_len);
+
+	if (!cfg.assume_yes) {
+		fprintf(stderr,
+			"\nWARNING: This operation modifies OTP and is IRREVERSIBLE!\n");
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret)
+			return -3;
+	}
+
+	/* Step 1: Send signature */
+	sig.sub_cmd = DOK_CONFIG_SUB_CMD_SIGNATURE;
+	sig.sig_type = cfg.sig_type;
+	sig.total_len = sig_len;
+	sig.total_crc = compute_crc32(sig.sig_data, sig_len);
+	sig.data_len = sig_len;
+	sig.offset = 0;
+
+	ret = switchtec_dok_config_signature(cfg.dev, &sig);
+	if (ret) {
+		switchtec_perror("dok-key-add (signature)");
+		return ret;
+	}
+
+	/* Step 2: Send key add */
+	ret = switchtec_dok_config_key_add(cfg.dev, &key_add);
+	if (ret) {
+		switchtec_perror("dok-key-add");
+		return ret;
+	}
+
+	printf("DOK key entry added successfully.\n");
+	return 0;
+}
+
+#define CMD_DESC_DOK_KEY_REVOKE "revoke DOK key entry (Gen6 only)"
+
+static int dok_key_revoke(int argc, char **argv)
+{
+	int ret;
+	size_t sig_len;
+	struct switchtec_dok_signature sig = {};
+	struct switchtec_dok_key_revoke key_revoke = {};
+
+	const char *desc = CMD_DESC_DOK_KEY_REVOKE "\n\n"
+			   "Revoke a Device Owner Key (DOK) entry in OTP.\n"
+			   "A signature file is required for authorization.\n\n"
+			   "WARNING: This operation modifies OTP and is IRREVERSIBLE!";
+
+	static struct {
+		struct switchtec_dev *dev;
+		unsigned long key_slot;
+		unsigned long uid_psid_type;
+		char *uid_hex;
+		char *psid_hex;
+		FILE *sig_fimg;
+		char *sig_file;
+		unsigned long sig_type;
+		int assume_yes;
+	} cfg = {};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG_PCI,
+		{"key-slot", 'k', "", CFG_LONG, &cfg.key_slot,
+			required_argument, "key slot index (0-11)"},
+		{"uid-psid-type", 't', "", CFG_LONG, &cfg.uid_psid_type,
+			required_argument, "UID/PSID type (0=none, 1=UID, 2=PSID, 3=both)"},
+		{"uid", 'u', "", CFG_STRING, &cfg.uid_hex,
+			required_argument, "UID hex string (512-bit, 128 hex chars)"},
+		{"psid", 'p', "", CFG_STRING, &cfg.psid_hex,
+			required_argument, "PSID hex string (128-bit, 32 hex chars)"},
+		{"signature", 's', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.sig_fimg,
+			.argument_type=required_argument,
+			.help="signature file"},
+		{"sig-type", 'T', "", CFG_LONG, &cfg.sig_type,
+			required_argument, "signature type (default 0)"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "This command is only supported on Gen6 devices!\n");
+		return -1;
+	}
+
+	if (cfg.key_slot > 11) {
+		fprintf(stderr, "Key slot must be 0-11!\n");
+		return -1;
+	}
+
+	if (cfg.sig_fimg == NULL) {
+		fprintf(stderr, "Signature file is required!\n");
+		return -1;
+	}
+
+	/* Read signature file */
+	sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
+	fclose(cfg.sig_fimg);
+	if (sig_len == 0) {
+		fprintf(stderr, "Failed to read signature file!\n");
+		return -2;
+	}
+
+	/* Build key_revoke structure */
+	key_revoke.sub_cmd = DOK_CONFIG_SUB_CMD_KEY_REVOKE;
+	key_revoke.key_slot = cfg.key_slot;
+	key_revoke.uid_psid_type = cfg.uid_psid_type;
+
+	if (cfg.uid_hex)
+		parse_hex_string(cfg.uid_hex, key_revoke.uid, SWITCHTEC_UID_LEN_DWORDS);
+	if (cfg.psid_hex)
+		parse_hex_string(cfg.psid_hex, key_revoke.psid, SWITCHTEC_PSID_LEN_DWORDS);
+
+	printf("Revoking DOK key entry:\n");
+	printf("  Key Slot:        %lu\n", cfg.key_slot);
+	printf("  UID/PSID Type:   %lu\n", cfg.uid_psid_type);
+	printf("  Signature Size:  %zu bytes\n", sig_len);
+
+	if (!cfg.assume_yes) {
+		fprintf(stderr,
+			"\nWARNING: This operation modifies OTP and is IRREVERSIBLE!\n");
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret)
+			return -3;
+	}
+
+	/* Step 1: Send signature */
+	sig.sub_cmd = DOK_CONFIG_SUB_CMD_SIGNATURE;
+	sig.sig_type = cfg.sig_type;
+	sig.total_len = sig_len;
+	sig.total_crc = compute_crc32(sig.sig_data, sig_len);
+	sig.data_len = sig_len;
+	sig.offset = 0;
+
+	ret = switchtec_dok_config_signature(cfg.dev, &sig);
+	if (ret) {
+		switchtec_perror("dok-key-revoke (signature)");
+		return ret;
+	}
+
+	/* Step 2: Send key revoke */
+	ret = switchtec_dok_config_key_revoke(cfg.dev, &key_revoke);
+	if (ret) {
+		switchtec_perror("dok-key-revoke");
+		return ret;
+	}
+
+	printf("DOK key entry revoked successfully.\n");
+	return 0;
+}
+
 static const struct cmd commands[] = {
 	CMD(ping, CMD_DESC_PING),
 	CMD(info, CMD_DESC_INFO),
@@ -1740,6 +2736,12 @@ static const struct cmd commands[] = {
 	CMD(config_set, CMD_DESC_CONFIG_SET),
 	CMD(kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD),
 	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
+	CMD(device_config, CMD_DESC_DEVICE_CONFIG),
+	CMD(device_config_set_device, CMD_DESC_DEVICE_CONFIG_SET_DEVICE),
+	CMD(device_config_set_customer, CMD_DESC_DEVICE_CONFIG_SET_CUSTOMER),
+	CMD(device_config_set_security, CMD_DESC_DEVICE_CONFIG_SET_SECURITY),
+	CMD(dok_key_add, CMD_DESC_DOK_KEY_ADD),
+	CMD(dok_key_revoke, CMD_DESC_DOK_KEY_REVOKE),
 	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
 	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
 	{}

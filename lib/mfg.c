@@ -2028,4 +2028,137 @@ int switchtec_sn_ver_get(struct switchtec_dev *dev,
 		return sn_ver_get_gen4(dev, info);
 }
 
+int switchtec_device_config_get(struct switchtec_dev *dev,
+				struct switchtec_device_config_get *config)
+{
+	int ret;
+	uint32_t subcmd = DEVICE_CONFIG_SUB_CMD_GET;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DEVICE_CONFIG, &subcmd, sizeof(subcmd),
+				config, sizeof(*config));
+	return ret;
+}
+
+int switchtec_device_config_set_dev(struct switchtec_dev *dev,
+				    struct switchtec_device_config_dev_settings *settings)
+{
+	int ret;
+	struct {
+		uint8_t subcmd;
+		uint8_t reserved[3];
+		struct switchtec_device_config_dev_settings settings;
+	} cmd;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.subcmd = DEVICE_CONFIG_SUB_CMD_SET_DEVICE;
+	memcpy(&cmd.settings, settings, sizeof(*settings));
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DEVICE_CONFIG, &cmd, sizeof(cmd),
+				NULL, 0);
+	return ret;
+}
+
+int switchtec_device_config_set_customer(struct switchtec_dev *dev,
+					 struct switchtec_device_config_customer_settings *settings)
+{
+	int ret;
+	struct {
+		uint8_t subcmd;
+		uint8_t reserved[3];
+		struct switchtec_device_config_customer_settings settings;
+	} cmd;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.subcmd = DEVICE_CONFIG_SUB_CMD_SET_CUSTOMER;
+	memcpy(&cmd.settings, settings, sizeof(*settings));
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DEVICE_CONFIG, &cmd, sizeof(cmd),
+				NULL, 0);
+	return ret;
+}
+
+int switchtec_device_config_set_security(struct switchtec_dev *dev,
+					 struct switchtec_device_config_secure_settings *settings)
+{
+	int ret;
+	struct {
+		uint8_t subcmd;
+		uint8_t reserved[3];
+		struct switchtec_device_config_secure_settings settings;
+	} cmd;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.subcmd = DEVICE_CONFIG_SUB_CMD_SET_SECURITY;
+	memcpy(&cmd.settings, settings, sizeof(*settings));
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DEVICE_CONFIG, &cmd, sizeof(cmd),
+				NULL, 0);
+	return ret;
+}
+
+int switchtec_dok_config_signature(struct switchtec_dev *dev,
+				   struct switchtec_dok_signature *sig)
+{
+	int ret;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DOK_CONFIG, sig,
+				20 + sig->data_len, NULL, 0);
+	return ret;
+}
+
+int switchtec_dok_config_key_add(struct switchtec_dev *dev,
+				 struct switchtec_dok_key_add *key_add)
+{
+	int ret;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DOK_CONFIG, key_add, sizeof(*key_add),
+				NULL, 0);
+	return ret;
+}
+
+int switchtec_dok_config_key_revoke(struct switchtec_dev *dev,
+				    struct switchtec_dok_key_revoke *key_revoke)
+{
+	int ret;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -ENOTSUP;
+	}
+
+	ret = switchtec_mfg_cmd(dev, MRPC_DOK_CONFIG, key_revoke,
+				sizeof(*key_revoke), NULL, 0);
+	return ret;
+}
+
 /**@}*/
