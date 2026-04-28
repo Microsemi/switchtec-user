@@ -34,7 +34,7 @@
 #define SWITCHTEC_KMSK_NUM_MAX	10
 #define SWITCHTEC_KMSK_NUM_GEN6		12
 #define SWITCHTEC_KMSK_LEN_DWORDS	(SWITCHTEC_KMSK_LEN / 4)
-#define SWITCHTEC_GEN6_TOKEN_LEN	104
+#define SWITCHTEC_GEN6_TOKEN_LEN	88
 
 #define SWITCHTEC_UID_LEN_DWORDS	16
 #define SWITCHTEC_PSID_LEN_DWORDS	4
@@ -470,7 +470,6 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 #define DEVICE_CONFIG_CUSTOMER_ECC_FIELD_NUM    4
 #define DEVICE_CONFIG_CUSTOMER_ECC_FIELD_SIZE   2
 #define DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS      16
-#define DEVICE_CONFIG_TOKEN_SIGNALS_SIZE_DWORDS 4
 #define DEVICE_CONFIG_MAX_KEY_SLOTS             12
 
 struct switchtec_device_config_dev_settings {
@@ -550,13 +549,10 @@ struct switchtec_device_config_secure_settings {
 	uint32_t failover_to_i3c_disable      :1;
 	uint32_t rsvd_2                       :2;
 
-	/* DWORD 1-4: token signals */
-	uint32_t token_signals[DEVICE_CONFIG_TOKEN_SIGNALS_SIZE_DWORDS];
-
-	/* DWORD 5: number of keys to program */
+	/* DWORD 1: number of keys to program */
 	uint32_t key_prog_num;
 
-	/* DWORD 6-...: key data (up to 12 keys, 17 DWORDs each) */
+	/* DWORD 2-...: key data (up to 12 keys, 17 DWORDs each) */
 	struct switchtec_device_config_key_data key_data[DEVICE_CONFIG_MAX_KEY_SLOTS];
 };
 
