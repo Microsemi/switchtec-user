@@ -49,40 +49,20 @@ static const char *port_type_str(enum switchtec_cap_port_type type)
 	}
 }
 
-static int multicast_show(int argc, char **argv)
+static int multicast_show_one_port(struct switchtec_dev *dev,
+				   const char *bdf_str)
 {
 	struct switchtec_multicast_cap mc;
 	struct switchtec_port_info pinfo;
 	int ret;
 
-	static struct {
-		struct switchtec_dev *dev;
-		const char *bdf;
-	} cfg = {
-		.bdf = NULL,
-	};
-
-	const struct argconfig_options opts[] = {
-		DEVICE_OPTION,
-		{"bdf", 'b', "BB:DD.F", CFG_STRING, &cfg.bdf, required_argument,
-		 "BDF of port to access", .require_in_usage = 1},
-		{NULL}
-	};
-
-	argconfig_parse(argc, argv, CMD_DESC_MC_SHOW, opts, &cfg, sizeof(cfg));
-
-	if (!cfg.bdf || !cfg.bdf[0]) {
-		fprintf(stderr, "BDF is required (format: [DDDD:]BB:DD.F)\n");
-		return -1;
-	}
-
-	ret = switchtec_find_port_by_bdf(cfg.dev, cfg.bdf, &pinfo);
+	ret = switchtec_find_port_by_bdf(dev, bdf_str, &pinfo);
 	if (ret < 0) {
 		switchtec_perror("find_port_by_bdf");
 		return -1;
 	}
 
-	ret = switchtec_multicast_cap_get(cfg.dev, pinfo.gas_base, &mc);
+	ret = switchtec_multicast_cap_get(dev, pinfo.gas_base, &mc);
 	if (ret) {
 		switchtec_perror("multicast_cap_get");
 		return -1;
@@ -90,7 +70,7 @@ static int multicast_show(int argc, char **argv)
 
 	printf("Multicast Extended Capability @ 0x%06X (%s, BDF %s):\n",
 	       pinfo.gas_base + SWITCHTEC_CAP_MULTICAST_OFFSET,
-	       port_type_str(pinfo.port_type), cfg.bdf);
+	       port_type_str(pinfo.port_type), bdf_str);
 	printf("  Header (DW0):        0x%08X\n", mc.header);
 	printf("    Capability ID:     0x%04X\n",
 	       SWITCHTEC_MC_HDR_CAP_ID(mc.header));
@@ -124,7 +104,80 @@ static int multicast_show(int argc, char **argv)
 	       (unsigned long long)SWITCHTEC_MC_OVERLAY_ADDR(mc.mc_overlay_bar));
 	printf("    Overlay Size:      %u\n",
 	       (unsigned)SWITCHTEC_MC_OVERLAY_SIZE(mc.mc_overlay_bar));
-	
+
+	return 0;
+}
+
+static int multicast_show(int argc, char **argv)
+{
+	struct switchtec_status *status = NULL;
+	int nr_ports, p;
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		const char *bdf;
+		int all;
+	} cfg = {
+		.bdf = NULL,
+		.all = 0,
+	};
+
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"bdf", 'b', "BB:DD.F", CFG_STRING, &cfg.bdf, required_argument,
+		 "BDF of port to access"},
+		{"all", 'a', "", CFG_NONE, &cfg.all, no_argument,
+		 "show all USPs and DSPs"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_MC_SHOW, opts, &cfg, sizeof(cfg));
+
+	if (!cfg.bdf && !cfg.all) {
+		fprintf(stderr, "Either --bdf or --all must be specified\n");
+		return -1;
+	}
+
+	if (cfg.bdf && cfg.all) {
+		fprintf(stderr, "--bdf and --all are mutually exclusive\n");
+		return -1;
+	}
+
+	if (!cfg.all)
+		return multicast_show_one_port(cfg.dev, cfg.bdf);
+
+	nr_ports = switchtec_status(cfg.dev, &status);
+	if (nr_ports < 0) {
+		switchtec_perror("status");
+		return -1;
+	}
+
+	ret = switchtec_get_devices(cfg.dev, status, nr_ports);
+	if (ret < 0) {
+		switchtec_perror("get_devices");
+		switchtec_status_free(status, nr_ports);
+		return -1;
+	}
+
+	for (p = 0; p < nr_ports; p++) {
+		struct switchtec_status *s = &status[p];
+
+		if (s->port.partition == SWITCHTEC_UNBOUND_PORT)
+			continue;
+
+		if (!s->pci_bdf)
+			continue;
+
+		ret = multicast_show_one_port(cfg.dev, s->pci_bdf);
+		if (ret) {
+			switchtec_status_free(status, nr_ports);
+			return -1;
+		}
+		printf("\n");
+	}
+
+	switchtec_status_free(status, nr_ports);
 	return 0;
 }
 
