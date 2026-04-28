@@ -2048,6 +2048,14 @@ static int fw_info(int argc, char **argv)
 		return ret;
 	}
 
+	if (switchtec_is_gen6(cfg.dev)) {
+		uint32_t fmc_ver;
+		ret = switchtec_sms_fmc_version_get(cfg.dev, &fmc_ver);
+		if (ret == 0) {
+			printf("SMS FW:\n");
+			printf("  FMC   Version: 0x%08x\n", fmc_ver);
+		}
+	}
 
 	return 0;
 }
