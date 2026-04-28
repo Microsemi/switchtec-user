@@ -1314,6 +1314,54 @@ int switchtec_dbg_unlock_get_token_gen6(struct switchtec_dev *dev,
 	return 0;
 }
 
+int switchtec_dbg_unlock_status_get_gen6(struct switchtec_dev *dev,
+					 uint32_t *jtag_status)
+{
+	int ret;
+	struct {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+	} cmd = {};
+	struct {
+		uint32_t jtag_status;
+	} reply;
+
+	cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_STATUS_GET;
+	ret = switchtec_mfg_cmd(dev, MRPC_DBG_UNLOCK_GEN6,
+				&cmd, sizeof(cmd), &reply, sizeof(reply));
+	if (ret)
+		return ret;
+
+	*jtag_status = le32toh(reply.jtag_status);
+	return 0;
+}
+
+#define GEN6_STATE_SET_SUBCMD_STATE_GET      0x2
+
+int switchtec_secure_state_get_gen6(struct switchtec_dev *dev,
+				    enum switchtec_secure_state_gen6 *state)
+{
+	uint32_t data;
+	uint32_t reply;
+	int ret;
+
+	if (!switchtec_is_gen6(dev))
+		return -ENOTSUP;
+
+	if (!state)
+		return -EINVAL;
+
+	data = htole32(GEN6_STATE_SET_SUBCMD_STATE_GET);
+
+	ret = switchtec_mfg_cmd(dev, MRPC_SECURE_STATE_SET_GEN6,
+				&data, sizeof(data), &reply, sizeof(reply));
+	if (ret)
+		return ret;
+
+	*state = (enum switchtec_secure_state_gen6)(le32toh(reply) & 0xFF);
+	return 0;
+}
+
 /**
  * @brief Update firmware debug secure unlock version number
  * @param[in]  dev		Switchtec device handle
