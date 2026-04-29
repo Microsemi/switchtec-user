@@ -55,6 +55,7 @@ static const struct argconfig_choice port_eq_prev_speeds[] = {
 	{"GEN3", PCIE_LINK_RATE_GEN3, "GEN3 Previous Speed"},
 	{"GEN4", PCIE_LINK_RATE_GEN4, "GEN4 Previous Speed"},
 	{"GEN5", PCIE_LINK_RATE_GEN5, "GEN5 Previous Speed"},
+	{"GEN6", PCIE_LINK_RATE_GEN6, "GEN6 Previous Speed"},
 	{}
 };
 
@@ -246,6 +247,7 @@ static const struct argconfig_choice hstep_choices[] = {
 	{"fine", SWITCHTEC_DIAG_EYE_FINE, "fine"},
 	{"medium", SWITCHTEC_DIAG_EYE_MEDIUM, "medium"},
 	{"coarse", SWITCHTEC_DIAG_EYE_COARSE, "coarse"},
+	{}
 };
 
 static const struct argconfig_choice eye_modes[] = {
@@ -1391,7 +1393,7 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 	int bin, j, ret, first_lane, num_phases_l, stride;
 	int lane_mask[4] = {};
 	struct switchtec_status sw_status;
-	double tmp[60];
+	double tmp[64];
 	double* ber_data = NULL;
 
 	ret = switchtec_calc_lane_mask(dev, port_id, lane_id, num_lanes,
@@ -1504,10 +1506,10 @@ static int eye(int argc, char **argv)
 		{"mode", 'm', "MODE", CFG_CHOICES, &cfg.mode,
 		 required_argument, "data mode for the capture",
 		 .choices=eye_modes},
-		{"mode-gen6", 'M', "MODE", CFG_CHOICES, &cfg.mode,
+		{"mode-gen6", 'M', "MODE", CFG_CHOICES, &cfg.eye_modes_gen6,
 		 required_argument, "eye mode for the capture for gen6",
 		 .choices=eye_modes_gen6},
-		{"data-mode", 'd', "MODE", CFG_CHOICES, &cfg.data_mode,
+		{"data-mode", 'D', "MODE", CFG_CHOICES, &cfg.data_mode,
 		 required_argument, "data mode for the eye capture gen6",
 		 .choices=data_mode_choices},
 		{"num-lanes", 'n', "NUM", CFG_POSITIVE, &cfg.num_lanes,
@@ -1836,10 +1838,8 @@ static const struct argconfig_choice all_pattern_types[] = {
 	{"PRBS31",  SWITCHTEC_DIAG_PATTERN_PRBS_31, "PRBS 31"},
 	{"PRBS9",   SWITCHTEC_DIAG_PATTERN_PRBS_9,  "PRBS 9"},
 	{"PRBS15",  SWITCHTEC_DIAG_PATTERN_PRBS_15, "PRBS 15"},
-	{"PRBS5",   SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5,  "PRBS 5 (Gen 5)"},
-	{"PRBS20",  SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20, "PRBS 20 (Gen 5)"},
-	{"PRBS13",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_13, "PRBS 13 (Gen 6)"},
-	{"52UI",    SWITCHTEC_DIAG_GEN_6_PATTERN_PCIE_52_UI_JIT, "PCIe 52UI Jitter (Gen 6)"},
+	{"PRBS5",   SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5,  "PRBS 5 (Gen 5/6)"},
+	{"PRBS20",  SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20, "PRBS 20 (Gen 5/6)"},
 	{}
 };
 
@@ -1857,13 +1857,13 @@ static const struct argconfig_choice pattern_types[] = {
 
 static const struct argconfig_choice pattern_types_gen6[] = {
 	{"PRBS7",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_7,  "PRBS 7"},
-	{"PRBS11",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_9, "PRBS 9"},
-	{"PRBS23",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_11, "PRBS 11"},
-	{"PRBS31",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_13, "PRBS 13"},
-	{"PRBS9",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_15,  "PRBS 15"},
-	{"PRBS15",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_23, "PRBS 23"},
-	{"PRBS5",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_31,  "PRBS 31"},
-	{"PRBS20",  SWITCHTEC_DIAG_GEN_6_PATTERN_PCIE_52_UI_JIT, "PCIe 52UI Jitter"},
+	{"PRBS11",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_11, "PRBS 11"},
+	{"PRBS23",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_23, "PRBS 23"},
+	{"PRBS31",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_31, "PRBS 31"},
+	{"PRBS9",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_9,  "PRBS 9"},
+	{"PRBS15",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_15, "PRBS 15"},
+	{"PRBS5",   SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_5,  "PRBS 5"},
+	{"PRBS20",  SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_20, "PRBS 20"},
 	{}
 };
 
@@ -1873,7 +1873,7 @@ static const struct argconfig_choice pat_gen_link_speeds[] = {
 	{"GEN3", SWITCHTEC_DIAG_PAT_LINK_GEN3, "GEN3 Pattern Generator Speed"},
 	{"GEN4", SWITCHTEC_DIAG_PAT_LINK_GEN4, "GEN4 Pattern Generator Speed"},
 	{"GEN5", SWITCHTEC_DIAG_PAT_LINK_GEN5, "GEN5 Pattern Generator Speed"},
-	{"GEN6", SWITCHTEC_DIAG_PAT_LINK_GEN6, "GEN6 Pattern Generator Speed"},
+	{}
 };
 
 static const char *pattern_to_str(enum switchtec_diag_pattern type)
@@ -2042,23 +2042,15 @@ static int pattern(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.pattern == SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_13 && !switchtec_is_gen6(cfg.dev)) {
-		fprintf(stderr, "Cannot set PRBS 13 pattern for non Gen6 Switchtec device.\n");
+	if (cfg.pattern == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5 &&
+	    !switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "Cannot set PRBS 5 pattern for non Gen5/Gen6 Switchtec device.\n");
 		return -1;
 	}
 
-	if (cfg.pattern == SWITCHTEC_DIAG_GEN_6_PATTERN_PCIE_52_UI_JIT && !switchtec_is_gen6(cfg.dev)) {
-		fprintf(stderr, "Cannot set PCIe 52 UI Jitter pattern for non Gen6 Switchtec device.\n");
-		return -1;
-	}
-
-	if (cfg.pattern == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_5 && !switchtec_is_gen5(cfg.dev)) {
-		fprintf(stderr, "Cannot set PRBS 5 pattern for non Gen6 Switchtec device.\n");
-		return -1;
-	}
-
-	if (cfg.pattern == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20 && !switchtec_is_gen5(cfg.dev)) {
-		fprintf(stderr, "Cannot set PRBS 20 pattern for non Gen6 Switchtec device.\n");
+	if (cfg.pattern == SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_20 &&
+	    !switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "Cannot set PRBS 20 pattern for non Gen5/Gen6 Switchtec device.\n");
 		return -1;
 	}
 
@@ -2083,7 +2075,9 @@ static int pattern(int argc, char **argv)
 			cfg.generate = 1;
 			cfg.monitor = 1;
 		}
-		if (switchtec_is_gen5(cfg.dev))
+		if (switchtec_is_gen6(cfg.dev))
+			cfg.pattern = SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_DISABLED;
+		else if (switchtec_is_gen5(cfg.dev))
 			cfg.pattern = SWITCHTEC_DIAG_GEN_5_PATTERN_PRBS_DISABLED;
 		else
 			cfg.pattern = SWITCHTEC_DIAG_PATTERN_PRBS_DISABLED;
@@ -2200,11 +2194,13 @@ static int port_eq_txcoeff(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
-		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+	if (!switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev) &&
+	    cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on this device.\n");
 		return -1;
-	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
-		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+	} else if ((switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) &&
+		   cfg.prev && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 and above switchtec devices.\n");
 		return -1;
 	}
 
@@ -2246,11 +2242,13 @@ static int port_eq_txfslf(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
-		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+	if (!switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev) &&
+	    cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on this device.\n");
 		return -1;
-	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
-		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+	} else if ((switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) &&
+		   cfg.prev && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 and above switchtec devices.\n");
 		return -1;
 	}
 
@@ -2259,7 +2257,7 @@ static int port_eq_txfslf(int argc, char **argv)
 	       cfg.prev ? "(Previous Link-Up)" : "");
 	printf("Lane    FS    LF\n");
 
-	if (switchtec_is_gen5(cfg.dev))
+	if (switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev))
 		lnk_width = cfg.port.cfg_lnk_width;
 	else
 		lnk_width = cfg.port.neg_lnk_width;
@@ -2295,11 +2293,13 @@ static int port_eq_txtable(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (!switchtec_is_gen5(cfg.dev) && cfg.prev_speed) {
-		fprintf(stderr, "Selecting a previous rate is not supported on Gen 4 or below switchtec devices.\n");
+	if (!switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev) &&
+	    cfg.prev_speed) {
+		fprintf(stderr, "Selecting a previous rate is not supported on this device.\n");
 		return -1;
-	} else if ((switchtec_is_gen5(cfg.dev) && cfg.prev) && !cfg.prev_speed) {
-		fprintf(stderr, "Previous rate -r is required on Gen 5 switchtec devices.\n");
+	} else if ((switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) &&
+		   cfg.prev && !cfg.prev_speed) {
+		fprintf(stderr, "Previous rate -r is required on Gen 5 and above switchtec devices.\n");
 		return -1;
 	}
 
@@ -2312,11 +2312,11 @@ static int port_eq_txtable(int argc, char **argv)
 
 	printf("Far End TX Equalization Table for physical port %d, lane %d %s\n\n",
 	       cfg.port_id, table.lane_id, cfg.prev ? "(Previous Link-Up)" : "");
-	printf("%s\n", switchtec_is_gen5(cfg.dev) ?
+	printf("%s\n", (switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) ?
 	       "Step  Pre-Cursor  Post-Cursor  Error  Active  Speed" :
 	       "Step  Pre-Cursor  Post-Cursor  FOM  Pre-Up  Post-Up  Error  Active  Speed");
 
-	if (switchtec_is_gen5(cfg.dev)) {
+	if (switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) {
 		for (i = 0; i < table.step_cnt; i++) {
 			printf("%4d  %10d  %11d  %5d  %6d  %5d\n",
 				i, table.steps[i].pre_cursor, table.steps[i].post_cursor,
@@ -2411,37 +2411,45 @@ static int rcvr_extended(int argc, char **argv)
 	return 0;
 }
 
-#define CMD_DESC_REF_CLK "Enable or disable the output reference clock of a stack and print the status"
+#define CMD_DESC_REF_CLK "enable or disable the output reference clock of a stack/CSU and print the status"
 
 static int refclk(int argc, char **argv)
 {
 	int ret;
-	uint8_t stack_info[SWITCHTEC_MAX_STACKS];
+	int is_gen6;
+	int max_entries;
+	uint8_t info[SWITCHTEC_MAX_STACKS];
+	const char *unit;
 
 	static struct {
 		struct switchtec_dev *dev;
-		int stack_id;
+		int id;
 		int enable;
 		int disable;
 		int status;
 	} cfg = {
-		.stack_id = -1,
+		.id = -1,
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
-		 "disable the rfclk output"},
+		 "disable the refclk output"},
 		{"enable", 'e', "", CFG_NONE, &cfg.enable, no_argument,
-		 "enable the rfclk output"},
-		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.stack_id,
-		required_argument, "stack to operate on\n\n* If all arguements of this command are left blank the status of all stacks will be printed"},
+		 "enable the refclk output"},
+		{"stack", 's', "NUM", CFG_NONNEGATIVE, &cfg.id,
+		required_argument, "stack/CSU to operate on\n\n* If all arguments of this command are left blank the status will be printed"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_REF_CLK, opts, &cfg,
 			sizeof(cfg));
 
-	if (!cfg.enable && !cfg.disable && cfg.stack_id == -1)
-		goto print_stack_info;
+	is_gen6 = switchtec_is_gen6(cfg.dev);
+	max_entries = is_gen6 ? SWITCHTEC_MAX_STACKS_GEN6 :
+		SWITCHTEC_MAX_STACKS;
+	unit = is_gen6 ? "CSU" : "Stack";
+
+	if (!cfg.enable && !cfg.disable && cfg.id == -1)
+		goto print_info;
 
 	if (!cfg.enable && !cfg.disable) {
 		fprintf(stderr, "Must set either --enable or --disable\n");
@@ -2453,34 +2461,35 @@ static int refclk(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.stack_id == -1) {
-		fprintf(stderr, "Must specify stack ID using --stack or -s\n");
+	if (cfg.id == -1) {
+		fprintf(stderr, "Must specify %s ID using --stack or -s\n",
+			unit);
 		return -1;
 	}
 
-	ret = switchtec_diag_refclk_ctl(cfg.dev, cfg.stack_id, cfg.enable);
+	ret = switchtec_diag_refclk_ctl(cfg.dev, cfg.id, cfg.enable);
 	if (ret) {
 		switchtec_perror("refclk_ctl");
 		return -1;
 	}
 
-	printf("REFCLK Output %s for Stack %d\n",
-	       cfg.enable ? "Enabled" : "Disabled", cfg.stack_id);
+	printf("REFCLK Output %s for %s %d\n",
+	       cfg.enable ? "Enabled" : "Disabled", unit, cfg.id);
 
-print_stack_info:
+print_info:
 	printf("REFCLK Status:\n");
-	ret = switchtec_diag_refclk_status(cfg.dev, stack_info);
+	ret = switchtec_diag_refclk_status(cfg.dev, info);
 	if (ret) {
 		switchtec_perror("refclk_status");
 		return -1;
 	}
-	printf("Stack\t\tStatus\n");
-	for (int i = 0; i < SWITCHTEC_MAX_STACKS; i++) {
-		if (stack_info[i] == 0xFF)
+	printf("%s\t\tStatus\n", unit);
+	for (int i = 0; i < max_entries; i++) {
+		if (info[i] == 0xFF)
 			printf("Reserved\t0xff(unavailable)\n");
 		else
 			printf("%d\t\t%s\n", i,
-				stack_info[i] ? "Enabled" : "Disabled");
+				info[i] ? "Enabled" : "Disabled");
 	}
 
 	return 0;
@@ -2592,13 +2601,24 @@ static int tlp_inject (int argc, char **argv)
 	return 0;
 }
 
-static int convert_bitfield(char * bits)
+static int convert_bitfield(char *bits)
 {
 	int total = 0;
-	char * sep_bits = strtok(bits, ",");
+	int bit;
+	char *sep_bits;
 
+	if (!bits)
+		return -1;
+
+	sep_bits = strtok(bits, ",");
 	while (sep_bits != NULL) {
-		total += 0x1 << atoi(sep_bits);
+		bit = atoi(sep_bits);
+		if (bit < 0 || bit > 31) {
+			fprintf(stderr, "Invalid CE event bit: %s (valid range: 0-31)\n",
+				sep_bits);
+			return -1;
+		}
+		total |= 1u << bit;
 		sep_bits = strtok(NULL, ",");
 	}
 	return total;
@@ -2628,7 +2648,21 @@ static int aer_event_gen(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_AER_EVENT_GEN, opts, &cfg,
 			sizeof(cfg));
+
+	if (!cfg.aer_error_id) {
+		fprintf(stderr, "The -e/--ce_event option is required.\n");
+		return 1;
+	}
+
 	aer_bitfield = convert_bitfield(cfg.aer_error_id);
+	if (aer_bitfield < 0)
+		return 1;
+
+	if (cfg.trigger_event != 1) {
+		fprintf(stderr, "Invalid trigger event: %d (only CE trigger 1 is supported).\n",
+			cfg.trigger_event);
+		return 1;
+	}
 
 	ret = switchtec_aer_event_gen(cfg.dev, cfg.port_id, aer_bitfield,
 				      cfg.trigger_event);
@@ -2638,6 +2672,7 @@ static int aer_event_gen(int argc, char **argv)
 		return 1;
 	}
 
+	printf("AER event generated successfully.\n");
 	return 0;
 }
 
@@ -2699,13 +2734,9 @@ static int linkerr_inject(int argc, char ** argv)
 	argconfig_parse(argc, argv, CMD_DESC_LNKERR_INJECT, opts, &cfg,
 			sizeof(cfg));
 
-	uint8_t *ptr = (uint8_t *)&cfg + 5;
-	int total_en = 0;
-	for (size_t i = 0; i < 6; i++) {
-		ptr += 3;
-		if (ptr[i] == 1)
-			total_en++;
-	}
+	int total_en = cfg.inject_dllp + cfg.inject_dllp_crc +
+		       cfg.inject_tlp_lcrc + cfg.inject_tlp_seq +
+		       cfg.inject_nack + cfg.inject_cto;
 	if (total_en > 1) {
 		fprintf(stderr, "Cannot enable more than one link error injection command at a time.\n");
 		return -1;
@@ -2791,15 +2822,19 @@ static int linkerr_inject(int argc, char ** argv)
 						    cfg.seq_num, cfg.count);
 	}
 	if (cfg.inject_cto) {
-		if (!switchtec_is_gen5(cfg.dev)) {
-			fprintf(stderr, "Credit timeout error injection is only supported on Gen5.\n");
+		if (!switchtec_is_gen5(cfg.dev) && !switchtec_is_gen6(cfg.dev)) {
+			fprintf(stderr, "Credit timeout error injection is only supported on Gen5 and Gen6.\n");
 			free(dllp_data_dword);
 			return -1;
 		}
 		ret = switchtec_inject_err_cto(cfg.dev, cfg.phy_port);
 	}
 
-	switchtec_perror("linkerr-inject");
+	if (ret)
+		switchtec_perror("linkerr-inject");
+	else
+		printf("Link error injected successfully.\n");
+
 	return ret;
 }
 
@@ -3384,14 +3419,23 @@ static int osa_dump_config(int argc, char **argv)
 		printf("%s", config.os_type_os_types & 1 ? "TS0," : "");
 		printf("%s", (config.os_type_os_types >> 1) & 1 ? "TS1," : "");
 		printf("%s", (config.os_type_os_types >> 2) & 1 ? "TS2," : "");
-		printf("%s\n", (config.os_type_os_types >> 3) & 1 ? "FTS" : "");
-		printf("%s\n", (config.os_type_os_types >> 4) & 1 ? "CTL_SKP" : "");
+		printf("%s", (config.os_type_os_types >> 3) & 1 ? "FTS," : "");
+		printf("%s", (config.os_type_os_types >> 4) & 1 ? "CTL_SKP," : "");
+		printf("%s", (config.os_type_os_types >> 5) & 1 ? "SKP," : "");
+		printf("%s", (config.os_type_os_types >> 6) & 1 ? "EIEOS," : "");
+		printf("%s", (config.os_type_os_types >> 7) & 1 ? "EIOS," : "");
+		printf("%s", (config.os_type_os_types >> 8) & 1 ? "ERR_OS," : "");
 	} else {
 		printf("%s", config.os_type_os_types & 1 ? "TS1," : "");
 		printf("%s", (config.os_type_os_types >> 1) & 1 ? "TS2," : "");
 		printf("%s", (config.os_type_os_types >> 2) & 1 ? "FTS," : "");
-		printf("%s\n", (config.os_type_os_types >> 3) & 1 ? "CTL_SKP" : "");
+		printf("%s", (config.os_type_os_types >> 3) & 1 ? "CTL_SKP," : "");
+		printf("%s", (config.os_type_os_types >> 4) & 1 ? "SKP," : "");
+		printf("%s", (config.os_type_os_types >> 5) & 1 ? "EIEOS," : "");
+		printf("%s", (config.os_type_os_types >> 6) & 1 ? "EIOS," : "");
+		printf("%s", (config.os_type_os_types >> 7) & 1 ? "ERR_OS," : "");
 	}
+	printf("\n");
 
 	printf("------- OS Pattern ---------------------\n");
 	printf("lanes: \t\t\t%s", config.os_pat_lane_mask & 1 ? "0," : "");
@@ -3465,7 +3509,7 @@ static int osa_dump_config(int argc, char **argv)
 	printf("os types: \t\t");
 	if (switchtec_is_gen6(cfg.dev)) {
 		printf("%s", (config.capture_os_types & 1) ? "TS0," : "");
-		printf("%s", (config.capture_os_types >> 1) & 1 ? "TS2," : "");
+		printf("%s", (config.capture_os_types >> 1) & 1 ? "TS1," : "");
 		printf("%s", (config.capture_os_types >> 2) & 1 ? "TS2," : "");
 		printf("%s", (config.capture_os_types >> 3) & 1 ? "FTS," : "");
 		printf("%s", (config.capture_os_types >> 4) & 1 ? "CTL_SKP," : "");

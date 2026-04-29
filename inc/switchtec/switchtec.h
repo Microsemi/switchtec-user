@@ -54,6 +54,7 @@ struct switchtec_dev;
 #define SWITCHTEC_MAX_LANES  100
 #define SWITCHTEC_MAX_LANES_GEN6 144
 #define SWITCHTEC_MAX_STACKS 8
+#define SWITCHTEC_MAX_STACKS_GEN6 4
 #define SWITCHTEC_PORTS_PER_STACK 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
@@ -386,6 +387,7 @@ enum switchtec_event_id {
 	SWITCHTEC_PFF_EVT_FORCE_SPEED,
 	SWITCHTEC_PFF_EVT_CREDIT_TIMEOUT,
 	SWITCHTEC_PFF_EVT_LINK_STATE,
+	SWITCHTEC_GLOBAL_EVT_ASSERT_ERR,
 	SWITCHTEC_MAX_EVENTS,
 };
 
@@ -1029,7 +1031,8 @@ int switchtec_event_summary_set(struct switchtec_event_summary *sum,
 int switchtec_event_summary_test(struct switchtec_event_summary *sum,
 				 enum switchtec_event_id e,
 				 int index);
-int switchtec_event_summary_iter(struct switchtec_event_summary *sum,
+int switchtec_event_summary_iter(struct switchtec_dev *dev,
+				 struct switchtec_event_summary *sum,
 				 enum switchtec_event_id *e,
 				 int *idx);
 enum switchtec_event_type switchtec_event_info(enum switchtec_event_id e,
@@ -1602,6 +1605,19 @@ struct switchtec_gen5_diag_eye_read_out {
 	uint64_t ber_data[60];
 };
 
+struct switchtec_gen6_diag_eye_read_in {
+	uint8_t sub_cmd;
+	uint8_t lane_id;
+	uint16_t bin_num;
+};
+
+struct switchtec_gen6_diag_eye_read_out {
+	uint8_t num_phases;
+	uint8_t resvd1[3];
+	uint32_t resvd2;
+	uint32_t ndes_data[64];
+};
+
 enum switchtec_diag_loopback_enable {
 	SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX = 1 << 0,
 	SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX = 1 << 1,
@@ -1634,15 +1650,17 @@ enum switchtec_diag_pattern_gen5 {
 };
 
 enum switchtec_diag_pattern_gen6 {
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_7,
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_9,
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_11,
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_13,
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_15,
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_23,
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_31,
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PCIE_52_UI_JIT = 0x19,
-	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_DISABLED = 0x1A,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_7  = 0x0,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_11 = 0x1,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_23 = 0x2,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_31 = 0x3,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_9  = 0x4,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_15 = 0x5,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_5  = 0x6,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_20 = 0x7,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_CJPAT   = 0x8,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_CJTPAT  = 0x9,
+	SWITCHTEC_DIAG_GEN_6_PATTERN_PRBS_DISABLED = 0xA,
 };
 
 enum switchtec_diag_pattern_link_rate {
@@ -1711,7 +1729,7 @@ struct switchtec_osa_config {
 	uint16_t os_type_lane_mask;
 	uint8_t os_type_direction;
 	uint8_t os_type_link_rate;
-	uint8_t os_type_os_types;
+	uint16_t os_type_os_types;
 
 	/* OS Pattern Trigger */
 	uint16_t os_pat_lane_mask;
@@ -1730,7 +1748,7 @@ struct switchtec_osa_config {
 	uint8_t capture_stop_mode;
 	uint8_t capture_snapshot_mode;
 	uint16_t capture_post_trig_entries;
-	uint8_t capture_os_types;
+	uint16_t capture_os_types;
 };
 
 /**
@@ -1823,8 +1841,8 @@ int switchtec_diag_port_eq_tx_fslf(struct switchtec_dev *dev, int port_id,
 
 int switchtec_diag_perm_table(struct switchtec_dev *dev,
 			      struct switchtec_mrpc table[MRPC_MAX_ID]);
-int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int stack_id, bool en);
-int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *stack_info);
+int switchtec_diag_refclk_ctl(struct switchtec_dev *dev, int id, bool en);
+int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *info);
 int switchtec_diag_ltssm_clear(struct switchtec_dev *dev, int port);
 int switchtec_diag_ltssm_log(struct switchtec_dev *dev,
 			     int port, int *log_count,

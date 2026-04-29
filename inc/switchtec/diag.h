@@ -134,6 +134,12 @@ struct switchtec_diag_refclk_ctl_in {
 	uint8_t stack_id;
 };
 
+struct switchtec_diag_refclk_ctl_in_gen6 {
+	uint8_t sub_cmd;
+	uint8_t csu_id;
+	uint8_t reserved[2];
+};
+
 enum switchtec_diag_loopback_type {
 	DIAG_LOOPBACK_RX_TO_TX = 0,
 	DIAG_LOOPBACK_TX_TO_RX = 1,
@@ -341,9 +347,8 @@ struct osa_type_config_in{
 	uint16_t lane_mask;
 	uint8_t direction;
 	uint8_t link_rate;
-	uint8_t os_types;
-	uint8_t reserved2;
-	uint16_t reserved3;
+	uint16_t os_types;
+	uint16_t reserved2;
 };
 
 struct osa_pattern_config_in{
@@ -373,9 +378,8 @@ struct osa_capture_ctrl_in{
 	uint8_t stop_mode;
 	uint8_t snapshot_mode;
 	uint16_t post_trig_entries;
-	uint8_t os_types;
-	uint8_t reserved2;
-	uint16_t reserved3;
+	uint16_t os_types;
+	uint16_t reserved2;
 };
 
 #endif
