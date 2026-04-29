@@ -364,8 +364,8 @@ static int read_resp(struct switchtec_linux *ldev, void *resp,
 	memcpy(&ret, buf, sizeof(ret));
 
 	if (ret) {
-		errno = ENODATA;
-		return -errno;
+		errno = ret; 
+		return ret;
 	}
 
 	if (!resp)
