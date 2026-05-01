@@ -2041,6 +2041,26 @@ switchtec_fw_type_ptr(struct switchtec_fw_part_summary *summary,
  * @return pointer to the structure on success, NULL on error. Free the
  *	the structure with \ref switchtec_fw_part_summary_free.
  */
+int switchtec_sms_fmc_version_get(struct switchtec_dev *dev, uint32_t *info)
+{
+	uint32_t cmd = htole32(MRPC_PART_INFO_GET_SMS_FMC_VERSION_GEN6);
+	int ret;
+
+	if (!dev || !info) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	ret = switchtec_cmd(dev, MRPC_PART_INFO, &cmd, sizeof(cmd),
+			    info, sizeof(*info));
+	if (ret)
+		return ret;
+
+	*info = le32toh(*info);
+
+	return 0;
+}
+
 struct switchtec_fw_part_summary *
 switchtec_fw_part_summary(struct switchtec_dev *dev)
 {

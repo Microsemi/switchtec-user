@@ -104,6 +104,7 @@ enum switchtec_gen {
  */
 enum switchtec_rev {
 	SWITCHTEC_REVA = 0x0f,
+	SWITCHTEC_REVA1 = 0x0e,
 	SWITCHTEC_REVB = 0x00,
 	SWITCHTEC_REVC = 0x01,
 	SWITCHTEC_REV_UNKNOWN = 0xff
@@ -665,6 +666,7 @@ static inline const char *switchtec_rev_str(enum switchtec_rev rev)
 	const char *str;
 
 	str =  (rev == SWITCHTEC_REVA) ? "REVA" :
+	       (rev == SWITCHTEC_REVA1) ? "REVA.1" :
 	       (rev == SWITCHTEC_REVB) ? "REVB" :
 	       (rev == SWITCHTEC_REVC) ? "REVC" : "Unknown";
 
@@ -1119,6 +1121,7 @@ const char *switchtec_fw_image_type(const struct switchtec_fw_image_info *info);
 struct switchtec_fw_part_summary *
 switchtec_fw_part_summary(struct switchtec_dev *dev);
 void switchtec_fw_part_summary_free(struct switchtec_fw_part_summary *summary);
+int switchtec_sms_fmc_version_get(struct switchtec_dev *dev, uint32_t *info);
 int switchtec_fw_img_write_hdr(int fd, struct switchtec_fw_image_info *info);
 int switchtec_fw_is_boot_ro(struct switchtec_dev *dev);
 int switchtec_fw_set_boot_ro(struct switchtec_dev *dev,

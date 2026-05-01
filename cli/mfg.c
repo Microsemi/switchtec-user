@@ -994,6 +994,11 @@ static int state_set(int argc, char **argv)
 			   "the UNINITIALIZED_UNSECURED state, then use this "
 			   "command to switch the chip to the INITIALIZED_SECURED "
 			   "or INITIALIZED_UNSECURED state. \n\n"
+			   "For Gen6 devices, the state transition is a two-phase process:\n"
+			   "  Phase 1: Enable debug protection (--debug-protect-only)\n"
+			   "  Phase 2: Apply state transition (--state)\n"
+			   "By default, both phases are executed. Use --debug-protect-only "
+			   "to run only phase 1, or --skip-debug-protect to skip phase 1.\n\n"
 			   "WARNING: ONCE THE CHIP STATE IS SUCCESSFULLY SET, "
 			   "IT CAN NO LONGER BE CHANGED. USE CAUTION WHEN ISSUING "
 			   "THIS COMMAND.";
@@ -1002,6 +1007,8 @@ static int state_set(int argc, char **argv)
 		struct switchtec_dev *dev;
 		enum switchtec_secure_state state;
 		int assume_yes;
+		int debug_protect_only;
+		int skip_debug_protect;
 	} cfg = {
 		.state = SWITCHTEC_SECURE_STATE_UNKNOWN,
 	};
@@ -1013,14 +1020,30 @@ static int state_set(int argc, char **argv)
 			.choices=secure_state_choices},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
+		{"debug-protect-only", 'd', "", CFG_NONE, &cfg.debug_protect_only,
+		 no_argument, "Gen6 only: run phase 1 (debug protection) only"},
+		{"skip-debug-protect", 's', "", CFG_NONE, &cfg.skip_debug_protect,
+		 no_argument, "Gen6 only: skip phase 1 (if already done)"},
 		{NULL}
 	};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (cfg.state == SWITCHTEC_SECURE_STATE_UNKNOWN) {
+	if (!cfg.debug_protect_only && cfg.state == SWITCHTEC_SECURE_STATE_UNKNOWN) {
 		fprintf(stderr,
-			"Secure state must be set in this command!\n");
+			"Secure state must be set in this command (or use --debug-protect-only)!\n");
+		return -1;
+	}
+
+	if (cfg.debug_protect_only && cfg.skip_debug_protect) {
+		fprintf(stderr,
+			"Cannot use both --debug-protect-only and --skip-debug-protect!\n");
+		return -1;
+	}
+
+	if (!switchtec_is_gen6(cfg.dev) && (cfg.debug_protect_only || cfg.skip_debug_protect)) {
+		fprintf(stderr,
+			"--debug-protect-only and --skip-debug-protect are only valid for Gen6 devices!\n");
 		return -1;
 	}
 
@@ -1030,18 +1053,36 @@ static int state_set(int argc, char **argv)
 		return -2;
 	}
 
-	ret = switchtec_security_config_get(cfg.dev, &state);
-	if (ret) {
-		switchtec_perror("mfg state-set");
-		return ret;
-	}
-	if (state.secure_state != SWITCHTEC_UNINITIALIZED_UNSECURED) {
-		fprintf(stderr,
-			"This command is only valid when secure state is UNINITIALIZED_UNSECURED!\n");
-		return -3;
+	if (switchtec_is_gen6(cfg.dev)) {
+		struct switchtec_security_cfg_state_gen6 state_gen6 = {};
+
+		ret = switchtec_security_config_get(cfg.dev,
+			(struct switchtec_security_cfg_state *)&state_gen6);
+		if (ret) {
+			switchtec_perror("mfg state-set");
+			return ret;
+		}
+
+		if (state_gen6.secsc != 0) {
+			fprintf(stderr,
+				"This command is only valid when secure state is UNINITIALIZED_UNSECURED!\n");
+			return -3;
+		}
+	} else {
+		ret = switchtec_security_config_get(cfg.dev, &state);
+		if (ret) {
+			switchtec_perror("mfg state-set");
+			return ret;
+		}
+		if (state.secure_state != SWITCHTEC_UNINITIALIZED_UNSECURED) {
+			fprintf(stderr,
+				"This command is only valid when secure state is UNINITIALIZED_UNSECURED!\n");
+			return -3;
+		}
 	}
 
-	print_security_config(&state, false);
+	if (!switchtec_is_gen6(cfg.dev))
+		print_security_config(&state, false);
 
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
@@ -1052,10 +1093,34 @@ static int state_set(int argc, char **argv)
 			return -4;
 	}
 
-	ret = switchtec_secure_state_set(cfg.dev, cfg.state);
-	if (ret) {
-		switchtec_perror("mfg state-set");
-		return ret;
+	if (switchtec_is_gen6(cfg.dev)) {
+		if (!cfg.skip_debug_protect) {
+			printf("Enabling debug protection (phase 1)...\n");
+			ret = switchtec_secure_state_set_debug_protect(cfg.dev);
+			if (ret) {
+				switchtec_perror("mfg state-set (debug protect)");
+				return ret;
+			}
+			printf("Debug protection enabled successfully.\n");
+		}
+
+		if (!cfg.debug_protect_only) {
+			printf("Applying state transition to %s (phase 2)...\n",
+			       cfg.state == SWITCHTEC_INITIALIZED_SECURED ?
+			       "INITIALIZED_SECURED" : "INITIALIZED_UNSECURED");
+			ret = switchtec_secure_state_set_transition(cfg.dev, cfg.state);
+			if (ret) {
+				switchtec_perror("mfg state-set (state transition)");
+				return ret;
+			}
+			printf("State transition completed successfully.\n");
+		}
+	} else {
+		ret = switchtec_secure_state_set(cfg.dev, cfg.state);
+		if (ret) {
+			switchtec_perror("mfg state-set");
+			return ret;
+		}
 	}
 
 	return 0;
