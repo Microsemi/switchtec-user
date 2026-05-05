@@ -1937,6 +1937,10 @@ static int print_fw_part_info_main(struct switchtec_dev *dev)
 	print_fw_part_line("BL2", sum->bl2.active);
 	print_fw_part_line("IMG", sum->img.active);
 	print_fw_part_line("CFG", sum->cfg.active);
+	if (switchtec_is_gen6(dev)) {
+		print_fw_part_line("CERT", sum->cert.active);
+		print_fw_part_line("DBG", sum->dbg.active);
+	}
 
 	for (i = 0, inf = sum->mult_cfg; inf; i++, inf = inf->next)
 		printf("   \tMulti Config %d%s\n", i, fw_active_string(inf));
@@ -1949,6 +1953,10 @@ static int print_fw_part_info_main(struct switchtec_dev *dev)
 	print_fw_part_line("BL2", sum->bl2.inactive);
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
+	if (switchtec_is_gen6(dev)) {
+		print_fw_part_line("CERT", sum->cert.active);
+		print_fw_part_line("DBG", sum->dbg.active);
+	}
 
 	printf("Other Partitions:\n");
 	print_fw_part_line("SEE", sum->seeprom.active);
