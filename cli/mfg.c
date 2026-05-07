@@ -2874,6 +2874,7 @@ static int dok_key_add(int argc, char **argv)
 
 #define CMD_DESC_DOK_KEY_REVOKE "revoke DOK key entry (Gen6 only)"
 
+#if HAVE_LIBCRYPTO
 static int dok_key_revoke(int argc, char **argv)
 {
 	int ret;
@@ -3019,6 +3020,7 @@ static int dok_key_revoke(int argc, char **argv)
 	printf("DOK key entry revoked successfully.\n");
 	return 0;
 }
+#endif
 
 #define CMD_DESC_JTAG_STATUS_GET "get JTAG lock status (Gen6 only)"
 
