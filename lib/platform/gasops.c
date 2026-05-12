@@ -140,6 +140,9 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	else
 		__gas_write32(dev, cmd, &mrpc->cmd);
 
+	if ((cmd & SWITCHTEC_CMD_MASK) == MRPC_RESET)
+		return 0;
+
 	while (1) {
 		usleep(5000);
 
