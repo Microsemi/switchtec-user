@@ -1003,6 +1003,11 @@ static int fw_execute(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
+	if (switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "This command is not supported on Gen6 switches\n");
+		return -2;
+	}
+
 	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
 			"This command is only available in the BL1 phase!\n");
