@@ -1120,6 +1120,7 @@ static int secure_state_set_gen5(struct switchtec_dev *dev,
 
 #define GEN6_STATE_SET_SUBCMD_DEBUG_PROTECT  0x0
 #define GEN6_STATE_SET_SUBCMD_STATE_TRANS    0x1
+#define GEN6_STATE_SET_FLAG_SKIP_CUST_CFG    0x10000
 
 int switchtec_secure_state_set_debug_protect(struct switchtec_dev *dev)
 {
@@ -1137,7 +1138,15 @@ int switchtec_secure_state_set_debug_protect(struct switchtec_dev *dev)
 int switchtec_secure_state_set_transition(struct switchtec_dev *dev,
 					  enum switchtec_secure_state state)
 {
+	return switchtec_secure_state_set_transition_ex(dev, state, 0);
+}
+
+int switchtec_secure_state_set_transition_ex(struct switchtec_dev *dev,
+					     enum switchtec_secure_state state,
+					     int skip_customer_config)
+{
 	uint32_t data;
+	uint32_t flags = 0;
 
 	if (!switchtec_is_gen6(dev))
 		return ERR_SUBCMD_INVALID;
@@ -1147,7 +1156,10 @@ int switchtec_secure_state_set_transition(struct switchtec_dev *dev,
 		return ERR_PARAM_INVALID;
 	}
 
-	data = htole32(GEN6_STATE_SET_SUBCMD_STATE_TRANS | (state << 8));
+	if (skip_customer_config)
+		flags |= GEN6_STATE_SET_FLAG_SKIP_CUST_CFG;
+
+	data = htole32(GEN6_STATE_SET_SUBCMD_STATE_TRANS | (state << 8) | flags);
 
 	return switchtec_mfg_cmd(dev, MRPC_SECURE_STATE_SET_GEN6,
 				 &data, sizeof(data), NULL, 0);
@@ -1265,7 +1277,7 @@ int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 		struct unlock_cmd_gen6 {
 			uint8_t subcmd;
 			uint8_t rsvd[3];
-			uint8_t token[SWITCHTEC_GEN6_TOKEN_LEN];
+			uint8_t token[SWITCHTEC_GEN6_TOKEN_STATIC_LEN];
 		} cmd = {};
 
 		uint32_t cmd_id;
@@ -1280,7 +1292,7 @@ int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 			return ret;
 
 		cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_STATIC;
-		memcpy(cmd.token, token->token, SWITCHTEC_GEN6_TOKEN_LEN);
+		memcpy(cmd.token, token->token, SWITCHTEC_GEN6_TOKEN_STATIC_LEN);
 
 		return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 	}
@@ -1316,38 +1328,59 @@ int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
  *
  * @return 0 on success, error code on failure
  */
+int gen6_token_len_by_type(int token_type)
+{
+	if (token_type == GEN6_TOKEN_STATIC)
+		return SWITCHTEC_GEN6_TOKEN_STATIC_LEN;
+	if (token_type == GEN6_TOKEN_EPHEMERAL)
+		return SWITCHTEC_GEN6_TOKEN_EPHEMERAL_LEN;
+	if (token_type == GEN6_TOKEN_VER_UPDATE)
+		return SWITCHTEC_GEN6_TOKEN_VER_UPDATE_LEN;
+
+	return SWITCHTEC_GEN6_TOKEN_DISABLE_STATIC_LEN;
+}
+
 int switchtec_dbg_unlock_get_token_gen6(struct switchtec_dev *dev,
 			struct switchtec_gen6_token *token,
-			int token_type)
+			int token_type,
+			int auth_type)
 {
 	int ret;
+	int token_len;
 
 	struct get_unlock_token_cmd_gen6 {
 		uint8_t subcmd;
 		uint8_t token_type;
-		uint8_t rsvd[2];
+		uint8_t auth_type;
+		uint8_t rsvd;
 	} cmd = {};
 
 	uint32_t cmd_id;
 	cmd_id = MRPC_DBG_UNLOCK_GEN6;
 
 	struct get_unlock_token_reply_gen6 {
-		uint8_t token[SWITCHTEC_GEN6_TOKEN_LEN];
+		uint8_t token[SWITCHTEC_GEN6_TOKEN_MAX_LEN];
 	} reply;
 
 	cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_TOKEN_GET;
 
-	if(token_type == GEN6_TOKEN_STATIC)
+	if (token_type == GEN6_TOKEN_STATIC)
 		cmd.token_type = SECURE_TOKEN_GET_TYPE_STATIC;
-	else
+	else if (token_type == GEN6_TOKEN_EPHEMERAL)
 		cmd.token_type = SECURE_TOKEN_GET_TYPE_EPHEMERAL;
+	else if (token_type == GEN6_TOKEN_VER_UPDATE)
+		cmd.token_type = SECURE_TOKEN_GET_TYPE_VER_UPDATE;
+	else
+		cmd.token_type = SECURE_TOKEN_GET_TYPE_DISABLE_STATIC;
 
+	cmd.auth_type = (uint8_t)auth_type;
+	token_len = gen6_token_len_by_type(token_type);
 	ret = switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), &reply,
-				sizeof(reply));
+			       token_len);
 	if (ret)
 		return ret;
 
-	memcpy(&token->token, &reply, SWITCHTEC_GEN6_TOKEN_LEN);
+	memcpy(token->token, reply.token, token_len);
 	return 0;
 }
 
@@ -1435,6 +1468,35 @@ int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 	cmd.unlock_ver = htole32(ver_sec_unlock);
 	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
 
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
+}
+
+int switchtec_dbg_sec_ver_update_gen6(struct switchtec_dev *dev,
+				      struct switchtec_pubkey *public_key,
+				      struct switchtec_signature *signature,
+				      struct switchtec_gen6_token *token)
+{
+	int ret;
+	struct ver_update_cmd_gen6 {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint8_t token[SWITCHTEC_GEN6_TOKEN_VER_UPDATE_LEN];
+	} cmd = {};
+	uint32_t cmd_id = MRPC_DBG_UNLOCK_GEN6;
+
+	if (!switchtec_is_gen6(dev))
+		return ERR_SUBCMD_INVALID;
+
+	ret = dbg_unlock_send_pubkey_gen6(dev, public_key, cmd_id);
+	if (ret)
+		return ret;
+
+	ret = dbg_unlock_send_sig_gen6(dev, signature, cmd_id);
+	if (ret)
+		return ret;
+
+	cmd.subcmd = MRPC_GEN6_DBG_SEC_VER_UPDATE;
+	memcpy(cmd.token, token->token, SWITCHTEC_GEN6_TOKEN_VER_UPDATE_LEN);
 	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
@@ -1930,8 +1992,8 @@ int switchtec_read_token_file(FILE *tkn_file, struct switchtec_gen6_token *token
 {
 	ssize_t rlen;
 
-	rlen = fread(token->token, 1, SWITCHTEC_GEN6_TOKEN_LEN, tkn_file);
-	if (rlen < SWITCHTEC_GEN6_TOKEN_LEN)
+	rlen = fread(token->token, 1, SWITCHTEC_GEN6_TOKEN_MAX_LEN, tkn_file);
+	if (rlen < SWITCHTEC_GEN6_TOKEN_MAX_LEN)
 		return -EBADF;
 
 	return 0;

@@ -34,7 +34,11 @@
 #define SWITCHTEC_KMSK_NUM_MAX	10
 #define SWITCHTEC_KMSK_NUM_GEN6		12
 #define SWITCHTEC_KMSK_LEN_DWORDS	(SWITCHTEC_KMSK_LEN / 4)
-#define SWITCHTEC_GEN6_TOKEN_LEN	88
+#define SWITCHTEC_GEN6_TOKEN_STATIC_LEN		88
+#define SWITCHTEC_GEN6_TOKEN_EPHEMERAL_LEN	88
+#define SWITCHTEC_GEN6_TOKEN_VER_UPDATE_LEN	88
+#define SWITCHTEC_GEN6_TOKEN_DISABLE_STATIC_LEN	88
+#define SWITCHTEC_GEN6_TOKEN_MAX_LEN	SWITCHTEC_GEN6_TOKEN_EPHEMERAL_LEN
 
 #define SWITCHTEC_UID_LEN_DWORDS	16
 #define SWITCHTEC_PSID_LEN_DWORDS	4
@@ -322,8 +326,8 @@ enum kmt_signature_types_e {
 enum switchtec_otp_key_status {
 	UNPROGRAMMED = 0x00,
 	PROGRAMMED = 0x01,
-	REVOKED = 0x02,
-	INVALID = 0x03
+	LOCKED = 0x02,
+	REVOKED = 0x03,
 };
 
 struct switchtec_attestation_set {
@@ -370,15 +374,26 @@ enum switchtec_bl2_recovery_mode {
 	SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM = 3
 };
 
-#define TOKEN_RESOURCE_UNLOCK 0
-#define TOKEN_VERSION_UPDATE 1
-#define GEN6_TOKEN_STATIC    2
-#define GEN6_TOKEN_EPHEMERAL 3
+#define TOKEN_RESOURCE_UNLOCK          0
+#define TOKEN_VERSION_UPDATE           1
+#define GEN6_TOKEN_STATIC              2
+#define GEN6_TOKEN_EPHEMERAL           3
+#define GEN6_TOKEN_VER_UPDATE          4
+#define GEN6_TOKEN_DISABLE_STATIC      5
 
 enum secure_token_get_types_e {
-	SECURE_TOKEN_GET_TYPE_STATIC    = 0,
-	SECURE_TOKEN_GET_TYPE_EPHEMERAL = 1,
+	SECURE_TOKEN_GET_TYPE_STATIC         = 0,
+	SECURE_TOKEN_GET_TYPE_EPHEMERAL      = 1,
+	SECURE_TOKEN_GET_TYPE_VER_UPDATE     = 2,
+	SECURE_TOKEN_GET_TYPE_DISABLE_STATIC = 3,
 	SECURE_TOKEN_GET_TYPE_MAX
+};
+
+enum secure_id_types_e {
+	SECURE_ID_TYPE_PSID_ONLY = 0,
+	SECURE_ID_TYPE_UID_ONLY = 1,
+	SECURE_ID_TYPE_PSID_UID = 2,
+	SECURE_ID_TYPE_MAX
 };
 
 struct switchtec_kmsk {
@@ -395,7 +410,7 @@ struct switchtec_signature{
 };
 
 struct switchtec_gen6_token{
-	uint8_t token[SWITCHTEC_GEN6_TOKEN_LEN];
+	uint8_t token[SWITCHTEC_GEN6_TOKEN_MAX_LEN];
 };
 
 struct switchtec_uds {
@@ -437,6 +452,9 @@ int switchtec_secure_state_set(struct switchtec_dev *dev,
 int switchtec_secure_state_set_debug_protect(struct switchtec_dev *dev);
 int switchtec_secure_state_set_transition(struct switchtec_dev *dev,
 					  enum switchtec_secure_state state);
+int switchtec_secure_state_set_transition_ex(struct switchtec_dev *dev,
+					     enum switchtec_secure_state state,
+					     int skip_customer_config);
 int switchtec_dbg_unlock(struct switchtec_dev *dev, uint32_t serial,
 			 uint32_t ver_sec_unlock,
 			 struct switchtec_pubkey *public_key,
@@ -447,9 +465,15 @@ int switchtec_dbg_unlock_version_update(struct switchtec_dev *dev,
 					uint32_t ver_sec_unlock,
 					struct switchtec_pubkey *public_key,
 					struct switchtec_signature *signature);
+int switchtec_dbg_sec_ver_update_gen6(struct switchtec_dev *dev,
+				      struct switchtec_pubkey *public_key,
+				      struct switchtec_signature *signature,
+				      struct switchtec_gen6_token *token);
 int switchtec_dbg_unlock_get_token_gen6(struct switchtec_dev *dev,
 					struct switchtec_gen6_token *token,
-					int token_type);
+					int token_type,
+					int auth_type);
+int gen6_token_len_by_type(int token_type);
 int switchtec_dbg_unlock_status_get_gen6(struct switchtec_dev *dev,
 					 uint32_t *jtag_status);
 int switchtec_secure_state_get_gen6(struct switchtec_dev *dev,
@@ -609,11 +633,13 @@ int switchtec_device_config_set_security(struct switchtec_dev *dev,
 #define DOK_CONFIG_SUB_CMD_PROVISION    0x1
 #define DOK_CONFIG_SUB_CMD_REVOKE       0x2
 
-/* Authorization Flag values (auth_type field) */
-#define DOK_AUTH_FLAG_UID_ONLY          0x0
-#define DOK_AUTH_FLAG_PSID_ONLY         0x1
+/* Authorization Flag values (auth_type field)
+ * Keep aligned with firmware secure_id_types_e:
+ *   0 = PSID only, 1 = UID only, 2 = PSID + UID
+ */
+#define DOK_AUTH_FLAG_PSID_ONLY         0x0
+#define DOK_AUTH_FLAG_UID_ONLY          0x1
 #define DOK_AUTH_FLAG_UID_AND_PSID      0x2
-#define DOK_AUTH_FLAG_NONE              0x3
 
 struct switchtec_dok_signature {
 	uint8_t sub_cmd;
@@ -642,8 +668,7 @@ struct switchtec_dok_key_add {
 	/* DWORD 21-36: key hash (SHA2-512, 512 bits) */
 	uint32_t key_hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
 
-	/* DWORD 37-52: integrity hash (SHA2-512, 512 bits)
-	 * Required when auth_type == DOK_AUTH_FLAG_NONE */
+	/* DWORD 37-52: integrity hash (SHA2-512, 512 bits) */
 	uint32_t integrity_hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
 };
 
@@ -660,8 +685,7 @@ struct switchtec_dok_key_revoke {
 	/* DWORD 17-20: PSID (128 bits) */
 	uint32_t psid[SWITCHTEC_PSID_LEN_DWORDS];
 
-	/* DWORD 21-36: integrity hash (SHA2-512, 512 bits)
-	 * Required when auth_type == DOK_AUTH_FLAG_NONE */
+	/* DWORD 21-36: integrity hash (SHA2-512, 512 bits) */
 	uint32_t integrity_hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
 };
 
