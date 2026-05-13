@@ -2225,6 +2225,113 @@ int switchtec_device_config_get_customer(struct switchtec_dev *dev,
 	return ret;
 }
 
+static int check_dev_cfg_file_header(FILE *fp, const char *expected_magic)
+{
+	struct dev_cfg_file_header {
+		uint8_t  magic[4];
+		uint32_t version;
+		uint8_t  hw_gen;
+		uint8_t  rsvd[3];
+		uint32_t crc;
+	} hdr;
+	uint8_t *data;
+	int data_len;
+	ssize_t rlen;
+	uint32_t file_crc;
+
+	rewind(fp);
+	rlen = fread(&hdr, sizeof(hdr), 1, fp);
+	if (rlen != 1)
+		return -EBADF;
+
+	if (memcmp(hdr.magic, expected_magic, 4))
+		return -EBADF;
+
+	if (le32toh(hdr.version) != DEVICE_CONFIG_FILE_VERSION)
+		return -EBADF;
+
+	if (hdr.hw_gen != DEVICE_CONFIG_FILE_HW_GEN_GEN6)
+		return -ENODEV;
+
+	fseek(fp, 0, SEEK_END);
+	data_len = ftell(fp);
+	if (data_len < 0)
+		return -EBADF;
+	data_len -= (int)sizeof(hdr);
+
+	if (fseek(fp, sizeof(hdr), SEEK_SET))
+		return -EBADF;
+
+	if (data_len <= 0)
+		return -EBADF;
+
+	if (data_len > (int)(MRPC_MAX_DATA_LEN - sizeof(uint32_t)))
+		return -EBADF;
+
+	data = malloc(data_len);
+	if (!data)
+		return -ENOMEM;
+
+	rlen = fread(data, 1, data_len, fp);
+	if (rlen < data_len) {
+		free(data);
+		return -EBADF;
+	}
+
+	file_crc = crc32(data, data_len, 0, 1, 1);
+	free(data);
+
+	if (file_crc != le32toh(hdr.crc))
+		return -EBADF;
+
+	if (fseek(fp, sizeof(hdr), SEEK_SET))
+		return -EBADF;
+
+	return 0;
+}
+
+int switchtec_read_dev_cfg_file_dev(FILE *fp,
+				    struct switchtec_device_config_dev_settings *settings)
+{
+	int ret = check_dev_cfg_file_header(fp, DEVICE_CONFIG_FILE_MAGIC_DEV);
+
+	if (ret)
+		return ret;
+
+	if (fread(settings, sizeof(*settings), 1, fp) != 1)
+		return -EBADF;
+
+	return 0;
+}
+
+int switchtec_read_dev_cfg_file_customer(FILE *fp,
+					 struct switchtec_device_config_customer_settings *settings)
+{
+	int ret = check_dev_cfg_file_header(fp, DEVICE_CONFIG_FILE_MAGIC_CUSTOMER);
+
+	if (ret)
+		return ret;
+
+	if (fread(settings, sizeof(*settings), 1, fp) != 1)
+		return -EBADF;
+
+	return 0;
+}
+
+int switchtec_read_dev_cfg_file_security(FILE *fp,
+					 struct switchtec_device_config_secure_settings *settings)
+{
+	int ret = check_dev_cfg_file_header(fp, DEVICE_CONFIG_FILE_MAGIC_SECURITY);
+
+	if (ret)
+		return ret;
+
+	if (fread(settings, sizeof(*settings), 1, fp) != 1)
+		return -EBADF;
+
+	return 0;
+}
+
 int switchtec_device_config_set_dev(struct switchtec_dev *dev,
 				    struct switchtec_device_config_dev_settings *settings)
 {

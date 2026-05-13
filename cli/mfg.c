@@ -2156,7 +2156,6 @@ static int device_config_set_device(int argc, char **argv)
 	int ret;
 	struct switchtec_device_config_dev_settings settings = {};
 	FILE *fp;
-	size_t nread;
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_DEVICE "\n\n"
 			   "Set device settings including TWI and I3C addresses.\n"
@@ -2220,15 +2219,15 @@ static int device_config_set_device(int argc, char **argv)
 			return -1;
 		}
 
-		nread = fread(&settings, 1, sizeof(settings), fp);
+		ret = switchtec_read_dev_cfg_file_dev(fp, &settings);
 		fclose(fp);
 
-		if (nread != sizeof(settings)) {
-			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
-				sizeof(settings), nread);
+		if (ret) {
+			fprintf(stderr, "Error: '%s' is not a valid device config binary file\n",
+				cfg.input_file);
 			return -1;
 		}
-		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+		printf("Loaded device settings from %s\n", cfg.input_file);
 	} else {
 		settings.twi_ocp_addr = cfg.twi_ocp_addr & 0x3FF;
 		settings.twi_mrpc_addr = cfg.twi_mrpc_addr & 0x3FF;
@@ -2275,7 +2274,6 @@ static int device_config_set_customer(int argc, char **argv)
 	int ret;
 	struct switchtec_device_config_customer_settings settings = {};
 	FILE *fp;
-	size_t nread;
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_CUSTOMER "\n\n"
 			   "Set customer settings including PSID and PCI IDs.\n"
@@ -2332,15 +2330,15 @@ static int device_config_set_customer(int argc, char **argv)
 			return -1;
 		}
 
-		nread = fread(&settings, 1, sizeof(settings), fp);
+		ret = switchtec_read_dev_cfg_file_customer(fp, &settings);
 		fclose(fp);
 
-		if (nread != sizeof(settings)) {
-			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
-				sizeof(settings), nread);
+		if (ret) {
+			fprintf(stderr, "Error: '%s' is not a valid customer config binary file\n",
+				cfg.input_file);
 			return -1;
 		}
-		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+		printf("Loaded customer settings from %s\n", cfg.input_file);
 	} else {
 		settings.device_id = cfg.device_id & 0xFFFF;
 		settings.vendor_id = cfg.vendor_id & 0xFFFF;
@@ -2405,7 +2403,6 @@ static int device_config_set_security(int argc, char **argv)
 	int key_count = 0;
 	struct switchtec_device_config_secure_settings settings = {};
 	FILE *fp;
-	size_t nread;
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_SECURITY "\n\n"
 			   "Set security settings including command map, token disable flags,\n"
@@ -2540,15 +2537,15 @@ static int device_config_set_security(int argc, char **argv)
 			return -1;
 		}
 
-		nread = fread(&settings, 1, sizeof(settings), fp);
+		ret = switchtec_read_dev_cfg_file_security(fp, &settings);
 		fclose(fp);
 
-		if (nread != sizeof(settings)) {
-			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
-				sizeof(settings), nread);
+		if (ret) {
+			fprintf(stderr, "Error: '%s' is not a valid security config binary file\n",
+				cfg.input_file);
 			return -1;
 		}
-		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+		printf("Loaded security settings from %s\n", cfg.input_file);
 		key_count = settings.key_prog_num;
 	} else {
 		settings.command_map = cfg.command_map & 0xFFF;

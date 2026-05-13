@@ -506,6 +506,15 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 #define DEVICE_CONFIG_SUB_CMD_GET_SECURITY  0x4
 #define DEVICE_CONFIG_SUB_CMD_GET_CUSTOMER  0x5
 
+/* Binary file header magic words for device config files */
+#define DEVICE_CONFIG_FILE_MAGIC_DEV        "DCFF"
+#define DEVICE_CONFIG_FILE_MAGIC_CUSTOMER   "CCFF"
+#define DEVICE_CONFIG_FILE_MAGIC_SECURITY   "SCFF"
+
+/* Binary file header hardware generation for device config files */
+#define DEVICE_CONFIG_FILE_HW_GEN_GEN6      2
+#define DEVICE_CONFIG_FILE_VERSION          0
+
 /* Constants for device configuration structures */
 #define DEVICE_CONFIG_CUSTOMER_FIELD_NUM        4
 #define DEVICE_CONFIG_CUSTOMER_ECC_FIELD_NUM    4
@@ -621,6 +630,12 @@ int switchtec_device_config_set_dev(struct switchtec_dev *dev,
 int switchtec_device_config_set_customer(struct switchtec_dev *dev,
 					 struct switchtec_device_config_customer_settings *settings);
 int switchtec_device_config_set_security(struct switchtec_dev *dev,
+					 struct switchtec_device_config_secure_settings *settings);
+int switchtec_read_dev_cfg_file_dev(FILE *fp,
+				    struct switchtec_device_config_dev_settings *settings);
+int switchtec_read_dev_cfg_file_customer(FILE *fp,
+					 struct switchtec_device_config_customer_settings *settings);
+int switchtec_read_dev_cfg_file_security(FILE *fp,
 					 struct switchtec_device_config_secure_settings *settings);
 
 /*
