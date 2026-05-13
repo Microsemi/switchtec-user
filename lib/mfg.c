@@ -2052,11 +2052,13 @@ static int sn_ver_get_gen5(struct switchtec_dev *dev,
 	return 0;
 }
 
-static int sn_ver_get_gen6(struct switchtec_dev *dev,
-						   struct switchtec_sn_ver_info *info)
+static int sn_ver_get_gen6(struct switchtec_dev *dev, struct switchtec_sn_ver_info *info)
 {
 	int ret;
-	uint32_t subcmd = 0;
+	uint32_t subcmd;
+
+	subcmd = (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL1) ? 
+		  MPRC_GEN6_SN_VER_GET_BL1 : MRPC_GEN6_SN_VER_GET_POST_BL1;
 	struct reply_t {
 		uint32_t UID[16];
 		uint32_t PSID0[4];
