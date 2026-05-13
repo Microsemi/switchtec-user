@@ -193,7 +193,7 @@ static int print_dev_info(struct switchtec_dev *dev)
 	enum switchtec_rev hw_rev;
 	char minor_str[8] = "";
 	int dev_ver;
-	int minor_ver;
+	int minor_ver = 0;
 
 	device_id = switchtec_device_id(dev);
 
@@ -212,9 +212,10 @@ static int print_dev_info(struct switchtec_dev *dev)
 			switchtec_perror("dev version");
 			return ret;
 		}
-		minor_ver = ((dev_ver >> 0x10) & 0xFF);
-		if (minor_ver)
-			sprintf(minor_str, ".%d", minor_ver);
+		if(switchtec_is_gen5(dev))
+			minor_ver = ((dev_ver >> 0x10) & 0xFF);
+
+		sprintf(minor_str, ".%d", minor_ver);
 	}
 
 	printf("%s (%s):\n", switchtec_name(dev),
@@ -1937,6 +1938,10 @@ static int print_fw_part_info_main(struct switchtec_dev *dev)
 	print_fw_part_line("BL2", sum->bl2.active);
 	print_fw_part_line("IMG", sum->img.active);
 	print_fw_part_line("CFG", sum->cfg.active);
+	if (switchtec_is_gen6(dev)) {
+		print_fw_part_line("CERT", sum->cert.active);
+		print_fw_part_line("DBG", sum->dbg.active);
+	}
 
 	for (i = 0, inf = sum->mult_cfg; inf; i++, inf = inf->next)
 		printf("   \tMulti Config %d%s\n", i, fw_active_string(inf));
@@ -1949,6 +1954,10 @@ static int print_fw_part_info_main(struct switchtec_dev *dev)
 	print_fw_part_line("BL2", sum->bl2.inactive);
 	print_fw_part_line("IMG", sum->img.inactive);
 	print_fw_part_line("CFG", sum->cfg.inactive);
+	if (switchtec_is_gen6(dev)) {
+		print_fw_part_line("CERT", sum->cert.active);
+		print_fw_part_line("DBG", sum->dbg.active);
+	}
 
 	printf("Other Partitions:\n");
 	print_fw_part_line("SEE", sum->seeprom.active);
@@ -2054,7 +2063,7 @@ static int fw_info(int argc, char **argv)
 		ret = switchtec_sms_fmc_version_get(cfg.dev, &fmc_ver);
 		if (ret == 0) {
 			printf("SMS FW:\n");
-			printf("  FMC   Version: 0x%08x\n", fmc_ver);
+			printf("  FMC   Version: 0x%08x\t\t\t\t\t%s\n", fmc_ver, (fmc_ver!=0)? "" : " (Invalid)");
 		}
 	}
 

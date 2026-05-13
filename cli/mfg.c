@@ -1003,6 +1003,11 @@ static int fw_execute(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
+	if (switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "This command is not supported on Gen6 switches\n");
+		return -2;
+	}
+
 	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
 			"This command is only available in the BL1 phase!\n");
@@ -2874,6 +2879,7 @@ static int dok_key_add(int argc, char **argv)
 
 #define CMD_DESC_DOK_KEY_REVOKE "revoke DOK key entry (Gen6 only)"
 
+#if HAVE_LIBCRYPTO
 static int dok_key_revoke(int argc, char **argv)
 {
 	int ret;
@@ -3019,6 +3025,7 @@ static int dok_key_revoke(int argc, char **argv)
 	printf("DOK key entry revoked successfully.\n");
 	return 0;
 }
+#endif
 
 #define CMD_DESC_JTAG_STATUS_GET "get JTAG lock status (Gen6 only)"
 
