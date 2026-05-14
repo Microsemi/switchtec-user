@@ -128,6 +128,40 @@ static int ping(int argc, char **argv)
 	return 0;
 }
 
+static int count_set_bits_u32(uint32_t value)
+{
+	int count = 0;
+
+	while (value) {
+		count += value & 1;
+		value >>= 1;
+	}
+
+	return count;
+}
+
+static int has_sequential_set_bits_from_lsb(uint32_t value)
+{
+	return (value == 0) || ((value & (value + 1)) == 0);
+}
+
+static void print_gen6_security_version(const char *label, uint32_t value,
+					enum switchtec_boot_phase phase_id)
+{
+	if (phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
+		int version = count_set_bits_u32(value);
+
+		if (has_sequential_set_bits_from_lsb(value))
+			printf("%-40s0x%08x\n", label, version);
+		else
+			printf("%-40s0x%08x (invalid raw bitmap)\n",
+			       label, version);
+		return;
+	}
+
+	printf("%-40s0x%08x\n", label, value);
+}
+
 static const char* program_status_to_string(enum switchtec_otp_program_status s)
 {
 	switch (s) {
@@ -381,11 +415,23 @@ static void print_security_config_gen6(struct switchtec_security_cfg_state_gen6 
 	printf("Device SECSC: \t\t\t\t0x%01x\n", state->secsc);
 
 	/* Print key hashes */
-	uint32_t *state_ptr = (uint32_t *)state;
-	uint32_t dw7 = state_ptr[7];
+	const uint32_t key_status[SWITCHTEC_KMSK_NUM_GEN6] = {
+		state->otp_key0_hash_status,
+		state->otp_key1_hash_status,
+		state->otp_key2_hash_status,
+		state->otp_key3_hash_status,
+		state->otp_key4_hash_status,
+		state->otp_key5_hash_status,
+		state->otp_key6_hash_status,
+		state->otp_key7_hash_status,
+		state->otp_key8_hash_status,
+		state->otp_key9_hash_status,
+		state->otp_key10_hash_status,
+		state->otp_key11_hash_status,
+	};
+
 	for (int key = 0; key < SWITCHTEC_KMSK_NUM_GEN6; key++) {
-		int shift = 4 + key * 2;
-		uint32_t status = (dw7 >> shift) & 0x3;
+		uint32_t status = key_status[key] & 0x3;
 
 		printf("OTP Key%d Hash:\t\t\t\t", key + 1);
 
@@ -540,7 +586,7 @@ static int info(int argc, char **argv)
 			printf("JTAG Port: \t\t\t\tUnknown\n");
 	}
 
-	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
+	ret = switchtec_sn_ver_get_with_phase(cfg.dev, &sn_info, phase_id);
 	if (ret) {
 		switchtec_perror("mfg info");
 		return ret;
@@ -551,32 +597,38 @@ static int info(int argc, char **argv)
 		char *status[4] = {"Unprogrammed", "Programmed", "Locked", "Revoked"};
 
 		printf("----------------- UID info --------------------------------\n");
-		printf("Device Unique ID: \t\t\t0x");
-		printf("%08X\n", *sn_info.UID);
-		sn_info.UID++;
-		for (int i = 1; i < SWITCHTEC_UID_DWORD_S; i++) {
-			printf("\t\t\t\t\t  %08X\n", *sn_info.UID);
-			sn_info.UID++;
+		printf("Device Unique ID: \t\t\t");
+		for (int i = 0; i < SWITCHTEC_UID_DWORD_S; i++) {
+			sn_info.UID[i] = be32toh(sn_info.UID[i]);
+			if (i && i % 8 == 0)
+				printf("\n\t\t\t\t\t");
+			printf("%08x", sn_info.UID[i]);
 		}
+		printf("\n");
 		printf("Status: \t\t\t\t%s\n", status[(sn_info.PSID_UID_valid_flags >> 4) & 0x3]);
 		printf("Mask Read Mask Enable: \t\t\t0x%0x\n", (sn_info.PSID_UID_valid_flags >> 6) & 0x1);
 		printf("Read Mask Request Enable: \t\t0x%0x\n", (sn_info.PSID_UID_valid_flags >> 7) & 0x1);
 		printf("----------------- PSID info -------------------------------\n");
-		printf("Device PSID: \t\t\t\t0x");
-		printf("%08X\n", *sn_info.PSID0);
-		sn_info.PSID0++;
-		for (int i = 1; i < SWITCHTEC_PSID_DWORD_S; i++) {
-			printf("\t\t\t\t\t  %08X\n", *sn_info.PSID0);
-			sn_info.PSID0++;
+		printf("Device PSID: \t\t\t\t");
+		for (int i = 0; i < SWITCHTEC_PSID_DWORD_S; i++) {
+			sn_info.PSID0[i] = be32toh(sn_info.PSID0[i]);
+			if (i && i % 8 == 0)
+				printf("\n\t\t\t\t\t");
+			printf("%08x", sn_info.PSID0[i]);
 		}
+		printf("\n");
 		printf("Status: \t\t\t\t%s\n", status[(sn_info.PSID_UID_valid_flags) & 0x3]);
 		printf("Read Mask Enable: \t\t\t0x%0x\n", (sn_info.PSID_UID_valid_flags >> 2) & 0x1);
 		printf("Read Mask Request Enable: \t\t0x%0x\n", (sn_info.PSID_UID_valid_flags >> 3) & 0x1);
 		printf("----------------- Image info ------------------------------\n");
-		printf("BL2 Secure Version: \t\t\t0x%08x\n", sn_info.ver_bl2);
-		printf("Main Secure Version: \t\t\t0x%08x\n", sn_info.ver_main);
-		printf("Debug Token Secure Version: \t\t0x%08x\n", sn_info.dbg_tok_sec_ver_rsvrd);
-		printf("KMT Secure Version: \t\t\t0x%08x\n", sn_info.kmt_sec_ver_rsvrd);
+		print_gen6_security_version("BL2 security version: ",
+					   sn_info.ver_bl2, phase_id);
+		print_gen6_security_version("Main Firmware security version: ",
+					   sn_info.ver_main, phase_id);
+		print_gen6_security_version("KMT security version: ",
+					   sn_info.kmt_sec_ver_rsvrd, phase_id);
+		print_gen6_security_version("Debug Token security version: ",
+					   sn_info.dbg_tok_sec_ver_rsvrd, phase_id);
 	} else {
 		printf("Chip Serial: \t\t\t\t0x%08x\n", sn_info.chip_serial);
 		printf("Key Manifest Secure Version: \t\t0x%08x\n", sn_info.ver_km);

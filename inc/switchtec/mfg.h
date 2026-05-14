@@ -54,18 +54,33 @@
 #define OTP_MULTI_DWORD_IMAGE_BIAK0			   656
 #define OTP_DWORD_0							   0
 #define OTP_DWORD_10 						   10
+#define OTP_DWORD_19                           19
+#define OTP_DWORD_20                           20
+#define OTP_DWORD_61                           61
 
+#define OTP_DWORD_0_PRODUCT_DEVSEL_LSB         0
+#define OTP_DWORD_0_PRODUCT_DEVSEL_MSK         0x0000003F
+#define OTP_DWORD_0_PRODUCT_DEVSEL_FAMILY_BIT  (1U << 5)
 #define OTP_DWORD_0_PRODUCT_SECSC_LSB          22
 #define OTP_DWORD_0_PRODUCT_SECSC_MSK          0x00400000
 
-#define OTP_DWORD_10_SMBUS_SMBRMRPCADDR_LSB    0
-#define OTP_DWORD_10_SMBUS_SMBRMRPCADDR_MSK    0x000003FF
-#define OTP_DWORD_10_SMBUS_SMBRIF_LSB          10
-#define OTP_DWORD_10_SMBUS_SMBRIF_MSK          0x00000C00
-#define OTP_DWORD_10_SMBUS_SMBRATYPE_LSB       12
-#define OTP_DWORD_10_SMBUS_SMBRATYPE_MSK       0x00003000
+#define OTP_DWORD_10_SMBUS_SMBRMRPCADDR_LSB    5
+#define OTP_DWORD_10_SMBUS_SMBRMRPCADDR_MSK    0x00007FE0
+#define OTP_DWORD_10_SMBUS_SMBRIF_LSB          1
+#define OTP_DWORD_10_SMBUS_SMBRIF_MSK          0x00000006
+#define OTP_DWORD_10_SMBUS_SMBRATYPE_LSB       3
+#define OTP_DWORD_10_SMBUS_SMBRATYPE_MSK       0x00000018
 #define OTP_DWORD_10_SMBUS_SMBROCPADDR_LSB     18
 #define OTP_DWORD_10_SMBUS_SMBROCPADDR_MSK     0x0FFC0000
+/* DWORD 19 — Boot Image Integrity Check Format */
+#define OTP_DWORD_19_CONTROL_BIICFCRCD_LSB     29
+#define OTP_DWORD_19_CONTROL_BIICFCRCD_MSK     0x20000000
+/* DWORD 20 — Boot Image Integrity Check Format (continued) */
+#define OTP_DWORD_20_CONTROL_BIICFRS2D_LSB     1
+#define OTP_DWORD_20_CONTROL_BIICFRS2D_MSK     0x00000002
+
+#define OTP_DWORD_61_MFGMSTT_SECSTATESET_LSB   4
+#define OTP_DWORD_61_MFGMSTT_SECSTATESET_MSK   0x00000010
 
 #define SECIRE_CFG_GET_I2C					   (0xD4>>1)
 #define SECURE_CFG_GET_OCP					   (0xD2>>1)
@@ -430,6 +445,9 @@ struct sec_cfg_get_struct {
 
 int switchtec_sn_ver_get(struct switchtec_dev *dev,
 			 struct switchtec_sn_ver_info *info);
+int switchtec_sn_ver_get_with_phase(struct switchtec_dev *dev,
+				    struct switchtec_sn_ver_info *info,
+				    enum switchtec_boot_phase phase_id);
 int switchtec_security_config_get(struct switchtec_dev *dev, void *state);
 int switchtec_security_spi_avail_rate_get(struct switchtec_dev *dev,
 		struct switchtec_security_spi_avail_rate *rates);
