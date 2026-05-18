@@ -3410,9 +3410,10 @@ static int osa_dump_config(int argc, char **argv)
 	printf("%s", (config.os_type_link_rate >> 1) & 1 ? "GEN2," : "");
 	printf("%s", (config.os_type_link_rate >> 2) & 1 ? "GEN3," : "");
 	printf("%s", (config.os_type_link_rate >> 3) & 1 ? "GEN4," : "");
-	printf("%s\n", (config.os_type_link_rate >> 4) & 1 ? "GEN5" : "");
+	printf("%s", (config.os_type_link_rate >> 4) & 1 ? "GEN5," : "");
 	if (switchtec_is_gen6(cfg.dev))
-		printf("%s\n", (config.os_type_link_rate >> 5) & 1 ? "GEN6" : "");
+		printf("%s", (config.os_type_link_rate >> 5) & 1 ? "GEN6," : "");
+	printf("\n");
 
 	printf("os types: \t\t");
 	if (switchtec_is_gen6(cfg.dev)) {
@@ -3451,13 +3452,14 @@ static int osa_dump_config(int argc, char **argv)
 	printf("direciton: \t\t%s", config.os_pat_direction & 1 ? "RX," : "");
 	printf("%s\n", (config.os_pat_direction >> 1) & 1 ? "TX" : "");
 
-	printf("link rate: \t\t%s", config.os_pat_link_rate && 1 ? "GEN1," : "");
+	printf("link rate: \t\t%s", config.os_pat_link_rate & 1 ? "GEN1," : "");
 	printf("%s", (config.os_pat_link_rate >> 1) & 1 ? "GEN2," : "");
 	printf("%s", (config.os_pat_link_rate >> 2) & 1 ? "GEN3," : "");
 	printf("%s", (config.os_pat_link_rate >> 3) & 1 ? "GEN4," : "");
-	printf("%s\n", (config.os_pat_link_rate >> 4) & 1 ? "GEN5" : "");
+	printf("%s", (config.os_pat_link_rate >> 4) & 1 ? "GEN5," : "");
 	if (switchtec_is_gen6(cfg.dev))
-		printf("%s\n", (config.os_type_link_rate >> 5) & 1 ? "GEN6" : "");
+		printf("%s", (config.os_pat_link_rate >> 5) & 1 ? "GEN6," : "");
+	printf("\n");
 
 	printf("patttern: \t\t0x%08x %08x %08x %08x\n", config.os_pat_value[0],
 	       config.os_pat_value[1], config.os_pat_value[2],
