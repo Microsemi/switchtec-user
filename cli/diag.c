@@ -3007,7 +3007,7 @@ static int osa_config_type(int argc, char **argv)
 	}
 	if (cfg.os_types) {
 		ret = convert_hex_str(cfg.os_types, &os_type_mask,
-				      &num_dwords, 1);
+				      &num_dwords, 2);
 		if (ret) {
 			fprintf(stderr, "Error with OS type mask.\n");
 			free(lane_mask);
@@ -3331,7 +3331,7 @@ static int osa_capture_control(int argc, char **argv)
 	}
 	if (cfg.os_types) {
 		ret = convert_hex_str(cfg.os_types, &os_type_mask,
-				      &num_dwords, 2);
+				      &num_dwords, 3);
 		if (ret) {
 			fprintf(stderr, "Error with OS type mask.\n");
 			free(lane_mask);
