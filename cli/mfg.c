@@ -47,6 +47,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 
 static const struct argconfig_choice recovery_mode_choices[] = {
 	{"I2C", SWITCHTEC_BL2_RECOVERY_I2C, "I2C"},
@@ -66,9 +67,42 @@ static const struct argconfig_choice secure_state_choices[] = {
 
 #define CMD_DESC_PING "ping device and get current boot phase"
 
+static int print_gen6_device_state(struct switchtec_dev *dev)
+{
+	enum switchtec_secure_state_gen6 device_state;
+	int ret;
+
+	printf("Device State: \t\t\t\t");
+	ret = switchtec_secure_state_get_gen6(dev, &device_state);
+	if (ret) {
+		printf("UNKNOWN\n");
+		return ret;
+	}
+
+	switch (device_state) {
+	case SWITCHTEC_GEN6_UNINITIALIZED_SECURE_CAPABLE:
+		printf("SECURE-CAPABLE\n");
+		break;
+	case SWITCHTEC_GEN6_UNPROVISIONED_SECURED:
+		printf("ALWAYS-SECURED\n");
+		break;
+	case SWITCHTEC_GEN6_INITIALIZED_SECURED:
+		printf("INITIALIZED-SECURED\n");
+		break;
+	case SWITCHTEC_GEN6_INITIALIZED_UNSECURED:
+		printf("INITIALIZED-UNSECURED\n");
+		break;
+	default:
+		printf("UNKNOWN (0x%x)\n", device_state);
+	}
+
+	return 0;
+}
+
 static int ping(int argc, char **argv)
 {
 	int ret;
+	enum switchtec_boot_phase phase_id;
 	static struct {
 		struct switchtec_dev *dev;
 	} cfg = {};
@@ -87,7 +121,45 @@ static int ping(int argc, char **argv)
 
 	printf("Mfg Ping: \t\tSUCCESS\n");
 
+	phase_id = switchtec_boot_phase(cfg.dev);
+	if (switchtec_is_gen6(cfg.dev) && phase_id == SWITCHTEC_BOOT_PHASE_BL2)
+		print_gen6_device_state(cfg.dev);
+
 	return 0;
+}
+
+static int count_set_bits_u32(uint32_t value)
+{
+	int count = 0;
+
+	while (value) {
+		count += value & 1;
+		value >>= 1;
+	}
+
+	return count;
+}
+
+static int has_sequential_set_bits_from_lsb(uint32_t value)
+{
+	return (value == 0) || ((value & (value + 1)) == 0);
+}
+
+static void print_gen6_security_version(const char *label, uint32_t value,
+					enum switchtec_boot_phase phase_id)
+{
+	if (phase_id == SWITCHTEC_BOOT_PHASE_BL1) {
+		int version = count_set_bits_u32(value);
+
+		if (has_sequential_set_bits_from_lsb(value))
+			printf("%-40s0x%08x\n", label, version);
+		else
+			printf("%-40s0x%08x (invalid raw bitmap)\n",
+			       label, version);
+		return;
+	}
+
+	printf("%-40s0x%08x\n", label, value);
 }
 
 static const char* program_status_to_string(enum switchtec_otp_program_status s)
@@ -343,11 +415,23 @@ static void print_security_config_gen6(struct switchtec_security_cfg_state_gen6 
 	printf("Device SECSC: \t\t\t\t0x%01x\n", state->secsc);
 
 	/* Print key hashes */
-	uint32_t *state_ptr = (uint32_t *)state;
-	uint32_t dw7 = state_ptr[7];
+	const uint32_t key_status[SWITCHTEC_KMSK_NUM_GEN6] = {
+		state->otp_key0_hash_status,
+		state->otp_key1_hash_status,
+		state->otp_key2_hash_status,
+		state->otp_key3_hash_status,
+		state->otp_key4_hash_status,
+		state->otp_key5_hash_status,
+		state->otp_key6_hash_status,
+		state->otp_key7_hash_status,
+		state->otp_key8_hash_status,
+		state->otp_key9_hash_status,
+		state->otp_key10_hash_status,
+		state->otp_key11_hash_status,
+	};
+
 	for (int key = 0; key < SWITCHTEC_KMSK_NUM_GEN6; key++) {
-		int shift = 4 + key * 2;
-		uint32_t status = (dw7 >> shift) & 0x3;
+		uint32_t status = key_status[key] & 0x3;
 
 		printf("OTP Key%d Hash:\t\t\t\t", key + 1);
 
@@ -366,7 +450,7 @@ static void print_security_config_gen6(struct switchtec_security_cfg_state_gen6 
 			break;
 
 		case UNPROGRAMMED:
-			printf("Available\n");
+			printf("Unprogrammed\n");
 			break;
 
 		default:
@@ -491,27 +575,8 @@ static int info(int argc, char **argv)
 	       switchtec_phase_id_str(phase_id));
 
 	if (switchtec_is_gen6(cfg.dev)) {
-		enum switchtec_secure_state_gen6 device_state;
-		ret = switchtec_secure_state_get_gen6(cfg.dev, &device_state);
-		if (ret == 0) {
-			printf("Device State: \t\t\t\t");
-			switch (device_state) {
-			case SWITCHTEC_GEN6_UNINITIALIZED_SECURE_CAPABLE:
-				printf("SECURE-CAPABLE\n");
-				break;
-			case SWITCHTEC_GEN6_UNPROVISIONED_SECURED:
-				printf("ALWAYS-SECURED\n");
-				break;
-			case SWITCHTEC_GEN6_INITIALIZED_SECURED:
-				printf("INITIALIZED-SECURED\n");
-				break;
-			case SWITCHTEC_GEN6_INITIALIZED_UNSECURED:
-				printf("INITIALIZED-UNSECURED\n");
-				break;
-			default:
-				printf("UNKNOWN (0x%x)\n", device_state);
-			}
-		}
+		print_gen6_device_state(cfg.dev);
+		/* Get and display JTAG status */
 		uint32_t jtag_status;
 		ret = switchtec_dbg_unlock_status_get_gen6(cfg.dev, &jtag_status);
 		if (ret == 0)
@@ -521,7 +586,7 @@ static int info(int argc, char **argv)
 			printf("JTAG Port: \t\t\t\tUnknown\n");
 	}
 
-	ret = switchtec_sn_ver_get(cfg.dev, &sn_info);
+	ret = switchtec_sn_ver_get_with_phase(cfg.dev, &sn_info, phase_id);
 	if (ret) {
 		switchtec_perror("mfg info");
 		return ret;
@@ -532,32 +597,38 @@ static int info(int argc, char **argv)
 		char *status[4] = {"Unprogrammed", "Programmed", "Locked", "Revoked"};
 
 		printf("----------------- UID info --------------------------------\n");
-		printf("Device Unique ID: \t\t\t0x");
-		printf("%08X\n", *sn_info.UID);
-		sn_info.UID++;
-		for (int i = 1; i < SWITCHTEC_UID_DWORD_S; i++) {
-			printf("\t\t\t\t\t  %08X\n", *sn_info.UID);
-			sn_info.UID++;
+		printf("Device Unique ID: \t\t\t");
+		for (int i = 0; i < SWITCHTEC_UID_DWORD_S; i++) {
+			sn_info.UID[i] = be32toh(sn_info.UID[i]);
+			if (i && i % 8 == 0)
+				printf("\n\t\t\t\t\t");
+			printf("%08x", sn_info.UID[i]);
 		}
+		printf("\n");
 		printf("Status: \t\t\t\t%s\n", status[(sn_info.PSID_UID_valid_flags >> 4) & 0x3]);
 		printf("Mask Read Mask Enable: \t\t\t0x%0x\n", (sn_info.PSID_UID_valid_flags >> 6) & 0x1);
 		printf("Read Mask Request Enable: \t\t0x%0x\n", (sn_info.PSID_UID_valid_flags >> 7) & 0x1);
 		printf("----------------- PSID info -------------------------------\n");
-		printf("Device PSID: \t\t\t\t0x");
-		printf("%08X\n", *sn_info.PSID0);
-		sn_info.PSID0++;
-		for (int i = 1; i < SWITCHTEC_PSID_DWORD_S; i++) {
-			printf("\t\t\t\t\t  %08X\n", *sn_info.PSID0);
-			sn_info.PSID0++;
+		printf("Device PSID: \t\t\t\t");
+		for (int i = 0; i < SWITCHTEC_PSID_DWORD_S; i++) {
+			sn_info.PSID0[i] = be32toh(sn_info.PSID0[i]);
+			if (i && i % 8 == 0)
+				printf("\n\t\t\t\t\t");
+			printf("%08x", sn_info.PSID0[i]);
 		}
+		printf("\n");
 		printf("Status: \t\t\t\t%s\n", status[(sn_info.PSID_UID_valid_flags) & 0x3]);
 		printf("Read Mask Enable: \t\t\t0x%0x\n", (sn_info.PSID_UID_valid_flags >> 2) & 0x1);
 		printf("Read Mask Request Enable: \t\t0x%0x\n", (sn_info.PSID_UID_valid_flags >> 3) & 0x1);
 		printf("----------------- Image info ------------------------------\n");
-		printf("BL2 Secure Version: \t\t\t0x%08x\n", sn_info.ver_bl2);
-		printf("Main Secure Version: \t\t\t0x%08x\n", sn_info.ver_main);
-		printf("Debug Token Secure Version: \t\t0x%08x\n", sn_info.dbg_tok_sec_ver_rsvrd);
-		printf("KMT Secure Version: \t\t\t0x%08x\n", sn_info.kmt_sec_ver_rsvrd);
+		print_gen6_security_version("BL2 security version: ",
+					   sn_info.ver_bl2, phase_id);
+		print_gen6_security_version("Main Firmware security version: ",
+					   sn_info.ver_main, phase_id);
+		print_gen6_security_version("KMT security version: ",
+					   sn_info.kmt_sec_ver_rsvrd, phase_id);
+		print_gen6_security_version("Debug Token security version: ",
+					   sn_info.dbg_tok_sec_ver_rsvrd, phase_id);
 	} else {
 		printf("Chip Serial: \t\t\t\t0x%08x\n", sn_info.chip_serial);
 		printf("Key Manifest Secure Version: \t\t0x%08x\n", sn_info.ver_km);
@@ -1030,6 +1101,84 @@ static int fw_execute(int argc, char **argv)
 	return 0;
 }
 
+#define CMD_DESC_DEVICE_LOCK \
+	"Gen6 only: enable device debug protection (state-set phase 1)"
+
+static int device_lock(int argc, char **argv)
+{
+	int ret;
+
+	const char *desc = CMD_DESC_DEVICE_LOCK "\n\n"
+			   "This is phase 1 of the Gen6 two-phase secure state\n"
+			   "transition. It enables debug protection on the device.\n\n"
+			   "After running this command, the device MUST be reset\n"
+			   "before phase 2 (`mfg state-set`) is invoked.\n\n"
+			   "WARNING: This operation modifies device OTP memory and\n"
+			   "is IRREVERSIBLE.";
+
+	static struct {
+		struct switchtec_dev *dev;
+		int assume_yes;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG_PCI,
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr,
+			"mfg device-lock is only supported on Gen6 devices!\n");
+		return -1;
+	}
+
+	if (switchtec_boot_phase(cfg.dev) == SWITCHTEC_BOOT_PHASE_BL2) {
+		fprintf(stderr,
+			"This command is only available in BL1 or Main Firmware!\n");
+		return -2;
+	}
+
+	{
+		enum switchtec_secure_state_gen6 secure_state;
+
+		ret = switchtec_secure_state_get_gen6(cfg.dev, &secure_state);
+		if (ret) {
+			switchtec_perror("mfg device-lock");
+			return ret;
+		}
+
+		if (secure_state != SWITCHTEC_GEN6_UNINITIALIZED_SECURE_CAPABLE) {
+			fprintf(stderr,
+				"This command is only valid when secure state is UNINITIALIZED_SECURE_CAPABLE!\n");
+			return -3;
+		}
+	}
+
+	if (!cfg.assume_yes) {
+		fprintf(stderr,
+			"\nWARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n"
+			"After this completes, you MUST reset the device before running `mfg state-set`.\n");
+
+		ret = ask_if_sure(cfg.assume_yes);
+		if (ret)
+			return -4;
+	}
+
+	printf("Enabling debug protection (state-set phase 1)...\n");
+	ret = switchtec_secure_state_set_debug_protect(cfg.dev);
+	if (ret) {
+		switchtec_perror("mfg device-lock");
+		return ret;
+	}
+	printf("Debug protection enabled successfully.\n");
+	printf("Reset the device, then run `mfg state-set --state ...` for phase 2.\n");
+
+	return 0;
+}
+
 #define CMD_DESC_STATE_SET "set device secure state (BL1 and Main Firmware only)"
 
 static int state_set(int argc, char **argv)
@@ -1057,11 +1206,10 @@ static int state_set(int argc, char **argv)
 			   "the UNINITIALIZED_UNSECURED state, then use this "
 			   "command to switch the chip to the INITIALIZED_SECURED "
 			   "or INITIALIZED_UNSECURED state. \n\n"
-			   "For Gen6 devices, the state transition is a two-phase process:\n"
-			   "  Phase 1: Enable debug protection (--debug-protect-only)\n"
-			   "  Phase 2: Apply state transition (--state)\n"
-			   "By default, both phases are executed. Use --debug-protect-only "
-			   "to run only phase 1, or --skip-debug-protect to skip phase 1.\n\n"
+			   "For Gen6 devices, this command performs ONLY phase 2\n"
+			   "(state transition). Phase 1 (debug protection) must be\n"
+			   "performed first via `mfg device-lock`, followed by a\n"
+			   "device reset, before running this command.\n\n"
 			   "WARNING: ONCE THE CHIP STATE IS SUCCESSFULLY SET, "
 			   "IT CAN NO LONGER BE CHANGED. USE CAUTION WHEN ISSUING "
 			   "THIS COMMAND.";
@@ -1070,8 +1218,7 @@ static int state_set(int argc, char **argv)
 		struct switchtec_dev *dev;
 		enum switchtec_secure_state state;
 		int assume_yes;
-		int debug_protect_only;
-		int skip_debug_protect;
+		int skip_customer_config;
 	} cfg = {
 		.state = SWITCHTEC_SECURE_STATE_UNKNOWN,
 	};
@@ -1083,30 +1230,22 @@ static int state_set(int argc, char **argv)
 			.choices=secure_state_choices},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 		 "assume yes when prompted"},
-		{"debug-protect-only", 'd', "", CFG_NONE, &cfg.debug_protect_only,
-		 no_argument, "Gen6 only: run phase 1 (debug protection) only"},
-		{"skip-debug-protect", 's', "", CFG_NONE, &cfg.skip_debug_protect,
-		 no_argument, "Gen6 only: skip phase 1 (if already done)"},
+		{"skip-customer-config", 'c', "", CFG_NONE, &cfg.skip_customer_config,
+		 no_argument, "Gen6 only: skip customer config check"},
 		{NULL}
 	};
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (!cfg.debug_protect_only && cfg.state == SWITCHTEC_SECURE_STATE_UNKNOWN) {
+	if (cfg.state == SWITCHTEC_SECURE_STATE_UNKNOWN) {
 		fprintf(stderr,
-			"Secure state must be set in this command (or use --debug-protect-only)!\n");
+			"Secure state must be set in this command!\n");
 		return -1;
 	}
 
-	if (cfg.debug_protect_only && cfg.skip_debug_protect) {
+	if (!switchtec_is_gen6(cfg.dev) && cfg.skip_customer_config) {
 		fprintf(stderr,
-			"Cannot use both --debug-protect-only and --skip-debug-protect!\n");
-		return -1;
-	}
-
-	if (!switchtec_is_gen6(cfg.dev) && (cfg.debug_protect_only || cfg.skip_debug_protect)) {
-		fprintf(stderr,
-			"--debug-protect-only and --skip-debug-protect are only valid for Gen6 devices!\n");
+			"--skip-customer-config is only valid for Gen6 devices!\n");
 		return -1;
 	}
 
@@ -1117,18 +1256,17 @@ static int state_set(int argc, char **argv)
 	}
 
 	if (switchtec_is_gen6(cfg.dev)) {
-		struct switchtec_security_cfg_state_gen6 state_gen6 = {};
+		enum switchtec_secure_state_gen6 secure_state;
 
-		ret = switchtec_security_config_get(cfg.dev,
-			(struct switchtec_security_cfg_state *)&state_gen6);
+		ret = switchtec_secure_state_get_gen6(cfg.dev, &secure_state);
 		if (ret) {
 			switchtec_perror("mfg state-set");
 			return ret;
 		}
 
-		if (state_gen6.secsc != 0) {
+		if (secure_state != SWITCHTEC_GEN6_UNINITIALIZED_SECURE_CAPABLE) {
 			fprintf(stderr,
-				"This command is only valid when secure state is UNINITIALIZED_UNSECURED!\n");
+				"This command is only valid when secure state is UNINITIALIZED_SECURE_CAPABLE!\n");
 			return -3;
 		}
 	} else {
@@ -1157,27 +1295,17 @@ static int state_set(int argc, char **argv)
 	}
 
 	if (switchtec_is_gen6(cfg.dev)) {
-		if (!cfg.skip_debug_protect) {
-			printf("Enabling debug protection (phase 1)...\n");
-			ret = switchtec_secure_state_set_debug_protect(cfg.dev);
-			if (ret) {
-				switchtec_perror("mfg state-set (debug protect)");
-				return ret;
-			}
-			printf("Debug protection enabled successfully.\n");
+		printf("Applying state transition to %s%s...\n",
+		       cfg.state == SWITCHTEC_INITIALIZED_SECURED ?
+		       "INITIALIZED_SECURED" : "INITIALIZED_UNSECURED",
+		       cfg.skip_customer_config ? " (skip customer config)" : "");
+		ret = switchtec_secure_state_set_transition_ex(cfg.dev, cfg.state,
+							       cfg.skip_customer_config);
+		if (ret) {
+			switchtec_perror("mfg state-set (state transition)");
+			return ret;
 		}
-
-		if (!cfg.debug_protect_only) {
-			printf("Applying state transition to %s (phase 2)...\n",
-			       cfg.state == SWITCHTEC_INITIALIZED_SECURED ?
-			       "INITIALIZED_SECURED" : "INITIALIZED_UNSECURED");
-			ret = switchtec_secure_state_set_transition(cfg.dev, cfg.state);
-			if (ret) {
-				switchtec_perror("mfg state-set (state transition)");
-				return ret;
-			}
-			printf("State transition completed successfully.\n");
-		}
+		printf("State transition completed successfully.\n");
 	} else {
 		ret = switchtec_secure_state_set(cfg.dev, cfg.state);
 		if (ret) {
@@ -1516,16 +1644,18 @@ static int debug_unlock(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
-	if (cfg.serial == 0) {
-		fprintf(stderr,
-			"Serial number must be set for this command!\n");
-		return -1;
-	}
+	if (!switchtec_is_gen6(cfg.dev)) {
+		if (cfg.serial == 0) {
+			fprintf(stderr,
+				"Serial number must be set for this command!\n");
+			return -1;
+		}
 
-	if (cfg.unlock_version == 0xffff) {
-		fprintf(stderr,
-			"Unlock version must be set for this command!\n");
-		return -1;
+		if (cfg.unlock_version == 0xffff) {
+			fprintf(stderr,
+				"Unlock version must be set for this command!\n");
+			return -1;
+		}
 	}
 
 	if (cfg.pubkey_file == NULL) {
@@ -1598,6 +1728,7 @@ static int debug_lock_update(int argc, char **argv)
 	int ret;
 	struct switchtec_pubkey pubk;
 	struct switchtec_signature sig;
+	struct switchtec_gen6_token token;
 
 	static struct {
 		struct switchtec_dev *dev;
@@ -1607,6 +1738,8 @@ static int debug_lock_update(int argc, char **argv)
 		unsigned long serial;
 		FILE *sig_fimg;
 		char *sig_file;
+		FILE *tkn_fimg;
+		char *tkn_file;
 		unsigned int assume_yes;
 	} cfg = {
 		.unlock_version = 0xffff,
@@ -1620,15 +1753,19 @@ static int debug_lock_update(int argc, char **argv)
 		{"serial_number", 'n', .cfg_type=CFG_LONG,
 			.value_addr=&cfg.serial,
 			.argument_type=required_argument,
-			.help="device serial number"},
+			.help="device serial number (Gen4/Gen5)"},
 		{"new_unlock_version", 'v', .cfg_type=CFG_LONG,
 			.value_addr=&cfg.unlock_version,
 			.argument_type=required_argument,
-			.help="new unlock version"},
+			.help="new unlock version (Gen4/Gen5)"},
 		{"signature_file", 's', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.sig_fimg,
 			.argument_type=required_argument,
 			.help="signature file"},
+		{"token_file", 't', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.tkn_fimg,
+			.argument_type=required_argument,
+			.help="ver-update token file (Gen6 only)"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{NULL}
@@ -1636,16 +1773,24 @@ static int debug_lock_update(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_DEBUG_LOCK_UPDATE, opts, &cfg, sizeof(cfg));
 
-	if (cfg.serial == 0) {
-		fprintf(stderr,
-			"Serial number must be set for this command!\n");
-		return -1;
-	}
+	if (!switchtec_is_gen6(cfg.dev)) {
+		if (cfg.serial == 0) {
+			fprintf(stderr,
+				"Serial number must be set for this command!\n");
+			return -1;
+		}
 
-	if (cfg.unlock_version == 0xffff) {
-		fprintf(stderr,
-			"Unlock version must be set for this command!\n");
-		return -1;
+		if (cfg.unlock_version == 0xffff) {
+			fprintf(stderr,
+				"Unlock version must be set for this command!\n");
+			return -1;
+		}
+	} else {
+		if (cfg.tkn_file == NULL) {
+			fprintf(stderr,
+				"Token file must be set for Gen6 ver-update!\n");
+			return -1;
+		}
 	}
 
 	if (cfg.pubkey_file == NULL) {
@@ -1676,15 +1821,29 @@ static int debug_lock_update(int argc, char **argv)
 		return -3;
 	}
 
+	if (switchtec_is_gen6(cfg.dev)) {
+		ret = switchtec_read_token_file(cfg.tkn_fimg, &token);
+		fclose(cfg.tkn_fimg);
+		if (ret) {
+			fprintf(stderr, "Invalid token file %s!\n",
+				cfg.tkn_file);
+			return -3;
+		}
+	}
+
 	fprintf(stderr,
 		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n");
 	ret = ask_if_sure(cfg.assume_yes);
 	if (ret)
 		return -4;
 
-	ret = switchtec_dbg_unlock_version_update(cfg.dev, cfg.serial,
-						  cfg.unlock_version,
-						  &pubk, &sig);
+	if (switchtec_is_gen6(cfg.dev))
+		ret = switchtec_dbg_sec_ver_update_gen6(cfg.dev, &pubk, &sig,
+						       &token);
+	else
+		ret = switchtec_dbg_unlock_version_update(cfg.dev, cfg.serial,
+							  cfg.unlock_version,
+							  &pubk, &sig);
 	if (ret)
 		switchtec_perror("dbg-lock-update");
 
@@ -1708,9 +1867,6 @@ static int no_openssl(int argc, char **argv)
 
 #endif
 
-
-#define TOKEN_RESOURCE_UNLOCK 0
-#define TOKEN_VERSION_UPDATE 1
 
 #define CMD_DESC_DEBUG_TOKEN "generate device token file for signature"
 static int debug_unlock_token(int argc, char **argv)
@@ -1739,6 +1895,10 @@ static int debug_unlock_token(int argc, char **argv)
 		 "Generate static token for signature file required for command 'mfg debug-unlock' on Gen6 devices"},
 		{"GEN6_EPHEMERAL_TOKEN", GEN6_TOKEN_EPHEMERAL,
 		 "Generate ephemeral token for signature file required for command 'mfg debug-unlock' on Gen6 devices"},
+		{"GEN6_VER_UPDATE_TOKEN", GEN6_TOKEN_VER_UPDATE,
+		 "Generate version update token on Gen6 devices"},
+		{"GEN6_DISABLE_STATIC_TOKEN", GEN6_TOKEN_DISABLE_STATIC,
+		 "Generate static-disable token on Gen6 devices"},
 		{}
 	};
 
@@ -1749,8 +1909,10 @@ static int debug_unlock_token(int argc, char **argv)
 		int unlock;
 		int update;
 		int type;
+		int auth_type;
 	} cfg = {
 		.type = TOKEN_RESOURCE_UNLOCK,
+		.auth_type = SECURE_ID_TYPE_PSID_ONLY,
 	};
 
 	const struct argconfig_options opts[] = {
@@ -1758,6 +1920,9 @@ static int debug_unlock_token(int argc, char **argv)
 		{"type", 't', "TYPE", CFG_CHOICES, &cfg.type,
 		  required_argument,
 		 "output token file type", .choices=type},
+		{"auth-type", 'a', "AUTH", CFG_LONG, &cfg.auth_type,
+		 required_argument,
+		 "Gen6 auth type for token get (0=PSID, 1=UID, 2=PSID+UID)"},
 		{"token_file", .cfg_type=CFG_FD_WR, .value_addr=&cfg.out_fd,
 		  .argument_type=optional_positional,
 		  .force_default="debug.tkn",
@@ -1769,22 +1934,33 @@ static int debug_unlock_token(int argc, char **argv)
 	if (switchtec_is_gen6(cfg.dev))
 	{
 		if (cfg.type != GEN6_TOKEN_STATIC &&
-		    cfg.type != GEN6_TOKEN_EPHEMERAL) {
+		    cfg.type != GEN6_TOKEN_EPHEMERAL &&
+		    cfg.type != GEN6_TOKEN_VER_UPDATE &&
+		    cfg.type != GEN6_TOKEN_DISABLE_STATIC) {
 			fprintf(stderr,
-				"On Gen6 devices, only GEN6_STATIC_TOKEN \
-				and GEN6_EPHEMERAL_TOKEN types are supported.\n");
+				"On Gen6 devices, use one of: GEN6_STATIC_TOKEN, GEN6_EPHEMERAL_TOKEN, GEN6_VER_UPDATE_TOKEN, GEN6_DISABLE_STATIC_TOKEN.\n");
 			return -1;
 		}
 
-		struct switchtec_gen6_token token;
+		if (cfg.auth_type < SECURE_ID_TYPE_PSID_ONLY ||
+		    cfg.auth_type >= SECURE_ID_TYPE_MAX) {
+			fprintf(stderr,
+				"Gen6 auth-type must be 0..2 (0=PSID, 1=UID, 2=PSID+UID).\n");
+			return -1;
+		}
 
-		ret = switchtec_dbg_unlock_get_token_gen6(cfg.dev, &token, cfg.type);
+		struct switchtec_gen6_token gen6_token;
+		int token_len;
+
+		ret = switchtec_dbg_unlock_get_token_gen6(cfg.dev, &gen6_token,
+						 cfg.type, cfg.auth_type);
 		if (ret) {
 			switchtec_perror("mfg debug unlock token");
 			return ret;
 		}
 
-		ret = write(cfg.out_fd, &token, sizeof(token));
+		token_len = gen6_token_len_by_type(cfg.type);
+		ret = write(cfg.out_fd, &gen6_token, token_len);
 		if(ret <= 0) {
 			switchtec_perror("mfg debug gen6 unlock token");
 			return ret;
@@ -1794,7 +1970,9 @@ static int debug_unlock_token(int argc, char **argv)
 		close(cfg.out_fd);
 	} else {
 		if (cfg.type == GEN6_TOKEN_STATIC ||
-		    cfg.type == GEN6_TOKEN_EPHEMERAL) {
+		    cfg.type == GEN6_TOKEN_EPHEMERAL ||
+		    cfg.type == GEN6_TOKEN_VER_UPDATE ||
+		    cfg.type == GEN6_TOKEN_DISABLE_STATIC) {
 			fprintf(stderr,
 				"Gen6 types are not supported on this device.\n");
 			return -1;
@@ -2035,7 +2213,6 @@ static int device_config_set_device(int argc, char **argv)
 	int ret;
 	struct switchtec_device_config_dev_settings settings = {};
 	FILE *fp;
-	size_t nread;
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_DEVICE "\n\n"
 			   "Set device settings including TWI and I3C addresses.\n"
@@ -2049,8 +2226,7 @@ static int device_config_set_device(int argc, char **argv)
 		unsigned long twi_mrpc_addr;
 		unsigned long twi_rcvry_addr_type;
 		unsigned long twi_rcvry_bus;
-		unsigned long i3c_pid_hi;
-		unsigned long i3c_pid_lo;
+		unsigned long long i3c_pid;
 		unsigned long i3c_addr_7bit;
 		unsigned long i3c_rcvry_bus;
 		int assume_yes;
@@ -2068,10 +2244,8 @@ static int device_config_set_device(int argc, char **argv)
 			required_argument, "TWI recovery address type (0-3)"},
 		{"twi-bus", 'b', "", CFG_LONG, &cfg.twi_rcvry_bus,
 			required_argument, "TWI recovery bus (0-3)"},
-		{"i3c-pid-hi", 'H', "", CFG_LONG, &cfg.i3c_pid_hi,
-			required_argument, "I3C PID high bits [47:16]"},
-		{"i3c-pid-lo", 'L', "", CFG_LONG, &cfg.i3c_pid_lo,
-			required_argument, "I3C PID low bits [15:0]"},
+		{"i3c-pid", 'P', "", CFG_LONG_LONG, &cfg.i3c_pid,
+			required_argument, "I3C PID (48-bit), e.g. 0x11AA00000000"},
 		{"i3c-addr", 'a', "", CFG_LONG, &cfg.i3c_addr_7bit,
 			required_argument, "I3C 7-bit address"},
 		{"i3c-bus", 'i', "", CFG_LONG, &cfg.i3c_rcvry_bus,
@@ -2090,7 +2264,7 @@ static int device_config_set_device(int argc, char **argv)
 
 	if (cfg.input_file) {
 		if (cfg.twi_ocp_addr || cfg.twi_mrpc_addr || cfg.twi_rcvry_addr_type ||
-		    cfg.twi_rcvry_bus || cfg.i3c_pid_hi || cfg.i3c_pid_lo ||
+		    cfg.twi_rcvry_bus || cfg.i3c_pid ||
 		    cfg.i3c_addr_7bit || cfg.i3c_rcvry_bus) {
 			fprintf(stderr, "Error: -f option is mutually exclusive with other setting options\n");
 			return -1;
@@ -2102,22 +2276,22 @@ static int device_config_set_device(int argc, char **argv)
 			return -1;
 		}
 
-		nread = fread(&settings, 1, sizeof(settings), fp);
+		ret = switchtec_read_dev_cfg_file_dev(fp, &settings);
 		fclose(fp);
 
-		if (nread != sizeof(settings)) {
-			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
-				sizeof(settings), nread);
+		if (ret) {
+			fprintf(stderr, "Error: '%s' is not a valid device config binary file\n",
+				cfg.input_file);
 			return -1;
 		}
-		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+		printf("Loaded device settings from %s\n", cfg.input_file);
 	} else {
 		settings.twi_ocp_addr = cfg.twi_ocp_addr & 0x3FF;
 		settings.twi_mrpc_addr = cfg.twi_mrpc_addr & 0x3FF;
 		settings.twi_rcvry_addr_type = cfg.twi_rcvry_addr_type & 0x3;
 		settings.twi_rcvry_bus = cfg.twi_rcvry_bus & 0x3;
-		settings.i3c_pid_hi = cfg.i3c_pid_hi;
-		settings.i3c_pid_lo = cfg.i3c_pid_lo & 0xFFFF;
+		settings.i3c_pid_hi = (cfg.i3c_pid >> 16) & 0xFFFFFFFFULL;
+		settings.i3c_pid_lo = cfg.i3c_pid & 0xFFFF;
 		settings.i3c_addr_7bit = cfg.i3c_addr_7bit & 0x7F;
 		settings.i3c_rcvry_bus = cfg.i3c_rcvry_bus & 0x3;
 	}
@@ -2157,7 +2331,6 @@ static int device_config_set_customer(int argc, char **argv)
 	int ret;
 	struct switchtec_device_config_customer_settings settings = {};
 	FILE *fp;
-	size_t nread;
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_CUSTOMER "\n\n"
 			   "Set customer settings including PSID and PCI IDs.\n"
@@ -2214,15 +2387,15 @@ static int device_config_set_customer(int argc, char **argv)
 			return -1;
 		}
 
-		nread = fread(&settings, 1, sizeof(settings), fp);
+		ret = switchtec_read_dev_cfg_file_customer(fp, &settings);
 		fclose(fp);
 
-		if (nread != sizeof(settings)) {
-			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
-				sizeof(settings), nread);
+		if (ret) {
+			fprintf(stderr, "Error: '%s' is not a valid customer config binary file\n",
+				cfg.input_file);
 			return -1;
 		}
-		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+		printf("Loaded customer settings from %s\n", cfg.input_file);
 	} else {
 		settings.device_id = cfg.device_id & 0xFFFF;
 		settings.vendor_id = cfg.vendor_id & 0xFFFF;
@@ -2276,7 +2449,7 @@ static int parse_key_hash(const char *hex, uint32_t *out)
 	for (i = 0; i < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; i++) {
 		memcpy(buf, &hex[i * 8], 8);
 		buf[8] = '\0';
-		out[i] = strtoul(buf, NULL, 16);
+		out[i] = htobe32((uint32_t)strtoul(buf, NULL, 16));
 	}
 	return 0;
 }
@@ -2287,7 +2460,6 @@ static int device_config_set_security(int argc, char **argv)
 	int key_count = 0;
 	struct switchtec_device_config_secure_settings settings = {};
 	FILE *fp;
-	size_t nread;
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_SECURITY "\n\n"
 			   "Set security settings including command map, token disable flags,\n"
@@ -2422,15 +2594,15 @@ static int device_config_set_security(int argc, char **argv)
 			return -1;
 		}
 
-		nread = fread(&settings, 1, sizeof(settings), fp);
+		ret = switchtec_read_dev_cfg_file_security(fp, &settings);
 		fclose(fp);
 
-		if (nread != sizeof(settings)) {
-			fprintf(stderr, "Error: expected %zu bytes, read %zu bytes\n",
-				sizeof(settings), nread);
+		if (ret) {
+			fprintf(stderr, "Error: '%s' is not a valid security config binary file\n",
+				cfg.input_file);
 			return -1;
 		}
-		printf("Loaded settings from %s (%zu bytes)\n", cfg.input_file, nread);
+		printf("Loaded security settings from %s\n", cfg.input_file);
 		key_count = settings.key_prog_num;
 	} else {
 		settings.command_map = cfg.command_map & 0xFFF;
@@ -2483,7 +2655,7 @@ static int device_config_set_security(int argc, char **argv)
 		for (j = 0; j < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; j++) {
 			if (j == 8)
 				printf("\n                            ");
-			printf("%08x", settings.key_data[i].hash[j]);
+			printf("%08x", be32toh(settings.key_data[i].hash[j]));
 		}
 		printf("\n");
 	}
@@ -2685,20 +2857,74 @@ cleanup:
 	return ret;
 }
 
-static void compute_sha512_dwords(const void *data, size_t len,
-				  uint32_t hash_out[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS])
+static uint32_t swap_u32_bytes(uint32_t v)
 {
-	uint8_t hash_bytes[64];
+	return ((v & 0x000000FFU) << 24) |
+	       ((v & 0x0000FF00U) << 8) |
+	       ((v & 0x00FF0000U) >> 8) |
+	       ((v & 0xFF000000U) >> 24);
+}
+
+static void dok_id_convert_from_mfg_info(uint32_t *vals, int dwords)
+{
 	int i;
 
-	SHA512((const unsigned char *)data, len, hash_bytes);
+	for (i = 0; i < dwords; i++)
+		vals[i] = swap_u32_bytes(vals[i]);
+}
 
-	for (i = 0; i < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; i++) {
-		hash_out[i] = ((uint32_t)hash_bytes[i*4 + 3] << 24) |
-			      ((uint32_t)hash_bytes[i*4 + 2] << 16) |
-			      ((uint32_t)hash_bytes[i*4 + 1] << 8) |
-			      ((uint32_t)hash_bytes[i*4 + 0]);
+struct dok_add_integrity_input {
+	uint32_t dword0;
+	uint32_t key_hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
+	uint32_t uid[SWITCHTEC_UID_LEN_DWORDS];
+	uint32_t psid[SWITCHTEC_PSID_LEN_DWORDS];
+};
+
+struct dok_revoke_integrity_input {
+	uint32_t dword0;
+	uint32_t uid[SWITCHTEC_UID_LEN_DWORDS];
+	uint32_t psid[SWITCHTEC_PSID_LEN_DWORDS];
+};
+
+static void sha512_bytes_to_hash_dwords(const uint8_t *hash_bytes, uint32_t *hash)
+{
+	for (int i = 0; i < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; i++) {
+		hash[i] = ((uint32_t)hash_bytes[i * 4 + 3] << 24) |
+			  ((uint32_t)hash_bytes[i * 4 + 2] << 16) |
+			  ((uint32_t)hash_bytes[i * 4 + 1] << 8) |
+			  ((uint32_t)hash_bytes[i * 4 + 0]);
 	}
+}
+
+static void compute_dok_add_integrity_hash(const struct switchtec_dok_key_add *key_add,
+					   uint32_t *hash)
+{
+	struct dok_add_integrity_input input = {};
+	uint8_t hash_bytes[64];
+
+	input.dword0 = htole32((key_add->key_slot & 0xff) |
+			      ((key_add->auth_type & 0xff) << 8));
+	memcpy(input.key_hash, key_add->key_hash, sizeof(input.key_hash));
+	memcpy(input.uid, key_add->uid, sizeof(input.uid));
+	memcpy(input.psid, key_add->psid, sizeof(input.psid));
+
+	SHA512((uint8_t *)&input, sizeof(input), hash_bytes);
+	sha512_bytes_to_hash_dwords(hash_bytes, hash);
+}
+
+static void compute_dok_revoke_integrity_hash(
+	const struct switchtec_dok_key_revoke *key_revoke, uint32_t *hash)
+{
+	struct dok_revoke_integrity_input input = {};
+	uint8_t hash_bytes[64];
+
+	input.dword0 = htole32((key_revoke->key_slot & 0xff) |
+			      ((key_revoke->auth_type & 0xff) << 8));
+	memcpy(input.uid, key_revoke->uid, sizeof(input.uid));
+	memcpy(input.psid, key_revoke->psid, sizeof(input.psid));
+
+	SHA512((uint8_t *)&input, sizeof(input), hash_bytes);
+	sha512_bytes_to_hash_dwords(hash_bytes, hash);
 }
 
 #define CMD_DESC_DOK_KEY_ADD "add DOK key entry (Gen6 only)"
@@ -2706,6 +2932,7 @@ static void compute_sha512_dwords(const void *data, size_t len,
 static int dok_key_add(int argc, char **argv)
 {
 	int ret;
+	int use_signature = 1;
 	size_t sig_len;
 	struct switchtec_dok_signature sig = {};
 	struct switchtec_dok_key_add key_add = {};
@@ -2716,10 +2943,12 @@ static int dok_key_add(int argc, char **argv)
 			   "Add a Device Owner Key (DOK) entry to an OTP BIAK slot.\n"
 			   "The key hash is SHA2-512 over the 512-byte RSA-4096 modulus.\n\n"
 			   "Authorization Flag (--auth-type):\n"
-			   "  0 = UID only        (Initialized-Secure)\n"
-			   "  1 = PSID only       (Initialized-Secure)\n"
-			   "  2 = UID + PSID      (Initialized-Secure)\n"
-			   "  3 = NONE            (Uninitialized state, no signature)\n\n"
+			   "  0 = PSID only       (Initialized-Secure or SECURE-CAPABLE)\n"
+			   "  1 = UID only        (Initialized-Secure or SECURE-CAPABLE)\n"
+			   "  2 = UID + PSID      (Initialized-Secure or SECURE-CAPABLE)\n\n"
+			   "Verification Mode (--check-type):\n"
+			   "  signature = send signature packet first (requires --signature)\n"
+			   "  integrity = compute payload SHA2-512 locally (no signature file)\n\n"
 			   "WARNING: This operation modifies OTP and is IRREVERSIBLE!";
 
 	static struct {
@@ -2730,6 +2959,7 @@ static int dok_key_add(int argc, char **argv)
 		char *psid_hex;
 		FILE *key_fimg;
 		FILE *sig_fimg;
+		char *check_type;
 		unsigned long sig_type;
 		int assume_yes;
 	} cfg = {};
@@ -2739,7 +2969,7 @@ static int dok_key_add(int argc, char **argv)
 		{"key-slot", 'k', "", CFG_LONG, &cfg.key_slot,
 			required_argument, "key slot index (0-11)"},
 		{"auth-type", 't', "", CFG_LONG, &cfg.auth_type,
-			required_argument, "Authorization flag (0=UID, 1=PSID, 2=UID+PSID, 3=NONE)"},
+			required_argument, "Authorization flag (0=PSID, 1=UID, 2=UID+PSID)"},
 		{"uid", 'u', "", CFG_STRING, &cfg.uid_hex,
 			required_argument, "UID hex string (512-bit, 128 hex chars)"},
 		{"psid", 'p', "", CFG_STRING, &cfg.psid_hex,
@@ -2751,7 +2981,9 @@ static int dok_key_add(int argc, char **argv)
 		{"signature", 's', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.sig_fimg,
 			.argument_type=required_argument,
-			.help="signature file (required unless --auth-type 3)"},
+			.help="signature file (required when --check-type signature)"},
+		{"check-type", 'c', "", CFG_STRING, &cfg.check_type,
+			required_argument, "verification mode: signature|integrity (default signature)"},
 		{"sig-type", 'T', "", CFG_LONG, &cfg.sig_type,
 			required_argument, "signature type (default 0)"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
@@ -2771,8 +3003,8 @@ static int dok_key_add(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.auth_type > DOK_AUTH_FLAG_NONE) {
-		fprintf(stderr, "Authorization flag must be 0-3!\n");
+	if (cfg.auth_type > DOK_AUTH_FLAG_UID_AND_PSID) {
+		fprintf(stderr, "Authorization flag must be 0-2!\n");
 		return -1;
 	}
 
@@ -2781,9 +3013,21 @@ static int dok_key_add(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.auth_type != DOK_AUTH_FLAG_NONE && cfg.sig_fimg == NULL) {
-		fprintf(stderr, "Signature file is required for auth flag %lu!\n",
-			cfg.auth_type);
+	if (cfg.check_type && strcasecmp(cfg.check_type, "integrity") == 0) {
+		use_signature = 0;
+	} else if (cfg.check_type && strcasecmp(cfg.check_type, "signature") != 0) {
+		fprintf(stderr, "Invalid --check-type '%s' (use signature or integrity)!\n",
+			cfg.check_type);
+		return -1;
+	}
+
+	if (use_signature && cfg.sig_fimg == NULL) {
+		fprintf(stderr, "Signature file is required when --check-type signature!\n");
+		return -1;
+	}
+
+	if (!use_signature && cfg.sig_fimg != NULL) {
+		fprintf(stderr, "--signature is not allowed when --check-type integrity!\n");
 		return -1;
 	}
 
@@ -2798,16 +3042,6 @@ static int dok_key_add(int argc, char **argv)
 		sprintf(hash_str + i * 8, "%08x", be32toh(computed_hash[i]));
 	hash_str[128] = '\0';
 
-	sig_len = 0;
-	if (cfg.sig_fimg != NULL) {
-		sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
-		fclose(cfg.sig_fimg);
-		if (sig_len == 0) {
-			fprintf(stderr, "Failed to read signature file!\n");
-			return -2;
-		}
-	}
-
 	key_add.sub_cmd = DOK_CONFIG_SUB_CMD_PROVISION;
 	key_add.key_slot = cfg.key_slot;
 	key_add.auth_type = cfg.auth_type;
@@ -2816,32 +3050,16 @@ static int dok_key_add(int argc, char **argv)
 		parse_hex_string(cfg.uid_hex, key_add.uid, SWITCHTEC_UID_LEN_DWORDS);
 	if (cfg.psid_hex)
 		parse_hex_string(cfg.psid_hex, key_add.psid, SWITCHTEC_PSID_LEN_DWORDS);
-
-	if (cfg.auth_type == DOK_AUTH_FLAG_NONE) {
-		uint8_t integrity_input[4 + 64 + 64 + 16];
-
-		integrity_input[0] = (uint8_t)cfg.key_slot;
-		integrity_input[1] = (uint8_t)cfg.auth_type;
-		integrity_input[2] = 0;
-		integrity_input[3] = 0;
-		memcpy(&integrity_input[4], key_add.key_hash, 64);
-		memcpy(&integrity_input[4 + 64], key_add.uid, 64);
-		memcpy(&integrity_input[4 + 64 + 64], key_add.psid, 16);
-		compute_sha512_dwords(integrity_input, sizeof(integrity_input),
-				      key_add.integrity_hash);
-	}
+	if (cfg.uid_hex)
+		dok_id_convert_from_mfg_info(key_add.uid, SWITCHTEC_UID_LEN_DWORDS);
+	if (cfg.psid_hex)
+		dok_id_convert_from_mfg_info(key_add.psid, SWITCHTEC_PSID_LEN_DWORDS);
 
 	printf("Adding DOK key entry:\n");
 	printf("  Key Slot:        %lu\n", cfg.key_slot);
-	printf("  Auth Flag:       %lu%s\n", cfg.auth_type,
-		cfg.auth_type == DOK_AUTH_FLAG_NONE ?
-			" (NONE - Uninitialized state)" : "");
+	printf("  Auth Flag:       %lu\n", cfg.auth_type);
 	printf("  Key Type:        RSA4K\n");
 	printf("  Key Hash:        %s\n", hash_str);
-	if (sig_len)
-		printf("  Signature Size:  %zu bytes\n", sig_len);
-	else
-		printf("  Auth:            integrity hash (no signature)\n");
 
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
@@ -2851,7 +3069,17 @@ static int dok_key_add(int argc, char **argv)
 			return -3;
 	}
 
-	if (cfg.auth_type != DOK_AUTH_FLAG_NONE) {
+	if (use_signature) {
+		sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
+		fclose(cfg.sig_fimg);
+		if (sig_len == 0) {
+			fprintf(stderr, "Failed to read signature file!\n");
+			return -2;
+		}
+
+		printf("  Mode:            Initialized-Secure (RSA signature)\n");
+		printf("  Signature Size:  %zu bytes\n", sig_len);
+
 		sig.sub_cmd = DOK_CONFIG_SUB_CMD_SIGNATURE;
 		sig.sig_type = cfg.sig_type;
 		sig.total_len = sig_len;
@@ -2864,6 +3092,14 @@ static int dok_key_add(int argc, char **argv)
 			switchtec_perror("dok-key-add (signature)");
 			return ret;
 		}
+	} else {
+		uint32_t integrity_hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
+
+		compute_dok_add_integrity_hash(&key_add, integrity_hash);
+
+		printf("  Mode:            Integrity (SHA2-512, computed locally)\n");
+
+		memcpy(key_add.integrity_hash, integrity_hash, sizeof(integrity_hash));
 	}
 
 	ret = switchtec_dok_config_key_add(cfg.dev, &key_add);
@@ -2883,6 +3119,7 @@ static int dok_key_add(int argc, char **argv)
 static int dok_key_revoke(int argc, char **argv)
 {
 	int ret;
+	int use_signature = 1;
 	size_t sig_len;
 	struct switchtec_dok_signature sig = {};
 	struct switchtec_dok_key_revoke key_revoke = {};
@@ -2890,10 +3127,12 @@ static int dok_key_revoke(int argc, char **argv)
 	const char *desc = CMD_DESC_DOK_KEY_REVOKE "\n\n"
 			   "Revoke a Device Owner Key (DOK) entry in an OTP BIAK slot.\n\n"
 			   "Authorization Flag (--auth-type):\n"
-			   "  0 = UID only        (Initialized-Secure)\n"
-			   "  1 = PSID only       (Initialized-Secure)\n"
-			   "  2 = UID + PSID      (Initialized-Secure)\n"
-			   "  3 = NONE            (Uninitialized state, no signature)\n\n"
+			   "  0 = PSID only\n"
+			   "  1 = UID only\n"
+			   "  2 = UID + PSID\n\n"
+			   "Verification Mode (--check-type):\n"
+			   "  signature = send signature packet first (requires --signature)\n"
+			   "  integrity = compute payload SHA2-512 locally (no signature file)\n\n"
 			   "WARNING: This operation modifies OTP and is IRREVERSIBLE!";
 
 	static struct {
@@ -2903,6 +3142,7 @@ static int dok_key_revoke(int argc, char **argv)
 		char *uid_hex;
 		char *psid_hex;
 		FILE *sig_fimg;
+		char *check_type;
 		unsigned long sig_type;
 		int assume_yes;
 	} cfg = {};
@@ -2912,7 +3152,7 @@ static int dok_key_revoke(int argc, char **argv)
 		{"key-slot", 'k', "", CFG_LONG, &cfg.key_slot,
 			required_argument, "key slot index (0-11)"},
 		{"auth-type", 't', "", CFG_LONG, &cfg.auth_type,
-			required_argument, "Authorization flag (0=UID, 1=PSID, 2=UID+PSID, 3=NONE)"},
+			required_argument, "Authorization flag (0=PSID, 1=UID, 2=UID+PSID)"},
 		{"uid", 'u', "", CFG_STRING, &cfg.uid_hex,
 			required_argument, "UID hex string (512-bit, 128 hex chars)"},
 		{"psid", 'p', "", CFG_STRING, &cfg.psid_hex,
@@ -2920,7 +3160,9 @@ static int dok_key_revoke(int argc, char **argv)
 		{"signature", 's', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.sig_fimg,
 			.argument_type=required_argument,
-			.help="signature file (required unless --auth-type 3)"},
+			.help="signature file (required when --check-type signature)"},
+		{"check-type", 'c', "", CFG_STRING, &cfg.check_type,
+			required_argument, "verification mode: signature|integrity (default signature)"},
 		{"sig-type", 'T', "", CFG_LONG, &cfg.sig_type,
 			required_argument, "signature type (default 0)"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
@@ -2940,25 +3182,27 @@ static int dok_key_revoke(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.auth_type > DOK_AUTH_FLAG_NONE) {
-		fprintf(stderr, "Authorization flag must be 0-3!\n");
+	if (cfg.auth_type > DOK_AUTH_FLAG_UID_AND_PSID) {
+		fprintf(stderr, "Authorization flag must be 0-2!\n");
 		return -1;
 	}
 
-	if (cfg.auth_type != DOK_AUTH_FLAG_NONE && cfg.sig_fimg == NULL) {
-		fprintf(stderr, "Signature file is required for auth flag %lu!\n",
-			cfg.auth_type);
+	if (cfg.check_type && strcasecmp(cfg.check_type, "integrity") == 0) {
+		use_signature = 0;
+	} else if (cfg.check_type && strcasecmp(cfg.check_type, "signature") != 0) {
+		fprintf(stderr, "Invalid --check-type '%s' (use signature or integrity)!\n",
+			cfg.check_type);
 		return -1;
 	}
 
-	sig_len = 0;
-	if (cfg.sig_fimg != NULL) {
-		sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
-		fclose(cfg.sig_fimg);
-		if (sig_len == 0) {
-			fprintf(stderr, "Failed to read signature file!\n");
-			return -2;
-		}
+	if (use_signature && cfg.sig_fimg == NULL) {
+		fprintf(stderr, "Signature file is required when --check-type signature!\n");
+		return -1;
+	}
+
+	if (!use_signature && cfg.sig_fimg != NULL) {
+		fprintf(stderr, "--signature is not allowed when --check-type integrity!\n");
+		return -1;
 	}
 
 	key_revoke.sub_cmd = DOK_CONFIG_SUB_CMD_REVOKE;
@@ -2969,29 +3213,14 @@ static int dok_key_revoke(int argc, char **argv)
 		parse_hex_string(cfg.uid_hex, key_revoke.uid, SWITCHTEC_UID_LEN_DWORDS);
 	if (cfg.psid_hex)
 		parse_hex_string(cfg.psid_hex, key_revoke.psid, SWITCHTEC_PSID_LEN_DWORDS);
-
-	if (cfg.auth_type == DOK_AUTH_FLAG_NONE) {
-		uint8_t integrity_input[4 + 64 + 16];
-
-		integrity_input[0] = (uint8_t)cfg.key_slot;
-		integrity_input[1] = (uint8_t)cfg.auth_type;
-		integrity_input[2] = 0;
-		integrity_input[3] = 0;
-		memcpy(&integrity_input[4], key_revoke.uid, 64);
-		memcpy(&integrity_input[4 + 64], key_revoke.psid, 16);
-		compute_sha512_dwords(integrity_input, sizeof(integrity_input),
-				      key_revoke.integrity_hash);
-	}
+	if (cfg.uid_hex)
+		dok_id_convert_from_mfg_info(key_revoke.uid, SWITCHTEC_UID_LEN_DWORDS);
+	if (cfg.psid_hex)
+		dok_id_convert_from_mfg_info(key_revoke.psid, SWITCHTEC_PSID_LEN_DWORDS);
 
 	printf("Revoking DOK key entry:\n");
 	printf("  Key Slot:        %lu\n", cfg.key_slot);
-	printf("  Auth Flag:       %lu%s\n", cfg.auth_type,
-		cfg.auth_type == DOK_AUTH_FLAG_NONE ?
-			" (NONE - Uninitialized state)" : "");
-	if (sig_len)
-		printf("  Signature Size:  %zu bytes\n", sig_len);
-	else
-		printf("  Auth:            integrity hash (no signature)\n");
+	printf("  Auth Flag:       %lu\n", cfg.auth_type);
 
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
@@ -3001,7 +3230,17 @@ static int dok_key_revoke(int argc, char **argv)
 			return -3;
 	}
 
-	if (cfg.auth_type != DOK_AUTH_FLAG_NONE) {
+	if (use_signature) {
+		sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
+		fclose(cfg.sig_fimg);
+		if (sig_len == 0) {
+			fprintf(stderr, "Failed to read signature file!\n");
+			return -2;
+		}
+
+		printf("  Mode:            Signature\n");
+		printf("  Signature Size:  %zu bytes\n", sig_len);
+
 		sig.sub_cmd = DOK_CONFIG_SUB_CMD_SIGNATURE;
 		sig.sig_type = cfg.sig_type;
 		sig.total_len = sig_len;
@@ -3014,6 +3253,12 @@ static int dok_key_revoke(int argc, char **argv)
 			switchtec_perror("dok-key-revoke (signature)");
 			return ret;
 		}
+	} else {
+		uint32_t integrity_hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
+
+		compute_dok_revoke_integrity_hash(&key_revoke, integrity_hash);
+		memcpy(key_revoke.integrity_hash, integrity_hash, sizeof(integrity_hash));
+		printf("  Mode:            Integrity (SHA2-512, computed locally)\n");
 	}
 
 	ret = switchtec_dok_config_key_revoke(cfg.dev, &key_revoke);
@@ -3135,6 +3380,7 @@ static const struct cmd commands[] = {
 	CMD(fw_execute, CMD_DESC_FW_EXECUTE),
 	CMD(boot_resume, CMD_DESC_BOOT_RESUME),
 	CMD(state_set, CMD_DESC_STATE_SET),
+	CMD(device_lock, CMD_DESC_DEVICE_LOCK),
 	CMD(config_set, CMD_DESC_CONFIG_SET),
 	CMD(kmsk_entry_add, CMD_DESC_KMSK_ENTRY_ADD),
 	CMD(debug_unlock_token, CMD_DESC_DEBUG_TOKEN),
