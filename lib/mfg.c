@@ -2340,6 +2340,11 @@ static int sn_ver_get_gen6(struct switchtec_dev *dev,
 
 	ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET_GEN6, &subcmd, 4,
 						    &reply, sizeof(reply));
+	if (ret && subcmd == GEN6_SN_VER_GET_SUBCMD_POST_BL1) {
+		subcmd = GEN6_SN_VER_GET_SUBCMD_BL1;
+		ret = switchtec_mfg_cmd(dev, MRPC_SN_VER_GET_GEN6, &subcmd, 4,
+					&reply, sizeof(reply));
+	}
 	if (ret)
 		return ret;
 
