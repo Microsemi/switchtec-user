@@ -41,6 +41,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 static struct switchtec_dev *global_dev = NULL;
 static int global_pax_id = SWITCHTEC_PAX_ID_LOCAL;
@@ -2953,7 +2954,7 @@ static int rtc(int argc, char **argv)
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
-		{"rtc_counter", 'r', "uS", CFG_INT, &cfg.rtc_counter, required_argument,
+		{"rtc_counter", 'r', "uS", CFG_LONG_LONG, &cfg.rtc_counter, required_argument,
 		 "rtc counter in microseconds\n"},
 		{"reset rtc", 'R', "", CFG_NONE, &cfg.rtc_reset, no_argument,
 		 "reset rtc counter\n"},
@@ -2972,7 +2973,7 @@ static int rtc(int argc, char **argv)
 	}
 
 	if (cfg.rtc_counter) {
-		printf("Setting RTC Counter to %ld microseconds\n", rtc_counter);
+		printf("Setting RTC Counter to %" PRIu64 " microseconds\n", rtc_counter);
 		ret = switchtec_rtc_counter_set(cfg.dev, &rtc_counter);
 		if (ret)
 			goto rtc_error;
@@ -2986,7 +2987,7 @@ static int rtc(int argc, char **argv)
 	if (ret)
 		goto rtc_error;
 
-	printf("RTC Counter: %ld microseconds, %ld seconds\n", rtc_counter, rtc_counter / 1000000);
+	printf("RTC Counter: %" PRIu64 " microseconds, %" PRIu64 " seconds\n", rtc_counter, rtc_counter / 1000000);
 	return 0;
 
 rtc_error:
