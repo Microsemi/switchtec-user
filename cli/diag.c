@@ -2920,40 +2920,35 @@ static int osa(int argc, char **argv)
 static int osa_config_type(int argc, char **argv)
 {
 	int ret = 0;
-	uint32_t * lane_mask = NULL;
-	uint32_t * direction_mask = NULL;
-	uint32_t * link_rate_mask = NULL;
-	uint32_t * os_type_mask = NULL;
-	int num_dwords = 0;
 	static struct {
 		struct switchtec_dev *dev;
 		int stack_id;
-		char *lane_mask;
-		char *direction;
-		char *link_rate;
-		char *os_types;
+		unsigned int lane_mask;
+		unsigned int direction;
+		unsigned int link_rate;
+		unsigned int os_types;
 	} cfg;
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		OSA_STACK_ID_OPTION,
-		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask,
+		{"lane_mask", 'm', "LANE_MASK", CFG_NONNEGATIVE, &cfg.lane_mask,
 		required_argument,
-		"16 bit lane mask, 1 enables the triggering for that specified lane. " \
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
-		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction,
+		"16 bit lane mask, 1 enables the triggering for that specified lane. "
+		"Input as hex (0x prefix) or decimal"},
+		{"direction", 'd', "DIRECTION", CFG_NONNEGATIVE, &cfg.direction,
 		required_argument,
-		"3 bit mask for the direction, 1 enables the correisponding direction. " \
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
-		{"link_rate", 'r', "LINK_RATE", CFG_STRING, &cfg.link_rate,
+		"3 bit mask for the direction, 1 enables the corresponding direction. "
+		"Input as hex (0x prefix) or decimal\nBit 0 : tx\nBit 1 : rx"},
+		{"link_rate", 'r', "LINK_RATE", CFG_NONNEGATIVE, &cfg.link_rate,
 		required_argument,
-		"6 bit mask for link rate, 1 enables the corrisponding link rate. " \
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with " \
-		"0x\nBit 0 : Gen1\nBit 1 : Gen2\nBit 2 : Gen3\nBit 3 : Gen4\nBit 4 : Gen5\nBit 5 : Gen6"},
-		{"os_types", 't', "OS_TYPES", CFG_STRING, &cfg.os_types,
+		"6 bit mask for link rate, 1 enables the corresponding link rate. "
+		"Input as hex (0x prefix) or decimal\n"
+		"Bit 0 : Gen1\nBit 1 : Gen2\nBit 2 : Gen3\nBit 3 : Gen4\nBit 4 : Gen5\nBit 5 : Gen6"},
+		{"os_types", 't', "OS_TYPES", CFG_NONNEGATIVE, &cfg.os_types,
 		required_argument,
-		"4 bit mask for OS types, 5 bit mask Gen6 only. 1 enables the corrisponding OS type. "\
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x."\
-		"\n\t\tGen5\tGen6\nBit 0\tTS1\tTS0\nBit 1\tTS2\tTS1\nBit 2\tFTS\tTS2\nBit 3\tCTL_SKP\tFTS\nBit 4\t----\tCTL_SKP"},
+		"4 bit mask for OS types, 5 bit mask Gen6 only. 1 enables the corresponding OS type. "
+		"Input as hex (0x prefix) or decimal\n"
+		"\t\tGen5\tGen6\nBit 0\tTS1\tTS0\nBit 1\tTS2\tTS1\nBit 2\tFTS\tTS2\nBit 3\tCTL_SKP\tFTS\nBit 4\t----\tCTL_SKP"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CONF, opts, &cfg,
@@ -2963,70 +2958,21 @@ static int osa_config_type(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (cfg.lane_mask) {
-		ret = convert_hex_str(cfg.lane_mask, &lane_mask, &num_dwords, 4);
-		if (ret) {
-			fprintf(stderr, "Error with lane mask.\n");
-			return -1;
-		}
+	if (cfg.direction > 3) {
+		fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
+		return -1;
 	}
-	if (cfg.direction) {
-		ret = convert_hex_str(cfg.direction, &direction_mask,
-				      &num_dwords, 1);
-		if (ret) {
-			fprintf(stderr, "Error with direction mask.\n");
-			return -1;
-		}
-		if (*direction_mask > 3) {
-			fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
-			free(lane_mask);
-			free(direction_mask);
-			return -1;
-		}
-	}
-	if (cfg.link_rate) {
-		ret = convert_hex_str(cfg.link_rate, &link_rate_mask,
-				      &num_dwords, 2);
-		if (ret) {
-			fprintf(stderr, "Error with link rate mask.\n");
-			return -1;
-		}
-		if ((*link_rate_mask > 31 || (*link_rate_mask | 0x20)) && switchtec_is_gen5(cfg.dev)) {
-			fprintf(stderr, "Cannot enable Gen6 link rate or mask greater than 0x1F (Gen5 Switchtec devices).\n");
-			free(lane_mask);
-			free(direction_mask);
-			free(link_rate_mask);
-			return -1;
-		} else if (*link_rate_mask > 63 && switchtec_is_gen6(cfg.dev)) {
-			fprintf(stderr, "Link rate cannot be greater than 0x3F (Gen6 Switchtec devices).\n");
-			free(lane_mask);
-			free(direction_mask);
-			free(link_rate_mask);
-			return -1;
-		}
-	}
-	if (cfg.os_types) {
-		ret = convert_hex_str(cfg.os_types, &os_type_mask,
-				      &num_dwords, 1);
-		if (ret) {
-			fprintf(stderr, "Error with OS type mask.\n");
-			free(lane_mask);
-			free(direction_mask);
-			free(link_rate_mask);
-			return -1;
-		}
+	if (cfg.link_rate > 0x1F && switchtec_is_gen5(cfg.dev)) {
+		fprintf(stderr, "Cannot enable Gen6 link rate or mask greater than 0x1F (Gen5 Switchtec devices).\n");
+		return -1;
+	} else if (cfg.link_rate > 0x3F && switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "Link rate cannot be greater than 0x3F (Gen6 Switchtec devices).\n");
+		return -1;
 	}
 
 	ret = switchtec_osa_config_type(cfg.dev, cfg.stack_id,
-					direction_mask != NULL ? *direction_mask : 0,
-					lane_mask != NULL ? *lane_mask : 0,
-					link_rate_mask != NULL ? *link_rate_mask : 0,
-					os_type_mask != NULL ? *os_type_mask : 0);
-	free(lane_mask);
-	free(direction_mask);
-	free(link_rate_mask);
-	free(os_type_mask);
-
+					cfg.direction, cfg.lane_mask,
+					cfg.link_rate, cfg.os_types);
 	if (ret) {
 		switchtec_perror("osa_config_type");
 		return -1;
@@ -3041,47 +2987,44 @@ static int osa_config_type(int argc, char **argv)
 static int osa_config_pat(int argc, char **argv)
 {
 	int ret = 0;
-	uint32_t * value_dwords_arr = NULL;
-	uint32_t * mask_dwords_arr = NULL;
-	uint32_t * lane_mask = NULL;
-	uint32_t * direction_mask = NULL;
-	uint32_t * link_rate_mask = NULL;
+	uint32_t *value_dwords_arr = NULL;
+	uint32_t *mask_dwords_arr = NULL;
 	int num_dwords = 0;
 	int total_dwords = 0;
 	static struct {
 		struct switchtec_dev *dev;
 		int stack_id;
-		char *direction;
-		char *lane_mask;
-		char *link_rate;
+		unsigned int direction;
+		unsigned int lane_mask;
+		unsigned int link_rate;
 		char *value_dwords;
 		char *mask_dwords;
 	} cfg;
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		{"stack_id", 's', "STACK_ID", CFG_NONNEGATIVE, &cfg.stack_id,
-		required_argument,"ID of the stack (0-5), 7 for mangement stack"},
-		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask,
+		required_argument, "ID of the stack (0-5), 7 for mangement stack"},
+		{"lane_mask", 'm', "LANE_MASK", CFG_NONNEGATIVE, &cfg.lane_mask,
 		required_argument,
-		"16 bit lane mask, 1 enables the triggering for that specified lane. "\
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
-		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction,
+		"16 bit lane mask, 1 enables the triggering for that specified lane. "
+		"Input as hex (0x prefix) or decimal"},
+		{"direction", 'd', "DIRECTION", CFG_NONNEGATIVE, &cfg.direction,
 		required_argument,
-		"3 bit mask for the direction, 1 enables the correisponding direction. "\
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
-		{"link_rate", 'r', "LINK_RATE", CFG_STRING, &cfg.link_rate,
+		"3 bit mask for the direction, 1 enables the corresponding direction. "
+		"Input as hex (0x prefix) or decimal\nBit 0 : tx\nBit 1 : rx"},
+		{"link_rate", 'r', "LINK_RATE", CFG_NONNEGATIVE, &cfg.link_rate,
 		required_argument,
-		"6 bit mask for link rate, 1 enables the corrisponding link rate. "\
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value "\
-		"prefixed with 0x\nBit 0 : Gen1\nBit 1 : Gen2\nBit 2 : Gen3\nBit 3 : Gen4\nBit 4 : Gen5\nBit 5 : Gen6"},
+		"6 bit mask for link rate, 1 enables the corresponding link rate. "
+		"Input as hex (0x prefix) or decimal\n"
+		"Bit 0 : Gen1\nBit 1 : Gen2\nBit 2 : Gen3\nBit 3 : Gen4\nBit 4 : Gen5\nBit 5 : Gen6"},
 		{"dwords_value", 'V', "\"val_dword0 val_dword1 etc.\"", CFG_STRING,
 		&cfg.value_dwords, required_argument,
-		"(Maximum 4 DWs) Dwords should be surrounded by quotations, each "\
-		"dword must begine with \"0x\" and each dword must have a space between them."},
+		"(Maximum 4 DWs) Dwords should be surrounded by quotations, each "
+		"dword must begin with \"0x\" and each dword must have a space between them."},
 		{"dwords_mask", 'M', "\"val_dword0 val_dword1 etc.\"", CFG_STRING,
 		&cfg.mask_dwords, required_argument,
-		"(Maximum 4 DWs) Dwords should be surrounded by quotations, and "\
-		"each dword must begine with \"0x\" and each dword must have a space between them."},
+		"(Maximum 4 DWs) Dwords should be surrounded by quotations, and "
+		"each dword must begin with \"0x\" and each dword must have a space between them."},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_CONF, opts, &cfg,
@@ -3091,49 +3034,18 @@ static int osa_config_pat(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (cfg.lane_mask) {
-		ret = convert_hex_str(cfg.lane_mask, &lane_mask, &num_dwords, 4);
-		if (ret) {
-			fprintf(stderr, "Error with lane mask.\n");
-			return -1;
-		}
+	if (cfg.direction > 3) {
+		fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
+		return -1;
 	}
-	if (cfg.direction) {
-		ret = convert_hex_str(cfg.direction, &direction_mask,
-				      &num_dwords, 1);
-		if (ret) {
-			fprintf(stderr, "Error with direction mask.\n");
-			return -1;
-		}
-		if (*direction_mask > 3) {
-			fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
-			free(lane_mask);
-			free(direction_mask);
-			return -1;
-		}
+	if (cfg.link_rate > 0x1F && switchtec_is_gen5(cfg.dev)) {
+		fprintf(stderr, "Cannot enable Gen6 link rate or mask greater than 0x1F (Gen5 Switchtec devices).\n");
+		return -1;
+	} else if (cfg.link_rate > 0x3F && switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "Link rate cannot be greater than 0x3F (Gen6 Switchtec devices).\n");
+		return -1;
 	}
-	if (cfg.link_rate) {
-		ret = convert_hex_str(cfg.link_rate, &link_rate_mask,
-				      &num_dwords, 2);
-		if (ret) {
-			fprintf(stderr, "Error with link rate mask.\n");
-			return -1;
-		}
-		if ((*link_rate_mask > 31 || (*link_rate_mask | 0x20)) && switchtec_is_gen5(cfg.dev)) {
-			fprintf(stderr, "Cannot enable Gen6 link rate or mask greater than 0x1F (Gen5 Switchtec devices).\n");
-			free(lane_mask);
-			free(direction_mask);
-			free(link_rate_mask);
-			return -1;
-		} else if (*link_rate_mask > 63 && switchtec_is_gen6(cfg.dev)) {
-			fprintf(stderr, "Link rate cannot be greater than 0x3F (Gen6 Switchtec devices).\n");
-			free(lane_mask);
-			free(direction_mask);
-			free(link_rate_mask);
-			return -1;
-		}
-	}
-	num_dwords = 0;
+
 	if (cfg.value_dwords == NULL) {
 		fprintf(stderr, "Must set value dword data --dwords_value -V \n");
 		return -1;
@@ -3151,10 +3063,11 @@ static int osa_config_pat(int argc, char **argv)
 	total_dwords += num_dwords;
 	num_dwords = 0;
 	ret = convert_hex_str(cfg.mask_dwords, &mask_dwords_arr,
-				    &num_dwords, 8);
+			      &num_dwords, 8);
 	total_dwords += num_dwords;
 	if (ret) {
 		fprintf(stderr, "Error with data provided \n");
+		free(value_dwords_arr);
 		return -1;
 	}
 	if (total_dwords > 8) {
@@ -3165,13 +3078,9 @@ static int osa_config_pat(int argc, char **argv)
 	}
 
 	ret = switchtec_osa_config_pattern(cfg.dev, cfg.stack_id,
-					   direction_mask != NULL ? *direction_mask : 0,
-					   lane_mask != NULL ? *lane_mask : 0,
-					   link_rate_mask != NULL ? *link_rate_mask : 0,
+					   cfg.direction, cfg.lane_mask,
+					   cfg.link_rate,
 					   value_dwords_arr, mask_dwords_arr);
-	free(lane_mask);
-	free(direction_mask);
-	free(link_rate_mask);
 	free(value_dwords_arr);
 	free(mask_dwords_arr);
 	if (ret) {
@@ -3188,21 +3097,19 @@ static int osa_config_pat(int argc, char **argv)
 static int osa_config_misc(int argc, char **argv)
 {
 	int ret = 0;
-	uint32_t * trigger_mask = NULL;
-	int num_dwords = 0;
 	static struct {
 		struct switchtec_dev *dev;
 		int stack_id;
-		char *trigger_en;
+		unsigned int trigger_en;
 	} cfg;
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		OSA_STACK_ID_OPTION,
-		{"trigger_en", 't', "ENABLED", CFG_STRING, &cfg.trigger_en,
+		{"trigger_en", 't', "ENABLED", CFG_NONNEGATIVE, &cfg.trigger_en,
 		required_argument,
-		"3 bit mask for trigger enable, 1 enables the correisponding trigger. "\
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal "\
-		"value prefixed with 0x\nBit 0 : LTMON/other hardware blocks\nBit 1 : Reserved\nBit 2 : General purpose input"},
+		"3 bit mask for trigger enable, 1 enables the corresponding trigger. "
+		"Input as hex (0x prefix) or decimal\n"
+		"Bit 0 : LTMON/other hardware blocks\nBit 1 : Reserved\nBit 2 : General purpose input"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_ORDERED_SET_ANALYZER_MISC_CONF,
@@ -3212,22 +3119,12 @@ static int osa_config_misc(int argc, char **argv)
 	if (ret)
 		return ret;
 
-	if (cfg.trigger_en) {
-		ret = convert_hex_str(cfg.trigger_en, &trigger_mask,
-				      &num_dwords, 1);
-		if (ret) {
-			fprintf(stderr, "Error with trigger mask \n");
-			return -1;
-		}
-		if (*trigger_mask > 7) {
-			fprintf(stderr, "Trigger mask cannot be greater than 0x7.\n");
-			free(trigger_mask);
-			return -1;
-		}
+	if (cfg.trigger_en > 7) {
+		fprintf(stderr, "Trigger mask cannot be greater than 0x7.\n");
+		return -1;
 	}
-	ret = switchtec_osa_config_misc(cfg.dev, cfg.stack_id,
-					trigger_mask != NULL ? *trigger_mask : 0);
-	free(trigger_mask);
+
+	ret = switchtec_osa_config_misc(cfg.dev, cfg.stack_id, cfg.trigger_en);
 	if (ret) {
 		switchtec_perror("osa_config_misc");
 		return -1;
@@ -3242,20 +3139,16 @@ static int osa_config_misc(int argc, char **argv)
 static int osa_capture_control(int argc, char **argv)
 {
 	int ret = 0;
-	uint32_t * os_type_mask = NULL;
-	uint32_t * lane_mask = NULL;
-	uint32_t * direction_mask = NULL;
-	int num_dwords = 0;
 	static struct {
 		struct switchtec_dev *dev;
 		int stack_id;
-		char *lane_mask;
-		char *direction;
+		unsigned int lane_mask;
+		unsigned int direction;
 		int drop_single_os;
 		int stop_mode;
 		int snapshot_mode;
 		int post_trig_entries;
-		char *os_types;
+		unsigned int os_types;
 	} cfg;
 
 	cfg.stop_mode = 0;
@@ -3266,14 +3159,14 @@ static int osa_capture_control(int argc, char **argv)
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
 		OSA_STACK_ID_OPTION,
-		{"lane_mask", 'm', "LANE_MASK", CFG_STRING, &cfg.lane_mask,
+		{"lane_mask", 'm', "LANE_MASK", CFG_NONNEGATIVE, &cfg.lane_mask,
 		required_argument,
-		"16 bit lane mask, 1 enables the triggering for that specified lane. "\
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x"},
-		{"direction", 'd', "DIRECTION", CFG_STRING, &cfg.direction,
+		"16 bit lane mask, 1 enables the triggering for that specified lane. "
+		"Input as hex (0x prefix) or decimal"},
+		{"direction", 'd', "DIRECTION", CFG_NONNEGATIVE, &cfg.direction,
 		required_argument,
-		"2 bit mask for the direction, 1 enables the correisponding direction. "\
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x\nBit 0 : tx\nBit 1 : rx"},
+		"2 bit mask for the direction, 1 enables the corresponding direction. "
+		"Input as hex (0x prefix) or decimal\nBit 0 : tx\nBit 1 : rx"},
 		{"drop_single_os", 'o', "", CFG_NONE, &cfg.drop_single_os,
 		no_argument,
 		"When set to 1, the single TS0(Gen6), TS1, TS2, FTS, and CTL_SKP OS's are excluded from the capture."},
@@ -3282,17 +3175,17 @@ static int osa_capture_control(int argc, char **argv)
 		"Controls when the OSA stops capturing. disabled: any lane has stopped, enabled: all lanes have stopped. (Default: disabled)"},
 		{"snapshot_mode", 's', "", CFG_NONE, &cfg.snapshot_mode,
 		no_argument,
-		"Enable the snapshot mode setting. When enabled, OS's are captured until the RAM is full. "\
+		"Enable the snapshot mode setting. When enabled, OS's are captured until the RAM is full. "
 		"If disabled the OS's captured is dictated by the number of Post-Trigger Entries. (default disabled)"},
 		{"post_trig_entries", 'p', "POST_TRIG_ENTRIES", CFG_INT, &cfg.post_trig_entries,
 		required_argument,
-		"Number of post trigger OS entries to be captured. Not valid if snapshot_mode is enabled. "\
+		"Number of post trigger OS entries to be captured. Not valid if snapshot_mode is enabled. "
 		"Max 256 entries.\n(Required if disabling --snapshot_mode -s)"},
-		{"os_types", 't', "OS_TYPES", CFG_STRING, &cfg.os_types,
+		{"os_types", 't', "OS_TYPES", CFG_NONNEGATIVE, &cfg.os_types,
 		required_argument,
-		"4 bit mask for OS types, 5 bit mask Gen6 only. 1 enables the corrisponding OS type. "\
-		"(If left blank defaults to all bits set to 0). Input as a hexidecimal value prefixed with 0x."\
-		"\n\t\tGen5\tGen6\nBit 0\tTS1\tTS0\nBit 1\tTS2\tTS1\nBit 2\tFTS\tTS2\nBit 3\tCTL_SKP\tFTS\n" \
+		"4 bit mask for OS types, 5 bit mask Gen6 only. 1 enables the corresponding OS type. "
+		"Input as hex (0x prefix) or decimal\n"
+		"\t\tGen5\tGen6\nBit 0\tTS1\tTS0\nBit 1\tTS2\tTS1\nBit 2\tFTS\tTS2\nBit 3\tCTL_SKP\tFTS\n"
 		"Bit 4\tSKP\tCTL_SKP\nBit 5\tEIEOS\tSKP\nBit 6\tEIOS\tEIEOS\nBit 7\tERR_OS\tEIOS\nBit 8\t----\tERR_OS"},
 		{NULL}};
 
@@ -3308,47 +3201,16 @@ static int osa_capture_control(int argc, char **argv)
 		return -1;
 	}
 
-	if (cfg.lane_mask) {
-		ret = convert_hex_str(cfg.lane_mask, &lane_mask, &num_dwords, 4);
-		if (ret) {
-			fprintf(stderr, "Error with lane mask.\n");
-			return -1;
-		}
-	}
-	if (cfg.direction) {
-		ret = convert_hex_str(cfg.direction, &direction_mask,
-				      &num_dwords, 1);
-		if (ret) {
-			fprintf(stderr, "Error with direction mask.\n");
-			return -1;
-		}
-		if (*direction_mask > 3) {
-			fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
-			free(lane_mask);
-			free(direction_mask);
-			return -1;
-		}
-	}
-	if (cfg.os_types) {
-		ret = convert_hex_str(cfg.os_types, &os_type_mask,
-				      &num_dwords, 2);
-		if (ret) {
-			fprintf(stderr, "Error with OS type mask.\n");
-			free(lane_mask);
-			free(direction_mask);
-			return -1;
-		}
+	if (cfg.direction > 3) {
+		fprintf(stderr, "Direction mask cannot be greater than 0x3.\n");
+		return -1;
 	}
 
 	ret = switchtec_osa_capture_control(cfg.dev, cfg.stack_id,
-					    lane_mask != NULL ? *lane_mask : 0,
-					    direction_mask != NULL ? *direction_mask : 0,
+					    cfg.lane_mask, cfg.direction,
 					    cfg.drop_single_os, cfg.stop_mode,
 					    cfg.snapshot_mode, cfg.post_trig_entries,
-					    os_type_mask != NULL ? *os_type_mask : 0);
-	free(os_type_mask);
-	free(lane_mask);
-	free(direction_mask);
+					    cfg.os_types);
 	if (ret) {
 		switchtec_perror("osa_capture_control");
 		return -1;
@@ -3410,9 +3272,10 @@ static int osa_dump_config(int argc, char **argv)
 	printf("%s", (config.os_type_link_rate >> 1) & 1 ? "GEN2," : "");
 	printf("%s", (config.os_type_link_rate >> 2) & 1 ? "GEN3," : "");
 	printf("%s", (config.os_type_link_rate >> 3) & 1 ? "GEN4," : "");
-	printf("%s\n", (config.os_type_link_rate >> 4) & 1 ? "GEN5" : "");
+	printf("%s", (config.os_type_link_rate >> 4) & 1 ? "GEN5," : "");
 	if (switchtec_is_gen6(cfg.dev))
-		printf("%s\n", (config.os_type_link_rate >> 5) & 1 ? "GEN6" : "");
+		printf("%s", (config.os_type_link_rate >> 5) & 1 ? "GEN6," : "");
+	printf("\n");
 
 	printf("os types: \t\t");
 	if (switchtec_is_gen6(cfg.dev)) {
@@ -3451,13 +3314,14 @@ static int osa_dump_config(int argc, char **argv)
 	printf("direciton: \t\t%s", config.os_pat_direction & 1 ? "RX," : "");
 	printf("%s\n", (config.os_pat_direction >> 1) & 1 ? "TX" : "");
 
-	printf("link rate: \t\t%s", config.os_pat_link_rate && 1 ? "GEN1," : "");
+	printf("link rate: \t\t%s", config.os_pat_link_rate & 1 ? "GEN1," : "");
 	printf("%s", (config.os_pat_link_rate >> 1) & 1 ? "GEN2," : "");
 	printf("%s", (config.os_pat_link_rate >> 2) & 1 ? "GEN3," : "");
 	printf("%s", (config.os_pat_link_rate >> 3) & 1 ? "GEN4," : "");
-	printf("%s\n", (config.os_pat_link_rate >> 4) & 1 ? "GEN5" : "");
+	printf("%s", (config.os_pat_link_rate >> 4) & 1 ? "GEN5," : "");
 	if (switchtec_is_gen6(cfg.dev))
-		printf("%s\n", (config.os_type_link_rate >> 5) & 1 ? "GEN6" : "");
+		printf("%s", (config.os_pat_link_rate >> 5) & 1 ? "GEN6," : "");
+	printf("\n");
 
 	printf("patttern: \t\t0x%08x %08x %08x %08x\n", config.os_pat_value[0],
 	       config.os_pat_value[1], config.os_pat_value[2],
