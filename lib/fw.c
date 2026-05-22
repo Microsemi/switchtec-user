@@ -454,6 +454,16 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 	return 0;
 }
 
+static int switchtec_cmd_nopoll(struct switchtec_dev *dev, uint32_t cmd_id,
+				const void *payload, size_t payload_len)
+{
+	struct mrpc_regs __gas *mrpc = &dev->gas_map->mrpc;
+
+	__memcpy_to_gas(dev, &mrpc->input_data, payload, payload_len);
+	__gas_write32_no_retry(dev, cmd_id, &mrpc->cmd);
+	return 0;
+}
+
 /**
  * @brief Toggle the active firmware partition for the main or configuration
  *	images.
@@ -485,21 +495,37 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2) {
 		cmd_size = sizeof(cmd);
 		cmd_id = get_fw_tx_id(dev);
+		memset(&cmd, 0, sizeof(cmd));
 		cmd.subcmd = MRPC_FW_TX_TOGGLE;
-		cmd.toggle_bl2 = !!toggle_bl2;
-		ret = switchtec_cmd(dev, cmd_id, &cmd, cmd_size, NULL, 0);
-		if (ret)
-			return ret;
-		cmd.toggle_bl2 = 0;
-		cmd.toggle_fw = !!toggle_fw;
-		ret = switchtec_cmd(dev, cmd_id, &cmd, cmd_size, NULL, 0);
-		if (ret)
-			return ret;
-		cmd.toggle_fw = 0;
-		cmd.toggle_cfg = !!toggle_cfg;
-		ret = switchtec_cmd(dev, cmd_id, &cmd, cmd_size, NULL, 0);
-		if (ret)
-			return ret;
+
+		if (toggle_cfg) {
+			cmd.toggle_cfg = 1;
+			ret = switchtec_cmd(dev, cmd_id, &cmd, cmd_size,
+					    NULL, 0);
+			if (ret)
+				return ret;
+			cmd.toggle_cfg = 0;
+		}
+
+		if (toggle_fw) {
+			cmd.toggle_fw = 1;
+			ret = switchtec_cmd_nopoll(dev, cmd_id, &cmd,
+						   cmd_size);
+			if (ret)
+				return ret;
+			cmd.toggle_fw = 0;
+			/*
+			 * Main firmware parition needs time to toggle due to the CRC 
+			 * validation in firmware, give at least 5 seconds before 
+			 * the next operation to avoid hanging issues.
+			 */
+			usleep(5000000);
+		}
+
+		if (toggle_bl2) {
+			cmd.toggle_bl2 = 1;
+			switchtec_cmd_nopoll(dev, cmd_id, &cmd, cmd_size);
+		}
 
 		return 0;
 	}
