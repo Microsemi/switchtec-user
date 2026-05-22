@@ -1059,7 +1059,7 @@ static int fw_execute(int argc, char **argv)
 		int assume_yes;
 		enum switchtec_bl2_recovery_mode bl2_rec_mode;
 	} cfg = {
-		.bl2_rec_mode = SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM
+		.bl2_rec_mode = 0,
 	};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION_MFG,
@@ -1074,10 +1074,18 @@ static int fw_execute(int argc, char **argv)
 
 	argconfig_parse(argc, argv, desc, opts, &cfg, sizeof(cfg));
 
+	if (switchtec_is_gen6(cfg.dev) && cfg.bl2_rec_mode) {
+		fprintf(stderr, "-m option is not supported on Gen6 switches\n");
+		return -1;
+	}
+
+	if (!switchtec_is_gen6(cfg.dev) && !cfg.bl2_rec_mode)
+		cfg.bl2_rec_mode = SWITCHTEC_BL2_RECOVERY_I2C_AND_XMODEM;
+
 	if (switchtec_boot_phase(cfg.dev) != SWITCHTEC_BOOT_PHASE_BL1) {
 		fprintf(stderr,
 			"This command is only available in the BL1 phase!\n");
-		return -2;
+		return -1;
 	}
 
 	if (!cfg.assume_yes)
