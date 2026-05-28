@@ -727,6 +727,7 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 	if (ret)
 		return ret;
 
+	/* DWORD 10 — TWI RECOVERY */
 	state->twi_rcvry_address_mrpc = (reply_otp[OTP_DWORD_10] & OTP_DWORD_10_SMBUS_SMBRMRPCADDR_MSK)
 					>> OTP_DWORD_10_SMBUS_SMBRMRPCADDR_LSB;
 	state->twi_rcvry_bus = (reply_otp[OTP_DWORD_10] & OTP_DWORD_10_SMBUS_SMBRIF_MSK)
@@ -735,8 +736,100 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 				  >> OTP_DWORD_10_SMBUS_SMBRATYPE_LSB;
 	state->twi_rcvry_address_ocp = (reply_otp[OTP_DWORD_10] & OTP_DWORD_10_SMBUS_SMBROCPADDR_MSK)
 				       >> OTP_DWORD_10_SMBUS_SMBROCPADDR_LSB;
+
+	/* DWORD 0 — PRODUCT FLAGS */
 	state->secsc = (reply_otp[OTP_DWORD_0] & OTP_DWORD_0_PRODUCT_SECSC_MSK)
 		       >> OTP_DWORD_0_PRODUCT_SECSC_LSB;
+
+	/* DWORD 25 — PUFAC */
+	state->puf_ac_status = (reply_otp[OTP_DWORD_25] & OTP_DWORD_25_CONTROL_PUFACS_MSK)
+			       >> OTP_DWORD_25_CONTROL_PUFACS_LSB;
+
+	/* DWORD 23 — KEY HASH STATUS */
+	state->otp_key0_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK0S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK0S_LSB;
+	state->otp_key1_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK1S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK1S_LSB;
+	state->otp_key2_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK2S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK2S_LSB;
+	state->otp_key3_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK3S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK3S_LSB;
+	state->otp_key4_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK4S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK4S_LSB;
+	state->otp_key5_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK5S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK5S_LSB;
+	state->otp_key6_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK6S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK6S_LSB;
+	state->otp_key7_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK7S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK7S_LSB;
+	state->otp_key8_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK8S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK8S_LSB;
+	state->otp_key9_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK9S_MSK)
+				      >> OTP_DWORD_23_CONTROL_BIAK9S_LSB;
+	state->otp_key10_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK10S_MSK)
+				       >> OTP_DWORD_23_CONTROL_BIAK10S_LSB;
+	state->otp_key11_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK11S_MSK)
+				       >> OTP_DWORD_23_CONTROL_BIAK11S_LSB;
+
+	/* DWORD 20 — HASH TABLE DISABLE */
+	state->has_table_sha2_384_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_BIICFR3SD_MSK)
+					    >> OTP_DWORD_20_CONTROL_BIICFR3SD_LSB;
+	state->has_table_sha2_512_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_BIICFRS2D_MSK)
+					    >> OTP_DWORD_20_CONTROL_BIICFRS2D_LSB;
+	state->has_table_sha3_512_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_BIIDILITHIUM5D_MSK)
+					    >> OTP_DWORD_20_CONTROL_BIIDILITHIUM5D_LSB;
+	state->has_table_crc32_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_CRC32D_MSK)
+					 >> OTP_DWORD_19_CONTROL_CRC32D_LSB;
+
+	/* DWORD 11-13 — I3C IDENTIFIERS */
+	state->i3c_pid_high = (reply_otp[OTP_DWORD_11] & OTP_DWORD_11_I3C_I3CPID_MSK)
+			      >> OTP_DWORD_11_I3C_I3CPID_LSB;
+	state->i3c_pid_low = (reply_otp[OTP_DWORD_12] & OTP_DWORD_12_I3C_I3CPID2_MSK)
+			     >> OTP_DWORD_12_I3C_I3CPID2_LSB;
+	state->i3c_rcvry_address = (reply_otp[OTP_DWORD_13] & OTP_DWORD_13_I3C_I3CADDR_MSK)
+				   >> OTP_DWORD_13_I3C_I3CADDR_LSB;
+	state->i3c_rcvry_bus = (reply_otp[OTP_DWORD_13] & OTP_DWORD_13_I3C_I3CINST_MSK)
+			       >> OTP_DWORD_13_I3C_I3CINST_LSB;
+
+	/* DWORD 19 — ALGO/BOOT/FAILOVER/TOKEN DISABLE FLAGS */
+	state->algo_crc_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_CRC32D_MSK)
+				  >> OTP_DWORD_19_CONTROL_CRC32D_LSB;
+	state->algo_ecdsa_p384_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_ECDSAP384D_MSK)
+					 >> OTP_DWORD_19_CONTROL_ECDSAP384D_LSB;
+	state->algo_ecdsa_p521_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_ECDSAP521D_MSK)
+					 >> OTP_DWORD_19_CONTROL_ECDSAP521D_LSB;
+	state->algo_rsa3ksha2_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_RSA3KSHA2D_MSK)
+					>> OTP_DWORD_19_CONTROL_RSA3KSHA2D_LSB;
+	state->algo_rsa4ksha2_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_RSA4KSHA2D_MSK)
+					>> OTP_DWORD_19_CONTROL_RSA4KSHA2D_LSB;
+	state->algo_dilithium5_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_DILITHIUM5D_MSK)
+					 >> OTP_DWORD_19_CONTROL_DILITHIUM5D_LSB;
+	state->rom_key_1_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_IRK1R_MSK)
+				   >> OTP_DWORD_19_CONTROL_IRK1R_LSB;
+	state->rom_key_2_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_IRK2R_MSK)
+				   >> OTP_DWORD_19_CONTROL_IRK2R_LSB;
+	state->rom_key_3_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_IRK3R_MSK)
+				   >> OTP_DWORD_19_CONTROL_IRK3R_LSB;
+	state->rom_key_4_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_IRK4R_MSK)
+				   >> OTP_DWORD_19_CONTROL_IRK4R_LSB;
+	state->boot_from_uart_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BFUD_MSK)
+					>> OTP_DWORD_19_CONTROL_BFUD_LSB;
+	state->boot_from_smbus_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BFSMBUSD_MSK)
+					 >> OTP_DWORD_19_CONTROL_BFSMBUSD_LSB;
+	state->boot_from_i3c_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BFI3CD_MSK)
+				       >> OTP_DWORD_19_CONTROL_BFI3CD_LSB;
+	state->failover_to_uart_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BF2UD_MSK)
+					  >> OTP_DWORD_19_CONTROL_BF2UD_LSB;
+	state->failover_to_smbus_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BF2SMBUSD_MSK)
+					   >> OTP_DWORD_19_CONTROL_BF2SMBUSD_LSB;
+	state->failover_to_i3c_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BF2I3CD_MSK)
+					 >> OTP_DWORD_19_CONTROL_BF2I3CD_LSB;
+	state->static_token_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BIICFCRCD_MSK)
+				      >> OTP_DWORD_19_CONTROL_BIICFCRCD_LSB;
+	state->psid_only_token_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BIICFEC384D_MSK)
+					 >> OTP_DWORD_19_CONTROL_BIICFEC384D_LSB;
+	state->uid_only_token_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BIICFEC521D_MSK)
+					>> OTP_DWORD_19_CONTROL_BIICFEC521D_LSB;
 
 	/* get 192 dwords of OTP content from offset 656 for keys*/
 	cmd.subcmd = MRPC_GET_SECURE_OTP;
