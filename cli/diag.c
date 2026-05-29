@@ -34,6 +34,7 @@
 #include <switchtec/endian.h>
 #include <switchtec/errors.h>
 
+#include <errno.h>
 #include <limits.h>
 #include <locale.h>
 #include <math.h>
@@ -1408,6 +1409,11 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 				       data_mode, eye_mode, refclk, vstep);
 	if (ret) {
 		switchtec_perror("eye_run");
+		if (errno == EBUSY ||
+		    ERRNO_MRPC(errno) == ERR_EYE_CAP_STATE_INVAL)
+			fprintf(stderr,
+				"Hint: A previous eye capture may still be in progress.\n"
+				"Wait for it to complete or reset the device.\n");
 		return NULL;
 	}
 
@@ -1489,7 +1495,7 @@ static int eye(int argc, char **argv)
 		.hstep = 1,
 		.sar_sel = 10,
 		.intleav_sel = 0,
-		.refclk = 0,
+		.refclk = 100000,
 		.data_mode = SWITCHTEC_DIAG_EYE_ADC,
 		.eye_modes_gen6 = SWITCHTEC_DIAG_EYE_FULL,
 	};
@@ -1626,6 +1632,11 @@ static int eye(int argc, char **argv)
 
 	if (cfg.num_lanes > 1 && cfg.fmt != FMT_CSV) {
 		fprintf(stderr, "--format/-f must be CSV if --num-lanes/-n is greater than 1\n");
+		return -1;
+	}
+
+	if (cfg.dev && switchtec_is_gen6(cfg.dev) && cfg.refclk == 0) {
+		fprintf(stderr, "--refclk/-r must be non-zero for Gen6 eye capture\n");
 		return -1;
 	}
 
