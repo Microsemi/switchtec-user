@@ -1247,7 +1247,7 @@ static double *eye_observe_dev(struct switchtec_dev *dev, int port_id,
 	struct switchtec_status status;
 	int i, ret, first_lane, lane;
 	size_t lane_cnt[num_lanes];
-	int lane_mask[4] = {};
+	int lane_mask[5] = {};
 	double tmp[500];
 	double *pixels;
 
@@ -1392,7 +1392,7 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 				    int vstep)
 {
 	int bin, j, ret, first_lane, num_phases_l, stride;
-	int lane_mask[4] = {};
+	int lane_mask[5] = {};
 	struct switchtec_status sw_status;
 	double tmp[64];
 	double* ber_data = NULL;

@@ -1791,7 +1791,7 @@ int switchtec_diag_eye_set_mode(struct switchtec_dev *dev,
 				enum switchtec_diag_eye_data_mode mode);
 int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id, int bin,
 		            int* num_phases, double* ber_data);
-int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
+int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[5],
 			     struct range *x_range, struct range *y_range,
 			     int step_interval, int capture_depth, int sar_sel,
 			     int intleav_sel, int hstep, int data_mode,

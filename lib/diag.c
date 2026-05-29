@@ -340,7 +340,7 @@ int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
+int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[5],
 			     struct range *x_range, struct range *y_range,
 			     int step_interval, int capture_depth, int sar_sel,
 			     int intleav_sel, int hstep, int data_mode,
@@ -370,6 +370,7 @@ int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 			.lane_mask[1] = lane_mask[1],
 			.lane_mask[2] = lane_mask[2],
 			.lane_mask[3] = lane_mask[3],
+			.lane_mask[4] = lane_mask[4],
 			.sar_sel = sar_sel,
 			.intleav_sel = intleav_sel,
 			.vstep = vstep,
