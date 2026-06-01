@@ -544,6 +544,25 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 			     NULL, 0);
 }
 
+/**
+ * @brief Erase both Debug Token partition copies (Gen6 only).
+ *
+ * Issues MRPC_FWDNLD with sub_cmd MRPC_FWDNLD_TOKEN_PART_ERASE, which
+ * triggers the firmware's mrpc_fwdnld_sub_cmd_token_part_erase() handler
+ * and erases both Debug Token partition slots.
+ *
+ * @param[in] dev Switchtec device handle
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_fw_debug_token_part_erase(struct switchtec_dev *dev)
+{
+	uint8_t subcmd = MRPC_FWDNLD_TOKEN_PART_ERASE;
+
+	return switchtec_cmd(dev, MRPC_FWDNLD, &subcmd, sizeof(subcmd),
+			     NULL, 0);
+}
+
 struct cmd_fwdl {
 	struct cmd_fwdl_hdr {
 		uint8_t subcmd;

@@ -2279,6 +2279,49 @@ static int fw_toggle(int argc, char **argv)
 	return ret;
 }
 
+#define CMD_DESC_FW_DEBUG_TOKEN_PART_ERASE \
+	"erase both Debug Token partition copies (Gen6 switch only)"
+
+static int fw_debug_token_part_erase(int argc, char **argv)
+{
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int assume_yes;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_FW_DEBUG_TOKEN_PART_ERASE,
+			opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr,
+			"Debug Token partition erase is only supported on Gen6 switches\n");
+		return 1;
+	}
+
+	printf("This will erase BOTH Debug Token partition copies on %s.\n",
+	       switchtec_name(cfg.dev));
+
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return ret;
+
+	ret = switchtec_fw_debug_token_part_erase(cfg.dev);
+	if (ret) {
+		switchtec_perror("debug-token-part-erase");
+		return ret;
+	}
+
+	printf("Debug Token partitions erased.\n");
+	return 0;
+}
+
 #define CMD_DESC_FW_REDUNDANT "Set an image partition to redundant"
 static int fw_redundant(int argc, char **argv)
 {
@@ -3215,6 +3258,7 @@ static const struct cmd commands[] = {
 	CMD(fw_update, CMD_DESC_FW_UPDATE),
 	CMD(fw_info, CMD_DESC_FW_INFO),
 	CMD(fw_toggle, CMD_DESC_FW_TOGGLE),
+	CMD(fw_debug_token_part_erase, CMD_DESC_FW_DEBUG_TOKEN_PART_ERASE),
 	CMD(fw_redundant, CMD_DESC_FW_REDUNDANT),
 	CMD(fw_read, CMD_DESC_FW_READ),
 	CMD(fw_img_info, CMD_DESC_FW_IMG_INFO),
