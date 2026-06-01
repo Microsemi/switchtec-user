@@ -591,6 +591,10 @@ int switchtec_dbg_sec_ver_update_gen6(struct switchtec_dev *dev,
 				      struct switchtec_pubkey *public_key,
 				      struct switchtec_signature *signature,
 				      struct switchtec_gen6_token *token);
+int switchtec_dbg_sec_static_disable_gen6(struct switchtec_dev *dev,
+					  struct switchtec_pubkey *public_key,
+					  struct switchtec_signature *signature,
+					  struct switchtec_gen6_token *token);
 int switchtec_dbg_unlock_get_token_gen6(struct switchtec_dev *dev,
 					struct switchtec_gen6_token *token,
 					int token_type,

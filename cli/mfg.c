@@ -1854,6 +1854,116 @@ static int debug_lock_update(int argc, char **argv)
 }
 #endif
 
+#define CMD_DESC_DEBUG_STATIC_TOKEN_DISABLE \
+	"permanently disable static debug tokens (Gen6 only, IRREVERSIBLE)"
+
+#if HAVE_LIBCRYPTO
+static int debug_static_token_disable(int argc, char **argv)
+{
+	int ret;
+	struct switchtec_pubkey pubk;
+	struct switchtec_signature sig;
+	struct switchtec_gen6_token token;
+
+	static struct {
+		struct switchtec_dev *dev;
+		FILE *pubkey_fimg;
+		char *pubkey_file;
+		FILE *sig_fimg;
+		char *sig_file;
+		FILE *tkn_fimg;
+		char *tkn_file;
+		unsigned int assume_yes;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION_MFG_PCI,
+		{"pub_key", 'p', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.pubkey_fimg,
+			.argument_type=required_argument,
+			.help="public key file"},
+		{"signature_file", 's', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.sig_fimg,
+			.argument_type=required_argument,
+			.help="signature file"},
+		{"token_file", 't', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.tkn_fimg,
+			.argument_type=required_argument,
+			.help="signed GEN6_DISABLE_STATIC_TOKEN file"},
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+			"assume yes when prompted"},
+		{NULL}
+	};
+
+	argconfig_parse(argc, argv, CMD_DESC_DEBUG_STATIC_TOKEN_DISABLE,
+			opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr,
+			"This command is only supported on Gen6 switches.\n");
+		return -1;
+	}
+
+	if (cfg.pubkey_file == NULL) {
+		fprintf(stderr,
+			"Public key file must be set for this command!\n");
+		return -1;
+	}
+
+	if (cfg.sig_file == NULL) {
+		fprintf(stderr,
+			"Signature file must be set for this command!\n");
+		return -1;
+	}
+
+	if (cfg.tkn_file == NULL) {
+		fprintf(stderr,
+			"Token file must be set for this command!\n");
+		return -1;
+	}
+
+	ret = switchtec_read_pubk_file(cfg.pubkey_fimg, &pubk);
+	fclose(cfg.pubkey_fimg);
+	if (ret) {
+		printf("Invalid public key file %s!\n", cfg.pubkey_file);
+		return -2;
+	}
+
+	ret = switchtec_read_signature_file(cfg.sig_fimg, &sig);
+	fclose(cfg.sig_fimg);
+	if (ret) {
+		printf("Invalid signature file %s!\n", cfg.sig_file);
+		return -3;
+	}
+
+	ret = switchtec_read_token_file(cfg.tkn_fimg, &token);
+	fclose(cfg.tkn_fimg);
+	if (ret) {
+		fprintf(stderr, "Invalid token file %s!\n", cfg.tkn_file);
+		return -3;
+	}
+
+	if (token.token[0] != SECURE_TOKEN_GET_TYPE_DISABLE_STATIC) {
+		fprintf(stderr,
+			"Token type must be GEN6_DISABLE_STATIC_TOKEN (type=3).\n");
+		return -3;
+	}
+
+	fprintf(stderr,
+		"WARNING: This operation makes changes to the device OTP memory and is IRREVERSIBLE!\n"
+		"         Static debug tokens will be permanently disabled.\n");
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return -4;
+
+	ret = switchtec_dbg_sec_static_disable_gen6(cfg.dev, &pubk, &sig,
+						    &token);
+	if (ret)
+		switchtec_perror("debug-static-token-disable");
+
+	return ret;
+}
+#endif
+
 #if !HAVE_LIBCRYPTO
 static int no_openssl(int argc, char **argv)
 {
@@ -1867,6 +1977,7 @@ static int no_openssl(int argc, char **argv)
 #define kmsk_entry_add		no_openssl
 #define debug_unlock		no_openssl
 #define debug_lock_update	no_openssl
+#define debug_static_token_disable	no_openssl
 
 #endif
 
@@ -3397,6 +3508,7 @@ static const struct cmd commands[] = {
 	CMD(dok_key_revoke, CMD_DESC_DOK_KEY_REVOKE),
 	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
 	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
+	CMD(debug_static_token_disable, CMD_DESC_DEBUG_STATIC_TOKEN_DISABLE),
 	CMD(jtag_status_get, CMD_DESC_JTAG_STATUS_GET),
 	CMD(secure_state_get, CMD_DESC_SECURE_STATE_GET),
 	{}

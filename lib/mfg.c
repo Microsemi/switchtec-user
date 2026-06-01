@@ -1797,6 +1797,44 @@ int switchtec_dbg_sec_ver_update_gen6(struct switchtec_dev *dev,
 	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
+/**
+ * @brief Gen6 static debug token disable.
+ *	  Sends pubkey + signature, then submits the signed
+ *	  GEN6_DISABLE_STATIC_TOKEN to the device. Permanently disables
+ *	  static debug tokens via OTP.
+ */
+int switchtec_dbg_sec_static_disable_gen6(struct switchtec_dev *dev,
+					  struct switchtec_pubkey *public_key,
+					  struct switchtec_signature *signature,
+					  struct switchtec_gen6_token *token)
+{
+	int ret;
+	struct static_disable_cmd_gen6 {
+		uint8_t subcmd;
+		uint8_t rsvd[3];
+		uint8_t token[SWITCHTEC_GEN6_TOKEN_VER_UPDATE_LEN];
+	} cmd = {};
+	uint32_t cmd_id = MRPC_DBG_UNLOCK_GEN6;
+
+	if (!switchtec_is_gen6(dev))
+		return ERR_SUBCMD_INVALID;
+
+	if (token->token[0] != SECURE_TOKEN_GET_TYPE_DISABLE_STATIC)
+		return ERR_SUBCMD_INVALID;
+
+	ret = dbg_unlock_send_pubkey_gen6(dev, public_key, cmd_id);
+	if (ret)
+		return ret;
+
+	ret = dbg_unlock_send_sig_gen6(dev, signature, cmd_id);
+	if (ret)
+		return ret;
+
+	cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_STATIC_DISABLE;
+	memcpy(cmd.token, token->token, SWITCHTEC_GEN6_TOKEN_VER_UPDATE_LEN);
+	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
+}
+
 static int check_sec_cfg_header(struct switchtec_dev *dev,
 				FILE *setting_file)
 {
