@@ -727,6 +727,8 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 	if (ret)
 		return ret;
 
+	memset(state, 0, sizeof(*state));
+
 	/* DWORD 10 — TWI RECOVERY */
 	state->twi_rcvry_address_mrpc = (reply_otp[OTP_DWORD_10] & OTP_DWORD_10_SMBUS_SMBRMRPCADDR_MSK)
 					>> OTP_DWORD_10_SMBUS_SMBRMRPCADDR_LSB;
@@ -737,14 +739,26 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 	state->twi_rcvry_address_ocp = (reply_otp[OTP_DWORD_10] & OTP_DWORD_10_SMBUS_SMBROCPADDR_MSK)
 				       >> OTP_DWORD_10_SMBUS_SMBROCPADDR_LSB;
 
-	/* DWORD 0 — PRODUCT FLAGS */
-	state->secsc = (reply_otp[OTP_DWORD_0] & OTP_DWORD_0_PRODUCT_SECSC_MSK)
-		       >> OTP_DWORD_0_PRODUCT_SECSC_LSB;
+	/* DWORD 25 / DWORD 0 / DWORD 9 */
+	state->mrpc_command_map     = (reply_otp[OTP_DWORD_25] & OTP_DWORD_25_CONTROL_MRPCCMD_MSK) 
+				       >> OTP_DWORD_25_CONTROL_MRPCCMD_LSB;
+	state->secsc                = (reply_otp[OTP_DWORD_0] & OTP_DWORD_0_PRODUCT_SECSC_MSK) 
+				       >> OTP_DWORD_0_PRODUCT_SECSC_LSB;
+	state->ap_offset            = (reply_otp[OTP_DWORD_9] & OTP_DWORD_9_ADDITIONAL_APOFF_MSK) 
+				       >> OTP_DWORD_9_ADDITIONAL_APOFF_LSB;
+	state->puf_ac_status        = (reply_otp[OTP_DWORD_25] & OTP_DWORD_25_CONTROL_PUFACS_MSK) 
+				       >> OTP_DWORD_25_CONTROL_PUFACS_LSB;
 
-	/* DWORD 25 — PUFAC */
-	state->puf_ac_status = (reply_otp[OTP_DWORD_25] & OTP_DWORD_25_CONTROL_PUFACS_MSK)
-			       >> OTP_DWORD_25_CONTROL_PUFACS_LSB;
-
+	/* DWORD 25 - inbuilt ROM key revoke flags */
+	state->rom_key_1_disable = (reply_otp[OTP_DWORD_25] & OTP_DWORD_25_CONTROL_IRK1R_MSK) 
+				    >> OTP_DWORD_25_CONTROL_IRK1R_LSB;
+	state->rom_key_2_disable = (reply_otp[OTP_DWORD_25] & OTP_DWORD_25_CONTROL_IRK2R_MSK) 
+				    >> OTP_DWORD_25_CONTROL_IRK2R_LSB;
+	state->rom_key_3_disable = (reply_otp[OTP_DWORD_25] & OTP_DWORD_25_CONTROL_IRK3R_MSK) 
+				    >> OTP_DWORD_25_CONTROL_IRK3R_LSB;
+	state->rom_key_4_disable = (reply_otp[OTP_DWORD_25] & OTP_DWORD_25_CONTROL_IRK4R_MSK) 
+				    >> OTP_DWORD_25_CONTROL_IRK4R_LSB;
+	
 	/* DWORD 23 — KEY HASH STATUS */
 	state->otp_key0_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK0S_MSK)
 				      >> OTP_DWORD_23_CONTROL_BIAK0S_LSB;
@@ -771,15 +785,15 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 	state->otp_key11_hash_status = (reply_otp[OTP_DWORD_23] & OTP_DWORD_23_CONTROL_BIAK11S_MSK)
 				       >> OTP_DWORD_23_CONTROL_BIAK11S_LSB;
 
-	/* DWORD 20 — HASH TABLE DISABLE */
-	state->has_table_sha2_384_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_BIICFR3SD_MSK)
-					    >> OTP_DWORD_20_CONTROL_BIICFR3SD_LSB;
-	state->has_table_sha2_512_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_BIICFRS2D_MSK)
-					    >> OTP_DWORD_20_CONTROL_BIICFRS2D_LSB;
-	state->has_table_sha3_512_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_BIIDILITHIUM5D_MSK)
-					    >> OTP_DWORD_20_CONTROL_BIIDILITHIUM5D_LSB;
-	state->has_table_crc32_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_CRC32D_MSK)
-					 >> OTP_DWORD_19_CONTROL_CRC32D_LSB;
+	/* DWORD 20 - hash table disable bits */
+	state->has_table_sha2_384_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_HTSHA2384D_MSK) >> 
+					     OTP_DWORD_20_CONTROL_HTSHA2384D_LSB;
+	state->has_table_sha2_512_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_HTSHA2512D_MSK) >> 
+					     OTP_DWORD_20_CONTROL_HTSHA2512D_LSB;
+	state->has_table_sha3_512_disable = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_HTSHA3512D_MSK) >> 
+					     OTP_DWORD_20_CONTROL_HTSHA3512D_LSB;
+	state->has_table_crc32_disable    = (reply_otp[OTP_DWORD_20] & OTP_DWORD_20_CONTROL_HTCRC32D_MSK) >> 
+					     OTP_DWORD_20_CONTROL_HTCRC32D_LSB;
 
 	/* DWORD 11-13 — I3C IDENTIFIERS */
 	state->i3c_pid_high = (reply_otp[OTP_DWORD_11] & OTP_DWORD_11_I3C_I3CPID_MSK)
@@ -804,14 +818,6 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 					>> OTP_DWORD_19_CONTROL_RSA4KSHA2D_LSB;
 	state->algo_dilithium5_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_DILITHIUM5D_MSK)
 					 >> OTP_DWORD_19_CONTROL_DILITHIUM5D_LSB;
-	state->rom_key_1_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_IRK1R_MSK)
-				   >> OTP_DWORD_19_CONTROL_IRK1R_LSB;
-	state->rom_key_2_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_IRK2R_MSK)
-				   >> OTP_DWORD_19_CONTROL_IRK2R_LSB;
-	state->rom_key_3_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_IRK3R_MSK)
-				   >> OTP_DWORD_19_CONTROL_IRK3R_LSB;
-	state->rom_key_4_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_IRK4R_MSK)
-				   >> OTP_DWORD_19_CONTROL_IRK4R_LSB;
 	state->boot_from_uart_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BFUD_MSK)
 					>> OTP_DWORD_19_CONTROL_BFUD_LSB;
 	state->boot_from_smbus_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BFSMBUSD_MSK)
@@ -824,12 +830,10 @@ int security_settings_get_gen6(struct switchtec_dev *dev,
 					   >> OTP_DWORD_19_CONTROL_BF2SMBUSD_LSB;
 	state->failover_to_i3c_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BF2I3CD_MSK)
 					 >> OTP_DWORD_19_CONTROL_BF2I3CD_LSB;
-	state->static_token_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BIICFCRCD_MSK)
-				      >> OTP_DWORD_19_CONTROL_BIICFCRCD_LSB;
-	state->psid_only_token_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BIICFEC384D_MSK)
-					 >> OTP_DWORD_19_CONTROL_BIICFEC384D_LSB;
-	state->uid_only_token_disable = (reply_otp[OTP_DWORD_19] & OTP_DWORD_19_CONTROL_BIICFEC521D_MSK)
-					>> OTP_DWORD_19_CONTROL_BIICFEC521D_LSB;
+	state->static_token_disable    = (reply_otp[OTP_DWORD_25] >> OTP_DWORD_25_CONTROL_STTKND_LSB) & 0x1;
+	state->psid_only_token_disable = (reply_otp[OTP_DWORD_25] >> OTP_DWORD_25_CONTROL_PSIDTKND_LSB) & 0x1;
+	state->uid_only_token_disable  = (reply_otp[OTP_DWORD_25] >> OTP_DWORD_25_CONTROL_UIDTKND_LSB) & 0x1;
+	state->psid_uid_token_disable  = (reply_otp[OTP_DWORD_25] >> OTP_DWORD_25_CONTROL_UIDPSIDTKND_LSB) & 0x1;
 
 	/* get 192 dwords of OTP content from offset 656 for keys*/
 	cmd.subcmd = MRPC_GET_SECURE_OTP;
