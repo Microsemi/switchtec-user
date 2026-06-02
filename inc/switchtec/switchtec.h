@@ -1096,7 +1096,8 @@ int switchtec_fw_set_redundant_flag(struct switchtec_dev *dev,
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg,
-					 int toggle_riotcore);
+					 int toggle_riotcore,
+					 int toggle_debug_token);
 int switchtec_fw_debug_token_part_erase(struct switchtec_dev *dev);
 int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 			  int dont_activate, int force,
