@@ -263,7 +263,7 @@ struct switchtec_gen6_diag_eye_run_in {
 	uint8_t resvd1;
 	uint8_t timeout_disable;
 	uint8_t resvd2;
-	uint32_t lane_mask[4];
+	uint32_t lane_mask[5];
 	uint8_t sar_sel;
 	uint8_t intleav_sel;
 	uint8_t vstep;

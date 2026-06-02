@@ -855,6 +855,31 @@ const char *switchtec_strerror(void)
 		default: break;
 		}
 		break;
+	case MRPC_GEN5_EYE_CAPTURE:
+		switch (err) {
+		case ERR_EYE_CAP_LANE_MASK_INVAL:
+			msg = "Eye capture lane mask invalid"; break;
+		case ERR_EYE_CAP_DEPTH_INVAL:
+			msg = "Eye capture depth invalid"; break;
+		case ERR_EYE_CAP_TOO_MANY_LANES:
+			msg = "Eye capture too many lanes"; break;
+		case ERR_EYE_CAP_ERROR:
+			msg = "Eye capture error"; break;
+		case ERR_EYE_CAP_TIMEOUT:
+			msg = "Eye capture firmware timeout"; break;
+		case ERR_EYE_CAP_STATE_INVAL:
+			msg = "Eye capture state invalid (capture already in progress)"; break;
+		case ERR_EYE_CAP_LANE_ID_INVAL:
+			msg = "Eye capture lane ID invalid or inactive"; break;
+		case ERR_EYE_CAP_BIN_NUM_INVAL:
+			msg = "Eye capture bin number invalid"; break;
+		case ERR_EYE_CAP_SUBCMD_INVAL:
+			msg = "Eye capture sub-command invalid"; break;
+		case ERR_EYE_CAP_HW_ALLOC_FAIL:
+			msg = "Eye capture hardware resource allocation failed"; break;
+		default: break;
+		}
+		break;
 	default: break;
 	}
 

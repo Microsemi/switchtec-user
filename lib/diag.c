@@ -29,6 +29,9 @@
 
 #define SWITCHTEC_LIB_CORE
 #define SWITCHTEC_LTSSM_MAX_LOGS 61
+#define EYE_CAP_STATUS_TIMEOUT_MS (5 * 60 * 1000)
+#define EYE_CAP_STATUS_POLL_MS 200
+#define EYE_CAP_PROGRESS_INTERVAL 25
 
 #include "switchtec_priv.h"
 #include "switchtec/diag.h"
@@ -132,6 +135,8 @@ static int switchtec_diag_eye_status_gen5(struct switchtec_dev *dev)
 {
 	int ret;
 	int eye_status;
+	int elapsed_ms = 0;
+	int poll_count = 0;
 
 	struct switchtec_gen5_diag_eye_status_in in = {
 		.sub_cmd = MRPC_EYE_CAP_STATUS_GEN5,
@@ -146,9 +151,24 @@ static int switchtec_diag_eye_status_gen5(struct switchtec_dev *dev)
 			return -1;
 		}
 		eye_status = out.status;
-		usleep(200000);
+		usleep(EYE_CAP_STATUS_POLL_MS * 1000);
+		elapsed_ms += EYE_CAP_STATUS_POLL_MS;
+		poll_count++;
+
+		if (poll_count % EYE_CAP_PROGRESS_INTERVAL == 0)
+			fprintf(stderr, ".");
+
+		if (elapsed_ms >= EYE_CAP_STATUS_TIMEOUT_MS) {
+			fprintf(stderr, "\n");
+			errno = ETIMEDOUT;
+			switchtec_perror("Eye capture timed out waiting for completion");
+			return -1;
+		}
 	} while (eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_IN_PROGRESS ||
 		 eye_status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING);
+
+	if (poll_count >= EYE_CAP_PROGRESS_INTERVAL)
+		fprintf(stderr, "\n");
 
 	switch (eye_status) {
 	case SWITCHTEC_GEN5_DIAG_EYE_STATUS_DONE:
@@ -159,7 +179,7 @@ static int switchtec_diag_eye_status_gen5(struct switchtec_dev *dev)
 		return -1;
 	case SWITCHTEC_GEN5_DIAG_EYE_STATUS_TIMEOUT:
 		errno = ETIMEDOUT;
-		switchtec_perror("Eye capture timeout");
+		switchtec_perror("Eye capture firmware timeout");
 		return -1;
 	case SWITCHTEC_GEN5_DIAG_EYE_STATUS_ERROR:
 		errno = EIO;
@@ -191,6 +211,20 @@ static int switchtec_diag_eye_cmd_gen5(struct switchtec_dev *dev, void *in,
 				       size_t size)
 {
 	int ret;
+	struct switchtec_gen5_diag_eye_status_in status_in = {
+		.sub_cmd = MRPC_EYE_CAP_STATUS_GEN5,
+	};
+	struct switchtec_gen5_diag_eye_status_out status_out;
+
+	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &status_in,
+			    sizeof(status_in), &status_out,
+			    sizeof(status_out));
+	if (ret == 0 &&
+	    (status_out.status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_IN_PROGRESS ||
+	     status_out.status == SWITCHTEC_GEN5_DIAG_EYE_STATUS_PENDING)) {
+		errno = EBUSY;
+		return -1;
+	}
 
 	ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, in, size,
 			    NULL, 0);
@@ -306,7 +340,7 @@ int switchtec_diag_eye_read(struct switchtec_dev *dev, int lane_id,
  *
  * @return 0 on success, error code on failure
  */
-int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
+int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[5],
 			     struct range *x_range, struct range *y_range,
 			     int step_interval, int capture_depth, int sar_sel,
 			     int intleav_sel, int hstep, int data_mode,
@@ -336,6 +370,7 @@ int switchtec_diag_eye_start(struct switchtec_dev *dev, int lane_mask[4],
 			.lane_mask[1] = lane_mask[1],
 			.lane_mask[2] = lane_mask[2],
 			.lane_mask[3] = lane_mask[3],
+			.lane_mask[4] = lane_mask[4],
 			.sar_sel = sar_sel,
 			.intleav_sel = intleav_sel,
 			.vstep = vstep,
