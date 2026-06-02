@@ -2792,6 +2792,12 @@ static int device_config_set_security(int argc, char **argv)
 	return 0;
 }
 
+#if HAVE_LIBCRYPTO
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
+#include <openssl/sha.h>
+
 /* PMC CRC32 lookup table - polynomial 0x04C11DB7 (MSB first) */
 static const uint32_t crc32_tab[256] = {
 	0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9,
@@ -2894,12 +2900,6 @@ static int parse_hex_string(const char *hex, uint32_t *out, int dwords)
 	}
 	return 0;
 }
-
-#if HAVE_LIBCRYPTO
-#include <openssl/evp.h>
-#include <openssl/pem.h>
-#include <openssl/rsa.h>
-#include <openssl/sha.h>
 
 static int compute_rsa4k_hash(FILE *key_file, uint32_t *hash)
 {
@@ -3504,8 +3504,8 @@ static const struct cmd commands[] = {
 	CMD(device_config_set_security, CMD_DESC_DEVICE_CONFIG_SET_SECURITY),
 #if HAVE_LIBCRYPTO
 	CMD(dok_key_add, CMD_DESC_DOK_KEY_ADD),
-#endif
 	CMD(dok_key_revoke, CMD_DESC_DOK_KEY_REVOKE),
+#endif
 	CMD(debug_unlock, CMD_DESC_DEBUG_UNLOCK),
 	CMD(debug_lock_update, CMD_DESC_DEBUG_LOCK_UPDATE),
 	CMD(debug_static_token_disable, CMD_DESC_DEBUG_STATIC_TOKEN_DISABLE),
