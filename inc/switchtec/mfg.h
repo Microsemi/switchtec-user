@@ -53,6 +53,7 @@
 
 #define OTP_MULTI_DWORD_IMAGE_BIAK0			   656
 #define OTP_DWORD_0                            0
+#define OTP_DWORD_9                            9
 #define OTP_DWORD_10                           10
 #define OTP_DWORD_11                           11
 #define OTP_DWORD_12                           12
@@ -72,6 +73,10 @@
 #define OTP_DWORD_0_PRODUCT_SECSC_LSB          22
 #define OTP_DWORD_0_PRODUCT_SECSC_MSK          0x00400000
 
+/* DWORD 9 - ADDITIONAL */
+#define OTP_DWORD_9_ADDITIONAL_APOFF_LSB       3
+#define OTP_DWORD_9_ADDITIONAL_APOFF_MSK       0x000007F8
+
 /* DWORD 10 — TWI RECOVERY */
 #define OTP_DWORD_10_SMBUS_SMBRMRPCADDR_LSB    5
 #define OTP_DWORD_10_SMBUS_SMBRMRPCADDR_MSK    0x00007FE0
@@ -85,9 +90,11 @@
 /* DWORD 11 — I3C PID HIGH */
 #define OTP_DWORD_11_I3C_I3CPID_LSB            0
 #define OTP_DWORD_11_I3C_I3CPID_MSK            0xFFFFFFFF
+
 /* DWORD 12 — I3C PID LOW */
 #define OTP_DWORD_12_I3C_I3CPID2_LSB           0
 #define OTP_DWORD_12_I3C_I3CPID2_MSK           0x0000FFFF
+
 /* DWORD 13 — I3C RECOVERY FIELDS */
 #define OTP_DWORD_13_I3C_I3CADDR_LSB           0
 #define OTP_DWORD_13_I3C_I3CADDR_MSK           0x0000007F
@@ -141,6 +148,14 @@
 #define OTP_DWORD_20_CONTROL_BIICFRS2D_MSK     0x00000002
 #define OTP_DWORD_20_CONTROL_BIIDILITHIUM5D_LSB 2
 #define OTP_DWORD_20_CONTROL_BIIDILITHIUM5D_MSK 0x00000004
+#define OTP_DWORD_20_CONTROL_HTSHA2384D_LSB    10
+#define OTP_DWORD_20_CONTROL_HTSHA2384D_MSK    0x00000400
+#define OTP_DWORD_20_CONTROL_HTSHA2512D_LSB    11
+#define OTP_DWORD_20_CONTROL_HTSHA2512D_MSK    0x00000800
+#define OTP_DWORD_20_CONTROL_HTSHA3512D_LSB    12
+#define OTP_DWORD_20_CONTROL_HTSHA3512D_MSK    0x00001000
+#define OTP_DWORD_20_CONTROL_HTCRC32D_LSB      13
+#define OTP_DWORD_20_CONTROL_HTCRC32D_MSK      0x00002000
 
 /* DWORD 21 — KEY READ MASK VECTOR */
 #define OTP_DWORD_21_CONTROL_BIAKRMV_LSB       0
@@ -196,6 +211,24 @@
 #define SECURE_CFG_GET_I2C_CMD_MAP_LSB		   0x0000000C
 #define SECURE_CFG_GET_I2C_RCVRY_INF_MSK	   0x0000C000
 #define SECURE_CFG_GET_I2C_RCVRY_ADDR_MSK	   0x000003FF
+
+/* DWORD 25 — MRPC COMMAND MAP */
+#define OTP_DWORD_25_CONTROL_MRPCCMD_LSB       14
+#define OTP_DWORD_25_CONTROL_MRPCCMD_MSK       0x03FFC000
+
+/* DWORD 25 — INBUILT ROM KEY REVOKE */
+#define OTP_DWORD_25_CONTROL_IRK1R_LSB         0
+#define OTP_DWORD_25_CONTROL_IRK1R_MSK         0x00000001
+#define OTP_DWORD_25_CONTROL_IRK2R_LSB         1
+#define OTP_DWORD_25_CONTROL_IRK2R_MSK         0x00000002
+#define OTP_DWORD_25_CONTROL_IRK3R_LSB         2
+#define OTP_DWORD_25_CONTROL_IRK3R_MSK         0x00000004
+#define OTP_DWORD_25_CONTROL_IRK4R_LSB         3
+#define OTP_DWORD_25_CONTROL_IRK4R_MSK         0x00000008
+#define OTP_DWORD_25_CONTROL_STTKND_LSB        26
+#define OTP_DWORD_25_CONTROL_PSIDTKND_LSB      27
+#define OTP_DWORD_25_CONTROL_UIDTKND_LSB       28
+#define OTP_DWORD_25_CONTROL_UIDPSIDTKND_LSB   29
 
 struct switchtec_sn_ver_info {
 	uint32_t chip_serial;
@@ -591,6 +624,10 @@ int switchtec_dbg_sec_ver_update_gen6(struct switchtec_dev *dev,
 				      struct switchtec_pubkey *public_key,
 				      struct switchtec_signature *signature,
 				      struct switchtec_gen6_token *token);
+int switchtec_dbg_sec_static_disable_gen6(struct switchtec_dev *dev,
+					  struct switchtec_pubkey *public_key,
+					  struct switchtec_signature *signature,
+					  struct switchtec_gen6_token *token);
 int switchtec_dbg_unlock_get_token_gen6(struct switchtec_dev *dev,
 					struct switchtec_gen6_token *token,
 					int token_type,

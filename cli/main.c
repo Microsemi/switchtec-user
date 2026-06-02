@@ -2226,6 +2226,7 @@ static int fw_toggle(int argc, char **argv)
 		int firmware;
 		int config;
 		int riotcore;
+		int debug_token;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -2239,19 +2240,26 @@ static int fw_toggle(int argc, char **argv)
 		 "toggle CFG data"},
 		{"riotcore", 'r', "", CFG_NONE, &cfg.riotcore, no_argument,
 		 "toggle RIOTCORE - Gen5 switch only"},
+		{"debug-token", 'd', "", CFG_NONE, &cfg.debug_token, no_argument,
+		 "toggle Debug Token image - Gen6 switch only"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_FW_TOGGLE, opts, &cfg, sizeof(cfg));
 
-	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config && !cfg.riotcore) {
+	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config &&
+	    !cfg.riotcore && !cfg.debug_token) {
 		fprintf(stderr, "NOTE: Not toggling images as no "
 			"partition type options were specified\n\n");
-	} else if ((cfg.bl2 || cfg.key || cfg.riotcore) && switchtec_is_gen3(cfg.dev)) {
-		fprintf(stderr, "Firmware type BL2, Key manifest, or RIORCORE "
+	} else if ((cfg.bl2 || cfg.key || cfg.riotcore || cfg.debug_token) && 
+		    switchtec_is_gen3(cfg.dev)) {
+		fprintf(stderr, "Firmware type BL2, Key manifest, or RIORCORE or Debug Token"
 			"are not supported by Gen3 switches\n");
 		return 1;
-	} else if (cfg.riotcore && switchtec_is_gen4(cfg.dev)){
-		fprintf(stderr, "Firmware type RIOTCORE is not supported by Gen4 switches\n");
+	} else if (cfg.riotcore && !switchtec_is_gen5(cfg.dev)){
+		fprintf(stderr, "Firmware type RIOTCORE is only supported by Gen5 switches\n");
+		return 1;
+	} else if (cfg.debug_token && !switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "Firmware type Debug Token is only supported by Gen6 switches\n");
 		return 1;
 	} else {
 		ret = switchtec_fw_toggle_active_partition(cfg.dev,
@@ -2259,7 +2267,8 @@ static int fw_toggle(int argc, char **argv)
 							   cfg.key,
 							   cfg.firmware,
 							   cfg.config,
-							   cfg.riotcore);
+							   cfg.riotcore,
+							   cfg.debug_token);
 		if (ret)
 			err = errno;
 	}
@@ -2277,6 +2286,49 @@ static int fw_toggle(int argc, char **argv)
 		printf("firmware toggle: Success\n");
 
 	return ret;
+}
+
+#define CMD_DESC_FW_DEBUG_TOKEN_PART_ERASE \
+	"erase both Debug Token partition copies (Gen6 switch only)"
+
+static int fw_debug_token_part_erase(int argc, char **argv)
+{
+	int ret;
+
+	static struct {
+		struct switchtec_dev *dev;
+		int assume_yes;
+	} cfg = {};
+	const struct argconfig_options opts[] = {
+		DEVICE_OPTION,
+		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
+		 "assume yes when prompted"},
+		{NULL}};
+
+	argconfig_parse(argc, argv, CMD_DESC_FW_DEBUG_TOKEN_PART_ERASE,
+			opts, &cfg, sizeof(cfg));
+
+	if (!switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr,
+			"Debug Token partition erase is only supported on Gen6 switches\n");
+		return 1;
+	}
+
+	printf("This will erase BOTH Debug Token partition copies on %s.\n",
+	       switchtec_name(cfg.dev));
+
+	ret = ask_if_sure(cfg.assume_yes);
+	if (ret)
+		return ret;
+
+	ret = switchtec_fw_debug_token_part_erase(cfg.dev);
+	if (ret) {
+		switchtec_perror("debug-token-part-erase");
+		return ret;
+	}
+
+	printf("Debug Token partitions erased.\n");
+	return 0;
 }
 
 #define CMD_DESC_FW_REDUNDANT "Set an image partition to redundant"
@@ -3215,6 +3267,7 @@ static const struct cmd commands[] = {
 	CMD(fw_update, CMD_DESC_FW_UPDATE),
 	CMD(fw_info, CMD_DESC_FW_INFO),
 	CMD(fw_toggle, CMD_DESC_FW_TOGGLE),
+	CMD(fw_debug_token_part_erase, CMD_DESC_FW_DEBUG_TOKEN_PART_ERASE),
 	CMD(fw_redundant, CMD_DESC_FW_REDUNDANT),
 	CMD(fw_read, CMD_DESC_FW_READ),
 	CMD(fw_img_info, CMD_DESC_FW_IMG_INFO),
