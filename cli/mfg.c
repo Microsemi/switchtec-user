@@ -433,7 +433,7 @@ static void print_security_config_gen6(struct switchtec_security_cfg_state_gen6 
 	for (int key = 0; key < SWITCHTEC_KMSK_NUM_GEN6; key++) {
 		uint32_t status = key_status[key] & 0x3;
 
-		printf("OTP Key%d Hash:\t\t\t\t", key + 1);
+		printf("OTP Key%d Hash:\t\t\t\t", key);
 
 		switch (status) {
 		case PROGRAMMED:
@@ -2225,7 +2225,7 @@ static void print_security_settings_only(struct switchtec_device_config_get_sec 
 
 	for (i = 0; i < (int)sec_cfg->secure_settings.key_prog_num &&
 		    i < DEVICE_CONFIG_MAX_KEY_SLOTS; i++) {
-		printf("OTP Key%d Hash:\t\t\t\t", i + 1);
+		printf("OTP Key%d Hash:\t\t\t\t", i);
 		for (j = 0; j < DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS; j++) {
 			if (j && (j % 8) == 0)
 				printf("\n\t\t\t\t\t");
