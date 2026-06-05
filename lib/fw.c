@@ -477,8 +477,7 @@ static int switchtec_cmd_nopoll(struct switchtec_dev *dev, uint32_t cmd_id,
 int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 					 int toggle_bl2, int toggle_key,
 					 int toggle_fw, int toggle_cfg,
-					 int toggle_riotcore,
-					 int toggle_debug_token)
+					 int toggle_riotcore)
 {
 	uint32_t cmd_id;
 	size_t cmd_size;
@@ -489,10 +488,8 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 		uint8_t toggle_cfg;
 		uint8_t toggle_bl2;
 		uint8_t toggle_key;
-		union {
-			uint8_t toggle_riotcore;
-			uint8_t toggle_debug_token;
-		};
+		uint8_t toggle_riotcore;
+		uint16_t reserved;
 	} cmd;
 
 	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2) {
@@ -539,17 +536,9 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 	cmd.toggle_key = !!toggle_key;
 	cmd.toggle_fw = !!toggle_fw;
 	cmd.toggle_cfg = !!toggle_cfg;
-	cmd.toggle_riotcore = 0;
-
-	if (switchtec_is_gen5(dev)) {
+	if (switchtec_is_gen5(dev))
 		cmd.toggle_riotcore = !!toggle_riotcore;
-		cmd_size = sizeof(cmd);
-	} else if (switchtec_is_gen6(dev)) {
-		cmd.toggle_debug_token = !!toggle_debug_token;
-		cmd_size = sizeof(cmd);
-	} else {
-		cmd_size = sizeof(cmd) - 1;
-	}
+	cmd_size = sizeof(cmd);
 
 	return switchtec_cmd(dev, cmd_id, &cmd, cmd_size,
 			     NULL, 0);

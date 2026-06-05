@@ -2226,7 +2226,6 @@ static int fw_toggle(int argc, char **argv)
 		int firmware;
 		int config;
 		int riotcore;
-		int debug_token;
 	} cfg = {};
 	const struct argconfig_options opts[] = {
 		DEVICE_OPTION,
@@ -2240,26 +2239,19 @@ static int fw_toggle(int argc, char **argv)
 		 "toggle CFG data"},
 		{"riotcore", 'r', "", CFG_NONE, &cfg.riotcore, no_argument,
 		 "toggle RIOTCORE - Gen5 switch only"},
-		{"debug-token", 'd', "", CFG_NONE, &cfg.debug_token, no_argument,
-		 "toggle Debug Token image - Gen6 switch only"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_FW_TOGGLE, opts, &cfg, sizeof(cfg));
 
-	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config &&
-	    !cfg.riotcore && !cfg.debug_token) {
+	if (!cfg.bl2 && !cfg.key && !cfg.firmware && !cfg.config && !cfg.riotcore) {
 		fprintf(stderr, "NOTE: Not toggling images as no "
 			"partition type options were specified\n\n");
-	} else if ((cfg.bl2 || cfg.key || cfg.riotcore || cfg.debug_token) && 
-		    switchtec_is_gen3(cfg.dev)) {
-		fprintf(stderr, "Firmware type BL2, Key manifest, or RIORCORE or Debug Token"
+	} else if ((cfg.bl2 || cfg.key || cfg.riotcore) && switchtec_is_gen3(cfg.dev)) {
+		fprintf(stderr, "Firmware type BL2, Key manifest, or RIORCORE "
 			"are not supported by Gen3 switches\n");
 		return 1;
-	} else if (cfg.riotcore && !switchtec_is_gen5(cfg.dev)){
-		fprintf(stderr, "Firmware type RIOTCORE is only supported by Gen5 switches\n");
-		return 1;
-	} else if (cfg.debug_token && !switchtec_is_gen6(cfg.dev)) {
-		fprintf(stderr, "Firmware type Debug Token is only supported by Gen6 switches\n");
+	} else if (cfg.riotcore && switchtec_is_gen4(cfg.dev)){
+		fprintf(stderr, "Firmware type RIOTCORE is not supported by Gen4 switches\n");
 		return 1;
 	} else {
 		ret = switchtec_fw_toggle_active_partition(cfg.dev,
@@ -2267,8 +2259,7 @@ static int fw_toggle(int argc, char **argv)
 							   cfg.key,
 							   cfg.firmware,
 							   cfg.config,
-							   cfg.riotcore,
-							   cfg.debug_token);
+							   cfg.riotcore);
 		if (ret)
 			err = errno;
 	}
