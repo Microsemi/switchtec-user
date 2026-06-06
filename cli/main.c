@@ -2666,7 +2666,12 @@ static int display_event_counters(struct switchtec_dev *dev, int stack,
 		if (strlen(buf) > 39)
 			strcpy(buf, "MANY");
 
-		printf("%-40s   %10u\n", buf, counts[i]);
+		if (setups[i].type_mask & ALL_TLPS)
+			printf("%-40s   %-8s   %10u\n", buf,
+			       setups[i].egress ? "EGRESS" : "INGRESS",
+			       counts[i]);
+		else
+			printf("%-40s   %-8s   %10u\n", buf, "", counts[i]);
 		count++;
 	}
 
