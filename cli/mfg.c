@@ -3072,7 +3072,9 @@ static int dok_key_add(int argc, char **argv)
 		char *uid_hex;
 		char *psid_hex;
 		FILE *key_fimg;
+		const char *key_filename;
 		FILE *sig_fimg;
+		const char *sig_filename;
 		char *check_type;
 		unsigned long sig_type;
 		int assume_yes;
@@ -3256,6 +3258,7 @@ static int dok_key_revoke(int argc, char **argv)
 		char *uid_hex;
 		char *psid_hex;
 		FILE *sig_fimg;
+		const char *sig_filename;
 		char *check_type;
 		unsigned long sig_type;
 		int assume_yes;
