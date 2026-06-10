@@ -30,8 +30,9 @@
 #define SWITCHTEC_LIB_CORE
 #define SWITCHTEC_LTSSM_MAX_LOGS 61
 #define EYE_CAP_STATUS_TIMEOUT_MS (5 * 60 * 1000)
-#define EYE_CAP_STATUS_POLL_MS 200
-#define EYE_CAP_PROGRESS_INTERVAL 25
+#define EYE_CAP_STATUS_POLL_MS 2000
+#define EYE_CAP_STATUS_RETRY_MS 6000
+#define EYE_CAP_PROGRESS_INTERVAL 5
 
 #include "switchtec_priv.h"
 #include "switchtec/diag.h"
@@ -41,6 +42,7 @@
 
 #include <errno.h>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 #include <strings.h>
 #include <unistd.h>
@@ -144,9 +146,15 @@ static int switchtec_diag_eye_status_gen5(struct switchtec_dev *dev)
 	struct switchtec_gen5_diag_eye_status_out out;
 
 	do {
-		ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in, sizeof(in),
-				    &out, sizeof(out));
+		ret = switchtec_cmd(dev, MRPC_GEN5_EYE_CAPTURE, &in,
+				    sizeof(in), &out, sizeof(out));
 		if (ret) {
+			if (errno == EIO) {
+				usleep(EYE_CAP_STATUS_RETRY_MS * 1000);
+				elapsed_ms += EYE_CAP_STATUS_RETRY_MS;
+				if (elapsed_ms < EYE_CAP_STATUS_TIMEOUT_MS)
+					continue;
+			}
 			switchtec_perror("eye_status");
 			return -1;
 		}

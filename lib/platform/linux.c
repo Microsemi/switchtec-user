@@ -364,7 +364,7 @@ static int read_resp(struct switchtec_linux *ldev, void *resp,
 	memcpy(&ret, buf, sizeof(ret));
 
 	if (ret) {
-		errno = ret; 
+		errno = ret;
 		return ret;
 	}
 
@@ -374,6 +374,22 @@ static int read_resp(struct switchtec_linux *ldev, void *resp,
 	memcpy(resp, &buf[sizeof(ret)], resp_len);
 
 	return ret;
+}
+
+static int linux_reopen_fd(struct switchtec_linux *ldev)
+{
+	char path[PATH_MAX];
+	int new_fd;
+
+	snprintf(path, sizeof(path), "/proc/self/fd/%d", ldev->fd);
+
+	new_fd = open(path, O_RDWR | O_CLOEXEC);
+	if (new_fd < 0)
+		return -1;
+
+	close(ldev->fd);
+	ldev->fd = new_fd;
+	return 0;
 }
 
 static int linux_cmd(struct switchtec_dev *dev,  uint32_t cmd,
@@ -394,7 +410,12 @@ retry:
 	if (ret < 0)
 		return ret;
 
-	return read_resp(ldev, resp, resp_len);
+	ret = read_resp(ldev, resp, resp_len);
+	if (ret < 0 && errno == EIO) {
+		linux_reopen_fd(ldev);
+	}
+
+	return ret;
 }
 
 static int get_class_devices(const char *searchpath,
