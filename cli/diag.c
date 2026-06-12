@@ -1555,7 +1555,8 @@ static int eye(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_EYE, opts, &cfg,
 			sizeof(cfg));
 
-	if (cfg.dev != NULL && switchtec_is_gen5(cfg.dev)) {
+	if (cfg.dev != NULL && (switchtec_is_gen5(cfg.dev) ||
+			        switchtec_is_gen6(cfg.dev))) {
 		cfg.y_range.start = 0;
 		cfg.y_range.end = 63;
 		cfg.y_range.step = 1;
