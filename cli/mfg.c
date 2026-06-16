@@ -2447,7 +2447,7 @@ static int device_config_set_customer(int argc, char **argv)
 	FILE *fp;
 
 	const char *desc = CMD_DESC_DEVICE_CONFIG_SET_CUSTOMER "\n\n"
-			   "Set customer settings including PSID and PCI IDs.\n"
+			   "Set customer settings including PCI IDs and customer-defined fields.\n"
 			   "Use -f to load settings from a binary file.\n\n"
 			   "WARNING: This operation modifies OTP and may be IRREVERSIBLE!";
 
@@ -2459,6 +2459,14 @@ static int device_config_set_customer(int argc, char **argv)
 		unsigned long revision_id;
 		unsigned long subsystem_id;
 		unsigned long subsystem_vendor_id;
+		unsigned long csf0;
+		unsigned long csf1;
+		unsigned long csf2;
+		unsigned long csf3;
+		unsigned long long cseccf0;
+		unsigned long long cseccf1;
+		unsigned long long cseccf2;
+		unsigned long long cseccf3;
 		int assume_yes;
 	} cfg = {};
 
@@ -2476,6 +2484,22 @@ static int device_config_set_customer(int argc, char **argv)
 			required_argument, "PCI Subsystem ID"},
 		{"subsystem-vendor-id", 'S', "", CFG_LONG, &cfg.subsystem_vendor_id,
 			required_argument, "PCI Subsystem Vendor ID"},
+		{"csf0", .cfg_type = CFG_LONG, .value_addr = &cfg.csf0,
+			.argument_type = required_argument, .help = "Customer Field 0"},
+		{"csf1", .cfg_type = CFG_LONG, .value_addr = &cfg.csf1,
+			.argument_type = required_argument, .help = "Customer Field 1"},
+		{"csf2", .cfg_type = CFG_LONG, .value_addr = &cfg.csf2,
+			.argument_type = required_argument, .help = "Customer Field 2"},
+		{"csf3", .cfg_type = CFG_LONG, .value_addr = &cfg.csf3,
+			.argument_type = required_argument, .help = "Customer Field 3"},
+		{"cseccf0", .cfg_type = CFG_LONG_LONG, .value_addr = &cfg.cseccf0,
+			.argument_type = required_argument, .help = "Customer ECC Field 0 (64-bit)"},
+		{"cseccf1", .cfg_type = CFG_LONG_LONG, .value_addr = &cfg.cseccf1,
+			.argument_type = required_argument, .help = "Customer ECC Field 1 (64-bit)"},
+		{"cseccf2", .cfg_type = CFG_LONG_LONG, .value_addr = &cfg.cseccf2,
+			.argument_type = required_argument, .help = "Customer ECC Field 2 (64-bit)"},
+		{"cseccf3", .cfg_type = CFG_LONG_LONG, .value_addr = &cfg.cseccf3,
+			.argument_type = required_argument, .help = "Customer ECC Field 3 (64-bit)"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{NULL}
@@ -2490,7 +2514,9 @@ static int device_config_set_customer(int argc, char **argv)
 
 	if (cfg.input_file) {
 		if (cfg.device_id || cfg.vendor_id ||
-		    cfg.revision_id || cfg.subsystem_id || cfg.subsystem_vendor_id) {
+		    cfg.revision_id || cfg.subsystem_id || cfg.subsystem_vendor_id ||
+		    cfg.csf0 || cfg.csf1 || cfg.csf2 || cfg.csf3 ||
+		    cfg.cseccf0 || cfg.cseccf1 || cfg.cseccf2 || cfg.cseccf3) {
 			fprintf(stderr, "Error: -f option is mutually exclusive with other setting options\n");
 			return -1;
 		}
@@ -2516,6 +2542,24 @@ static int device_config_set_customer(int argc, char **argv)
 		settings.revision_id = cfg.revision_id & 0xFFFF;
 		settings.subsystem_id = cfg.subsystem_id & 0xFFFF;
 		settings.subsystem_vendor_id = cfg.subsystem_vendor_id & 0xFFFF;
+		settings.customer_fields[0] = cfg.csf0;
+		settings.customer_fields[1] = cfg.csf1;
+		settings.customer_fields[2] = cfg.csf2;
+		settings.customer_fields[3] = cfg.csf3;
+		/*
+		 * Single 64-bit CSECCF input matches XML/OTP-image tools.
+		 * Wire format stores it as two uint32 dwords with low half
+		 * in [0] and high half in [1]; the read-back display prints
+		 * (hi<<32)|lo so input == display == XML hex value.
+		 */
+		settings.customer_ecc_fields[0][0] = cfg.cseccf0 & 0xFFFFFFFFULL;
+		settings.customer_ecc_fields[0][1] = (cfg.cseccf0 >> 32) & 0xFFFFFFFFULL;
+		settings.customer_ecc_fields[1][0] = cfg.cseccf1 & 0xFFFFFFFFULL;
+		settings.customer_ecc_fields[1][1] = (cfg.cseccf1 >> 32) & 0xFFFFFFFFULL;
+		settings.customer_ecc_fields[2][0] = cfg.cseccf2 & 0xFFFFFFFFULL;
+		settings.customer_ecc_fields[2][1] = (cfg.cseccf2 >> 32) & 0xFFFFFFFFULL;
+		settings.customer_ecc_fields[3][0] = cfg.cseccf3 & 0xFFFFFFFFULL;
+		settings.customer_ecc_fields[3][1] = (cfg.cseccf3 >> 32) & 0xFFFFFFFFULL;
 	}
 
 	printf("Setting customer configuration:\n");
@@ -2524,6 +2568,18 @@ static int device_config_set_customer(int argc, char **argv)
 	printf("  Revision ID:          0x%04x\n", settings.revision_id);
 	printf("  Subsystem ID:         0x%04x\n", settings.subsystem_id);
 	printf("  Subsystem Vendor ID:  0x%04x\n", settings.subsystem_vendor_id);
+	printf("  CSF0:                 0x%08x\n", settings.customer_fields[0]);
+	printf("  CSF1:                 0x%08x\n", settings.customer_fields[1]);
+	printf("  CSF2:                 0x%08x\n", settings.customer_fields[2]);
+	printf("  CSF3:                 0x%08x\n", settings.customer_fields[3]);
+	printf("  CSECCF0:              0x%08x%08x\n",
+	       settings.customer_ecc_fields[0][1], settings.customer_ecc_fields[0][0]);
+	printf("  CSECCF1:              0x%08x%08x\n",
+	       settings.customer_ecc_fields[1][1], settings.customer_ecc_fields[1][0]);
+	printf("  CSECCF2:              0x%08x%08x\n",
+	       settings.customer_ecc_fields[2][1], settings.customer_ecc_fields[2][0]);
+	printf("  CSECCF3:              0x%08x%08x\n",
+	       settings.customer_ecc_fields[3][1], settings.customer_ecc_fields[3][0]);
 
 	if (!cfg.assume_yes) {
 		fprintf(stderr,
