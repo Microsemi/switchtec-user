@@ -28,6 +28,9 @@
 #include <stdint.h>
 #include <switchtec/switchtec.h>
 
+#define SWITCHTEC_PMON_EVENT_EGRESS 0x80
+#define SWITCHTEC_PMON_EVENT_INGRESS 0x00
+
 #pragma pack(push, 1)
 
 struct pmon_event_counter_setup {
