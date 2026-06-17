@@ -1067,7 +1067,7 @@ static int fw_execute(int argc, char **argv)
 			"assume yes when prompted"},
 		{"bl2_recovery_mode", 'm', "MODE",
 			CFG_CHOICES, &cfg.bl2_rec_mode,
-			required_argument, "BL2 recovery mode",
+			required_argument, "BL2 recovery mode (Not supported on Gen6)",
 			.choices = recovery_mode_choices},
 		{NULL}
 	};
