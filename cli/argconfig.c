@@ -394,7 +394,7 @@ static int cfg_int_handler(const char *optarg, void *value_addr,
 
 	*((int *)value_addr) = strtol(optarg, &endptr, 0);
 
-	if (errno || optarg == endptr) {
+	if (errno || optarg == endptr || *endptr != '\0') {
 		fprintf(stderr,
 			"Expected integer argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -411,7 +411,7 @@ static int cfg_size_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	*((size_t *) value_addr) = strtol(optarg, &endptr, 0);
-	if (errno || optarg == endptr) {
+	if (errno || optarg == endptr || *endptr != '\0') {
 		fprintf(stderr,
 			"Expected integer argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -444,7 +444,7 @@ static int cfg_long_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	*((unsigned long *)value_addr) = strtoul(optarg, &endptr, 0);
-	if (errno || optarg == endptr) {
+	if (errno || optarg == endptr || *endptr != '\0') {
 		fprintf(stderr,
 			"Expected long integer argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -476,7 +476,7 @@ static int cfg_long_long_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	*((unsigned long long *)value_addr) = strtoull(optarg, &endptr, 0);
-	if (errno || optarg == endptr) {
+	if (errno || optarg == endptr || *endptr != '\0') {
 		fprintf(stderr,
 			"Expected long long integer argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -493,7 +493,7 @@ static int cfg_double_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	*((double *)value_addr) = strtod(optarg, &endptr);
-	if (errno || optarg == endptr) {
+	if (errno || optarg == endptr || *endptr != '\0') {
 		fprintf(stderr,
 			"Expected float argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -509,7 +509,7 @@ static int cfg_bool_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	int tmp = strtol(optarg, &endptr, 0);
-	if (errno || tmp < 0 || tmp > 1 || optarg == endptr) {
+	if (errno || tmp < 0 || tmp > 1 || optarg == endptr || *endptr != '\0') {
 		fprintf(stderr,
 			"Expected 0 or 1 argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -527,7 +527,7 @@ static int cfg_byte_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	unsigned long tmp = strtoul(optarg, &endptr, 0);
-	if (errno || tmp >= (1 << 8)  || optarg == endptr) {
+	if (errno || tmp >= (1 << 8) || optarg == endptr || *endptr != '\0') {
 		fprintf(stderr,
 			"Expected byte argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -544,7 +544,7 @@ static int cfg_short_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	unsigned long tmp = strtoul(optarg, &endptr, 0);
-	if (errno || tmp >= (1 << 16)  || optarg == endptr) {
+	if (errno || tmp >= (1 << 16) || optarg == endptr || *endptr != '\0') {
 		fprintf(stderr,
 			"Expected short argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -561,7 +561,7 @@ static int cfg_positive_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	long tmp = strtol(optarg, &endptr, 0);
-	if (errno || optarg == endptr || tmp <= 0) {
+	if (errno || optarg == endptr || *endptr != '\0' || tmp <= 0) {
 		fprintf(stderr,
 			"Expected positive argument for '--%s/-%c' "
 			"but got '%s'!\n",
@@ -578,7 +578,7 @@ static int cfg_nonnegative_handler(const char *optarg, void *value_addr,
 	char *endptr;
 
 	long tmp = strtol(optarg, &endptr, 0);
-	if (errno || optarg == endptr || tmp < 0) {
+	if (errno || optarg == endptr || *endptr != '\0' || tmp < 0) {
 		fprintf(stderr,
 			"Expected nonnegative argument for '--%s/-%c' "
 			"but got '%s'!\n",
