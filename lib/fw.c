@@ -853,6 +853,10 @@ void switchtec_fw_perror(const char *s, int ret)
 	case SWITCHTEC_DLSTAT_NO_FILE:
 		msg = "No Image Transferred"; break;
 	default:
+		if (errno & SWITCHTEC_ERRNO_MRPC_FLAG_BIT) {
+			switchtec_perror(s);
+			return;
+		}
 		fprintf(stderr, "%s: Unknown Error (0x%x)\n", s, ret);
 		return;
 	}
