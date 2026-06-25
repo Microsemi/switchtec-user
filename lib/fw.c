@@ -498,28 +498,22 @@ int switchtec_fw_toggle_active_partition(struct switchtec_dev *dev,
 		memset(&cmd, 0, sizeof(cmd));
 		cmd.subcmd = MRPC_FW_TX_TOGGLE;
 
-		if (toggle_cfg) {
-			cmd.toggle_cfg = 1;
-			ret = switchtec_cmd(dev, cmd_id, &cmd, cmd_size,
-					    NULL, 0);
-			if (ret)
-				return ret;
-			cmd.toggle_cfg = 0;
-		}
-
-		if (toggle_fw) {
-			cmd.toggle_fw = 1;
+		if (toggle_fw || toggle_cfg) {
+			cmd.toggle_fw = !!toggle_fw;
+			cmd.toggle_cfg = !!toggle_cfg;
 			ret = switchtec_cmd_nopoll(dev, cmd_id, &cmd,
 						   cmd_size);
 			if (ret)
 				return ret;
 			cmd.toggle_fw = 0;
+			cmd.toggle_cfg = 0;
 			/*
 			 * Main firmware parition needs time to toggle due to the CRC 
 			 * validation in firmware, give at least 5 seconds before 
 			 * the next operation to avoid hanging issues.
 			 */
-			usleep(5000000);
+			if (toggle_fw)
+				usleep(5000000);
 		}
 
 		if (toggle_bl2) {
