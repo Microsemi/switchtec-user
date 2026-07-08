@@ -1631,7 +1631,7 @@ static int log_ram_flash_to_file(struct switchtec_dev *dev,
 {
 	int ret;
 
-	if (switchtec_is_gen5(dev)) {
+	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev)) {
 		return log_a_to_file(dev, gen5_cmd, fd, log_def_file,
 				     info);
 	} else {
