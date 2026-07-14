@@ -33,6 +33,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+#define GASOP_CMD_TIMEOUT_MS 30000
+
 #define gas_reg_read8(dev, reg)  __gas_read8(dev, &dev->gas_map->reg)
 #define gas_reg_read16(dev, reg) __gas_read16(dev, &dev->gas_map->reg)
 #define gas_reg_read32(dev, reg) __gas_read32(dev, &dev->gas_map->reg)
@@ -115,6 +117,8 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	      size_t resp_len)
 {
 	struct mrpc_regs __gas *mrpc = &dev->gas_map->mrpc;
+	struct timeval tv;
+	long long start, now;
 	int status;
 	int ret;
 	uint8_t subcmd = 0xff;
@@ -144,12 +148,22 @@ int gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
 	if ((cmd & SWITCHTEC_CMD_MASK) == MRPC_RESET)
 		return 0;
 
+	gettimeofday(&tv, NULL);
+	start = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
 	while (1) {
 		usleep(5000);
 
 		status = __gas_read32(dev, &mrpc->status);
 		if (status != SWITCHTEC_MRPC_STATUS_INPROGRESS)
 			break;
+
+		gettimeofday(&tv, NULL);
+		now = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+		if (now - start >= GASOP_CMD_TIMEOUT_MS) {
+			errno = ETIMEDOUT;
+			return -errno;
+		}
 	}
 
 	if (status == SWITCHTEC_MRPC_STATUS_INTERRUPTED) {
