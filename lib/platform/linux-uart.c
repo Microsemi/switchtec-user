@@ -163,13 +163,18 @@ static int send_cmd(int fd, const char *fmt, int write_bytes, ...)
 	return 0;
 }
 
-static int read_resp_line(int fd, char *str)
+static int read_resp_line(int fd, char *str, size_t bufsize)
 {
 	int ret;
-	int cnt = 0;
+	size_t cnt = 0;
 
 	while (1) {
-		ret = read(fd, str + cnt, sizeof(str));
+		if (cnt >= bufsize - 1) {
+			errno = EOVERFLOW;
+			return -1;
+		}
+
+		ret = read(fd, str + cnt, bufsize - 1 - cnt);
 		if (ret <= 0)
 			return ret;
 
@@ -194,7 +199,7 @@ static int cli_control(struct switchtec_dev *dev, const char *str)
 	if (ret)
 		return ret;
 
-	ret =  read_resp_line(udev->fd, rtn);
+	ret =  read_resp_line(udev->fd, rtn, sizeof(rtn));
 	if (ret)
 		return ret;
 
@@ -265,7 +270,7 @@ static void uart_gas_read(struct switchtec_dev *dev, void *dest,
 		if (ret)
 			continue;
 
-		ret = read_resp_line(udev->fd, gas_rd_rtn);
+		ret = read_resp_line(udev->fd, gas_rd_rtn, sizeof(gas_rd_rtn));
 		if (ret)
 			continue;
 
@@ -362,7 +367,7 @@ static void uart_gas_write(struct switchtec_dev *dev, void __gas *dest,
 		if (ret)
 			continue;
 
-		ret = read_resp_line(udev->fd, gas_wr_rtn);
+		ret = read_resp_line(udev->fd, gas_wr_rtn, sizeof(gas_wr_rtn));
 		if (ret)
 			continue;
 
@@ -515,6 +520,8 @@ struct switchtec_dev *switchtec_open_uart(int fd)
 	ret = set_uart_attribs(udev->fd, SWITCHTEC_UART_BAUDRATE, 0);
 	if (ret)
 		goto err_close_free;
+
+	tcflush(udev->fd, TCIOFLUSH);
 
 	ret = cli_control(&udev->dev, "pscdbg 0 all\r");
 	if (ret)
