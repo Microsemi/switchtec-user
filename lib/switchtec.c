@@ -772,6 +772,9 @@ const char *switchtec_strerror(void)
 			msg = "Invalid port specified"; break;
 		case SWITCHTEC_ERR_INVALID_LANE:
 			msg = "Invalid lane specified"; break;
+		case SWITCHTEC_ERR_DYNAMIC_BIF_UNSUPPORTED:
+			msg = "Dynamic bifurcation not supported on this device";
+			break;
 		default:
 			msg = "Unknown Switchtec error"; break;
 		}
@@ -2326,6 +2329,18 @@ out:
 	return rc;
 }
 
+static bool switchtec_is_gen6_hlc(struct switchtec_dev *dev)
+{
+	int low_byte;
+
+	if (dev->gen != SWITCHTEC_GEN6)
+		return false;
+
+	low_byte = dev->device_id & 0xFF;
+
+	return low_byte == 0x44 || low_byte == 0x60;
+}
+
 /**
  * @brief Return true if a port within a stack is valid
  * @param[in] dev	Switchtec device handle
@@ -2383,6 +2398,11 @@ int switchtec_get_stack_bif(struct switchtec_dev *dev, int stack_id,
 	};
 	int ret, i;
 
+	if (switchtec_is_gen6_hlc(dev)) {
+		errno = SWITCHTEC_ERR_DYNAMIC_BIF_UNSUPPORTED;
+		return -1;
+	}
+
 	ret = switchtec_cmd(dev, MRPC_STACKBIF, &in, sizeof(in), &out,
 			    sizeof(out));
 	if (ret)
@@ -2426,6 +2446,11 @@ int switchtec_set_stack_bif(struct switchtec_dev *dev, int stack_id,
 		.stack_id = stack_id,
 	};
 	int i;
+
+	if (switchtec_is_gen6_hlc(dev)) {
+		errno = SWITCHTEC_ERR_DYNAMIC_BIF_UNSUPPORTED;
+		return -1;
+	}
 
 	for (i = 0; i < SWITCHTEC_PORTS_PER_STACK; i++) {
 		switch (port_bif[i]) {
