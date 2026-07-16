@@ -446,6 +446,7 @@ int switchtec_set_pax_id(struct switchtec_dev *dev, int pax_id);
 int switchtec_echo(struct switchtec_dev *dev, uint32_t input, uint32_t *output);
 int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 						enum switchtec_fw_type_gen6 fw_type, int fw_slot,
+						size_t image_len,
 						void (*progress_callback)(int cur, int tot));
 int switchtec_hard_reset(struct switchtec_dev *dev);
 int switchtec_status(struct switchtec_dev *dev,

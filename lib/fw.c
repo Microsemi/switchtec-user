@@ -379,6 +379,7 @@ int switchtec_fw_set_redundant_flag (struct switchtec_dev *dev, int keyman,
  */
 int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 			 enum switchtec_fw_type_gen6 fw_type, int fw_slot,
+			 size_t image_len,
 			 void (*progress_callback)(int cur, int tot))
 {
 	struct cmd_fwget cmd = {0};
@@ -394,8 +395,10 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 		uint32_t *data;
 	};
 
-	uint8_t resp[MRPC_MAX_DATA_LEN] ={};
+	uint8_t resp[MRPC_MAX_DATA_LEN] = {};
 	struct fw_img_get_resp_t *fw_img_get_resp = (struct fw_img_get_resp_t *)resp;
+	size_t total_written = 0;
+	size_t target_len;
 	int ret;
 
 	/* erase existing file */
@@ -417,16 +420,23 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 		return ret;
 	}
 
-	size_t written = write(fd, (void*)(&fw_img_get_resp->data), fw_img_get_resp->chunk_len);
-	if (written != fw_img_get_resp->chunk_len) {
+	target_len = image_len ? image_len : fw_img_get_resp->total_len;
+
+	size_t to_write = fw_img_get_resp->chunk_len;
+	if (to_write > target_len)
+		to_write = target_len;
+
+	size_t written = write(fd, (void *)(&fw_img_get_resp->data), to_write);
+	if (written != to_write) {
 		perror("Error writing to file");
 		return 1;
 	}
+	total_written += written;
 
 	if (progress_callback)
-		progress_callback(fw_img_get_resp->offset, fw_img_get_resp->total_len);
+		progress_callback(total_written, target_len);
 
-	do {
+	while (total_written < target_len) {
 		cmd.subcmd = 0;
 		cmd.fw_type = fw_type;
 		cmd.fw_slot = fw_slot;
@@ -440,16 +450,21 @@ int switchtec_fw_img_get(struct switchtec_dev *dev, int fd,
 			return ret;
 		}
 
-		size_t written = write(fd, (void *)(&fw_img_get_resp->data), fw_img_get_resp->chunk_len);
-		if (written != fw_img_get_resp->chunk_len) {
+		to_write = fw_img_get_resp->chunk_len;
+		if (total_written + to_write > target_len)
+			to_write = target_len - total_written;
+
+		written = write(fd, (void *)(&fw_img_get_resp->data),
+				to_write);
+		if (written != to_write) {
 			perror("Error writing to file");
 			return 1;
 		}
+		total_written += written;
 
 		if (progress_callback)
-			progress_callback(fw_img_get_resp->offset, fw_img_get_resp->total_len);
-
-	} while ((fw_img_get_resp->offset + fw_img_get_resp->chunk_len) < fw_img_get_resp->total_len);
+			progress_callback(total_written, target_len);
+	}
 
 	return 0;
 }

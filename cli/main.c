@@ -2514,15 +2514,31 @@ static int fw_read(int argc, char **argv)
 
 	if (switchtec_is_gen6(cfg.dev)) {
 		int fw_slot = (int)inf->part_id;
+		size_t total_image_len;
+
+		/*
+		 * CFG partitions may contain appended data (e.g. DCBI
+		 * block for HLC/BIF) beyond the MSCC_MD image. Use 0
+		 * to let the firmware report the full partition content
+		 * size. For other partition types, use the known image
+		 * size to avoid reading unnecessary padding.
+		 */
+		if (cfg.data)
+			total_image_len = 0;
+		else
+			total_image_len = inf->part_body_offset + inf->image_len;
+
 		if (fw_slot != 0)
 			fw_slot = (fw_slot % 2) ? 0 : 1;
 		progress_start();
 		if (cfg.no_progress_bar)
 			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd,
-						   fw_typ_gen6, fw_slot, NULL);
+						   fw_typ_gen6, fw_slot,
+						   total_image_len, NULL);
 		else
 			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd,
 						   fw_typ_gen6, fw_slot,
+						   total_image_len,
 						   progress_update);
 	} else {
 		ret = switchtec_fw_img_write_hdr(cfg.out_fd, inf);
