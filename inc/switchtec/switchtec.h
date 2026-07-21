@@ -52,9 +52,10 @@ struct switchtec_dev;
 #define SWITCHTEC_MAX_PORTS  60
 #define SWITCHTEC_MAX_PORTS_GEN6 20
 #define SWITCHTEC_MAX_LANES  100
-#define SWITCHTEC_MAX_LANES_GEN6 144
+#define SWITCHTEC_MAX_LANES_GEN6 160
 #define SWITCHTEC_MAX_STACKS 8
-#define SWITCHTEC_MAX_STACKS_GEN6 4
+#define SWITCHTEC_MAX_STACKS_GEN6 10
+#define SWITCHTEC_MAX_STACKS_LLC_GEN6 4
 #define SWITCHTEC_PORTS_PER_STACK 8
 #define SWITCHTEC_MAX_EVENT_COUNTERS 64
 #define SWITCHTEC_UNBOUND_PORT 255
@@ -73,6 +74,11 @@ struct switchtec_dev;
 #define SWITCHTEC_DIAG_MAX_TLP_DWORDS 132
 
 #define SWITCHTEC_MAX_GPIO_PIN_VALS 30
+
+#define SWITCHTEC_HLC_160_LANE_GEN6 0x60
+#define SWITCHTEC_HLC_144_LANE_GEN6 0x44
+#define SWITCHTEC_LLC_64_LANE_GEN6 0x64
+#define SWITCHTEC_LLC_48_LANE_GEN6 0x48
 
 #ifdef __CHECKER__
 #define __gas __attribute__((noderef, address_space(1)))
@@ -543,6 +549,29 @@ static inline int switchtec_max_supported_ports(struct switchtec_dev *dev)
 		return 52;
 	default:
 		return 48;
+	}
+}
+
+/**
+ * @brief Return the number of PCIe stacks for a Switchtec device
+ */
+static inline int switchtec_max_stacks(struct switchtec_dev *dev)
+{
+	int dev_type;
+
+	if (switchtec_gen(dev) != SWITCHTEC_GEN6)
+		return SWITCHTEC_MAX_STACKS;
+
+	dev_type = switchtec_device_id(dev) & 0xFF;
+
+	switch (dev_type) {
+	case SWITCHTEC_HLC_160_LANE_GEN6:
+	case SWITCHTEC_HLC_144_LANE_GEN6:
+		return SWITCHTEC_MAX_STACKS_GEN6;
+	case SWITCHTEC_LLC_64_LANE_GEN6:
+	case SWITCHTEC_LLC_48_LANE_GEN6:
+	default:
+		return SWITCHTEC_MAX_STACKS_LLC_GEN6;
 	}
 }
 
