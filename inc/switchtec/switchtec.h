@@ -758,9 +758,9 @@ static inline const char* switchtec_phase_id_str(
 }
 
 /** @brief Number of GT/s capable for each PCI generation or \p link_rate */
-static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16, 32};
+static const float switchtec_gen_transfers[] = {0, 2.5, 5, 8, 16, 32, 64};
 /** @brief Number of GB/s capable for each PCI generation or \p link_rate */
-static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969, 3938};
+static const float switchtec_gen_datarate[] = {0, 250, 500, 985, 1969, 3938, 7563};
 
 static inline const char *switchtec_ltssm_str_gen4(int ltssm, int show_minor)
 {
