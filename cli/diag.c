@@ -2430,7 +2430,6 @@ static int refclk(int argc, char **argv)
 	int ret;
 	int is_gen6;
 	int max_entries;
-	uint8_t info[SWITCHTEC_MAX_STACKS];
 	const char *unit;
 
 	static struct {
@@ -2456,8 +2455,9 @@ static int refclk(int argc, char **argv)
 			sizeof(cfg));
 
 	is_gen6 = switchtec_is_gen6(cfg.dev);
-	max_entries = is_gen6 ? SWITCHTEC_MAX_STACKS_GEN6 :
-		SWITCHTEC_MAX_STACKS;
+	max_entries = switchtec_max_stacks(cfg.dev);
+	uint8_t info[max_entries];
+	
 	unit = is_gen6 ? "CSU" : "Stack";
 
 	if (!cfg.enable && !cfg.disable && cfg.id == -1)

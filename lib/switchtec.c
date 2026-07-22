@@ -639,7 +639,7 @@ static int switchtec_status_gen6(struct switchtec_dev *dev,
 
 
 	for (i = 0; i < max_ports; i++) {
-		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
+		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS_GEN6)
 			continue;
 		nr_ports++;
 	}
@@ -649,7 +649,7 @@ static int switchtec_status_gen6(struct switchtec_dev *dev,
 		return -ENOMEM;
 
 	for (i = 0, p = 0; i < max_ports && p < nr_ports; i++) {
-		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS)
+		if ((ports[i].stk_id >> 4) > SWITCHTEC_MAX_STACKS_GEN6)
 			continue;
 
 		s[p].port.partition = ports[i].par_id;

@@ -1670,7 +1670,7 @@ static int stack_bif(int argc, char **argv)
 				     cfg.assume_yes);
 
 	if (cfg.stack_id < 0) {
-		for (i = 0; i < SWITCHTEC_MAX_STACKS; i++) {
+		for (i = 0; i < switchtec_max_stacks(cfg.dev); i++) {
 			ret = stack_bif_get_print(cfg.dev, i, true);
 			if (ret)
 				return 1;
@@ -2853,7 +2853,7 @@ static int evcntr(int argc, char **argv)
 	argconfig_parse(argc, argv, CMD_DESC_EVCNTR, opts, &cfg, sizeof(cfg));
 
 	if (cfg.stack < 0) {
-		for (i = 0; i < SWITCHTEC_MAX_STACKS; i++)
+		for (i = 0; i < switchtec_max_stacks(cfg.dev); i++)
 			display_event_counters(cfg.dev, i, cfg.reset);
 		return 0;
 	}
@@ -2999,7 +2999,7 @@ static int evcntr_wait(int argc, char **argv)
 		return 1;
 	}
 
-	for (i = 0; i < SWITCHTEC_MAX_STACKS; i++)
+	for (i = 0; i < switchtec_max_stacks(cfg.dev); i++)
 		display_event_counters(cfg.dev, i, 0);
 
 	return 0;

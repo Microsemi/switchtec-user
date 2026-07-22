@@ -1700,7 +1700,7 @@ int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *info)
 
 		return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd),
 				     info,
-				     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS_GEN6);
+				     sizeof(uint8_t) * switchtec_max_stacks(dev));
 	} else {
 		struct switchtec_diag_refclk_ctl_in cmd = {
 			.sub_cmd = MRPC_REFCLK_S_STATUS,
@@ -1708,7 +1708,7 @@ int switchtec_diag_refclk_status(struct switchtec_dev *dev, uint8_t *info)
 
 		return switchtec_cmd(dev, MRPC_REFCLK_S, &cmd, sizeof(cmd),
 				     info,
-				     sizeof(uint8_t) * SWITCHTEC_MAX_STACKS);
+				     sizeof(uint8_t) * switchtec_max_stacks(dev));
 	}
 }
 
