@@ -37,10 +37,15 @@
 #include "switchtec/mfg.h"
 
 #include <unistd.h>
+#include <sys/time.h>
 
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+
+#define FW_DL_MAX_RETRIES    5
+#define FW_DL_RETRY_DELAY_US 100000
+#define FW_DL_MRPC_TIMEOUT_MS 120000
 
 /**
  * @defgroup Firmware Firmware Management
@@ -271,12 +276,143 @@ static int switchtec_fw_wait(struct switchtec_dev *dev,
 {
 	enum mrpc_bg_status bgstatus;
 	int ret;
+	int retries;
 
 	do {
-		// Delay slightly to avoid interrupting the firmware too much
 		usleep(5000);
 
-		ret = switchtec_fw_dlstatus(dev, status, &bgstatus);
+		retries = FW_DL_MAX_RETRIES;
+		do {
+			ret = switchtec_fw_dlstatus(dev, status, &bgstatus);
+			if (ret == 0)
+				break;
+			usleep(FW_DL_RETRY_DELAY_US *
+			       (FW_DL_MAX_RETRIES - retries + 1));
+		} while (--retries > 0);
+
+		if (ret < 0)
+			return ret;
+
+		if (bgstatus == MRPC_BG_STAT_OFFSET)
+			return SWITCHTEC_DLSTAT_ERROR_OFFSET;
+
+		if (bgstatus == MRPC_BG_STAT_ERROR) {
+			if (*status != SWITCHTEC_DLSTAT_INPROGRESS &&
+			    *status != SWITCHTEC_DLSTAT_COMPLETES &&
+			    *status != SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT &&
+			    *status != SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
+				return *status;
+			else
+				return SWITCHTEC_DLSTAT_ERROR_PROGRAM;
+		}
+
+	} while (bgstatus == MRPC_BG_STAT_INPROGRESS);
+
+	return 0;
+}
+
+static int fw_gasop_cmd(struct switchtec_dev *dev, uint32_t cmd,
+			const void *payload, size_t payload_len,
+			void *resp, size_t resp_len)
+{
+	struct mrpc_regs __gas *mrpc = &dev->gas_map->mrpc;
+	struct timeval tv;
+	long long start, now;
+	int status;
+	int ret;
+	__memcpy_to_gas(dev, &mrpc->input_data, payload, payload_len);
+	asm volatile("sfence" ::: "memory");
+	__gas_write32(dev, cmd, &mrpc->cmd);
+	asm volatile("sfence" ::: "memory");
+
+	gettimeofday(&tv, NULL);
+	start = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
+	/* Poll until command completes (status == DONE or ERROR) */
+	while (1) {
+		usleep(2000);
+
+		status = __gas_read32(dev, &mrpc->status);
+
+		/* 0xffffffff = EP temporarily unresponsive (flash busy) */
+		if (status == (int)0xffffffff)
+			goto check_timeout;
+
+		if (status == SWITCHTEC_MRPC_STATUS_INPROGRESS)
+			goto check_timeout;
+
+		/* Any other value (DONE, ERROR, INTERRUPTED) = complete */
+		break;
+
+check_timeout:
+		gettimeofday(&tv, NULL);
+		now = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+		if (now - start >= FW_DL_MRPC_TIMEOUT_MS) {
+			errno = ETIMEDOUT;
+			return -errno;
+		}
+	}
+
+	if (status == SWITCHTEC_MRPC_STATUS_INTERRUPTED) {
+		errno = ENXIO;
+		return -errno;
+	}
+
+	if (status == SWITCHTEC_MRPC_STATUS_ERROR) {
+		errno = __gas_read32(dev, &mrpc->ret_value);
+		return errno;
+	}
+
+	if (status != SWITCHTEC_MRPC_STATUS_DONE) {
+		errno = ENXIO;
+		return -errno;
+	}
+
+	ret = __gas_read32(dev, &mrpc->ret_value);
+	if (ret)
+		errno = ret;
+
+	if (resp)
+		__memcpy_from_gas(dev, resp, &mrpc->output_data, resp_len);
+
+	return ret;
+}
+
+static int fw_dlstatus_gas(struct switchtec_dev *dev, uint32_t cmd_id,
+			   enum switchtec_fw_dlstatus *status,
+			   enum mrpc_bg_status *bgstatus)
+{
+	uint32_t subcmd = MRPC_FWDNLD_GET_STATUS;
+	struct {
+		uint8_t dlstatus;
+		uint8_t bgstatus;
+		uint16_t reserved;
+	} result;
+	int ret;
+
+	ret = fw_gasop_cmd(dev, cmd_id, &subcmd, sizeof(subcmd),
+			   &result, sizeof(result));
+	if (ret)
+		return ret;
+
+	if (status != NULL)
+		*status = result.dlstatus;
+	if (bgstatus != NULL)
+		*bgstatus = result.bgstatus;
+
+	return 0;
+}
+
+static int fw_wait_gas(struct switchtec_dev *dev, uint32_t cmd_id,
+		       enum switchtec_fw_dlstatus *status)
+{
+	enum mrpc_bg_status bgstatus;
+	int ret;
+
+	do {
+		usleep(5000);
+
+		ret = fw_dlstatus_gas(dev, cmd_id, status, &bgstatus);
 		if (ret < 0)
 			return ret;
 
@@ -584,6 +720,40 @@ struct cmd_fwdl {
 	uint8_t data[MRPC_MAX_DATA_LEN - sizeof(struct cmd_fwdl_hdr)];
 };
 
+struct fw_gas_irq_state {
+	uint32_t mrpc_comp_hdr;
+	uint32_t mrpc_comp_async_hdr;
+};
+
+static void fw_gas_mask_irq(struct switchtec_dev *dev,
+			    struct fw_gas_irq_state *save)
+{
+	struct part_cfg_regs __gas *pcfg =
+		&dev->gas_map->part_cfg[dev->partition];
+	uint32_t hdr;
+
+	hdr = __gas_read32(dev, &pcfg->mrpc_comp_hdr);
+	save->mrpc_comp_hdr = hdr;
+	hdr &= ~SWITCHTEC_EVENT_EN_IRQ;
+	__gas_write32(dev, hdr, &pcfg->mrpc_comp_hdr);
+
+	hdr = __gas_read32(dev, &pcfg->mrpc_comp_async_hdr);
+	save->mrpc_comp_async_hdr = hdr;
+	hdr &= ~SWITCHTEC_EVENT_EN_IRQ;
+	__gas_write32(dev, hdr, &pcfg->mrpc_comp_async_hdr);
+}
+
+static void fw_gas_restore_irq(struct switchtec_dev *dev,
+			       const struct fw_gas_irq_state *save)
+{
+	struct part_cfg_regs __gas *pcfg =
+		&dev->gas_map->part_cfg[dev->partition];
+
+	__gas_write32(dev, save->mrpc_comp_hdr, &pcfg->mrpc_comp_hdr);
+	__gas_write32(dev, save->mrpc_comp_async_hdr,
+		      &pcfg->mrpc_comp_async_hdr);
+}
+
 /**
  * @brief Write a firmware file to the switchtec device
  * @param[in] dev		Switchtec device handle
@@ -603,8 +773,11 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 	enum mrpc_bg_status bgstatus;
 	ssize_t image_size, offset = 0;
 	int ret;
+	int use_gas = 0;
+	struct fw_gas_irq_state irq_save = {};
 	struct cmd_fwdl cmd = {};
 	uint32_t cmd_id = MRPC_FWDNLD;
+	gasptr_t gas_map;
 
 	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
 		cmd_id = get_fw_tx_id(dev);
@@ -626,6 +799,12 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 		return -EBUSY;
 	}
 
+	gas_map = switchtec_gas_map(dev, 1, NULL);
+	if (gas_map != SWITCHTEC_MAP_FAILED) {
+		use_gas = 1;
+		fw_gas_mask_irq(dev, &irq_save);
+	}
+
 	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
 		cmd.hdr.subcmd = MRPC_FW_TX_FLASH;
 	else
@@ -641,8 +820,10 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 		if (blklen == -EAGAIN || blklen == -EWOULDBLOCK)
 			continue;
 
-		if (blklen < 0)
-			return -errno;
+		if (blklen < 0) {
+			ret = -errno;
+			goto out;
+		}
 
 		if (blklen == 0)
 			break;
@@ -650,36 +831,46 @@ int switchtec_fw_write_fd(struct switchtec_dev *dev, int img_fd,
 		cmd.hdr.offset = htole32(offset);
 		cmd.hdr.blk_length = htole32(blklen);
 
-		ret = switchtec_cmd(dev, cmd_id, &cmd, sizeof(cmd),
-				    NULL, 0);
+		if (use_gas) {
+			ret = fw_gasop_cmd(dev, cmd_id, &cmd, sizeof(cmd),
+					   NULL, 0);
+		} else {
+			ret = switchtec_cmd(dev, cmd_id, &cmd, sizeof(cmd),
+					    NULL, 0);
+		}
 
 		if (ret)
-			return ret;
+			goto out;
 
-		ret = switchtec_fw_wait(dev, &status);
+		if (use_gas)
+			ret = fw_wait_gas(dev, cmd_id, &status);
+		else
+			ret = switchtec_fw_wait(dev, &status);
+
 		if (ret != 0)
-			return ret;
+			goto out;
 
 		offset += le32toh(cmd.hdr.blk_length);
 
 		if (progress_callback)
 			progress_callback(offset, image_size);
-
 	}
 
-	if (status == SWITCHTEC_DLSTAT_COMPLETES)
-		return 0;
+	if (status == SWITCHTEC_DLSTAT_COMPLETES ||
+	    status == SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT ||
+	    status == SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT) {
+		ret = 0;
+		goto out;
+	}
 
-	if (status == SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT)
-		return 0;
+	ret = status ? status : SWITCHTEC_DLSTAT_HARDWARE_ERR;
 
-	if (status == SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
-		return 0;
-
-	if (status == 0)
-		return SWITCHTEC_DLSTAT_HARDWARE_ERR;
-
-	return status;
+out:
+	if (use_gas) {
+		fw_gas_restore_irq(dev, &irq_save);
+		switchtec_gas_unmap(dev, gas_map);
+	}
+	return ret;
 }
 
 /**
@@ -726,8 +917,11 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 	enum mrpc_bg_status bgstatus;
 	ssize_t image_size, offset = 0;
 	int ret;
+	int use_gas = 0;
+	struct fw_gas_irq_state irq_save = {};
 	struct cmd_fwdl cmd = {};
 	uint32_t cmd_id = MRPC_FWDNLD;
+	gasptr_t gas_map;
 
 	if (switchtec_boot_phase(dev) != SWITCHTEC_BOOT_PHASE_FW)
 		cmd_id = get_fw_tx_id(dev);
@@ -754,6 +948,12 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 		return -EBUSY;
 	}
 
+	gas_map = switchtec_gas_map(dev, 1, NULL);
+	if (gas_map != SWITCHTEC_MAP_FAILED) {
+		use_gas = 1;
+		fw_gas_mask_irq(dev, &irq_save);
+	}
+
 	if (switchtec_boot_phase(dev) == SWITCHTEC_BOOT_PHASE_BL2)
 		cmd.hdr.subcmd = MRPC_FW_TX_FLASH;
 	else
@@ -768,22 +968,31 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 		if (blklen == 0) {
 			ret = ferror(fimg);
 			if (ret)
-				return ret;
+				goto out;
 			break;
 		}
 
 		cmd.hdr.offset = htole32(offset);
 		cmd.hdr.blk_length = htole32(blklen);
 
-		ret = switchtec_cmd(dev, cmd_id, &cmd, sizeof(cmd),
-				    NULL, 0);
+		if (use_gas) {
+			ret = fw_gasop_cmd(dev, cmd_id, &cmd, sizeof(cmd),
+					   NULL, 0);
+		} else {
+			ret = switchtec_cmd(dev, cmd_id, &cmd, sizeof(cmd),
+					    NULL, 0);
+		}
 
 		if (ret)
-			return ret;
+			goto out;
 
-		ret = switchtec_fw_wait(dev, &status);
+		if (use_gas)
+			ret = fw_wait_gas(dev, cmd_id, &status);
+		else
+			ret = switchtec_fw_wait(dev, &status);
+
 		if (ret != 0)
-			return ret;
+			goto out;
 
 		offset += le32toh(cmd.hdr.blk_length);
 
@@ -791,19 +1000,21 @@ int switchtec_fw_write_file(struct switchtec_dev *dev, FILE *fimg,
 			progress_callback(offset, image_size);
 	}
 
-	if (status == SWITCHTEC_DLSTAT_COMPLETES)
-		return 0;
+	if (status == SWITCHTEC_DLSTAT_COMPLETES ||
+	    status == SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT ||
+	    status == SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT) {
+		ret = 0;
+		goto out;
+	}
 
-	if (status == SWITCHTEC_DLSTAT_SUCCESS_FIRM_ACT)
-		return 0;
+	ret = status ? status : SWITCHTEC_DLSTAT_HARDWARE_ERR;
 
-	if (status == SWITCHTEC_DLSTAT_SUCCESS_DATA_ACT)
-		return 0;
-
-	if (status == 0)
-		return SWITCHTEC_DLSTAT_HARDWARE_ERR;
-
-	return status;
+out:
+	if (use_gas) {
+		fw_gas_restore_irq(dev, &irq_save);
+		switchtec_gas_unmap(dev, gas_map);
+	}
+	return ret;
 }
 
 /**
