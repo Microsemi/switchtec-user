@@ -2529,7 +2529,7 @@ static int fw_read(int argc, char **argv)
 			total_image_len = inf->part_body_offset + inf->image_len;
 
 		if (fw_slot != 0)
-			fw_slot = (fw_slot % 2) ? 0 : 1;
+			fw_slot = fw_slot % 2;
 		progress_start();
 		if (cfg.no_progress_bar)
 			ret = switchtec_fw_img_get(cfg.dev, cfg.out_fd,
