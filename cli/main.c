@@ -2515,18 +2515,30 @@ static int fw_read(int argc, char **argv)
 	if (switchtec_is_gen6(cfg.dev)) {
 		int fw_slot = (int)inf->part_id;
 		size_t total_image_len;
+		const char *dev_name = switchtec_name(cfg.dev);
+		char dev_name_buf[256];
 
 		/*
-		 * CFG partitions may contain appended data (e.g. DCBI
-		 * block for HLC/BIF) beyond the MSCC_MD image. Use 0
-		 * to let the firmware report the full partition content
-		 * size. For other partition types, use the known image
-		 * size to avoid reading unnecessary padding.
+		 * Use 0 to let the firmware report the full partition
+		 * content size. Partitions may contain data beyond the
+		 * MSCC_MD image (e.g. DCBI block for CFG, or required
+		 * padding for BL2/IMG) that fw-update needs.
 		 */
-		if (cfg.data)
-			total_image_len = 0;
-		else
-			total_image_len = inf->part_body_offset + inf->image_len;
+		total_image_len = 0;
+
+		/*
+		 * Close and reopen the device to ensure firmware has
+		 * fully initialized after a recent reset. Without this,
+		 * MRPC_FW_IMG_GET may return corrupted data.
+		 */
+		snprintf(dev_name_buf, sizeof(dev_name_buf), "%s", dev_name);
+		switchtec_close(cfg.dev);
+		cfg.dev = switchtec_open(dev_name_buf);
+		global_dev = cfg.dev;
+		if (!cfg.dev) {
+			ret = -1;
+			goto close_and_exit;
+		}
 
 		if (fw_slot != 0)
 			fw_slot = fw_slot % 2;
