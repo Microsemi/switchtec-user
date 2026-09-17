@@ -540,7 +540,7 @@ static int switchtec_diag_loopback_set_gen56(struct switchtec_dev *dev,
 	};
 	int ret;
 
-	if (enable_ltssm && !(enable_external || enable_parallel)) {
+	if (enable_ltssm && !(enable_external || enable_parallel || enable_pipe)) {
 		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
 				    sizeof(ltssm_in), NULL, 0);
 		if (ret)
@@ -560,12 +560,14 @@ static int switchtec_diag_loopback_set_gen56(struct switchtec_dev *dev,
 			if (ret)
 				return ret;
 		}
-		int_in.type = DIAG_LOOPBACK_PIPE_DATAPATH;
-		int_in.enable = enable_pipe;
-		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-				    sizeof(int_in), NULL, 0);
-		if (ret)
-			return ret;
+		if (switchtec_is_gen6(dev)) {
+			int_in.type = DIAG_LOOPBACK_PIPE_DATAPATH;
+			int_in.enable = enable_pipe;
+			ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+					    sizeof(int_in), NULL, 0);
+			if (ret)
+				return ret;
+		}
 
 		ltssm_in.enable = enable_ltssm;
 		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
@@ -637,7 +639,7 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 				enum switchtec_diag_ltssm_speed ltssm_speed)
 {
 	int ret = 0;
-	if (switchtec_is_gen5(dev)) {
+	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev)) {
 		ret = switchtec_diag_loopback_set_gen56(dev, port_id, enable_parallel,
 							enable_external, enable_ltssm,
 							enable_pipe, ltssm_speed);
@@ -679,7 +681,7 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev,
 	struct switchtec_diag_loopback_ltssm_out lt_out;
 	int ret, en = 0;
 
-	if (switchtec_is_gen5(dev))
+	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev))
 		int_in.type = DIAG_LOOPBACK_PARALEL_DATAPATH;
 	else
 		int_in.type = DIAG_LOOPBACK_RX_TO_TX;
@@ -692,7 +694,7 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev,
 	if (int_out.enabled)
 		en |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
 
-	if (switchtec_is_gen5(dev))
+	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev))
 		int_in.type = DIAG_LOOPBACK_EXTERNAL_DATAPATH;
 	else
 		int_in.type = DIAG_LOOPBACK_TX_TO_RX;
@@ -704,6 +706,18 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev,
 
 	if (int_out.enabled)
 		en |= SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX;
+
+	if (switchtec_is_gen6(dev)) {
+		int_in.type = DIAG_LOOPBACK_PIPE_DATAPATH;
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
+				    sizeof(int_in), &int_out,
+				    sizeof(int_out));
+		if (ret)
+			return ret;
+
+		if (int_out.enabled)
+			en |= SWITCHTEC_DIAG_LOOPBACK_PIPE;
+	}
 
 	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &lt_in, sizeof(lt_in),
 			    &lt_out, sizeof(lt_out));
