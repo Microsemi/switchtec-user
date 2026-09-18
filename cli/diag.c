@@ -1708,7 +1708,7 @@ static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
 
 	if (!enable)
 		b += snprintf(&buf[b], sizeof(buf) - b, "DISABLED, ");
-	if (switchtec_is_gen5(dev)) {
+	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev)) {
 		if (enable & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX)
 			b += snprintf(&buf[b], sizeof(buf) - b, "PARALLEL, ");
 		if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
@@ -1719,6 +1719,12 @@ static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
 		if (enable & SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX)
 			b += snprintf(&buf[b], sizeof(buf) - b, "TX->RX, ");
 	}
+
+	if (switchtec_is_gen6(dev)) {
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_PIPE)
+			b += snprintf(&buf[b], sizeof(buf) - b, "PIPE, ");
+	}
+
 	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM)
 		b += snprintf(&buf[b], sizeof(buf) - b, "LTSSM, ");
 
@@ -1832,8 +1838,8 @@ static int loopback(int argc, char **argv)
 		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id, enable,
 						  cfg.enable_parallel,
 						  cfg.enable_external,
-						  cfg.enable_pipe,
-						  cfg.enable_ltssm, cfg.speed);
+						  cfg.enable_ltssm,
+						  cfg.enable_pipe, cfg.speed);
 		if (ret) {
 			switchtec_perror("loopback_set");
 			return -1;
