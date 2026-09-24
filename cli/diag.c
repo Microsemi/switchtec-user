@@ -1392,40 +1392,44 @@ static double *eye_capture_dev_gen5(struct switchtec_dev *dev,
 				    int vstep)
 {
 	int bin, j, ret, first_lane, num_phases_l, stride;
-	int lane_mask[5] = {};
 	struct switchtec_status sw_status;
 	double tmp[64];
-	double* ber_data = NULL;
-
-	ret = switchtec_calc_lane_mask(dev, port_id, lane_id, num_lanes,
-				       lane_mask, &sw_status);
-	if (ret < 0) {
-		switchtec_perror("Invalid lane");
-		return NULL;
-	}
-
-	ret = switchtec_diag_eye_start(dev, lane_mask, NULL, NULL, 0,
-				       capture_depth, sar_sel, intleav_sel, hstep,
-				       data_mode, eye_mode, refclk, vstep);
-	if (ret) {
-		switchtec_perror("eye_run");
-		if (errno == EBUSY ||
-		    ERRNO_MRPC(errno) == ERR_EYE_CAP_STATE_INVAL)
-			fprintf(stderr,
-				"Hint: A previous eye capture may still be in progress.\n"
-				"Wait for it to complete or reset the device.\n");
-		return NULL;
-	}
+	double *ber_data = NULL;
 
 	first_lane = switchtec_calc_lane_id(dev, port_id, lane_id, NULL);
+
 	for (j = 0; j < num_lanes; j++) {
+		int lane_mask[5] = {};
+
+		ret = switchtec_calc_lane_mask(dev, port_id, lane_id + j,
+					       1, lane_mask, &sw_status);
+		if (ret < 0) {
+			switchtec_perror("Invalid lane");
+			free(ber_data);
+			return NULL;
+		}
+
+		ret = switchtec_diag_eye_start(dev, lane_mask, NULL, NULL, 0,
+					       capture_depth, sar_sel,
+					       intleav_sel, hstep, data_mode,
+					       eye_mode, refclk, vstep);
+		if (ret) {
+			switchtec_perror("eye_run");
+			if (errno == EBUSY ||
+			    ERRNO_MRPC(errno) == ERR_EYE_CAP_STATE_INVAL)
+				fprintf(stderr,
+					"Hint: A previous eye capture may still be in progress.\n"
+					"Wait for it to complete or reset the device.\n");
+			free(ber_data);
+			return NULL;
+		}
+
 		for (bin = 0; bin < 64; bin++) {
 			ret = switchtec_diag_eye_read(dev, first_lane + j, bin,
 						      &num_phases_l, tmp);
 			if (ret) {
 				switchtec_perror("eye_read");
-				if (ber_data)
-					free(ber_data);
+				free(ber_data);
 				return NULL;
 			}
 
