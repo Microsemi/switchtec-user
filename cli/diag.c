@@ -2815,6 +2815,11 @@ static int linkerr_inject(int argc, char ** argv)
 						    cfg.enable, cfg.dllp_rate);
 	}
 	if (cfg.inject_tlp_lcrc) {
+		if (switchtec_is_gen6(cfg.dev)) {
+			fprintf(stderr, "TLP LCRC error injection is not supported on Gen6.\n");
+			free(dllp_data_dword);
+			return -1;
+		}
 		if (cfg.tlp_rate > 7) {
 			fprintf(stderr, "TLP LCRC rate out of range. Valid range is 0-7.\n");
 			free(dllp_data_dword);
@@ -2830,6 +2835,11 @@ static int linkerr_inject(int argc, char ** argv)
 	if (cfg.inject_tlp_seq)
 		ret = switchtec_inject_err_tlp_seq_num(cfg.dev, cfg.phy_port);
 	if (cfg.inject_nack) {
+		if (switchtec_is_gen6(cfg.dev)) {
+			fprintf(stderr, "ACK to NACK error injection is not supported on Gen6.\n");
+			free(dllp_data_dword);
+			return -1;
+		}
 		if (cfg.seq_num > 4095) {
 			fprintf(stderr, "Sequence number out of range. Valid range is 0-4095).\n");
 			free(dllp_data_dword);

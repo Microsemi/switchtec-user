@@ -77,3 +77,31 @@ struct switchtec_lnkerr_cto_in {
 	uint8_t phys_port_id;
 	uint8_t resvd[2];
 };
+
+struct switchtec_lnkerr_dllp_gen6_in {
+	uint8_t subcmd;
+	uint8_t phys_port_id;
+	uint8_t dllp_count;
+	uint8_t dllp_type;
+};
+
+struct switchtec_lnkerr_dllp_crc_gen6_in {
+	uint8_t subcmd;
+	uint8_t phys_port_id;
+	uint8_t dllp_count;
+	uint8_t crc_type;
+	uint8_t vc_sel;
+	uint8_t fc_sel;
+	uint8_t intf_sel;
+	uint8_t resvd;
+};
+
+struct switchtec_lnkerr_tlp_seqn_gen6_in {
+	uint8_t subcmd;
+	uint8_t phys_port_id;
+	uint16_t resvd;
+	uint8_t err_count;
+	uint8_t seqnum_type;
+	uint8_t bad_seqnum;
+	uint8_t resvd1;
+};
