@@ -55,6 +55,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 
 #include "lib/crc.h"
 #include "config.h"
@@ -1441,6 +1442,16 @@ static int dbg_unlock_send_pubkey(struct switchtec_dev *dev,
 	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
 }
 
+/*
+ * Per-chunk data capacity for the Gen6 pubkey/sig transfer. The MRPC payload
+ * is MRPC_MAX_DATA_LEN (1024) bytes; leave room for the command header fields
+ * (subcmd/type/reserved + 4 x uint32). RSA-4K fits in a single chunk; ML-DSA
+ * public keys (up to 2592) and signatures (up to 4627) are sent in multiple
+ * chunks, each carrying the constant total_len/total_crc and its own
+ * offset/data_len, matching the FW assembler in secure_mrpc_unlock.c.
+ */
+#define DBG_UNLOCK_GEN6_CHUNK_MAX	768
+
 static int dbg_unlock_send_pubkey_gen6(struct switchtec_dev *dev,
 					struct switchtec_pubkey *public_key,
 					uint32_t cmd_id)
@@ -1452,17 +1463,39 @@ static int dbg_unlock_send_pubkey_gen6(struct switchtec_dev *dev,
 		uint32_t  total_crc;
 		uint32_t  data_len;
 		uint32_t  offset;
-		uint8_t  pub_key[SWITCHTEC_PUB_KEY_LEN];
-	} cmd = {};
+		uint8_t  pub_key[DBG_UNLOCK_GEN6_CHUNK_MAX];
+	} cmd;
 
-	cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_PKEY;
-	memcpy(cmd.pub_key, public_key->pubkey, SWITCHTEC_PUB_KEY_LEN);
-	cmd.total_len = htole32(SWITCHTEC_PUB_KEY_LEN);
-	cmd.total_crc = htole32(crc32(cmd.pub_key, SWITCHTEC_PUB_KEY_LEN, 0, 1, 1));
-	cmd.data_len = htole32(SWITCHTEC_PUB_KEY_LEN);
-	cmd.offset = htole32(0);
+	uint32_t total_len = public_key->pubkey_len ?
+			     public_key->pubkey_len : SWITCHTEC_PUB_KEY_LEN;
+	uint32_t total_crc = crc32(public_key->pubkey, total_len, 0, 1, 1);
+	uint32_t offset = 0;
+	int ret;
 
-	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
+	while (offset < total_len) {
+		uint32_t chunk = total_len - offset;
+
+		if (chunk > DBG_UNLOCK_GEN6_CHUNK_MAX)
+			chunk = DBG_UNLOCK_GEN6_CHUNK_MAX;
+
+		memset(&cmd, 0, sizeof(cmd));
+		cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_PKEY;
+		cmd.total_len = htole32(total_len);
+		cmd.total_crc = htole32(total_crc);
+		cmd.data_len = htole32(chunk);
+		cmd.offset = htole32(offset);
+		memcpy(cmd.pub_key, public_key->pubkey + offset, chunk);
+
+		ret = switchtec_mfg_cmd(dev, cmd_id, &cmd,
+			offsetof(struct public_key_cmd_gen6, pub_key) + chunk,
+			NULL, 0);
+		if (ret)
+			return ret;
+
+		offset += chunk;
+	}
+
+	return 0;
 }
 
 static int dbg_unlock_send_sig_gen6(struct switchtec_dev *dev,
@@ -1477,18 +1510,42 @@ static int dbg_unlock_send_sig_gen6(struct switchtec_dev *dev,
 		uint32_t  total_crc;
 		uint32_t  data_len;
 		uint32_t  offset;
-		uint8_t  signature[SWITCHTEC_SIG_LEN];
-	} cmd = {};
+		uint8_t  signature[DBG_UNLOCK_GEN6_CHUNK_MAX];
+	} cmd;
 
-	cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_SIG;
-	cmd.sig_type = KMT_SIG_FORMAT_RSA4KSHA2;
-	memcpy(cmd.signature, signature->signature, SWITCHTEC_SIG_LEN);
-	cmd.total_len = htole32(SWITCHTEC_SIG_LEN);
-	cmd.total_crc = htole32(crc32(cmd.signature, SWITCHTEC_SIG_LEN, 0, 1, 1));
-	cmd.data_len = htole32(SWITCHTEC_SIG_LEN);
-	cmd.offset = htole32(0);
+	uint32_t total_len = signature->sig_len ?
+			     signature->sig_len : SWITCHTEC_SIG_LEN;
+	uint32_t total_crc = crc32(signature->signature, total_len, 0, 1, 1);
+	uint8_t sig_type = signature->sig_type ?
+			   signature->sig_type : KMT_SIG_FORMAT_RSA4KSHA2;
+	uint32_t offset = 0;
+	int ret;
 
-	return switchtec_mfg_cmd(dev, cmd_id, &cmd, sizeof(cmd), NULL, 0);
+	while (offset < total_len) {
+		uint32_t chunk = total_len - offset;
+
+		if (chunk > DBG_UNLOCK_GEN6_CHUNK_MAX)
+			chunk = DBG_UNLOCK_GEN6_CHUNK_MAX;
+
+		memset(&cmd, 0, sizeof(cmd));
+		cmd.subcmd = MRPC_GEN6_DBG_UNLOCK_SIG;
+		cmd.sig_type = sig_type;
+		cmd.total_len = htole32(total_len);
+		cmd.total_crc = htole32(total_crc);
+		cmd.data_len = htole32(chunk);
+		cmd.offset = htole32(offset);
+		memcpy(cmd.signature, signature->signature + offset, chunk);
+
+		ret = switchtec_mfg_cmd(dev, cmd_id, &cmd,
+			offsetof(struct sig_cmd_gen6, signature) + chunk,
+			NULL, 0);
+		if (ret)
+			return ret;
+
+		offset += chunk;
+	}
+
+	return 0;
 }
 
 /**
@@ -2201,11 +2258,41 @@ int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk)
 			return -1;
 	}
 
+	/*
+	 * ML-DSA public keys are provider-only and are transferred to the device
+	 * as their raw byte encoding (1312/1952/2592 for ML-DSA-44/65/87), the
+	 * same bytes the FW hashes against the OTP key. Detect by algorithm name
+	 * and extract the raw pubkey. (Requires OpenSSL >= 3.5.)
+	 */
+	if (EVP_PKEY_is_a(pkey, "ML-DSA-44") ||
+	    EVP_PKEY_is_a(pkey, "ML-DSA-65") ||
+	    EVP_PKEY_is_a(pkey, "ML-DSA-87")) {
+		size_t raw_len = sizeof(pubk->pubkey);
+
+		if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY,
+						    pubk->pubkey, sizeof(pubk->pubkey),
+						    &raw_len) <= 0) {
+			EVP_PKEY_free(pkey);
+			return -1;
+		}
+		if (raw_len != SWITCHTEC_PUB_KEY_MLDSA44_LEN &&
+		    raw_len != SWITCHTEC_PUB_KEY_MLDSA65_LEN &&
+		    raw_len != SWITCHTEC_PUB_KEY_MLDSA87_LEN) {
+			EVP_PKEY_free(pkey);
+			return -1;
+		}
+		pubk->pubkey_exp = 0;
+		pubk->pubkey_len = (uint32_t)raw_len;
+		EVP_PKEY_free(pkey);
+		return 0;
+	}
+
 	EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn_priv);
 	BN_bn2bin(bn_priv, pubk->pubkey);
 	EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bn_priv);
 	BN_bn2bin(bn_priv, (uint8_t *)&exponent_tmp);
 	pubk->pubkey_exp = be32toh(exponent_tmp);
+	pubk->pubkey_len = SWITCHTEC_PUB_KEY_LEN;
 
 	EVP_PKEY_free(pkey);
 	return 0;
@@ -2257,6 +2344,7 @@ int switchtec_read_pubk_file(FILE *pubk_file, struct switchtec_pubkey *pubk)
 	BN_bn2bin(exponent_bn, (uint8_t *)&exponent_tmp);
 
 	pubk->pubkey_exp = be32toh(exponent_tmp);
+	pubk->pubkey_len = SWITCHTEC_PUB_KEY_LEN;
 	RSA_free(RSAKey);
 
 	return 0;
@@ -2314,10 +2402,37 @@ int switchtec_read_signature_file(FILE *sig_file,
 {
 	ssize_t rlen;
 
-	rlen = fread(signature->signature, 1, SWITCHTEC_SIG_LEN, sig_file);
+	/*
+	 * Read the whole signature file (up to the ML-DSA-87 max). RSA-4K is
+	 * exactly 512 bytes; ML-DSA-65/87 are 3309/4627. The caller (or
+	 * switchtec_read_signature_file_typed) sets sig_type; sig_len is the
+	 * actual byte count read here.
+	 */
+	rlen = fread(signature->signature, 1, sizeof(signature->signature),
+		     sig_file);
 
 	if (rlen < SWITCHTEC_SIG_LEN)
 		return -EBADF;
+
+	signature->sig_len = (uint32_t)rlen;
+
+	/*
+	 * Default the type from the length. RSA-4K (512) is the historical
+	 * default; ML-DSA lengths map to their KMT sig-format. The debug-unlock
+	 * CLI overrides sig_type from the paired public key when available.
+	 */
+	switch (rlen) {
+	case SWITCHTEC_SIG_MLDSA65_LEN:
+		signature->sig_type = KMT_SIG_FORMAT_MLDSA65;
+		break;
+	case SWITCHTEC_SIG_MLDSA87_LEN:
+		signature->sig_type = KMT_SIG_FORMAT_MLDSA87;
+		break;
+	case SWITCHTEC_SIG_LEN:
+	default:
+		signature->sig_type = KMT_SIG_FORMAT_RSA4KSHA2;
+		break;
+	}
 
 	return 0;
 }
@@ -2753,9 +2868,24 @@ int switchtec_device_config_set_security(struct switchtec_dev *dev,
 	return ret;
 }
 
+/*
+ * Per-chunk data capacity for the DOK-config signature transfer. The MRPC
+ * payload is bounded (MRPC_MAX_DATA_LEN, 1024 B); the 20-byte header
+ * (sub_cmd/sig_type/reserved[2] + total_len/total_crc/data_len/offset) leaves
+ * room for the data below. RSA-4K (512 B) fits in a single chunk; ML-DSA
+ * signatures (up to 4627 B) are sent in multiple chunks, each carrying the
+ * constant total_len/total_crc and its own offset/data_len — the same chunked
+ * protocol used by the debug-unlock signature path and expected by the FW
+ * DOK-config signature assembler.
+ */
+#define DOK_CONFIG_SIG_CHUNK_MAX	768
+
 int switchtec_dok_config_signature(struct switchtec_dev *dev,
 				   struct switchtec_dok_signature *sig)
 {
+	struct switchtec_dok_signature chunk_cmd;
+	uint32_t total_len;
+	uint32_t offset = 0;
 	int ret;
 
 	if (!switchtec_is_gen6(dev)) {
@@ -2763,8 +2893,35 @@ int switchtec_dok_config_signature(struct switchtec_dev *dev,
 		return -ENOTSUP;
 	}
 
-	ret = switchtec_mfg_cmd(dev, MRPC_DOK_CONFIG, sig,
-				20 + sig->data_len, NULL, 0);
+	/*
+	 * total_len is the full signature size; the caller sets it (and
+	 * total_crc over the whole signature). For the historical RSA-4K path
+	 * total_len == 512 and this loop runs exactly once, matching the prior
+	 * single-MRPC behaviour.
+	 */
+	total_len = sig->total_len ? sig->total_len : sig->data_len;
+
+	do {
+		uint32_t chunk = total_len - offset;
+
+		if (chunk > DOK_CONFIG_SIG_CHUNK_MAX)
+			chunk = DOK_CONFIG_SIG_CHUNK_MAX;
+
+		memcpy(&chunk_cmd, sig, offsetof(struct switchtec_dok_signature,
+						 sig_data));
+		chunk_cmd.total_len = total_len;
+		chunk_cmd.data_len = chunk;
+		chunk_cmd.offset = offset;
+		memcpy(chunk_cmd.sig_data, sig->sig_data + offset, chunk);
+
+		ret = switchtec_mfg_cmd(dev, MRPC_DOK_CONFIG, &chunk_cmd,
+					20 + chunk, NULL, 0);
+		if (ret)
+			return ret;
+
+		offset += chunk;
+	} while (offset < total_len);
+
 	return ret;
 }
 
