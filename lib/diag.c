@@ -40,6 +40,7 @@
 #include "switchtec/switchtec.h"
 #include "switchtec/utils.h"
 
+#include <alloca.h>
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
@@ -2541,7 +2542,7 @@ int switchtec_osa_capture_data(struct switchtec_dev *dev, int stack_id,
 		return ret;
 	}
 
-	struct {
+	struct osa_data_read_out {
 		uint8_t entries_read;
 		uint8_t stack_id;
 		uint8_t lane;
@@ -2550,11 +2551,16 @@ int switchtec_osa_capture_data(struct switchtec_dev *dev, int stack_id,
 		uint16_t entries_remaining;
 		uint16_t wrap;
 		uint16_t reserved;
-		uint32_t entry_dwords[osa_data_entries_out.entries_remaining * 6];
-	} osa_data_read_out;
+		uint32_t entry_dwords[];
+	} *osa_data_read_out;
+	size_t osa_data_read_out_size;
 
-	osa_data_read_out.entries_remaining = osa_data_entries_out.entries_remaining;
-	osa_data_read_out.next_entry = osa_data_entries_out.next_entry;
+	osa_data_read_out_size = sizeof(*osa_data_read_out) +
+		osa_data_entries_out.entries_remaining * 6 * sizeof(uint32_t);
+	osa_data_read_out = alloca(osa_data_read_out_size);
+
+	osa_data_read_out->entries_remaining = osa_data_entries_out.entries_remaining;
+	osa_data_read_out->next_entry = osa_data_entries_out.next_entry;
 
 	if (data) {
 		data->stack_id = stack_id;
@@ -2574,31 +2580,34 @@ int switchtec_osa_capture_data(struct switchtec_dev *dev, int stack_id,
 	uint32_t osa_data_dwords[4];
 	int osa_data_idx = 0;
 
-	while (osa_data_read_out.entries_remaining != 0) {
+	while (osa_data_read_out->entries_remaining != 0) {
 		if (data && total_entries >= SWITCHTEC_OSA_MAX_ENTRIES)
 			break;
 
-		osa_data_read_in.num_entries = osa_data_read_out.entries_remaining;
-		osa_data_read_in.start_entry = osa_data_read_out.next_entry;
+		osa_data_read_in.num_entries = osa_data_read_out->entries_remaining;
+		osa_data_read_in.start_entry = osa_data_read_out->next_entry;
 
 		ret = switchtec_cmd(dev, MRPC_ORDERED_SET_ANALYZER,
 				    &osa_data_read_in, sizeof(osa_data_read_in),
-				    &osa_data_read_out, sizeof(osa_data_read_out));
+				    osa_data_read_out, osa_data_read_out_size);
 		if (ret)
 			return -1;
 
-		for (int i = total_dword; i < total_dword + (osa_data_read_out.entries_read * 6); i++) {
+		for (int i = total_dword;
+		     i < total_dword + (osa_data_read_out->entries_read * 6); i++) {
 			if (curr_entry_dword < 4) {
-				osa_data_dwords[osa_data_idx++] = osa_data_read_out.entry_dwords[i];
+				osa_data_dwords[osa_data_idx++] =
+					osa_data_read_out->entry_dwords[i];
 			} else if (curr_entry_dword == 4) {
-				timestamp_lower = (osa_data_read_out.entry_dwords[i] >> 22) & 0x3FF;
-				timestamp_upper = (osa_data_read_out.entry_dwords[i+1] & 0x1A);
+				timestamp_lower =
+					(osa_data_read_out->entry_dwords[i] >> 22) & 0x3FF;
+				timestamp_upper = (osa_data_read_out->entry_dwords[i+1] & 0x1A);
 				timestamp = timestamp_upper | timestamp_lower;
 
-				link_rate = osa_data_read_out.entry_dwords[i] & 0x3;
-				counter = (osa_data_read_out.entry_dwords[i] >> 3) & 0x12;
-				trigger	= (osa_data_read_out.entry_dwords[i+1] >> 28) & 0x1;
-				os_droppped = (osa_data_read_out.entry_dwords[i+1] >> 29) & 0x1;
+				link_rate = osa_data_read_out->entry_dwords[i] & 0x3;
+				counter = (osa_data_read_out->entry_dwords[i] >> 3) & 0x12;
+				trigger	= (osa_data_read_out->entry_dwords[i+1] >> 28) & 0x1;
+				os_droppped = (osa_data_read_out->entry_dwords[i+1] >> 29) & 0x1;
 
 				if (data && total_entries < SWITCHTEC_OSA_MAX_ENTRIES) {
 					data->entries[total_entries].timestamp = timestamp;
@@ -2621,7 +2630,7 @@ int switchtec_osa_capture_data(struct switchtec_dev *dev, int stack_id,
 				curr_entry_dword = 0;
 			}
 		}
-		total_dword += osa_data_read_out.entries_read;
+		total_dword += osa_data_read_out->entries_read;
 	}
 
 	return ret;
