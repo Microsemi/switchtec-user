@@ -1706,6 +1706,25 @@ static int debug_unlock(int argc, char **argv)
 		return -3;
 	}
 
+	/*
+	 * Set the signature type from the paired public key: RSA-4K or the
+	 * matching ML-DSA format.
+	 */
+	switch (pubk.pubkey_len) {
+	case SWITCHTEC_PUB_KEY_MLDSA44_LEN:
+		sig.sig_type = KMT_SIG_FORMAT_MLDSA44;
+		break;
+	case SWITCHTEC_PUB_KEY_MLDSA65_LEN:
+		sig.sig_type = KMT_SIG_FORMAT_MLDSA65;
+		break;
+	case SWITCHTEC_PUB_KEY_MLDSA87_LEN:
+		sig.sig_type = KMT_SIG_FORMAT_MLDSA87;
+		break;
+	default:
+		sig.sig_type = KMT_SIG_FORMAT_RSA4KSHA2;
+		break;
+	}
+
 	if (switchtec_is_gen6(cfg.dev)) {
 		ret = switchtec_read_token_file(cfg.tkn_fimg, &token);
 		fclose(cfg.tkn_fimg);
@@ -2897,6 +2916,7 @@ static int device_config_set_security(int argc, char **argv)
 #include <openssl/pem.h>
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
+#include <openssl/core_names.h>   /* OSSL_PKEY_PARAM_PUB_KEY (ML-DSA raw pubkey) */
 
 /* PMC CRC32 lookup table - polynomial 0x04C11DB7 (MSB first) */
 static const uint32_t crc32_tab[256] = {
@@ -2980,6 +3000,40 @@ static uint32_t compute_crc32(const uint8_t *data, size_t len)
 	return crc ^ 0xFFFFFFFF;
 }
 
+/*
+ * Read a DOK signature file into buf. Exact ML-DSA sizes are kept; any other
+ * file longer than 512 bytes is treated as RSA-4K and cut to 512, as before
+ * ML-DSA support. Returns the number of bytes to send (0 on read failure).
+ */
+static size_t read_dok_sig_file(FILE *sig_file, uint8_t *buf, size_t buf_len)
+{
+	size_t len = fread(buf, 1, buf_len, sig_file);
+
+	if (len == buf_len && fgetc(sig_file) != EOF)
+		return SWITCHTEC_SIG_LEN;
+
+	if (len > SWITCHTEC_SIG_LEN && len != SWITCHTEC_SIG_MLDSA44_LEN &&
+	    len != SWITCHTEC_SIG_MLDSA65_LEN && len != SWITCHTEC_SIG_MLDSA87_LEN)
+		return SWITCHTEC_SIG_LEN;
+
+	return len;
+}
+
+/* Name of the signature type implied by a length from read_dok_sig_file(). */
+static const char *dok_sig_type_name(size_t sig_len)
+{
+	switch (sig_len) {
+	case SWITCHTEC_SIG_MLDSA44_LEN:
+		return "ML-DSA-44";
+	case SWITCHTEC_SIG_MLDSA65_LEN:
+		return "ML-DSA-65";
+	case SWITCHTEC_SIG_MLDSA87_LEN:
+		return "ML-DSA-87";
+	default:
+		return "RSA-4K";
+	}
+}
+
 static int parse_hex_string(const char *hex, uint32_t *out, int dwords)
 {
 	int i;
@@ -3001,14 +3055,97 @@ static int parse_hex_string(const char *hex, uint32_t *out, int dwords)
 	return 0;
 }
 
-static int compute_rsa4k_hash(FILE *key_file, uint32_t *hash)
+/*
+ * Convert a SHA2-512 digest into the 16-DWORD key hash used by DOK
+ * add/revoke: each 4-byte group of the digest is read as a little-endian
+ * DWORD and stored in CPU byte order.
+ */
+static void sha512_to_key_hash(const uint8_t *hash_in, uint32_t *hash_out)
 {
-	EVP_PKEY *pkey = NULL;
-	uint8_t pubkey_data[512] = {0};
-	uint8_t hash_bytes[64];
-	size_t pubkey_len = 0;
-	int ret = -1;
+	uint32_t dw;
+	int i;
+
+	for (i = 0; i < SHA512_DIGEST_LENGTH / 4; i++) {
+		memcpy(&dw, hash_in + i * 4, sizeof(dw));
+		hash_out[i] = le32toh(dw);
+	}
+}
+
+/* Get the raw ML-DSA public key (1312/1952/2592 bytes for ML-DSA-44/65/87). */
+static int get_mldsa_pubkey(EVP_PKEY *pkey, uint8_t *buf, size_t buf_len,
+			    size_t *len, const char **type)
+{
+	if (EVP_PKEY_get_octet_string_param(pkey, OSSL_PKEY_PARAM_PUB_KEY,
+					    buf, buf_len, len) <= 0) {
+		fprintf(stderr,
+			"Failed to extract ML-DSA raw public key (OpenSSL >= 3.5 required)!\n");
+		return -1;
+	}
+
+	switch (*len) {
+	case SWITCHTEC_PUB_KEY_MLDSA44_LEN:
+		*type = "ML-DSA-44";
+		return 0;
+	case SWITCHTEC_PUB_KEY_MLDSA65_LEN:
+		*type = "ML-DSA-65";
+		return 0;
+	case SWITCHTEC_PUB_KEY_MLDSA87_LEN:
+		*type = "ML-DSA-87";
+		return 0;
+	default:
+		fprintf(stderr, "Unexpected ML-DSA public-key length %zu!\n",
+			*len);
+		return -1;
+	}
+}
+
+/* Get the 512-byte modulus of an RSA-4096 key. */
+static int get_rsa4k_modulus(EVP_PKEY *pkey, uint8_t *buf, size_t *len,
+			     const char **type)
+{
 	BIGNUM *n = NULL;
+	size_t mod_len;
+
+	if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &n) || !n) {
+		fprintf(stderr, "Failed to extract RSA modulus!\n");
+		return -1;
+	}
+
+	mod_len = BN_num_bytes(n);
+	if (mod_len != SWITCHTEC_PUB_KEY_LEN) {
+		fprintf(stderr, "Key must be RSA 4096-bit! Got %zu-bit key.\n",
+			mod_len * 8);
+		BN_free(n);
+		return -1;
+	}
+
+	BN_bn2bin(n, buf);
+	BN_free(n);
+	*len = mod_len;
+	*type = "RSA4K";
+	return 0;
+}
+
+/*
+ * Compute the DOK/BIAK key hash for either an RSA-4096 key or an ML-DSA
+ * (44/65/87) key, auto-detecting the key type from the PEM.
+ *
+ * The device stores and compares SHA2-512 over the public-key bytes:
+ *   - RSA-4096 : SHA2-512 over the 512-byte modulus (existing behaviour).
+ *   - ML-DSA   : SHA2-512 over the raw public key (1312/1952/2592 bytes for
+ *                ML-DSA-44/65/87).
+ *
+ * ML-DSA support requires OpenSSL >= 3.5 (provider-backed ML-DSA keys).
+ */
+static int compute_key_hash_typed(FILE *key_file, uint32_t *hash,
+				  const char **key_type_str)
+{
+	uint8_t key[SWITCHTEC_PUB_KEY_MAX_LEN];
+	uint8_t digest[SHA512_DIGEST_LENGTH];
+	const char *type = "UNKNOWN";
+	size_t key_len = 0;
+	EVP_PKEY *pkey;
+	int ret;
 
 	pkey = PEM_read_PUBKEY(key_file, NULL, NULL, NULL);
 	if (!pkey) {
@@ -3020,55 +3157,28 @@ static int compute_rsa4k_hash(FILE *key_file, uint32_t *hash)
 		}
 	}
 
-	if (EVP_PKEY_base_id(pkey) != EVP_PKEY_RSA) {
-		fprintf(stderr, "Key must be RSA! Got key type: %d\n",
-			EVP_PKEY_base_id(pkey));
-		goto cleanup;
+	/* ML-DSA keys are provider-only; match by algorithm name. */
+	if (EVP_PKEY_is_a(pkey, "ML-DSA-44") ||
+	    EVP_PKEY_is_a(pkey, "ML-DSA-65") ||
+	    EVP_PKEY_is_a(pkey, "ML-DSA-87")) {
+		ret = get_mldsa_pubkey(pkey, key, sizeof(key), &key_len, &type);
+	} else if (EVP_PKEY_base_id(pkey) == EVP_PKEY_RSA) {
+		ret = get_rsa4k_modulus(pkey, key, &key_len, &type);
+	} else {
+		fprintf(stderr, "Unsupported key type (need RSA-4096 or ML-DSA-44/65/87)!\n");
+		ret = -1;
 	}
 
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-	EVP_PKEY_get_bn_param(pkey, "n", &n);
-#else
-	{
-		const RSA *rsa = EVP_PKEY_get0_RSA(pkey);
-		if (rsa) {
-			const BIGNUM *n_tmp;
-			RSA_get0_key(rsa, &n_tmp, NULL, NULL);
-			n = BN_dup(n_tmp);
-		}
-	}
-#endif
-	if (!n) {
-		fprintf(stderr, "Failed to extract RSA modulus!\n");
-		goto cleanup;
-	}
-
-	pubkey_len = BN_num_bytes(n);
-
-	if (pubkey_len != 512) {
-		fprintf(stderr, "Key must be RSA 4096-bit! Got %zu-bit key.\n",
-			pubkey_len * 8);
-		BN_free(n);
-		goto cleanup;
-	}
-
-	BN_bn2bin(n, pubkey_data);
-	BN_free(n);
-
-	SHA512(pubkey_data, 512, hash_bytes);
-
-	for (int i = 0; i < 16; i++) {
-		hash[i] = ((uint32_t)hash_bytes[i*4 + 3] << 24) |
-			  ((uint32_t)hash_bytes[i*4 + 2] << 16) |
-			  ((uint32_t)hash_bytes[i*4 + 1] << 8) |
-			  ((uint32_t)hash_bytes[i*4 + 0]);
-	}
-
-	ret = 0;
-
-cleanup:
 	EVP_PKEY_free(pkey);
-	return ret;
+
+	if (key_type_str)
+		*key_type_str = type;
+	if (ret)
+		return ret;
+
+	SHA512(key, key_len, digest);
+	sha512_to_key_hash(digest, hash);
+	return 0;
 }
 
 static uint32_t swap_u32_bytes(uint32_t v)
@@ -3152,10 +3262,13 @@ static int dok_key_add(int argc, char **argv)
 	struct switchtec_dok_key_add key_add = {};
 	uint32_t computed_hash[DEVICE_CONFIG_KEY_HASH_SIZE_DWORDS];
 	char hash_str[129];
+	const char *key_type_str = "UNKNOWN";
 
 	const char *desc = CMD_DESC_DOK_KEY_ADD "\n\n"
 			   "Add a Device Owner Key (DOK) entry to an OTP BIAK slot.\n"
-			   "The key hash is SHA2-512 over the 512-byte RSA-4096 modulus.\n\n"
+			   "The key hash is SHA2-512 over the public key: the 512-byte RSA-4096\n"
+			   "modulus, or the raw ML-DSA-44/65/87 public key. Key type is auto-\n"
+			   "detected from the PEM (ML-DSA requires OpenSSL >= 3.5).\n\n"
 			   "Authorization Flag (--auth-type):\n"
 			   "  0 = PSID only       (Initialized-Secure or SECURE-CAPABLE)\n"
 			   "  1 = UID only        (Initialized-Secure or SECURE-CAPABLE)\n"
@@ -3193,7 +3306,7 @@ static int dok_key_add(int argc, char **argv)
 		{"key", 'K', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.key_fimg,
 			.argument_type=required_argument,
-			.help="RSA 4096-bit key file (PEM format, public or private)"},
+			.help="RSA-4096 or ML-DSA-44/65/87 key file (PEM, public or private)"},
 		{"signature", 's', .cfg_type=CFG_FILE_R,
 			.value_addr=&cfg.sig_fimg,
 			.argument_type=required_argument,
@@ -3225,7 +3338,7 @@ static int dok_key_add(int argc, char **argv)
 	}
 
 	if (cfg.key_fimg == NULL) {
-		fprintf(stderr, "RSA 4096-bit key file is required (--key)!\n");
+		fprintf(stderr, "Key file is required (--key): RSA-4096 or ML-DSA!\n");
 		return -1;
 	}
 
@@ -3247,7 +3360,7 @@ static int dok_key_add(int argc, char **argv)
 		return -1;
 	}
 
-	ret = compute_rsa4k_hash(cfg.key_fimg, computed_hash);
+	ret = compute_key_hash_typed(cfg.key_fimg, computed_hash, &key_type_str);
 	fclose(cfg.key_fimg);
 	if (ret)
 		return -2;
@@ -3274,7 +3387,7 @@ static int dok_key_add(int argc, char **argv)
 	printf("Adding DOK key entry:\n");
 	printf("  Key Slot:        %lu\n", cfg.key_slot);
 	printf("  Auth Flag:       %lu\n", cfg.auth_type);
-	printf("  Key Type:        RSA4K\n");
+	printf("  Key Type:        %s\n", key_type_str);
 	printf("  Key Hash:        %s\n", hash_str);
 
 	if (!cfg.assume_yes) {
@@ -3286,14 +3399,16 @@ static int dok_key_add(int argc, char **argv)
 	}
 
 	if (use_signature) {
-		sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
+		sig_len = read_dok_sig_file(cfg.sig_fimg, sig.sig_data,
+					    sizeof(sig.sig_data));
 		fclose(cfg.sig_fimg);
 		if (sig_len == 0) {
 			fprintf(stderr, "Failed to read signature file!\n");
 			return -2;
 		}
 
-		printf("  Mode:            Initialized-Secure (RSA signature)\n");
+		printf("  Mode:            Initialized-Secure (%s signature)\n",
+		       dok_sig_type_name(sig_len));
 		printf("  Signature Size:  %zu bytes\n", sig_len);
 
 		sig.sub_cmd = DOK_CONFIG_SUB_CMD_SIGNATURE;
@@ -3349,6 +3464,10 @@ static int dok_key_revoke(int argc, char **argv)
 			   "Verification Mode (--check-type):\n"
 			   "  signature = send signature packet first (requires --signature)\n"
 			   "  integrity = compute payload SHA2-512 locally (no signature file)\n\n"
+			   "Signature type: RSA-4096 or ML-DSA-44/65/87. Pass the paired public\n"
+			   "key with --key to auto-detect the type (recommended); the ML-DSA\n"
+			   "signature (up to 4627 bytes) is sent to the device in chunks.\n"
+			   "ML-DSA requires OpenSSL >= 3.5.\n\n"
 			   "WARNING: This operation modifies OTP and is IRREVERSIBLE!";
 
 	static struct {
@@ -3359,6 +3478,7 @@ static int dok_key_revoke(int argc, char **argv)
 		char *psid_hex;
 		FILE *sig_fimg;
 		const char *sig_filename;
+		FILE *key_fimg;
 		char *check_type;
 		unsigned long sig_type;
 		int assume_yes;
@@ -3378,10 +3498,15 @@ static int dok_key_revoke(int argc, char **argv)
 			.value_addr=&cfg.sig_fimg,
 			.argument_type=required_argument,
 			.help="signature file (required when --check-type signature)"},
+		{"key", 'K', .cfg_type=CFG_FILE_R,
+			.value_addr=&cfg.key_fimg,
+			.argument_type=required_argument,
+			.help="paired public key (PEM); auto-detects the signature type"},
 		{"check-type", 'c', "", CFG_STRING, &cfg.check_type,
 			required_argument, "verification mode: signature|integrity (default signature)"},
 		{"sig-type", 'T', "", CFG_LONG, &cfg.sig_type,
-			required_argument, "signature type (default 0)"},
+			required_argument,
+			"signature type (default 0); ignored when --key is given"},
 		{"yes", 'y', "", CFG_NONE, &cfg.assume_yes, no_argument,
 			"assume yes when prompted"},
 		{NULL}
@@ -3448,7 +3573,44 @@ static int dok_key_revoke(int argc, char **argv)
 	}
 
 	if (use_signature) {
-		sig_len = fread(sig.sig_data, 1, sizeof(sig.sig_data), cfg.sig_fimg);
+		uint8_t sig_type = cfg.sig_type;
+		const char *sig_type_str = "RSA4K (default)";
+
+		/*
+		 * With --key, set the signature type from the paired public key
+		 * (as debug-unlock does); otherwise use --sig-type.
+		 */
+		if (cfg.key_fimg) {
+			struct switchtec_pubkey pubk;
+
+			ret = switchtec_read_pubk_file(cfg.key_fimg, &pubk);
+			fclose(cfg.key_fimg);
+			if (ret) {
+				fprintf(stderr, "Failed to read public key file!\n");
+				return -2;
+			}
+			switch (pubk.pubkey_len) {
+			case SWITCHTEC_PUB_KEY_MLDSA44_LEN:
+				sig_type = KMT_SIG_FORMAT_MLDSA44;
+				sig_type_str = "ML-DSA-44";
+				break;
+			case SWITCHTEC_PUB_KEY_MLDSA65_LEN:
+				sig_type = KMT_SIG_FORMAT_MLDSA65;
+				sig_type_str = "ML-DSA-65";
+				break;
+			case SWITCHTEC_PUB_KEY_MLDSA87_LEN:
+				sig_type = KMT_SIG_FORMAT_MLDSA87;
+				sig_type_str = "ML-DSA-87";
+				break;
+			default:
+				sig_type = KMT_SIG_FORMAT_RSA4KSHA2;
+				sig_type_str = "RSA4K";
+				break;
+			}
+		}
+
+		sig_len = read_dok_sig_file(cfg.sig_fimg, sig.sig_data,
+					    sizeof(sig.sig_data));
 		fclose(cfg.sig_fimg);
 		if (sig_len == 0) {
 			fprintf(stderr, "Failed to read signature file!\n");
@@ -3456,10 +3618,11 @@ static int dok_key_revoke(int argc, char **argv)
 		}
 
 		printf("  Mode:            Signature\n");
+		printf("  Sig Type:        %s\n", sig_type_str);
 		printf("  Signature Size:  %zu bytes\n", sig_len);
 
 		sig.sub_cmd = DOK_CONFIG_SUB_CMD_SIGNATURE;
-		sig.sig_type = cfg.sig_type;
+		sig.sig_type = sig_type;
 		sig.total_len = sig_len;
 		sig.total_crc = compute_crc32(sig.sig_data, sig_len);
 		sig.data_len = sig_len;
