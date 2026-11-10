@@ -287,7 +287,6 @@ static int gui(int argc, char **argv)
 	static struct {
 		struct switchtec_dev *dev;
 		unsigned all_ports;
-		unsigned reset_bytes;
 		unsigned refresh;
 		int duration;
 		enum switchtec_bw_type bw_type;
@@ -301,8 +300,6 @@ static int gui(int argc, char **argv)
 		DEVICE_OPTION,
 		{"all_ports", 'a', "", CFG_NONE, &cfg.all_ports, no_argument,
 		 "show all ports (including downed links)"},
-		{"reset", 'r', "", CFG_NONE, &cfg.reset_bytes, no_argument,
-		 "reset byte counters"},
 		{"refresh", 'f', "", CFG_POSITIVE, &cfg.refresh, required_argument,
 		 "GUI refresh period in seconds (default: 1 second)"},
 		{"duration", 'd', "", CFG_INT, &cfg.duration, required_argument,
@@ -313,8 +310,8 @@ static int gui(int argc, char **argv)
 
 	argconfig_parse(argc, argv, CMD_DESC_GUI, opts, &cfg, sizeof(cfg));
 
-	ret = gui_main(cfg.dev, cfg.all_ports, cfg.reset_bytes, cfg.refresh,
-		       cfg.duration, cfg.bw_type);
+	ret = gui_main(cfg.dev, cfg.all_ports, cfg.refresh, cfg.duration,
+		       cfg.bw_type);
 
 	return ret;
 }
