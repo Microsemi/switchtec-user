@@ -29,7 +29,7 @@
 OBJDIR ?= build
 
 DESTDIR ?=
-PREFIX ?= /usr/local
+PREFIX ?= @prefix@
 RPMBUILD ?= rpmbuild
 
 BINDIR ?= $(DESTDIR)$(PREFIX)/bin
