@@ -1961,6 +1961,38 @@ static enum switchtec_gen map_to_gen(uint32_t gen)
 	return ret;
 }
 
+enum ping_recovery_reason {
+	PING_RECOVERY_BL1_STRAP = 1,
+	PING_RECOVERY_BL1_ASSERT,
+	PING_RECOVERY_BL2_STRAP,
+	PING_RECOVERY_BL2_ASSERT,
+	PING_RECOVERY_BL2_EXEC,
+	PING_RECOVERY_MAIN_FW,
+};
+
+static enum switchtec_boot_phase parse_boot_phase_ping(uint32_t dev_info)
+{
+	uint32_t reason = dev_info & 0xff;
+	uint32_t revision = (dev_info >> 20) & 0x0f;
+
+	if (!revision)
+		return reason;
+
+	switch (reason) {
+	case PING_RECOVERY_BL1_STRAP:
+	case PING_RECOVERY_BL1_ASSERT:
+		return SWITCHTEC_BOOT_PHASE_BL1;
+	case PING_RECOVERY_BL2_STRAP:
+	case PING_RECOVERY_BL2_ASSERT:
+	case PING_RECOVERY_BL2_EXEC:
+		return SWITCHTEC_BOOT_PHASE_BL2;
+	case PING_RECOVERY_MAIN_FW:
+		return SWITCHTEC_BOOT_PHASE_FW;
+	default:
+		return SWITCHTEC_BOOT_PHASE_UNKNOWN;
+	}
+}
+
 /**
  * @brief Get device generation, revision, and boot phase info
  * @param[in]  dev	Switchtec device handle
@@ -1997,7 +2029,7 @@ int switchtec_get_device_info(struct switchtec_dev *dev,
 
 		dev_info = le32toh(reply.dev_info);
 		if (phase)
-			*phase = dev_info & 0xff;
+			*phase = parse_boot_phase_ping(dev_info);
 		if (rev)
 			*rev = (dev_info >> 8) & 0x0f;
 		if (gen)
