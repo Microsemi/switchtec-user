@@ -29,6 +29,22 @@
 
 #define SWITCHTEC_PUB_KEY_LEN	512
 #define SWITCHTEC_SIG_LEN	512
+
+/*
+ * ML-DSA (FIPS 204) key/signature sizes. Only the Gen6 debug-unlock and DOK
+ * paths accept them (sent in chunks); the Gen4/Gen5 and KMSK paths are RSA-4K
+ * only and reject other lengths.
+ */
+#define SWITCHTEC_PUB_KEY_MLDSA44_LEN	1312
+#define SWITCHTEC_PUB_KEY_MLDSA65_LEN	1952
+#define SWITCHTEC_PUB_KEY_MLDSA87_LEN	2592
+#define SWITCHTEC_SIG_MLDSA44_LEN	2420
+#define SWITCHTEC_SIG_MLDSA65_LEN	3309
+#define SWITCHTEC_SIG_MLDSA87_LEN	4627
+
+/* Buffer capacity for the pubkey/signature structs: max of RSA-4K and ML-DSA-87. */
+#define SWITCHTEC_PUB_KEY_MAX_LEN	SWITCHTEC_PUB_KEY_MLDSA87_LEN
+#define SWITCHTEC_SIG_MAX_LEN		SWITCHTEC_SIG_MLDSA87_LEN
 #define SWITCHTEC_UDS_LEN	32
 #define SWITCHTEC_KMSK_LEN	64
 #define SWITCHTEC_KMSK_NUM_MAX	10
@@ -464,6 +480,12 @@ struct switchtec_security_cfg_state_gen6 {
 
 /**
  * @brief Supported KMT Signature Formats. Value stored in KMT Prefix in 4 bit field.
+ *
+ * The values follow the device's sign-type numbering and must not change.
+ * The device assigns 5 to ML-DSA-44 (formerly named DILITHIUM5), even though
+ * the NIST round-3 "Dilithium5" parameter set corresponds to ML-DSA-87.
+ * The OTP DILITHIUM5D / algo_dilithium5_disable bits keep their historical
+ * names; on the device they disable all ML-DSA formats (44/65/87).
  */
 enum kmt_signature_types_e {
 	KMT_SIG_FORMAT_CRC            = 0,
@@ -471,9 +493,14 @@ enum kmt_signature_types_e {
 	KMT_SIG_FORMAT_RSA4KSHA2      = 2,
 	KMT_SIG_FORMAT_ECDSAP384SHA2  = 3,
 	KMT_SIG_FORMAT_ECDSAP521SHA2  = 4,
-	KMT_SIG_FORMAT_DILITHIUM5     = 5,
+	KMT_SIG_FORMAT_MLDSA44        = 5,
+	KMT_SIG_FORMAT_MLDSA65        = 6,
+	KMT_SIG_FORMAT_MLDSA87        = 7,
 	KMT_SIG_FORMAT_MAX
 };
+
+/* Deprecated: old name for value 5, kept so existing code still builds. */
+#define KMT_SIG_FORMAT_DILITHIUM5	KMT_SIG_FORMAT_MLDSA44
 
 enum switchtec_otp_key_status {
 	UNPROGRAMMED = 0x00,
@@ -553,12 +580,17 @@ struct switchtec_kmsk {
 };
 
 struct switchtec_pubkey {
-	uint8_t pubkey[SWITCHTEC_PUB_KEY_LEN];
+	uint8_t pubkey[SWITCHTEC_PUB_KEY_MAX_LEN];
 	uint32_t pubkey_exp;
+	/* Actual key length in bytes: 512 for RSA-4K, 1312/1952/2592 for ML-DSA. */
+	uint32_t pubkey_len;
 };
 
-struct switchtec_signature{
-	uint8_t signature[SWITCHTEC_SIG_LEN];
+struct switchtec_signature {
+	uint8_t signature[SWITCHTEC_SIG_MAX_LEN];
+	/* Actual signature length in bytes and the KMT sig-format type. */
+	uint32_t sig_len;
+	uint8_t  sig_type;   /* kmt_signature_types_e: RSA4K or MLDSA44/65/87 */
 };
 
 struct switchtec_gen6_token{
@@ -823,7 +855,8 @@ struct switchtec_dok_signature {
 	uint32_t total_crc;
 	uint32_t data_len;
 	uint32_t offset;
-	uint8_t sig_data[512];
+	/* Whole signature (up to ML-DSA-87); the library sends it in chunks. */
+	uint8_t sig_data[SWITCHTEC_SIG_MAX_LEN];
 };
 
 struct switchtec_dok_key_add {
