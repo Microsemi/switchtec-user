@@ -1625,7 +1625,7 @@ static int log_d_to_file(struct switchtec_dev *dev, int sub_cmd_id, int fd)
 	cmd.req_seq = 0;
 	res.data[1] = 0;
 
-	while ( !(res.data[1]) ) {
+	while (!((res.data[1]) & 1)) {
 		ret = switchtec_cmd(dev, MRPC_FTDC_LOG_DUMP, &cmd, sizeof(cmd),
 				    &res, sizeof(res));
 		if (ret)
