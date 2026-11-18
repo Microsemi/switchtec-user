@@ -27,7 +27,8 @@
 
 #include <switchtec/switchtec.h>
 
-int gui_main(struct switchtec_dev *dev, unsigned all_ports, unsigned reset,
-	     unsigned refresh, int duration, enum switchtec_bw_type bw_type);
+int gui_main(struct switchtec_dev *dev, unsigned int all_ports,
+		     unsigned int refresh,
+		     int duration, enum switchtec_bw_type bw_type);
 
 #endif
