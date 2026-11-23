@@ -1817,6 +1817,27 @@ static int loopback(int argc, char **argv)
 		return -1;
 	}
 
+	if ((switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev)) &&
+	    (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx)) {
+		fprintf(stderr, "-r / -t are only supported on Gen 4\n");
+		return -1;
+	}
+
+	/*
+	 * Without these checks an unsupported mode flag is ignored by the
+	 * library, and the request turns into "disable all loopback modes".
+	 */
+	if (cfg.enable_pipe && !switchtec_is_gen6(cfg.dev)) {
+		fprintf(stderr, "-c / --pipe is only supported on Gen 6\n");
+		return -1;
+	}
+
+	if ((cfg.enable_parallel || cfg.enable_external) &&
+	    !(switchtec_is_gen5(cfg.dev) || switchtec_is_gen6(cfg.dev))) {
+		fprintf(stderr, "-P / -e are only supported on Gen 5 / Gen 6\n");
+		return -1;
+	}
+
 	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
 	if (ret)
 		return ret;
@@ -1833,12 +1854,6 @@ static int loopback(int argc, char **argv)
 		if (cfg.enable_pipe)
 			enable |= SWITCHTEC_DIAG_LOOPBACK_PIPE;
 
-		if (switchtec_is_gen5(cfg.dev)) {
-			if (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx) {
-				fprintf(stderr, "Cannot enable Gen 4 settings \'-r\' \'--rx-to-tx\' or \'-t\' \'--tx-to-rx\' on Gen 5 system. \n");
-				return -1;
-			}
-		}
 		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id, enable,
 						  cfg.enable_parallel,
 						  cfg.enable_external,
