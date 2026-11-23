@@ -485,14 +485,20 @@ static const char *lane_reversal_str_gen6(int link_up,
 }
 
 
-static void generate_lane_str(struct switchtec_status *s)
+/*
+ * Fill s->lanes.  lanes_valid is 0 when the firmware did not report a
+ * valid first active lane; the active lanes are then not marked.
+ * Never writes outside s->lanes, whatever the reported widths/lanes.
+ */
+static void generate_lane_str(struct switchtec_status *s, int lanes_valid)
 {
+	const int max = sizeof(s->lanes) - 1;
 	int i, l;
 
-	for (i = 0; i < s->cfg_lnk_width; i++)
+	for (i = 0; i < s->cfg_lnk_width && i < max; i++)
 		s->lanes[i] = 'x';
 
-	if (!s->link_up)
+	if (!s->link_up || !lanes_valid)
 		return;
 
 	l = s->first_act_lane;
@@ -500,7 +506,7 @@ static void generate_lane_str(struct switchtec_status *s)
 		l += s->neg_lnk_width - 1;
 
 	for (i = 0; i < s->neg_lnk_width; i++) {
-		if (l < 0)
+		if (l < 0 || l >= max)
 			break;
 
 		if (i < 10)
@@ -581,7 +587,7 @@ static int switchtec_status_gen345(struct switchtec_dev *dev,
 							   s[p].lane_reversal);
 		s[p].first_act_lane = ports[i].first_act_lane & 0xF;
 		s[p].acs_ctrl = -1;
-		generate_lane_str(&s[p]);
+		generate_lane_str(&s[p], 1);
 
 		p++;
 	}
@@ -670,7 +676,8 @@ static int switchtec_status_gen6(struct switchtec_dev *dev,
 								s[p].lane_reversal);
 		s[p].first_act_lane = ports[i].first_act_lane & 0xF;
 		s[p].acs_ctrl = -1;
-		generate_lane_str(&s[p]);
+		/* 0xFF: firmware has no valid first active lane */
+		generate_lane_str(&s[p], ports[i].first_act_lane != 0xFF);
 
 		p++;
 	}
