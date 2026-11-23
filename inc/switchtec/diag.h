@@ -149,6 +149,18 @@ enum switchtec_diag_loopback_type_gen5 {
 	DIAG_LOOPBACK_PARALEL_DATAPATH = 5,
 	DIAG_LOOPBACK_EXTERNAL_DATAPATH = 6,
 	DIAG_LOOPBACK_PIPE_DATAPATH = 8,
+	DIAG_LOOPBACK_UNKNOWN = 9,
+};
+
+struct switchtec_diag_loopback_in_gen6 {
+	uint8_t sub_cmd;   /* 0x8 */
+	uint8_t port_id;
+	uint8_t enable;    /* 0/1 */
+	uint8_t type;      /* 5 parallel, 6 external, 8 PIPE */
+	uint8_t lane;
+	uint8_t speed;     /* 0 = port target, 1..6 = Gen1..Gen6 */
+	uint8_t flit;      /* 0/1 */
+	uint8_t resvd;
 };
 
 struct switchtec_diag_loopback_in {

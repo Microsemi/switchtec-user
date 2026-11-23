@@ -1727,6 +1727,9 @@ static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
 	if (switchtec_is_gen6(dev)) {
 		if (enable & SWITCHTEC_DIAG_LOOPBACK_PIPE)
 			b += snprintf(&buf[b], sizeof(buf) - b, "PIPE, ");
+
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_UNKNOWN)
+			b += snprintf(&buf[b], sizeof(buf) - b, "EXTERNAL/LTSSM, ");
 	}
 
 	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM)

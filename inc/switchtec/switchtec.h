@@ -1659,6 +1659,7 @@ enum switchtec_diag_loopback_enable {
 	SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX = 1 << 1,
 	SWITCHTEC_DIAG_LOOPBACK_LTSSM = 1 << 2,
 	SWITCHTEC_DIAG_LOOPBACK_PIPE = 1 << 3,
+	SWITCHTEC_DIAG_LOOPBACK_UNKNOWN = 1 << 4,
 };
 
 enum switchtec_diag_pattern {
@@ -1716,6 +1717,11 @@ enum switchtec_diag_ltssm_speed {
 	SWITCHTEC_DIAG_LTSSM_GEN4 = 3,
 	SWITCHTEC_DIAG_LTSSM_GEN5 = 4,
 	SWITCHTEC_DIAG_LTSSM_GEN6 = 5,
+	/*
+	 * Gen 6 devices, parallel / external loopback only: use the port's
+	 * configured target speed (sent to the firmware as speed 0).
+	 */
+	SWITCHTEC_DIAG_LTSSM_TARGET = 0xFF,
 };
 
 enum switchtec_diag_end {
@@ -1836,6 +1842,11 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 				int enable_external, int enable_ltssm,
 				int enable_pipe,
 				enum switchtec_diag_ltssm_speed ltssm_speed);
+int switchtec_diag_loopback_set_gen6(struct switchtec_dev *dev, int port_id,
+				     int enable_parallel, int enable_external,
+				     int enable_ltssm, int enable_pipe,
+				     int lane, int flit,
+				     enum switchtec_diag_ltssm_speed speed);
 int switchtec_diag_loopback_get(struct switchtec_dev *dev, int port_id,
 				int *enabled,
 				enum switchtec_diag_ltssm_speed *ltssm_speed);

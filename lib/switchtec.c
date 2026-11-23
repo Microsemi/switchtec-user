@@ -834,6 +834,15 @@ const char *switchtec_strerror(void)
 	}
 
 	switch (mrpc_error_cmd) {
+	case MRPC_INT_LOOPBACK:
+		switch (err) {
+		case ERR_LOOPBACK_PORT_INVALID:
+			msg = "Invalid port or parameter";
+			break;
+		default:
+			break;
+		}
+		break;
 	case MRPC_PORTPARTP2P:
 		switch (err) {
 		case ERR_PHYC_PORT_ARDY_BIND:
