@@ -1693,6 +1693,8 @@ static const struct argconfig_choice loopback_ltssm_speeds[] = {
 	{"GEN4", SWITCHTEC_DIAG_LTSSM_GEN4, "GEN4 LTSSM Speed"},
 	{"GEN5", SWITCHTEC_DIAG_LTSSM_GEN5, "GEN5 LTSSM Speed"},
 	{"GEN6", SWITCHTEC_DIAG_LTSSM_GEN6, "GEN6 LTSSM Speed"},
+	{"TARGET", SWITCHTEC_DIAG_LTSSM_TARGET,
+	 "Port's configured target speed (Gen 6, -P / -e only)"},
 	{}
 };
 
@@ -1727,6 +1729,9 @@ static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
 	if (switchtec_is_gen6(dev)) {
 		if (enable & SWITCHTEC_DIAG_LOOPBACK_PIPE)
 			b += snprintf(&buf[b], sizeof(buf) - b, "PIPE, ");
+
+		if (enable & SWITCHTEC_DIAG_LOOPBACK_UNKNOWN)
+			b += snprintf(&buf[b], sizeof(buf) - b, "EXTERNAL/LTSSM, ");
 	}
 
 	if (enable & SWITCHTEC_DIAG_LOOPBACK_LTSSM)
@@ -1755,6 +1760,7 @@ static int print_loopback_mode(struct switchtec_dev *dev, int port_id)
 static int loopback(int argc, char **argv)
 {
 	int ret, enable = 0;
+	int gen6, modes, lane_set, speed_set;
 
 	struct {
 		struct switchtec_dev *dev;
@@ -1768,9 +1774,12 @@ static int loopback(int argc, char **argv)
 		int enable_ltssm;
 		int enable_pipe;
 		int speed;
+		int lane;
+		int flit;
 	} cfg = {
 		.port_id = -1,
-		.speed = SWITCHTEC_DIAG_LTSSM_GEN4,
+		.speed = -1,	/* not given: GEN4 */
+		.lane = -1,	/* not given: lane 0 */
 	};
 
 	const struct argconfig_options opts[] = {
@@ -1780,20 +1789,24 @@ static int loopback(int argc, char **argv)
 		{"disable", 'd', "", CFG_NONE, &cfg.disable, no_argument,
 		 "Disable all loopback modes"},
 		{"ltssm", 'l', "", CFG_NONE, &cfg.enable_ltssm, no_argument,
-		 "Enable LTSSM loopback mode (Gen 4 / Gen 5)"},
+		 "Enable LTSSM loopback mode (Gen 4 / Gen 5 / Gen 6)"},
 		{"rx-to-tx", 'r', "", CFG_NONE, &cfg.enable_rx_to_tx,
 		 no_argument, "Enable RX->TX loopback mode (Gen 4)"},
 		{"tx-to-rx", 't', "", CFG_NONE, &cfg.enable_tx_to_rx,
 		 no_argument, "Enable TX->RX loopback mode (Gen 4)"},
-		{"parallel", 'P', "", CFG_NONE, &cfg.enable_parallel,
-		 no_argument, "Enable parallel datapath loopback mode in SERDES digital layer (Gen 5)"},
-		{"external", 'e', "", CFG_NONE, &cfg.enable_external,
-		 no_argument, "Enable external datapath loopback mode in physical layer (Gen 5)"},
+		{"parallel", 'P', "", CFG_NONE, &cfg.enable_parallel, no_argument,
+		 "Enable parallel datapath loopback mode in SERDES digital layer (Gen 5 / Gen 6)"},
+		{"external", 'e', "", CFG_NONE, &cfg.enable_external, no_argument,
+		 "Enable external datapath loopback mode in physical layer (Gen 5 / Gen 6)"},
 		{"pipe", 'c', "", CFG_NONE, &cfg.enable_pipe,
 		 no_argument, "Enable parallel loopback within Controller (PIPE Tx->Rx) (Gen 6)"},
-		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed,
-		 required_argument, "LTSSM Speed (if enabling the LTSSM loopback mode), default: GEN4",
+		{"speed", 's', "GEN", CFG_CHOICES, &cfg.speed, required_argument,
+		 "Loopback speed, default: GEN4. Gen 4 / Gen 5: LTSSM loopback speed. Gen 6: applies to -P / -e only; TARGET = the port's configured target speed",
 		 .choices = loopback_ltssm_speeds},
+		{"lane", 'L', "LANE", CFG_NONNEGATIVE, &cfg.lane, required_argument,
+		 "Lane under test for -P / -e (Gen 6), default: 0. Needs -s GEN6 or -s TARGET"},
+		{"flit", 'f', "", CFG_NONE, &cfg.flit, no_argument,
+		 "Flit mode for -P / -e at GEN1 - GEN5 (Gen 6), default: non-flit"},
 		{NULL}};
 
 	argconfig_parse(argc, argv, CMD_DESC_LOOPBACK, opts, &cfg, sizeof(cfg));
@@ -1817,6 +1830,92 @@ static int loopback(int argc, char **argv)
 		return -1;
 	}
 
+	gen6 = switchtec_is_gen6(cfg.dev);
+	lane_set = cfg.lane >= 0;
+	speed_set = cfg.speed >= 0;
+	if (!speed_set)
+		cfg.speed = SWITCHTEC_DIAG_LTSSM_GEN4;
+	modes = !!cfg.enable_parallel + !!cfg.enable_external +
+		!!cfg.enable_pipe + !!cfg.enable_ltssm;
+
+	if ((switchtec_is_gen5(cfg.dev) || gen6) &&
+	    (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx)) {
+		fprintf(stderr, "-r / -t are only supported on Gen 4\n");
+		return -1;
+	}
+
+	/*
+	 * Without these checks an unsupported mode flag is ignored by the
+	 * library, and the request turns into "disable all loopback modes".
+	 */
+	if (cfg.enable_pipe && !gen6) {
+		fprintf(stderr, "-c / --pipe is only supported on Gen 6\n");
+		return -1;
+	}
+
+	if ((cfg.enable_parallel || cfg.enable_external) &&
+	    !(switchtec_is_gen5(cfg.dev) || gen6)) {
+		fprintf(stderr, "-P / -e are only supported on Gen 5 / Gen 6\n");
+		return -1;
+	}
+
+	if (gen6 && modes > 1) {
+		fprintf(stderr,
+			"Only one loopback mode can be enabled at a time on Gen 6 (-P, -e, -c or -l)\n");
+		return -1;
+	}
+
+	if (lane_set) {
+		if (!gen6) {
+			fprintf(stderr, "--lane is only supported on Gen 6\n");
+			return -1;
+		}
+		if (!(cfg.enable_parallel || cfg.enable_external)) {
+			fprintf(stderr, "--lane is only valid with -P / -e\n");
+			return -1;
+		}
+		if (cfg.speed != SWITCHTEC_DIAG_LTSSM_GEN6 &&
+		    cfg.speed != SWITCHTEC_DIAG_LTSSM_TARGET) {
+			fprintf(stderr,
+				"--lane requires -s GEN6 or -s TARGET (the lane is only applied at Gen 6 speed)\n");
+			return -1;
+		}
+	}
+
+	if (cfg.flit) {
+		if (!gen6) {
+			fprintf(stderr, "--flit is only supported on Gen 6\n");
+			return -1;
+		}
+		if (!(cfg.enable_parallel || cfg.enable_external)) {
+			fprintf(stderr, "--flit is only valid with -P / -e\n");
+			return -1;
+		}
+	}
+
+	if (cfg.speed == SWITCHTEC_DIAG_LTSSM_TARGET) {
+		if (!gen6) {
+			fprintf(stderr, "-s TARGET is only supported on Gen 6\n");
+			return -1;
+		}
+		if (!(cfg.enable_parallel || cfg.enable_external)) {
+			fprintf(stderr, "-s TARGET is only valid with -P / -e\n");
+			return -1;
+		}
+	}
+
+	/* Accepted, but the firmware does not use them: say so */
+	if (gen6 && speed_set && (cfg.enable_pipe || cfg.enable_ltssm))
+		fprintf(stderr,
+			"Note: -s is ignored for -c / -l on Gen 6 (PIPE runs at Gen 1, LTSSM loopback uses the current link speed)\n");
+	if (cfg.flit && cfg.speed == SWITCHTEC_DIAG_LTSSM_GEN6)
+		fprintf(stderr,
+			"Note: --flit has no effect with -s GEN6 (Gen 6 speed always uses flit mode)\n");
+	if (lane_set && cfg.lane && cfg.speed == SWITCHTEC_DIAG_LTSSM_TARGET)
+		fprintf(stderr,
+			"Note: --lane is only applied if the target speed of port %d is Gen 6\n",
+			cfg.port_id);
+
 	ret = get_port(cfg.dev, cfg.port_id, &cfg.port);
 	if (ret)
 		return ret;
@@ -1833,20 +1932,38 @@ static int loopback(int argc, char **argv)
 		if (cfg.enable_pipe)
 			enable |= SWITCHTEC_DIAG_LOOPBACK_PIPE;
 
-		if (switchtec_is_gen5(cfg.dev)) {
-			if (cfg.enable_rx_to_tx || cfg.enable_tx_to_rx) {
-				fprintf(stderr, "Cannot enable Gen 4 settings \'-r\' \'--rx-to-tx\' or \'-t\' \'--tx-to-rx\' on Gen 5 system. \n");
-				return -1;
-			}
+		if (gen6)
+			ret = switchtec_diag_loopback_set_gen6(cfg.dev,
+					cfg.port_id, cfg.enable_parallel,
+					cfg.enable_external, cfg.enable_ltssm,
+					cfg.enable_pipe, lane_set ? cfg.lane : 0,
+					cfg.flit, cfg.speed);
+		else
+			ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id,
+					enable, cfg.enable_parallel,
+					cfg.enable_external, cfg.enable_ltssm,
+					cfg.enable_pipe, cfg.speed);
+		if (ret && errno == EBUSY) {
+			fprintf(stderr,
+				"Port %d already has a loopback mode active. Disable it first with -d / --disable.\n",
+				cfg.port_id);
+			print_loopback_mode(cfg.dev, cfg.port_id);
+			return -1;
 		}
-		ret = switchtec_diag_loopback_set(cfg.dev, cfg.port_id, enable,
-						  cfg.enable_parallel,
-						  cfg.enable_external,
-						  cfg.enable_ltssm,
-						  cfg.enable_pipe, cfg.speed);
 		if (ret) {
 			switchtec_perror("loopback_set");
 			return -1;
+		}
+
+		if (gen6 && !cfg.disable) {
+			int en;
+
+			ret = switchtec_diag_loopback_get(cfg.dev, cfg.port_id,
+							  &en, NULL);
+			if (!ret && !en)
+				fprintf(stderr,
+					"Note: the enable was accepted, but port %d has not entered loopback yet. Check again in a moment.\n",
+					cfg.port_id);
 		}
 	}
 

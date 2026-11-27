@@ -522,10 +522,223 @@ int switchtec_diag_eye_cancel(struct switchtec_dev *dev)
 	return ret;
 }
 
-static int switchtec_diag_loopback_set_gen56(struct switchtec_dev *dev,
+static int switchtec_diag_loopback_port_reset(struct switchtec_dev *dev,
+						int port_id)
+{
+	struct switchtec_diag_loopback_in in = {
+		.sub_cmd = MRPC_LOOPBACK_PORT_RESET,
+		.port_id = port_id,
+	};
+
+	return switchtec_cmd(dev, MRPC_INT_LOOPBACK, &in, sizeof(in), NULL, 0);
+}
+
+/* Gen6 loopback state polling: step and timeout */
+#define LOOPBACK_GEN6_POLL_US		100000		/* 100 ms */
+#define LOOPBACK_GEN6_TIMEOUT_US	2000000		/* 2 s */
+
+/*
+ * Poll the active-loopback state (sub-command 0x7) until the port is
+ * active (want_active != 0) or inactive (want_active == 0), or until
+ * the timeout expires.  *reached is set to 1 if the wanted state was
+ * seen and to 0 on timeout.  Returns 0, or the error from the get.
+ */
+static int switchtec_diag_loopback_wait_gen6(struct switchtec_dev *dev,
+					     int port_id, int want_active,
+					     int *reached)
+{
+	int en, ret, waited = 0;
+
+	*reached = 0;
+	while (1) {
+		ret = switchtec_diag_loopback_get(dev, port_id, &en, NULL);
+		if (ret)
+			return ret;
+
+		if (!!en == !!want_active) {
+			*reached = 1;
+			return 0;
+		}
+
+		if (waited >= LOOPBACK_GEN6_TIMEOUT_US)
+			return 0;
+
+		usleep(LOOPBACK_GEN6_POLL_US);
+		waited += LOOPBACK_GEN6_POLL_US;
+	}
+}
+
+/**
+ * @brief Setup Loopback Mode - Gen 6 devices
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  port_id		Physical port ID
+ * @param[in]  enable_parallel	Enable the parallel SERDES loopback
+ * @param[in]  enable_external	Enable the external physical loopback
+ * @param[in]  enable_ltssm	Enable the LTSSM loopback
+ * @param[in]  enable_pipe	Enable the PIPE loopback
+ * @param[in]  lane		Lane under test (parallel / external).  The
+ *				firmware only applies it at Gen 6 speed.
+ * @param[in]  flit		1 = flit mode (parallel / external at
+ *				Gen 1 - Gen 5); ignored at Gen 6 speed
+ * @param[in]  speed		Loopback speed for parallel / external:
+ *				SWITCHTEC_DIAG_LTSSM_GEN1 .. GEN6, or
+ *				SWITCHTEC_DIAG_LTSSM_TARGET for the port's
+ *				configured target speed.  Not used for PIPE
+ *				and LTSSM loopback.
+ *
+ * At most one loopback type can be enabled.  With none of them set, the
+ * loopback that is active on the port is disabled.  Enabling a loopback
+ * while one is already active fails with errno = EBUSY.
+ *
+ * @return 0 on success, error code on failure
+ */
+int switchtec_diag_loopback_set_gen6(struct switchtec_dev *dev, int port_id,
+				     int enable_parallel, int enable_external,
+				     int enable_ltssm, int enable_pipe,
+				     int lane, int flit,
+				     enum switchtec_diag_ltssm_speed speed)
+{
+	struct switchtec_diag_loopback_in_gen6 in = {
+		.sub_cmd = MRPC_LOOPBACK_SET_INT_LOOPBACK_GEN6,
+		.port_id = port_id,
+	};
+	struct switchtec_diag_loopback_ltssm_in ltssm_in = {
+		.sub_cmd = MRPC_LOOPBACK_SET_LTSSM_LOOPBACK,
+		.port_id = port_id,
+		.speed   = 0,		/* reserved on Gen6 */
+	};
+	int en, ret, reached, fw_speed;
+	int s = (int)speed;
+
+	if (!switchtec_is_gen6(dev)) {
+		errno = ENOTSUP;
+		return -1;
+	}
+
+	/* Gen6: only one loopback type at a time */
+	if (!!enable_parallel + !!enable_external + !!enable_pipe +
+	    !!enable_ltssm > 1) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	/* utility GEN1=0..GEN6=5; firmware 0 = port target, GEN1=1..GEN6=6 */
+	if (speed == SWITCHTEC_DIAG_LTSSM_TARGET)
+		fw_speed = 0;
+	else if (s >= SWITCHTEC_DIAG_LTSSM_GEN1 &&
+		 s <= SWITCHTEC_DIAG_LTSSM_GEN6)
+		fw_speed = s + 1;
+	else
+		fw_speed = -1;
+
+	if (fw_speed < 0 || lane < 0 || lane > UINT8_MAX ||
+	    (flit != 0 && flit != 1)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (enable_parallel || enable_external || enable_pipe ||
+	    enable_ltssm) {
+		/*
+		 * The firmware accepts a second enable while a loopback is
+		 * already active and then applies both modes' settings,
+		 * which can leave the port unrecoverable.  Refuse it here.
+		 */
+		ret = switchtec_diag_loopback_get(dev, port_id, &en, NULL);
+		if (ret)
+			return ret;
+		if (en) {
+			errno = EBUSY;
+			return -1;
+		}
+
+		if (enable_ltssm) {
+			/* LTSSM -> 0x4 */
+			ltssm_in.enable = 1;
+			ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
+					    sizeof(ltssm_in), NULL, 0);
+		} else if (enable_parallel || enable_external) {
+			/* Parallel / external -> 0x8 with lane and speed */
+			in.enable = 1;
+			in.type = enable_parallel ?
+				  DIAG_LOOPBACK_PARALEL_DATAPATH :
+				  DIAG_LOOPBACK_EXTERNAL_DATAPATH;
+			in.lane = lane;
+			in.speed = fw_speed;
+			in.flit = flit;
+			ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &in,
+					    sizeof(in), NULL, 0);
+		} else {
+			/* PIPE -> 0x8, lane/speed/flit don't apply: leave 0 */
+			in.enable = 1;
+			in.type = DIAG_LOOPBACK_PIPE_DATAPATH;
+			ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &in,
+					    sizeof(in), NULL, 0);
+		}
+		if (ret)
+			return ret;
+
+		/*
+		 * The link takes a moment to train into loopback.  Wait for
+		 * it so a following get reports the new mode.  Not reaching
+		 * it within the timeout is not an error: the enable itself
+		 * was accepted, and the caller can check the state.
+		 */
+		return switchtec_diag_loopback_wait_gen6(dev, port_id, 1,
+							 &reached);
+	}
+
+	/* Nothing set = disable whatever is active */
+	ret = switchtec_diag_loopback_get(dev, port_id, &en, NULL);
+	if (ret || !en)
+		return ret;
+
+	in.enable = 0;
+	if (en & SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX) {
+		in.type = DIAG_LOOPBACK_PARALEL_DATAPATH;
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &in, sizeof(in),
+				    NULL, 0);
+	} else if (en & SWITCHTEC_DIAG_LOOPBACK_PIPE) {
+		in.type = DIAG_LOOPBACK_PIPE_DATAPATH;
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &in, sizeof(in),
+				    NULL, 0);
+	} else {
+		/*
+		 * Unknown = external or LTSSM; the firmware can't tell them
+		 * apart.  Run both disables (as the firmware's own port
+		 * reset does), so the external loopback settings are always
+		 * cleaned up, even if the LTSSM exit alone would end the
+		 * loopback.
+		 */
+		in.type = DIAG_LOOPBACK_EXTERNAL_DATAPATH;
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &in, sizeof(in),
+				    NULL, 0);
+		if (ret)
+			return ret;
+
+		ltssm_in.enable = 0;
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
+				    sizeof(ltssm_in), NULL, 0);
+	}
+	if (ret)
+		return ret;
+
+	/*
+	 * Give the link time to leave loopback.  Only if it is still
+	 * active after the timeout is the exit considered stuck (e.g.
+	 * sub-Gen6 parallel/external): recover with port reset (0x6).
+	 */
+	ret = switchtec_diag_loopback_wait_gen6(dev, port_id, 0, &reached);
+	if (ret || reached)
+		return ret;
+
+	return switchtec_diag_loopback_port_reset(dev, port_id);
+}
+
+static int switchtec_diag_loopback_set_gen5(struct switchtec_dev *dev,
 					int port_id, int enable_parallel,
 					int enable_external,
-					int enable_ltssm, int enable_pipe,
+					int enable_ltssm,
 					enum switchtec_diag_ltssm_speed	ltssm_speed)
 {
 	struct switchtec_diag_loopback_in int_in = {
@@ -541,7 +754,7 @@ static int switchtec_diag_loopback_set_gen56(struct switchtec_dev *dev,
 	};
 	int ret;
 
-	if (enable_ltssm && !(enable_external || enable_parallel || enable_pipe)) {
+	if (enable_ltssm && !(enable_external || enable_parallel)) {
 		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &ltssm_in,
 				    sizeof(ltssm_in), NULL, 0);
 		if (ret)
@@ -556,14 +769,6 @@ static int switchtec_diag_loopback_set_gen56(struct switchtec_dev *dev,
 		if (!enable_parallel) {
 			int_in.type = DIAG_LOOPBACK_EXTERNAL_DATAPATH;
 			int_in.enable = enable_external;
-			ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-					    sizeof(int_in), NULL, 0);
-			if (ret)
-				return ret;
-		}
-		if (switchtec_is_gen6(dev)) {
-			int_in.type = DIAG_LOOPBACK_PIPE_DATAPATH;
-			int_in.enable = enable_pipe;
 			ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
 					    sizeof(int_in), NULL, 0);
 			if (ret)
@@ -623,13 +828,18 @@ static int switchtec_diag_loopback_set_gen4(struct switchtec_dev *dev,
 
 /**
  * @brief Setup Loopback Mode
- * @param[in]  dev	    Switchtec device handle
- * @param[in]  port_id	    Physical port ID
+ * @param[in]  dev		Switchtec device handle
+ * @param[in]  port_id		Physical port ID
  * @param[in]  enable		Enable bitmap - Gen 4
- * @param[in]  enable_parallel	Enable the parallel SERDES loopback - Gen 5
- * @param[in]  enable_external	Enable the external physical loopback - Gen 5
+ * @param[in]  enable_parallel	Enable the parallel SERDES loopback - Gen 5 / Gen 6
+ * @param[in]  enable_external	Enable the external physical loopback - Gen 5 / Gen 6
  * @param[in]  enable_ltssm	Enable the ltssm loopback
- * @param[in]  ltssm_speed  LTSSM loopback max speed
+ * @param[in]  enable_pipe	Enable the PIPE loopback - Gen 6
+ * @param[in]  ltssm_speed	Loopback speed.  SWITCHTEC_DIAG_LTSSM_TARGET is
+ *				only accepted on Gen 6.
+ *
+ * On Gen 6 this is switchtec_diag_loopback_set_gen6() with lane 0 and
+ * non-flit mode; use that function to set the lane under test or flit mode.
  *
  * @return 0 on success, error code on failure
  */
@@ -639,21 +849,24 @@ int switchtec_diag_loopback_set(struct switchtec_dev *dev, int port_id,
 				int enable_pipe,
 				enum switchtec_diag_ltssm_speed ltssm_speed)
 {
-	int ret = 0;
-	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev)) {
-		ret = switchtec_diag_loopback_set_gen56(dev, port_id, enable_parallel,
-							enable_external, enable_ltssm,
-							enable_pipe, ltssm_speed);
-		if (ret)
-			return ret;
+	if (switchtec_is_gen6(dev))
+		return switchtec_diag_loopback_set_gen6(dev, port_id,
+				enable_parallel, enable_external,
+				enable_ltssm, enable_pipe, 0, 0, ltssm_speed);
+
+	/* The port target speed can only be requested on Gen 6 */
+	if (ltssm_speed == SWITCHTEC_DIAG_LTSSM_TARGET) {
+		errno = EINVAL;
+		return -1;
 	}
-	else {
-		ret = switchtec_diag_loopback_set_gen4(dev, port_id, enable,
-						       ltssm_speed);
-		if (ret)
-			return ret;
-	}
-	return 0;
+
+	if (switchtec_is_gen5(dev))
+		return switchtec_diag_loopback_set_gen5(dev, port_id,
+				enable_parallel, enable_external,
+				enable_ltssm, ltssm_speed);
+	else
+		return switchtec_diag_loopback_set_gen4(dev, port_id, enable,
+				ltssm_speed);
 }
 
 /**
@@ -682,7 +895,33 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev,
 	struct switchtec_diag_loopback_ltssm_out lt_out;
 	int ret, en = 0;
 
-	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev))
+	if (switchtec_is_gen6(dev)) {
+		struct switchtec_diag_loopback_in in = {
+			.sub_cmd = MRPC_LOOPBACK_GET_ACTIVE_LOOPBACK,
+			.port_id = port_id,
+		};
+		struct switchtec_diag_loopback_out out;
+
+		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &in, sizeof(in),
+				    &out, sizeof(out));
+		if (ret)
+			return ret;
+
+		if (!out.enabled)
+			en = 0;
+		else if (out.type == DIAG_LOOPBACK_PARALEL_DATAPATH)
+			en = SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
+		else if (out.type == DIAG_LOOPBACK_PIPE_DATAPATH)
+			en = SWITCHTEC_DIAG_LOOPBACK_PIPE;
+		else
+			en = SWITCHTEC_DIAG_LOOPBACK_UNKNOWN;
+
+		if (enabled)
+			*enabled = en;
+		return 0;	/* Gen6 doesn't report LTSSM speed */
+	}
+
+	if (switchtec_is_gen5(dev))
 		int_in.type = DIAG_LOOPBACK_PARALEL_DATAPATH;
 	else
 		int_in.type = DIAG_LOOPBACK_RX_TO_TX;
@@ -695,7 +934,7 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev,
 	if (int_out.enabled)
 		en |= SWITCHTEC_DIAG_LOOPBACK_RX_TO_TX;
 
-	if (switchtec_is_gen5(dev) || switchtec_is_gen6(dev))
+	if (switchtec_is_gen5(dev))
 		int_in.type = DIAG_LOOPBACK_EXTERNAL_DATAPATH;
 	else
 		int_in.type = DIAG_LOOPBACK_TX_TO_RX;
@@ -707,18 +946,6 @@ int switchtec_diag_loopback_get(struct switchtec_dev *dev,
 
 	if (int_out.enabled)
 		en |= SWITCHTEC_DIAG_LOOPBACK_TX_TO_RX;
-
-	if (switchtec_is_gen6(dev)) {
-		int_in.type = DIAG_LOOPBACK_PIPE_DATAPATH;
-		ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &int_in,
-				    sizeof(int_in), &int_out,
-				    sizeof(int_out));
-		if (ret)
-			return ret;
-
-		if (int_out.enabled)
-			en |= SWITCHTEC_DIAG_LOOPBACK_PIPE;
-	}
 
 	ret = switchtec_cmd(dev, MRPC_INT_LOOPBACK, &lt_in, sizeof(lt_in),
 			    &lt_out, sizeof(lt_out));
